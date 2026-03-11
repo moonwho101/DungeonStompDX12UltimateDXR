@@ -73,7 +73,7 @@ bool enableVRSKey = false;
 bool enablePlayerHUD = true;
 bool enablePlayerHUDKey = false;
 
-bool enableDXR = false;
+bool enableDXR = true;
 bool enableDXRKey = false;
 
 extern int playerObjectStart;

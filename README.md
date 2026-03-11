@@ -2,7 +2,7 @@
 
 ![Dungeon Stomp DX12 DXR](../main/Textures/screenshot20.jpg)
 
-Dungeon Stomp DirectX12 Ultimate DXR with Physically based rendering (PBR).
+Dungeon Stomp DirectX12 Ultimate DXR (DirectX Raytracing) with PBR (Physically based rendering).
 
 * Run DungeonStomp.exe from the bin directory to try the game
 * Dungeon Stomp is a DirectX12 3D dungeon game that uses Direct3D, DirectInput and XAudio2
@@ -41,6 +41,8 @@ Happy Dungeon Stomping - Breeyark!
 
 ## Debug Controls
 
+* R - Toggle DXR (DirectX Raytracing)
+* T - Toggle DX12 Variable Rate Shading
 * G - Toggle gravity (Keypad +/- move up, move down)
 * I - Disable music
 * P - Random music
