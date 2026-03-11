@@ -1,11 +1,12 @@
-# Dungeon Stomp DirectX12
+# Dungeon Stomp DirectX12 Ultimate DXR
 
-![Dungeon Stomp](../main/Textures/screenshot9.jpg)
+![Dungeon Stomp DX12 DXR](../main/Textures/screenshot20.jpg)
 
-Dungeon Stomp DirectX12 with Physically based rendering (PBR).
+Dungeon Stomp DirectX12 Ultimate DXR with Physically based rendering (PBR).
 
 * Run DungeonStomp.exe from the bin directory to try the game
 * Dungeon Stomp is a DirectX12 3D dungeon game that uses Direct3D, DirectInput and XAudio2
+* DXR ray tracing
 * It is a complete game with level advancement and 15 levels
 * Materials (Diffuse Albedo, Fresnel, Roughness, Metallicness)
 * Physically based rendering (PBR)
@@ -55,8 +56,6 @@ Happy Dungeon Stomping - Breeyark!
 * ] - Next Dungeon Level
 * [ - Previous Dungeon Level
 
-![Dungeon Stomp](../main/Textures/screenshot11.jpg)
-
 ## MD2 Models
 Dungeon Stomp would not have been possible without the amazing MD2 models made by the following authors:
 
@@ -92,7 +91,3 @@ Dungeon Stomp would not have been possible without the amazing MD2 models made b
 * Werewolf [ Author: Brian Yee ]
 * Winter's Faerie [ Author: Evil Bastard ]
 * Wraith [ Author: Burnt Kona ]
-
-
-![Dungeon Stomp  - AI generated](../main/Textures/screenshotai.jpg)
-
