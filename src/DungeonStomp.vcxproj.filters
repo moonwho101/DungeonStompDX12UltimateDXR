@@ -105,6 +105,9 @@
     <ClCompile Include="VRSHelper.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="DXRHelper.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="FrameResource.h">
@@ -203,11 +206,9 @@
     <ClInclude Include="VRSHelper.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="packages.config">
-      <Filter>Source Files</Filter>
-    </None>
+    <ClInclude Include="DXRHelper.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\Shaders\Default.hlsl">
@@ -262,5 +263,8 @@
     <Image Include="icon1.ico">
       <Filter>Resource Files</Filter>
     </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
   </ItemGroup>
 </Project>
