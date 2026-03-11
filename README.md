@@ -6,7 +6,8 @@ Dungeon Stomp DirectX12 Ultimate DXR (DirectX Raytracing) with PBR (Physically b
 
 * Run DungeonStomp.exe from the bin directory to try the game
 * Dungeon Stomp is a DirectX12 3D dungeon game that uses Direct3D, DirectInput and XAudio2
-* DXR ray tracing
+* DX12 Ultimate DXR Ray Tracing
+* DX12 Ultimate Variable Rate Shading
 * It is a complete game with level advancement and 15 levels
 * Materials (Diffuse Albedo, Fresnel, Roughness, Metallicness)
 * Physically based rendering (PBR)
