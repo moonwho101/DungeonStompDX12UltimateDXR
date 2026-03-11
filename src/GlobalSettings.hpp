@@ -1,0 +1,28 @@
+
+#ifndef __GLOBALSETTINGS_H
+#define __GLOBALSETTINGS_H
+
+#define MAX_MISSLE 100
+
+#define MAX_NUM_QUADS 240000
+#define MAX_NUM_FACE_INDICES 200000
+
+#define MAX_NUM_VERTICES 25000
+
+#define MAX_NUM_TEXTURES 550
+
+#define MAX_NUM_PLAYERS 140
+#define MAX_NUM_PMMODELS 140
+
+#define MAX_NUM_ITEMS 260
+#define MAX_NUM_3DS 150
+#define MAX_NUM_MONSTERS 260
+#define MAX_NUM_GUNS 30
+#define MAX_OBJECTLIST 1000
+#define MAX_OBJECTDATA 190
+
+#define MaxLights 32
+
+#define MaxRectangle 5
+
+#endif
