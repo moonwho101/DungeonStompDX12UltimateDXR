@@ -64,7 +64,7 @@ bool enableVsyncKey = false;
 bool enableNormalmap = true;
 bool enableNormalmapKey = false;
 
-bool enableShadowmapFeature = false;
+bool enableShadowmapFeature = true;
 bool enableShadowmapFeatureKey = false;
 
 bool enableVRS = false;
