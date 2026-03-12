@@ -33,6 +33,9 @@ struct DXRSceneConstants {
 	float TotalTime;
 	float Roughness;
 	float Metallic;
+	// Ray cone spread angle for mip level estimation: 2*tan(fovY/2)/screenHeight
+	float RayConeSpreadAngle;
+	float Pad1[3]; // keep 16-byte alignment
 };
 
 class DXRHelper {
@@ -61,7 +64,8 @@ class DXRHelper {
 	                          const DirectX::XMFLOAT3 &cameraPos,
 	                          const DirectX::XMFLOAT4 &ambientLight,
 	                          const Light *lights, UINT numLights,
-	                          float totalTime, float roughness, float metallic);
+	                          float totalTime, float roughness, float metallic,
+	                          float rayConeSpreadAngle = 0.001f);
 
 	// Copy raytracing output to back buffer
 	void CopyOutputToBackBuffer(ID3D12GraphicsCommandList *cmdList,

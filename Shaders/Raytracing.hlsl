@@ -45,6 +45,8 @@ cbuffer SceneConstants : register(b0)
     float gTotalTime;
     float gRoughness;
     float gMetallic;
+    float gRayConeSpreadAngle;
+    float3 gPad1;
 };
 
 // Raytracing output
@@ -436,18 +438,51 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
     // Sample texture
     uint texIndex = gPrimitiveTextureIndices.Load(primIdx * 4);
     
+    // --- Compute Ray Cone Mip Level ---
+    // 1. Calculate texture to world area ratio
+    float3 e1 = v1.Pos - v0.Pos;
+    float3 e2 = v2.Pos - v0.Pos;
+    float2 duv1 = v1.TexC - v0.TexC;
+    float2 duv2 = v2.TexC - v0.TexC;
+    
+    float worldArea = length(cross(e1, e2));
+    float uvArea = abs(duv1.x * duv2.y - duv1.y * duv2.x);
+    // areaRatio = uv area / world area
+    float areaRatio = uvArea / max(worldArea, 1e-8f);
+    
+    // 2. Calculate pixel footprint area on the surface
+    float rayDist = RayTCurrent();
+    float coneWidth = rayDist * gRayConeSpreadAngle;
+    float NdotR = max(abs(dot(N, rayDir)), 0.001f);
+    // footPrintArea = pixel area in world space
+    float footPrintArea = (coneWidth * coneWidth) / NdotR;
+    
+    // 3. Convert to UV footprint area
+    float uvFootprintArea = footPrintArea * areaRatio;
+    
     // Normal mapping: sample and apply if this primitive has a normal map
     int normalMapIndex = asint(gPrimitiveNormalMapIndices.Load(primIdx * 4));
     if (normalMapIndex >= 0 && normalMapIndex < 550)
     {
-        float3 normalMapSample = gTextures[NonUniformResourceIndex((uint)normalMapIndex)].SampleLevel(gSampler, texCoord, 0).rgb;
+        uint texW, texH;
+        gTextures[NonUniformResourceIndex((uint)normalMapIndex)].GetDimensions(texW, texH);
+        float texelArea = uvFootprintArea * texW * texH;
+        float normalMip = max(0.5f * log2(max(texelArea, 1.0f)), 0.0f);
+        
+        float3 normalMapSample = gTextures[NonUniformResourceIndex((uint)normalMapIndex)].SampleLevel(gSampler, texCoord, normalMip).rgb;
         N = normalize(NormalSampleToWorldSpace(normalMapSample, N, T));
     }
+    
     float4 texSample = float4(0.5f, 0.5f, 0.5f, 1.0f);
     
     if (texIndex < 550)
     {
-        texSample = gTextures[NonUniformResourceIndex(texIndex)].SampleLevel(gSampler, texCoord, 0);
+        uint texW, texH;
+        gTextures[NonUniformResourceIndex(texIndex)].GetDimensions(texW, texH);
+        float texelArea = uvFootprintArea * texW * texH;
+        float albedoMip = max(0.5f * log2(max(texelArea, 1.0f)), 0.0f);
+        
+        texSample = gTextures[NonUniformResourceIndex(texIndex)].SampleLevel(gSampler, texCoord, albedoMip);
     }
     
     // Alpha-test transparency: skip through transparent textures
