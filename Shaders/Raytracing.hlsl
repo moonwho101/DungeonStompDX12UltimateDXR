@@ -1,5 +1,5 @@
 //***************************************************************************************
-// Raytracing.hlsl - DirectX Raytracing Shader with PBR Lighting
+// Raytracing.hlsl by Mark Longo 2026 All Rights Reserved - DirectX Raytracing Shader with PBR Lighting
 // Ray generation, closest hit, and miss shaders for DXR with physically-based rendering
 // Features: inline shadow rays (DXR 1.1), full Cook-Torrance PBR, ACES tone mapping,
 //           atmospheric fog, wet floor reflectance, per-light flicker

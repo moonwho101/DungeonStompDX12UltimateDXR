@@ -253,6 +253,9 @@
     <Text Include="..\Shaders\RectanglePixelMapShader.hlsl">
       <Filter>Shaders</Filter>
     </Text>
+    <Text Include="..\Shaders\Raytracing.hlsl">
+      <Filter>Shaders</Filter>
+    </Text>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="DungeonStomp.rc">

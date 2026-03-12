@@ -12,10 +12,10 @@
 using namespace DirectX;
 
 // Shader export names
-const wchar_t* DXRHelper::kRayGenShader = L"RayGen";
-const wchar_t* DXRHelper::kMissShader = L"Miss";
-const wchar_t* DXRHelper::kClosestHitShader = L"ClosestHit";
-const wchar_t* DXRHelper::kHitGroup = L"HitGroup";
+const wchar_t *DXRHelper::kRayGenShader = L"RayGen";
+const wchar_t *DXRHelper::kMissShader = L"Miss";
+const wchar_t *DXRHelper::kClosestHitShader = L"ClosestHit";
+const wchar_t *DXRHelper::kHitGroup = L"HitGroup";
 
 // Align to shader table record alignment (D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT)
 inline UINT Align(UINT size, UINT alignment) {
@@ -34,7 +34,7 @@ DXRHelper::~DXRHelper() {
 	}
 }
 
-bool DXRHelper::Initialize(ID3D12Device5* device, ID3D12GraphicsCommandList5* cmdList,
+bool DXRHelper::Initialize(ID3D12Device5 *device, ID3D12GraphicsCommandList5 *cmdList,
                            UINT width, UINT height, DXGI_FORMAT backBufferFormat) {
 	mWidth = width;
 	mHeight = height;
@@ -68,7 +68,7 @@ bool DXRHelper::Initialize(ID3D12Device5* device, ID3D12GraphicsCommandList5* cm
 	return true;
 }
 
-void DXRHelper::CreateDescriptorHeap(ID3D12Device5* device) {
+void DXRHelper::CreateDescriptorHeap(ID3D12Device5 *device) {
 	// Create descriptor heap for DXR resources
 	// Layout: 0 = Output UAV, 1-550 = Texture SRVs (copied from main heap)
 	// Total: 1 + MAX_NUM_TEXTURES (550) descriptors
@@ -77,11 +77,11 @@ void DXRHelper::CreateDescriptorHeap(ID3D12Device5* device) {
 	heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	ThrowIfFailed(device->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&mDXRDescriptorHeap)));
-	
+
 	mTextureStartOffset = 1; // Textures start after UAV
 }
 
-void DXRHelper::CreateConstantBuffer(ID3D12Device* device) {
+void DXRHelper::CreateConstantBuffer(ID3D12Device *device) {
 	UINT cbSize = d3dUtil::CalcConstantBufferByteSize(sizeof(DXRSceneConstants));
 
 	CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_UPLOAD);
@@ -96,7 +96,7 @@ void DXRHelper::CreateConstantBuffer(ID3D12Device* device) {
 		    nullptr,
 		    IID_PPV_ARGS(&mSceneConstantBuffer[i])));
 
-		ThrowIfFailed(mSceneConstantBuffer[i]->Map(0, nullptr, reinterpret_cast<void**>(&mSceneCBMappedData[i])));
+		ThrowIfFailed(mSceneConstantBuffer[i]->Map(0, nullptr, reinterpret_cast<void **>(&mSceneCBMappedData[i])));
 	}
 
 	// Create CBV in descriptor heap (slot 2) — points to frame 0 initially;
@@ -110,7 +110,7 @@ void DXRHelper::CreateConstantBuffer(ID3D12Device* device) {
 	device->CreateConstantBufferView(&cbvDesc, cbvHandle);
 }
 
-void DXRHelper::CreateRaytracingOutputResource(ID3D12Device* device, UINT width, UINT height, DXGI_FORMAT format) {
+void DXRHelper::CreateRaytracingOutputResource(ID3D12Device *device, UINT width, UINT height, DXGI_FORMAT format) {
 	// Create UAV for raytracing output
 	D3D12_RESOURCE_DESC texDesc = {};
 	texDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
@@ -142,7 +142,7 @@ void DXRHelper::CreateRaytracingOutputResource(ID3D12Device* device, UINT width,
 	                                  mDXRDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
 }
 
-void DXRHelper::CreateRootSignatures(ID3D12Device5* device) {
+void DXRHelper::CreateRootSignatures(ID3D12Device5 *device) {
 	// Global root signature
 	// Slot 0: Output UAV (u0) - descriptor table
 	// Slot 1: Acceleration Structure SRV (t0) - inline
@@ -159,13 +159,13 @@ void DXRHelper::CreateRootSignatures(ID3D12Device5* device) {
 	textureRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 550, 2); // t2-t551
 
 	CD3DX12_ROOT_PARAMETER1 rootParams[7];
-	rootParams[0].InitAsDescriptorTable(1, &uavRange);                              // Output UAV
-	rootParams[1].InitAsShaderResourceView(0);                                      // TLAS (t0)
+	rootParams[0].InitAsDescriptorTable(1, &uavRange);                             // Output UAV
+	rootParams[1].InitAsShaderResourceView(0);                                     // TLAS (t0)
 	rootParams[2].InitAsConstantBufferView(0, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE); // Scene CB (b0)
-	rootParams[3].InitAsShaderResourceView(1);                                      // Vertex buffer (t1)
-	rootParams[4].InitAsDescriptorTable(1, &textureRange);                          // Texture array (t2+)
-	rootParams[5].InitAsShaderResourceView(0, 1);                                   // Primitive indices (t0, space1)
-	rootParams[6].InitAsShaderResourceView(1, 1);                                   // Normal map indices (t1, space1)
+	rootParams[3].InitAsShaderResourceView(1);                                     // Vertex buffer (t1)
+	rootParams[4].InitAsDescriptorTable(1, &textureRange);                         // Texture array (t2+)
+	rootParams[5].InitAsShaderResourceView(0, 1);                                  // Primitive indices (t0, space1)
+	rootParams[6].InitAsShaderResourceView(1, 1);                                  // Normal map indices (t1, space1)
 
 	// Static sampler for texture sampling
 	D3D12_STATIC_SAMPLER_DESC samplerDesc = {};
@@ -190,7 +190,8 @@ void DXRHelper::CreateRootSignatures(ID3D12Device5* device) {
 	ComPtr<ID3DBlob> error;
 	HRESULT hr = D3D12SerializeVersionedRootSignature(&rootSigDesc, &signature, &error);
 	if (FAILED(hr)) {
-		if (error) OutputDebugStringA((char*)error->GetBufferPointer());
+		if (error)
+			OutputDebugStringA((char *)error->GetBufferPointer());
 		ThrowIfFailed(hr);
 	}
 
@@ -203,7 +204,8 @@ void DXRHelper::CreateRootSignatures(ID3D12Device5* device) {
 
 	hr = D3D12SerializeVersionedRootSignature(&localRootSigDesc, &signature, &error);
 	if (FAILED(hr)) {
-		if (error) OutputDebugStringA((char*)error->GetBufferPointer());
+		if (error)
+			OutputDebugStringA((char *)error->GetBufferPointer());
 		ThrowIfFailed(hr);
 	}
 
@@ -211,7 +213,7 @@ void DXRHelper::CreateRootSignatures(ID3D12Device5* device) {
 	                                          IID_PPV_ARGS(&mLocalRootSignature)));
 }
 
-ComPtr<ID3DBlob> DXRHelper::CompileRaytracingShader(const std::wstring& filename, const wchar_t* entryPoint) {
+ComPtr<ID3DBlob> DXRHelper::CompileRaytracingShader(const std::wstring &filename, const wchar_t *entryPoint) {
 	// Use DXC for raytracing library compilation
 	ComPtr<IDxcLibrary> library;
 	ComPtr<IDxcCompiler> compiler;
@@ -225,17 +227,17 @@ ComPtr<ID3DBlob> DXRHelper::CompileRaytracingShader(const std::wstring& filename
 	// Compile as library (lib_6_5) - shader model 6.5 for DXR 1.1 inline raytracing
 	std::vector<LPCWSTR> args;
 #ifdef _DEBUG
-	args.push_back(L"-Zi");  // Debug info
-	args.push_back(L"-Od");  // Disable optimization
+	args.push_back(L"-Zi"); // Debug info
+	args.push_back(L"-Od"); // Disable optimization
 #else
-	args.push_back(L"-O3");  // Optimize
+	args.push_back(L"-O3"); // Optimize
 #endif
 
 	ThrowIfFailed(compiler->Compile(
 	    sourceBlob.Get(),
 	    filename.c_str(),
-	    L"",            // Entry point (empty for library)
-	    L"lib_6_5",     // Target profile
+	    L"",        // Entry point (empty for library)
+	    L"lib_6_5", // Target profile
 	    args.data(),
 	    (UINT)args.size(),
 	    nullptr,
@@ -251,7 +253,7 @@ ComPtr<ID3DBlob> DXRHelper::CompileRaytracingShader(const std::wstring& filename
 		result->GetErrorBuffer(&errors);
 		if (errors && errors->GetBufferSize() > 0) {
 			OutputDebugStringA("DXR Shader Compilation Errors:\n");
-			OutputDebugStringA((char*)errors->GetBufferPointer());
+			OutputDebugStringA((char *)errors->GetBufferPointer());
 		}
 		ThrowIfFailed(hr);
 	}
@@ -267,7 +269,7 @@ ComPtr<ID3DBlob> DXRHelper::CompileRaytracingShader(const std::wstring& filename
 	return blob;
 }
 
-void DXRHelper::CreateRaytracingPipelineState(ID3D12Device5* device) {
+void DXRHelper::CreateRaytracingPipelineState(ID3D12Device5 *device) {
 	// Compile raytracing shader library
 	ComPtr<ID3DBlob> rtShaderBlob = CompileRaytracingShader(L"../Shaders/Raytracing.hlsl", nullptr);
 
@@ -291,7 +293,7 @@ void DXRHelper::CreateRaytracingPipelineState(ID3D12Device5* device) {
 	// Shader config
 	auto shaderConfig = stateObjectDesc.CreateSubobject<CD3DX12_RAYTRACING_SHADER_CONFIG_SUBOBJECT>();
 	UINT payloadSize = sizeof(XMFLOAT4) + sizeof(UINT); // float4 color + uint depth
-	UINT attributeSize = sizeof(XMFLOAT2); // Barycentrics
+	UINT attributeSize = sizeof(XMFLOAT2);              // Barycentrics
 	shaderConfig->Config(payloadSize, attributeSize);
 
 	// Local root signature for hit group (empty)
@@ -316,12 +318,12 @@ void DXRHelper::CreateRaytracingPipelineState(ID3D12Device5* device) {
 	ThrowIfFailed(mRaytracingStateObject->QueryInterface(IID_PPV_ARGS(&mRaytracingStateObjectProperties)));
 }
 
-void DXRHelper::BuildShaderTables(ID3D12Device5* device) {
+void DXRHelper::BuildShaderTables(ID3D12Device5 *device) {
 	UINT shaderIdentifierSize = D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES;
 
-	void* rayGenShaderIdentifier = mRaytracingStateObjectProperties->GetShaderIdentifier(kRayGenShader);
-	void* missShaderIdentifier = mRaytracingStateObjectProperties->GetShaderIdentifier(kMissShader);
-	void* hitGroupIdentifier = mRaytracingStateObjectProperties->GetShaderIdentifier(kHitGroup);
+	void *rayGenShaderIdentifier = mRaytracingStateObjectProperties->GetShaderIdentifier(kRayGenShader);
+	void *missShaderIdentifier = mRaytracingStateObjectProperties->GetShaderIdentifier(kMissShader);
+	void *hitGroupIdentifier = mRaytracingStateObjectProperties->GetShaderIdentifier(kHitGroup);
 
 	// Ray generation shader table
 	{
@@ -335,7 +337,7 @@ void DXRHelper::BuildShaderTables(ID3D12Device5* device) {
 		    &heapProps, D3D12_HEAP_FLAG_NONE, &bufferDesc,
 		    D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&mRayGenShaderTable)));
 
-		void* pData;
+		void *pData;
 		mRayGenShaderTable->Map(0, nullptr, &pData);
 		memcpy(pData, rayGenShaderIdentifier, shaderIdentifierSize);
 		mRayGenShaderTable->Unmap(0, nullptr);
@@ -353,7 +355,7 @@ void DXRHelper::BuildShaderTables(ID3D12Device5* device) {
 		    &heapProps, D3D12_HEAP_FLAG_NONE, &bufferDesc,
 		    D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&mMissShaderTable)));
 
-		void* pData;
+		void *pData;
 		mMissShaderTable->Map(0, nullptr, &pData);
 		memcpy(pData, missShaderIdentifier, shaderIdentifierSize);
 		mMissShaderTable->Unmap(0, nullptr);
@@ -371,15 +373,15 @@ void DXRHelper::BuildShaderTables(ID3D12Device5* device) {
 		    &heapProps, D3D12_HEAP_FLAG_NONE, &bufferDesc,
 		    D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&mHitGroupShaderTable)));
 
-		void* pData;
+		void *pData;
 		mHitGroupShaderTable->Map(0, nullptr, &pData);
 		memcpy(pData, hitGroupIdentifier, shaderIdentifierSize);
 		mHitGroupShaderTable->Unmap(0, nullptr);
 	}
 }
 
-void DXRHelper::BuildBLAS(ID3D12Device5* device, ID3D12GraphicsCommandList5* cmdList,
-                          ID3D12Resource* vertexBuffer, UINT vertexCount, UINT vertexStride,
+void DXRHelper::BuildBLAS(ID3D12Device5 *device, ID3D12GraphicsCommandList5 *cmdList,
+                          ID3D12Resource *vertexBuffer, UINT vertexCount, UINT vertexStride,
                           bool isUpdate) {
 	// Force a full rebuild if the vertex count changed — DXR updates require
 	// identical geometry topology.
@@ -399,7 +401,7 @@ void DXRHelper::BuildBLAS(ID3D12Device5* device, ID3D12GraphicsCommandList5* cmd
 	geometryDesc.Triangles.VertexBuffer.StrideInBytes = vertexStride;
 	geometryDesc.Triangles.VertexCount = vertexCount;
 	geometryDesc.Triangles.VertexFormat = DXGI_FORMAT_R32G32B32_FLOAT; // Position is first 3 floats
-	geometryDesc.Triangles.IndexBuffer = 0; // No index buffer
+	geometryDesc.Triangles.IndexBuffer = 0;                            // No index buffer
 	geometryDesc.Triangles.IndexCount = 0;
 	geometryDesc.Triangles.IndexFormat = DXGI_FORMAT_UNKNOWN;
 	geometryDesc.Triangles.Transform3x4 = 0;
@@ -462,7 +464,7 @@ void DXRHelper::BuildBLAS(ID3D12Device5* device, ID3D12GraphicsCommandList5* cmd
 	cmdList->ResourceBarrier(1, &barrier);
 }
 
-void DXRHelper::BuildTLAS(ID3D12Device5* device, ID3D12GraphicsCommandList5* cmdList, bool isUpdate) {
+void DXRHelper::BuildTLAS(ID3D12Device5 *device, ID3D12GraphicsCommandList5 *cmdList, bool isUpdate) {
 	// Instance description
 	D3D12_RAYTRACING_INSTANCE_DESC instanceDesc = {};
 	instanceDesc.Transform[0][0] = 1.0f;
@@ -484,7 +486,7 @@ void DXRHelper::BuildTLAS(ID3D12Device5* device, ID3D12GraphicsCommandList5* cmd
 	}
 
 	// Copy instance data
-	void* pData;
+	void *pData;
 	mTLAS.InstanceDesc->Map(0, nullptr, &pData);
 	memcpy(pData, &instanceDesc, sizeof(instanceDesc));
 	mTLAS.InstanceDesc->Unmap(0, nullptr);
@@ -538,10 +540,10 @@ void DXRHelper::BuildTLAS(ID3D12Device5* device, ID3D12GraphicsCommandList5* cmd
 	cmdList->ResourceBarrier(1, &barrier);
 }
 
-void DXRHelper::UpdateSceneConstants(const DirectX::XMFLOAT4X4& invViewProj,
-                                     const DirectX::XMFLOAT3& cameraPos,
-                                     const DirectX::XMFLOAT4& ambientLight,
-                                     const Light* lights, UINT numLights,
+void DXRHelper::UpdateSceneConstants(const DirectX::XMFLOAT4X4 &invViewProj,
+                                     const DirectX::XMFLOAT3 &cameraPos,
+                                     const DirectX::XMFLOAT4 &ambientLight,
+                                     const Light *lights, UINT numLights,
                                      float totalTime, float roughness, float metallic) {
 	mSceneConstants.InvViewProj = invViewProj;
 	mSceneConstants.CameraPosition = cameraPos;
@@ -558,30 +560,30 @@ void DXRHelper::UpdateSceneConstants(const DirectX::XMFLOAT4X4& invViewProj,
 	memcpy(mSceneCBMappedData[mCurrentFrameIndex], &mSceneConstants, sizeof(DXRSceneConstants));
 }
 
-void DXRHelper::DispatchRays(ID3D12GraphicsCommandList5* cmdList, UINT width, UINT height) {
+void DXRHelper::DispatchRays(ID3D12GraphicsCommandList5 *cmdList, UINT width, UINT height) {
 	// Set pipeline state
 	cmdList->SetComputeRootSignature(mGlobalRootSignature.Get());
 	cmdList->SetPipelineState1(mRaytracingStateObject.Get());
 
 	// Set descriptor heaps
-	ID3D12DescriptorHeap* heaps[] = { mDXRDescriptorHeap.Get() };
+	ID3D12DescriptorHeap *heaps[] = { mDXRDescriptorHeap.Get() };
 	cmdList->SetDescriptorHeaps(1, heaps);
 
 	// Set root arguments
-	cmdList->SetComputeRootDescriptorTable(0, mDXRDescriptorHeap->GetGPUDescriptorHandleForHeapStart()); // UAV
-	cmdList->SetComputeRootShaderResourceView(1, mTLAS.Result->GetGPUVirtualAddress()); // TLAS
+	cmdList->SetComputeRootDescriptorTable(0, mDXRDescriptorHeap->GetGPUDescriptorHandleForHeapStart());            // UAV
+	cmdList->SetComputeRootShaderResourceView(1, mTLAS.Result->GetGPUVirtualAddress());                             // TLAS
 	cmdList->SetComputeRootConstantBufferView(2, mSceneConstantBuffer[mCurrentFrameIndex]->GetGPUVirtualAddress()); // Scene CB
 	if (mCurrentVertexBuffer) {
 		cmdList->SetComputeRootShaderResourceView(3, mCurrentVertexBuffer->GetGPUVirtualAddress()); // Vertex buffer
 	}
-	
+
 	// Set texture array descriptor table (slot 4) - starts at offset 1 in DXR heap
 	if (mTextureCount > 0) {
 		CD3DX12_GPU_DESCRIPTOR_HANDLE texHandle(mDXRDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
 		texHandle.Offset(mTextureStartOffset, mCbvSrvUavDescriptorSize);
 		cmdList->SetComputeRootDescriptorTable(4, texHandle);
 	}
-	
+
 	// Set primitive texture indices buffer (slot 5)
 	if (mPrimitiveTextureBuffer[mCurrentFrameIndex]) {
 		cmdList->SetComputeRootShaderResourceView(5, mPrimitiveTextureBuffer[mCurrentFrameIndex]->GetGPUVirtualAddress());
@@ -609,7 +611,7 @@ void DXRHelper::DispatchRays(ID3D12GraphicsCommandList5* cmdList, UINT width, UI
 	cmdList->DispatchRays(&dispatchDesc);
 }
 
-void DXRHelper::CopyOutputToBackBuffer(ID3D12GraphicsCommandList* cmdList, ID3D12Resource* backBuffer) {
+void DXRHelper::CopyOutputToBackBuffer(ID3D12GraphicsCommandList *cmdList, ID3D12Resource *backBuffer) {
 	// Transition output to copy source
 	D3D12_RESOURCE_BARRIER barriers[2];
 	barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
@@ -629,7 +631,7 @@ void DXRHelper::CopyOutputToBackBuffer(ID3D12GraphicsCommandList* cmdList, ID3D1
 	cmdList->ResourceBarrier(2, barriers);
 }
 
-void DXRHelper::OnResize(ID3D12Device* device, UINT width, UINT height) {
+void DXRHelper::OnResize(ID3D12Device *device, UINT width, UINT height) {
 	if (!mIsInitialized || (width == mWidth && height == mHeight))
 		return;
 
@@ -647,7 +649,7 @@ void DXRHelper::OnResize(ID3D12Device* device, UINT width, UINT height) {
 	OutputDebugStringA(buf);
 }
 
-void DXRHelper::CopyTextureDescriptors(ID3D12Device* device, ID3D12DescriptorHeap* srcHeap, UINT textureCount) {
+void DXRHelper::CopyTextureDescriptors(ID3D12Device *device, ID3D12DescriptorHeap *srcHeap, UINT textureCount) {
 	if (!srcHeap || textureCount == 0)
 		return;
 
@@ -669,10 +671,10 @@ void DXRHelper::CopyTextureDescriptors(ID3D12Device* device, ID3D12DescriptorHea
 	char buf[256];
 	sprintf_s(buf, "DXR: Copied %u texture descriptors to DXR heap\n", textureCount);
 	OutputDebugStringA(buf);
-	
+
 	// Initialize primitive texture indices buffers for all frames with default values (texture 0)
 	// This ensures the shader has valid data until proper per-primitive mapping is set up
-	UINT defaultPrimitiveCount = 200000; // Max expected primitives
+	UINT defaultPrimitiveCount = 200000;                        // Max expected primitives
 	std::vector<UINT> defaultIndices(defaultPrimitiveCount, 0); // All primitives use texture 0
 	UINT savedFrame = mCurrentFrameIndex;
 	for (UINT i = 0; i < kNumFrameResources; ++i) {
@@ -689,7 +691,7 @@ void DXRHelper::CopyTextureDescriptors(ID3D12Device* device, ID3D12DescriptorHea
 	mCurrentFrameIndex = savedFrame;
 }
 
-void DXRHelper::UpdatePrimitiveTextureIndices(ID3D12Device* device, const UINT* textureIndices, UINT primitiveCount) {
+void DXRHelper::UpdatePrimitiveTextureIndices(ID3D12Device *device, const UINT *textureIndices, UINT primitiveCount) {
 	UINT fi = mCurrentFrameIndex;
 
 	// Create or resize the primitive texture index buffer for this frame if needed
@@ -703,7 +705,8 @@ void DXRHelper::UpdatePrimitiveTextureIndices(ID3D12Device* device, const UINT* 
 
 		// Create new buffer with some headroom
 		mMaxPrimitives[fi] = max(primitiveCount, mMaxPrimitives[fi] * 2);
-		if (mMaxPrimitives[fi] == 0) mMaxPrimitives[fi] = 65536;
+		if (mMaxPrimitives[fi] == 0)
+			mMaxPrimitives[fi] = 65536;
 
 		UINT bufferSize = mMaxPrimitives[fi] * sizeof(UINT);
 
@@ -720,7 +723,7 @@ void DXRHelper::UpdatePrimitiveTextureIndices(ID3D12Device* device, const UINT* 
 
 		// Map the buffer
 		CD3DX12_RANGE readRange(0, 0);
-		ThrowIfFailed(mPrimitiveTextureBuffer[fi]->Map(0, &readRange, reinterpret_cast<void**>(&mPrimitiveTextureMappedData[fi])));
+		ThrowIfFailed(mPrimitiveTextureBuffer[fi]->Map(0, &readRange, reinterpret_cast<void **>(&mPrimitiveTextureMappedData[fi])));
 	}
 
 	// Copy texture indices
@@ -729,7 +732,7 @@ void DXRHelper::UpdatePrimitiveTextureIndices(ID3D12Device* device, const UINT* 
 	}
 }
 
-void DXRHelper::UpdatePrimitiveNormalMapIndices(ID3D12Device* device, const INT* normalMapIndices, UINT primitiveCount) {
+void DXRHelper::UpdatePrimitiveNormalMapIndices(ID3D12Device *device, const INT *normalMapIndices, UINT primitiveCount) {
 	UINT fi = mCurrentFrameIndex;
 
 	// Create or resize the normal map index buffer for this frame if needed
@@ -743,7 +746,8 @@ void DXRHelper::UpdatePrimitiveNormalMapIndices(ID3D12Device* device, const INT*
 
 		// Create new buffer with some headroom
 		mMaxNormalMapPrimitives[fi] = max(primitiveCount, mMaxNormalMapPrimitives[fi] * 2);
-		if (mMaxNormalMapPrimitives[fi] == 0) mMaxNormalMapPrimitives[fi] = 65536;
+		if (mMaxNormalMapPrimitives[fi] == 0)
+			mMaxNormalMapPrimitives[fi] = 65536;
 
 		UINT bufferSize = mMaxNormalMapPrimitives[fi] * sizeof(INT);
 
@@ -760,7 +764,7 @@ void DXRHelper::UpdatePrimitiveNormalMapIndices(ID3D12Device* device, const INT*
 
 		// Map the buffer
 		CD3DX12_RANGE readRange(0, 0);
-		ThrowIfFailed(mPrimitiveNormalMapBuffer[fi]->Map(0, &readRange, reinterpret_cast<void**>(&mPrimitiveNormalMapMappedData[fi])));
+		ThrowIfFailed(mPrimitiveNormalMapBuffer[fi]->Map(0, &readRange, reinterpret_cast<void **>(&mPrimitiveNormalMapMappedData[fi])));
 	}
 
 	// Copy normal map indices

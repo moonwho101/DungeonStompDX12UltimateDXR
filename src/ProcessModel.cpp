@@ -562,7 +562,8 @@ void SmoothNormals(int start_cnt) {
 	// - Second pass: apply results only to vertices that share a position (count > 1)
 
 	const int total = cnt - start_cnt;
-	if (total <= 0) return;
+	if (total <= 0)
+		return;
 
 	struct KeyI {
 		int xi, yi, zi;
@@ -631,8 +632,12 @@ void SmoothNormals(int start_cnt) {
 		}
 
 		SumData &s = it->second;
-		s.nsum.x += src_v[i].nx; s.nsum.y += src_v[i].ny; s.nsum.z += src_v[i].nz;
-		s.tsum.x += src_v[i].nmx; s.tsum.y += src_v[i].nmy; s.tsum.z += src_v[i].nmz;
+		s.nsum.x += src_v[i].nx;
+		s.nsum.y += src_v[i].ny;
+		s.nsum.z += src_v[i].nz;
+		s.tsum.x += src_v[i].nmx;
+		s.tsum.y += src_v[i].nmy;
+		s.tsum.z += src_v[i].nmz;
 		++s.count;
 	}
 
@@ -652,8 +657,12 @@ void SmoothNormals(int start_cnt) {
 		if (it != sums.end() && it->second.count > 1) {
 			const XMFLOAT3 &n = it->second.nsum;
 			const XMFLOAT3 &t = it->second.tsum;
-			src_v[i].nx = n.x; src_v[i].ny = n.y; src_v[i].nz = n.z;
-			src_v[i].nmx = t.x; src_v[i].nmy = t.y; src_v[i].nmz = t.z;
+			src_v[i].nx = n.x;
+			src_v[i].ny = n.y;
+			src_v[i].nz = n.z;
+			src_v[i].nmx = t.x;
+			src_v[i].nmy = t.y;
+			src_v[i].nmz = t.z;
 		}
 	}
 }

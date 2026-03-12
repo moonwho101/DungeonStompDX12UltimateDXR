@@ -25,8 +25,12 @@ class VRSHelper {
 	// Convenience: set reduced-rate shading (2x2) for performance.
 	void SetReducedRate(ID3D12GraphicsCommandList5 *cmdList) const;
 
-	bool IsSupported() const { return mSupported; }
-	D3D12_VARIABLE_SHADING_RATE_TIER Tier() const { return mTier; }
+	bool IsSupported() const {
+		return mSupported;
+	}
+	D3D12_VARIABLE_SHADING_RATE_TIER Tier() const {
+		return mTier;
+	}
 
   private:
 	bool mSupported = false;

@@ -184,12 +184,12 @@ bool DungeonStompApp::Initialize() {
 	BuildRootSignature();
 	BuildSsaoRootSignature();
 	BuildDescriptorHeaps();
-	
+
 	// Copy texture descriptors to DXR heap for raytracing
 	if (mDXRInitialized && mDXRHelper) {
 		mDXRHelper->CopyTextureDescriptors(md3dDevice.Get(), mSrvDescriptorHeap.Get(), MAX_NUM_TEXTURES);
 	}
-	
+
 	BuildShadersAndInputLayout();
 	BuildLandGeometry();
 	BuildDungeonGeometryBuffers();
@@ -302,7 +302,7 @@ void DungeonStompApp::Update(const GameTimer &gt) {
 	UpdateMainPassCB(gt);
 	UpdateSsaoCB(gt);
 	UpdateShadowPassCB(gt);
-	//DisplayPlayerCaption();
+	// DisplayPlayerCaption();
 	UpdateDungeon(gt);
 }
 
@@ -417,7 +417,7 @@ void DungeonStompApp::Draw(const GameTimer &gt) {
 		}
 
 		mCommandList->EndRenderPass();
-		
+
 	} else {
 		// Begin main render pass with clear (standard rasterization path).
 		D3D12_RENDER_PASS_RENDER_TARGET_DESC mainRtDesc = {};
@@ -945,15 +945,15 @@ void DungeonStompApp::UpdateMainPassCB(const GameTimer &gt) {
 		mMainPassCB.Lights[i].SpotPower = LightContainer[i].SpotPower;
 	}
 
-	//mMainPassCB.Lights[0].Strength = { 0.15f, 0.15f, 0.15f };
-	// mMainPassCB.AmbientLight = { 0.25f, 0.25f, 0.35f, 1.0f };
-	//mMainPassCB.Lights[0].Direction = mRotatedLightDirections[0];
-	// mMainPassCB.Lights[0].Strength = { 0.4f, 0.4f, 0.4f };
-	// mMainPassCB.Lights[0].Strength = { 0.9f, 0.8f, 0.7f };
-	// mMainPassCB.Lights[1].Direction = mRotatedLightDirections[1];
-	// mMainPassCB.Lights[1].Strength = { 0.4f, 0.4f, 0.4f };
-	// mMainPassCB.Lights[2].Direction = mRotatedLightDirections[2];
-	// mMainPassCB.Lights[2].Strength = { 0.2f, 0.2f, 0.2f };
+	// mMainPassCB.Lights[0].Strength = { 0.15f, 0.15f, 0.15f };
+	//  mMainPassCB.AmbientLight = { 0.25f, 0.25f, 0.35f, 1.0f };
+	// mMainPassCB.Lights[0].Direction = mRotatedLightDirections[0];
+	//  mMainPassCB.Lights[0].Strength = { 0.4f, 0.4f, 0.4f };
+	//  mMainPassCB.Lights[0].Strength = { 0.9f, 0.8f, 0.7f };
+	//  mMainPassCB.Lights[1].Direction = mRotatedLightDirections[1];
+	//  mMainPassCB.Lights[1].Strength = { 0.4f, 0.4f, 0.4f };
+	//  mMainPassCB.Lights[2].Direction = mRotatedLightDirections[2];
+	//  mMainPassCB.Lights[2].Strength = { 0.2f, 0.2f, 0.2f };
 
 	auto currPassCB = mCurrFrameResource->PassCB.get();
 	currPassCB->CopyData(0, mMainPassCB);
@@ -1063,28 +1063,28 @@ void DungeonStompApp::UpdateDungeon(const GameTimer &gt) {
 		UINT totalTriangles = cnt / 3;
 		std::vector<UINT> primitiveTextureIndices(totalTriangles, 999); // Initialize with invalid value to detect gaps
 		std::vector<INT> primitiveNormalMapIndices(totalTriangles, -1); // -1 = no normal map
-		
+
 		static bool debugOnce = true;
 		int trianglesSet = 0;
-		
+
 		for (int currentObject = 0; currentObject < number_of_polys_per_frame; currentObject++) {
 			int srcStart = ObjectsToDraw[currentObject].srcstart;
 			// Use verts_per_poly[] instead of ObjectsToDraw.vertsperpoly because
 			// the latter is not updated after triangle strip/fan conversion
 			int vertsPerPoly = verts_per_poly[currentObject];
 			int vertIndex = ObjectsToDraw[currentObject].vert_index;
-			
+
 			// Get texture number through texture_list_buffer and TexMap
 			int textureAliasNumber = texture_list_buffer[vertIndex];
 			int textureNumber = TexMap[textureAliasNumber].texture;
 			int normalMapAliasId = TexMap[textureAliasNumber].normalmaptextureid;
 			int normalMapTexture = (normalMapAliasId >= 0) ? TexMap[normalMapAliasId].texture : -1;
-			
+
 			// Calculate triangle range for this object
 			// vertsperpoly is the vertex count (3 per triangle for triangle list)
 			int startTriangle = srcStart / 3;
 			int numTriangles = vertsPerPoly / 3;
-			
+
 			// Debug: print first few objects
 			if (debugOnce && currentObject < 10) {
 				char buf[256];
@@ -1092,7 +1092,7 @@ void DungeonStompApp::UpdateDungeon(const GameTimer &gt) {
 				          currentObject, srcStart, vertsPerPoly, startTriangle, numTriangles, textureNumber);
 				OutputDebugStringA(buf);
 			}
-			
+
 			// Assign texture to all triangles in this object
 			for (int t = 0; t < numTriangles && (startTriangle + t) < (int)totalTriangles; t++) {
 				primitiveTextureIndices[startTriangle + t] = (UINT)textureNumber;
@@ -1100,12 +1100,13 @@ void DungeonStompApp::UpdateDungeon(const GameTimer &gt) {
 				trianglesSet++;
 			}
 		}
-		
+
 		// Count unset triangles (still have value 999)
 		if (debugOnce) {
 			int unsetCount = 0;
 			for (UINT i = 0; i < totalTriangles; i++) {
-				if (primitiveTextureIndices[i] == 999) unsetCount++;
+				if (primitiveTextureIndices[i] == 999)
+					unsetCount++;
 			}
 			char buf[256];
 			sprintf_s(buf, "DXR Tex: totalTriangles=%d, trianglesSet=%d, unsetCount=%d, polysPerFrame=%d\n",
@@ -1113,18 +1114,19 @@ void DungeonStompApp::UpdateDungeon(const GameTimer &gt) {
 			OutputDebugStringA(buf);
 			debugOnce = false;
 		}
-		
+
 		// Replace 999 with 0 for unset triangles
 		for (UINT i = 0; i < totalTriangles; i++) {
-			if (primitiveTextureIndices[i] == 999) primitiveTextureIndices[i] = 0;
+			if (primitiveTextureIndices[i] == 999)
+				primitiveTextureIndices[i] = 0;
 		}
-		
+
 		// Upload primitive texture indices to DXR
 		mDXRHelper->UpdatePrimitiveTextureIndices(md3dDevice.Get(), primitiveTextureIndices.data(), totalTriangles);
-		
+
 		// Upload primitive normal map indices to DXR
 		mDXRHelper->UpdatePrimitiveNormalMapIndices(md3dDevice.Get(), primitiveNormalMapIndices.data(), totalTriangles);
-		
+
 		// Update scene constants for DXR
 		XMMATRIX view = XMLoadFloat4x4(&mView);
 		XMMATRIX proj = XMLoadFloat4x4(&mProj);
@@ -1237,10 +1239,7 @@ void DungeonStompApp::BuildRootSignature() {
 	slotRootParameter[7].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
 	auto staticSamplers = GetStaticSamplers();
-	const D3D12_ROOT_SIGNATURE_FLAGS rootSigFlags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT
-	    | D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS
-	    | D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS
-	    | D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS;
+	const D3D12_ROOT_SIGNATURE_FLAGS rootSigFlags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT | D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS | D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS | D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS;
 
 	ComPtr<ID3DBlob> serializedRootSig = nullptr;
 	ComPtr<ID3DBlob> errorBlob = nullptr;
@@ -1394,10 +1393,7 @@ void DungeonStompApp::BuildSsaoRootSignature() {
 	std::array<CD3DX12_STATIC_SAMPLER_DESC, 4> staticSamplers = {
 		pointClamp, linearClamp, depthMapSam, linearWrap
 	};
-	const D3D12_ROOT_SIGNATURE_FLAGS rootSigFlags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT
-	    | D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS
-	    | D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS
-	    | D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS;
+	const D3D12_ROOT_SIGNATURE_FLAGS rootSigFlags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT | D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS | D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS | D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS;
 
 	ComPtr<ID3DBlob> serializedRootSig = nullptr;
 	ComPtr<ID3DBlob> errorBlob = nullptr;
@@ -1646,8 +1642,6 @@ void DungeonStompApp::BuildShadersAndInputLayout() {
 		NULL, NULL
 	};
 
-
-
 	mShaders["standardVS"] = d3dUtil::CompileShaderDXC(L"..\\Shaders\\Default.hlsl", nullptr, "VS", "vs_6_0");
 	mShaders["opaquePS"] = d3dUtil::CompileShaderDXC(L"..\\Shaders\\Default.hlsl", defines, "PS", "ps_6_0");
 	mShaders["opaqueSsaoPS"] = d3dUtil::CompileShaderDXC(L"..\\Shaders\\Default.hlsl", sasoDefines, "PS", "ps_6_0");
@@ -1679,7 +1673,7 @@ void DungeonStompApp::BuildShadersAndInputLayout() {
 	// Text PSO
 	// compile vertex shader using DXC (SM 6.0)
 	Microsoft::WRL::ComPtr<ID3DBlob> textVertexShader = d3dUtil::CompileShaderDXC(
-		L"..\\Shaders\\TextVertexShader.hlsl", nullptr, "main", "vs_6_0");
+	    L"..\\Shaders\\TextVertexShader.hlsl", nullptr, "main", "vs_6_0");
 
 	// fill out a shader bytecode structure, which is basically just a pointer
 	// to the shader bytecode and the size of the shader bytecode
@@ -1689,7 +1683,7 @@ void DungeonStompApp::BuildShadersAndInputLayout() {
 
 	// compile pixel shader
 	Microsoft::WRL::ComPtr<ID3DBlob> textPixelShader = d3dUtil::CompileShaderDXC(
-		L"..\\Shaders\\TextPixelShader.hlsl", nullptr, "main", "ps_6_0");
+	    L"..\\Shaders\\TextPixelShader.hlsl", nullptr, "main", "ps_6_0");
 
 	// fill out shader bytecode structure for pixel shader
 	D3D12_SHADER_BYTECODE textPixelShaderBytecode = {};
@@ -1699,7 +1693,7 @@ void DungeonStompApp::BuildShadersAndInputLayout() {
 	// Rectangle PSO
 	// compile vertex shader
 	Microsoft::WRL::ComPtr<ID3DBlob> rectangleVertexShader = d3dUtil::CompileShaderDXC(
-		L"..\\Shaders\\RectangleVertexShader.hlsl", nullptr, "main", "vs_6_0");
+	    L"..\\Shaders\\RectangleVertexShader.hlsl", nullptr, "main", "vs_6_0");
 
 	// fill out a shader bytecode structure, which is basically just a pointer
 	// to the shader bytecode and the size of the shader bytecode
@@ -1709,7 +1703,7 @@ void DungeonStompApp::BuildShadersAndInputLayout() {
 
 	// compile pixel shader
 	Microsoft::WRL::ComPtr<ID3DBlob> rectanglePixelShader = d3dUtil::CompileShaderDXC(
-		L"..\\Shaders\\RectanglePixelShader.hlsl", nullptr, "main", "ps_6_0");
+	    L"..\\Shaders\\RectanglePixelShader.hlsl", nullptr, "main", "ps_6_0");
 
 	// fill out shader bytecode structure for pixel shader
 	D3D12_SHADER_BYTECODE rectanglePixelShaderBytecode = {};
@@ -1718,7 +1712,7 @@ void DungeonStompApp::BuildShadersAndInputLayout() {
 
 	// compile pixel shader
 	Microsoft::WRL::ComPtr<ID3DBlob> rectanglePixelMapShader = d3dUtil::CompileShaderDXC(
-		L"..\\Shaders\\RectanglePixelMapShader.hlsl", nullptr, "main", "ps_6_0");
+	    L"..\\Shaders\\RectanglePixelMapShader.hlsl", nullptr, "main", "ps_6_0");
 
 	// fill out shader bytecode structure for pixel shader
 	D3D12_SHADER_BYTECODE rectanglePixelMapShaderBytecode = {};
@@ -1806,9 +1800,9 @@ void DungeonStompApp::BuildShadersAndInputLayout() {
 		rectangleBlendStateDesc.RenderTarget[0].BlendEnable = TRUE;
 
 		if (i == 4) {
-		//	// shadowmap/ssoa texture - make it not transparent
+			//	// shadowmap/ssoa texture - make it not transparent
 			rectangleBlendStateDesc.RenderTarget[0].BlendEnable = FALSE;
-		    //rectanglepsoDesc.PS = rectanglePixelMapShaderBytecode;
+			// rectanglepsoDesc.PS = rectanglePixelMapShaderBytecode;
 		}
 
 		// if (i == MaxRectangle - 2 || i == MaxRectangle - 3) {
@@ -1816,19 +1810,19 @@ void DungeonStompApp::BuildShadersAndInputLayout() {
 		//	rectangleBlendStateDesc.RenderTarget[0].BlendEnable = FALSE;
 		// }
 
-		//if (i == 4) {
+		// if (i == 4) {
 		//	// make the logo not transparent
 		//	rectangleBlendStateDesc.RenderTarget[0].BlendEnable = FALSE;
-		//}
+		// }
 
 		rectangleBlendStateDesc.RenderTarget[0].SrcBlend = D3D12_BLEND_SRC_ALPHA;
 		rectangleBlendStateDesc.RenderTarget[0].DestBlend = D3D12_BLEND_ONE;
 		rectangleBlendStateDesc.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
 
-		//if (i == 0) {
-			rectangleBlendStateDesc.RenderTarget[0].SrcBlend = D3D12_BLEND_SRC_COLOR;
-			rectangleBlendStateDesc.RenderTarget[0].DestBlend = D3D12_BLEND_INV_SRC_COLOR;
-			rectangleBlendStateDesc.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
+		// if (i == 0) {
+		rectangleBlendStateDesc.RenderTarget[0].SrcBlend = D3D12_BLEND_SRC_COLOR;
+		rectangleBlendStateDesc.RenderTarget[0].DestBlend = D3D12_BLEND_INV_SRC_COLOR;
+		rectangleBlendStateDesc.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
 		//}
 
 		rectangleBlendStateDesc.RenderTarget[0].SrcBlendAlpha = D3D12_BLEND_SRC_ALPHA;
@@ -3165,11 +3159,9 @@ void DungeonStompApp::ProcessLights11() {
 		LightContainer[i].SpotPower = 90.0f;
 	}
 
-
-	//first light is directional
+	// first light is directional
 	LightContainer[0].Strength = { 0.15f, 0.15f, 0.15f };
 	LightContainer[0].Direction = mRotatedLightDirections[0];
-
 
 	int dcount = 0;
 	// Find lights
@@ -3209,10 +3201,10 @@ void DungeonStompApp::ProcessLights11() {
 
 		int angle = (int)oblist[q].rot_angle;
 		int ob_type = oblist[q].type;
-		
+
 		//+1 because 0 is reserved for directional light
-		LightContainer[i+1].Strength = { 9.0f, 9.0f, 9.0f };
-		LightContainer[i+1].Position = DirectX::XMFLOAT3{ oblist[q].x, oblist[q].y + 50.0f, oblist[q].z };
+		LightContainer[i + 1].Strength = { 9.0f, 9.0f, 9.0f };
+		LightContainer[i + 1].Position = DirectX::XMFLOAT3{ oblist[q].x, oblist[q].y + 50.0f, oblist[q].z };
 	}
 
 	int count = 0;
