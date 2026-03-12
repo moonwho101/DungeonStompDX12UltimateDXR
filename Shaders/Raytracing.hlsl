@@ -552,8 +552,15 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
                 {
                    // shadow = TraceShadowRay(shadowOrigin, lightDir, d);
                 }
-                
-                color += ComputePointLight(L, hitPos, albedo, N, V, roughness, metallic, (float)i) * shadow;
+                // Spot light logic
+                if (L.SpotPower > 0.0f)
+                {
+                    color += ComputeSpotLight(L, hitPos, albedo, N, V, roughness, metallic) * shadow;
+                }
+                else
+                {
+                    color += ComputePointLight(L, hitPos, albedo, N, V, roughness, metallic, (float)i) * shadow;
+                }
             }
         }
     }

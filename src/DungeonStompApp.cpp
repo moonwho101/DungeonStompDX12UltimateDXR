@@ -3156,7 +3156,7 @@ void DungeonStompApp::ProcessLights11() {
 		LightContainer[i].Direction = { 0.0f, -1.0f, 0.0f };
 		LightContainer[i].FalloffEnd = 120.0f;
 		LightContainer[i].Position = DirectX::XMFLOAT3{ 0.0f, 9000.0f, 0.0f };
-		LightContainer[i].SpotPower = 90.0f;
+		LightContainer[i].SpotPower = 0.0f;
 	}
 
 	// first light is directional
@@ -3220,7 +3220,7 @@ void DungeonStompApp::ProcessLights11() {
 				LightContainer[12 + count].FalloffStart = 100.0f;
 				LightContainer[12 + count].Direction = { 0.0f, -1.0f, 0.0f };
 				LightContainer[12 + count].FalloffEnd = 200.0f;
-				LightContainer[12 + count].SpotPower = 10.0f;
+				LightContainer[12 + count].SpotPower = 0.0f;
 
 				if (your_missle[misslecount].model_id == 103) {
 					LightContainer[12 + count].Strength = DirectX::XMFLOAT3{ 0.0f, 3.0f, 2.843f };
@@ -3251,7 +3251,7 @@ void DungeonStompApp::ProcessLights11() {
 		LightContainer[spot].FalloffStart = 200.0f;
 		LightContainer[spot].Direction = { 0.0f, -1.0f, 0.0f };
 		LightContainer[spot].FalloffEnd = 300.0f;
-		LightContainer[spot].SpotPower = 10.0f;
+		LightContainer[spot].SpotPower = 0.0f;
 
 		if (strstr(your_gun[current_gun].gunname, "SUPERFLAME") != NULL) {
 			LightContainer[spot].Strength = DirectX::XMFLOAT3{ 8.0f, 0.867f, 0.0f };
