@@ -292,7 +292,7 @@ void DXRHelper::CreateRaytracingPipelineState(ID3D12Device5 *device) {
 
 	// Shader config
 	auto shaderConfig = stateObjectDesc.CreateSubobject<CD3DX12_RAYTRACING_SHADER_CONFIG_SUBOBJECT>();
-	UINT payloadSize = sizeof(XMFLOAT4) + sizeof(UINT); // float4 color + uint depth
+	UINT payloadSize = sizeof(XMFLOAT4) + sizeof(UINT) + sizeof(UINT); // float4 color + uint depth + bool isGIRay (4 bytes in HLSL)
 	UINT attributeSize = sizeof(XMFLOAT2);              // Barycentrics
 	shaderConfig->Config(payloadSize, attributeSize);
 
@@ -310,7 +310,7 @@ void DXRHelper::CreateRaytracingPipelineState(ID3D12Device5 *device) {
 
 	// Pipeline config
 	auto pipelineConfig = stateObjectDesc.CreateSubobject<CD3DX12_RAYTRACING_PIPELINE_CONFIG_SUBOBJECT>();
-	UINT maxRecursionDepth = 5; // Primary rays + up to 4 transparency continuation rays
+	UINT maxRecursionDepth = 6; // Primary(1) + GI bounce(1) + up to 4 transparency continuation rays
 	pipelineConfig->Config(maxRecursionDepth);
 
 	// Create state object
