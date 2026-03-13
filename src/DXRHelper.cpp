@@ -228,7 +228,8 @@ ComPtr<ID3DBlob> DXRHelper::CompileRaytracingShader(const std::wstring &filename
 	std::vector<LPCWSTR> args;
 #ifdef _DEBUG
 	args.push_back(L"-Zi"); // Debug info
-	args.push_back(L"-Od"); // Disable optimization
+	args.push_back(L"-Qembed_debug"); // Embed debug info in shader
+	// args.push_back(L"-Od"); // Disabled optimization can cause DXR issues/black screen
 #else
 	args.push_back(L"-O3"); // Optimize
 #endif
