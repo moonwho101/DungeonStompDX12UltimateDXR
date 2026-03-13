@@ -41,6 +41,7 @@ Happy Dungeon Stomping - Breeyark!
 * Left mouse button to attack, right mouse button to move forward
 * Maximize screen then press ALT+ENTER to enter FULLSCREEN mode
 * Press F5 to Load game, F6 to Save game
+* F11 to toggle full screen
 
 ## Debug Controls
 
@@ -60,6 +61,7 @@ Happy Dungeon Stomping - Breeyark!
 * N - Toggle Normal map
 * ] - Next Dungeon Level
 * [ - Previous Dungeon Level
+
 
 ## MD2 Models
 Dungeon Stomp would not have been possible without the amazing MD2 models made by the following authors:
