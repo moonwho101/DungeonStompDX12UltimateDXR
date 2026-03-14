@@ -55,13 +55,14 @@ RWTexture2D<float4> gOutput : register(u0);
 // Acceleration structure
 RaytracingAccelerationStructure gScene : register(t0);
 
-// Vertex buffer (44 bytes per vertex: Pos(12) + Normal(12) + TexC(8) + TangentU(12))
+// Vertex buffer (48 bytes per vertex: Pos(12) + Normal(12) + TexC(8) + TangentU(12) + CastShadow(4))
 struct Vertex
 {
     float3 Pos;
     float3 Normal;
     float2 TexC;
     float3 TangentU;
+    int CastShadow;
 };
 
 ByteAddressBuffer gVertices : register(t1);
@@ -81,8 +82,8 @@ SamplerState gSampler : register(s0);
 // Helper to load vertex from byte address buffer
 Vertex LoadVertex(uint vertexIndex)
 {
-    // 44 bytes per vertex = 11 DWORDs
-    uint address = vertexIndex * 44;
+    // 48 bytes per vertex = 12 DWORDs
+    uint address = vertexIndex * 48;
     
     Vertex v;
     // Load position (3 floats)
@@ -104,6 +105,8 @@ Vertex LoadVertex(uint vertexIndex)
     v.TangentU.y = asfloat(gVertices.Load(address + 36));
     v.TangentU.z = asfloat(gVertices.Load(address + 40));
     
+    // Load CastShadow (int)
+    v.CastShadow = gVertices.Load(address + 44);
     return v;
 }
 
