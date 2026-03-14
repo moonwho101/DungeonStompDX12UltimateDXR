@@ -440,6 +440,17 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
     Vertex v0 = LoadVertex(vertexIndex);
     Vertex v1 = LoadVertex(vertexIndex + 1);
     Vertex v2 = LoadVertex(vertexIndex + 2);
+
+    // Only cast shadow if at least one vertex is marked
+    bool triangleCastsShadow = (v0.CastShadow == 1) || (v1.CastShadow == 1) || (v2.CastShadow == 1);
+    // Only affect shadow rays, not main rendering
+    if (payload.isShadowRay != 0) {
+        if (!triangleCastsShadow) {
+            // If triangle does not cast shadow, treat as transparent to shadow rays
+            payload.color = float4(0.0f, 0.0f, 0.0f, 1.0f);
+            return;
+        }
+    }
     
     // Barycentric coordinates
     float3 bary = float3(1.0f - attribs.barycentrics.x - attribs.barycentrics.y,
@@ -616,7 +627,7 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
                 float shadow = 1.0f;
                 if (i <= MAX_SHADOW_LIGHTS)
                 {
-                   // shadow = TraceShadowRay(shadowOrigin, lightDir, d);
+                   shadow = TraceShadowRay(shadowOrigin, lightDir, d);
                 }
                 // Spot light logic
                 if (L.SpotPower > 0.0f)

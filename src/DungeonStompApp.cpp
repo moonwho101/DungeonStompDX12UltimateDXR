@@ -1047,7 +1047,7 @@ void DungeonStompApp::UpdateDungeon(const GameTimer &gt) {
 		v.TangentU.y = src_v[j].nmy;
 		v.TangentU.z = src_v[j].nmz;
 
-		v.CastShadow = 0; // Default, update logic as needed
+		v.CastShadow = src_v[j].CastShadow;
 
 		currDungeonVB->CopyData(j, v);
 	}
