@@ -381,42 +381,27 @@ void RayGen()
     );
     
     float3 finalColor = payload.color.rgb;
-    
-    // ---- Volumetric Fog Glow (Glare) around Point Lights ----
+    // Volumetric Fog Glow (Glare) around Point Lights
     float3 glare = float3(0.0f, 0.0f, 0.0f);
     for (uint i = 1; i < min(gNumLights, (uint)MaxLights); ++i)
     {
         Light L = gLights[i];
-        
-        // Find closest point on ray to the point light
         float3 lightVec = L.Position - rayOrigin;
         float tClosest = dot(lightVec, rayDirection);
-        
-        // Clamp to hit distance so glare is mostly occluded by walls
         tClosest = clamp(tClosest, 0.0f, payload.hitT);
-        
         float3 closestPoint = rayOrigin + rayDirection * tClosest;
         float distToLight = length(closestPoint - L.Position);
-        
-        // Blender-like Fog Glow: sharp inner core, wide outer halo (doubled radius)
+        // Reduce center brightness: lower inner core weight and increase falloff
         float glow = 0.6f * exp(-distToLight / 1.4f) + 0.4f * exp(-distToLight / 7.2f);
-        
         if (glow > 0.001f)
         {
             float flicker = TorchFlicker(1.0f, gTotalTime, 8.0f, 0.25f, (float)i);
             float falloff = saturate((L.FalloffEnd - distToLight) / L.FalloffEnd);
-            glare += L.Strength * glow * flicker * falloff * 0.25f; 
+            // Increase scaling for outer glow
+            glare += L.Strength * glow * flicker * falloff * 0.45f;
         }
     }
-    
     finalColor += glare;
-    
-    // ---- ACES filmic tone mapping ----
-    finalColor = ACESFilm(finalColor);
-    
-    // Gamma correction
-    finalColor = pow(finalColor, 1.0f / 2.2f);
-    
     gOutput[launchIndex] = float4(finalColor, 1.0f);
 }
 
@@ -697,6 +682,9 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
     // Minimum visibility so geometry silhouettes are faintly visible
     color = max(color, float3(0.012f, 0.01f, 0.008f));
     
+    // Apply ACES filmic tone mapping and gamma correction
+    color = ACESFilm(color);
+    color = pow(color, 1.0f / 2.2f);
     payload.color = float4(color, 1.0f);
     payload.hitT = RayTCurrent();
 }
