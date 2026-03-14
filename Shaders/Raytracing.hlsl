@@ -22,6 +22,14 @@
 #define GI_BOUNCE_STRENGTH 0.35f   // scale of the GI contribution
 #define GI_MAX_DIST        80.0f   // max distance the GI bounce ray travels
 
+// Volumetric Glow/Glare Constants (for easy tuning)
+#define GLOW_INNER_WEIGHT 0.6f
+#define GLOW_INNER_FALLOFF 1.4f
+#define GLOW_OUTER_WEIGHT 0.4f
+#define GLOW_OUTER_FALLOFF 7.2f
+#define GLARE_SCALE 0.45f
+#define GLOW_THRESHOLD 0.001f
+
 // Light structure matching CPU-side
 struct Light
 {
@@ -391,14 +399,15 @@ void RayGen()
         tClosest = clamp(tClosest, 0.0f, payload.hitT);
         float3 closestPoint = rayOrigin + rayDirection * tClosest;
         float distToLight = length(closestPoint - L.Position);
-        // Reduce center brightness: lower inner core weight and increase falloff
-        float glow = 0.6f * exp(-distToLight / 1.4f) + 0.4f * exp(-distToLight / 7.2f);
-        if (glow > 0.001f)
+        // Use constants for glow weights and falloff
+        float glow = GLOW_INNER_WEIGHT * exp(-distToLight / GLOW_INNER_FALLOFF)
+                  + GLOW_OUTER_WEIGHT * exp(-distToLight / GLOW_OUTER_FALLOFF);
+        if (glow > GLOW_THRESHOLD)
         {
             float flicker = TorchFlicker(1.0f, gTotalTime, 8.0f, 0.25f, (float)i);
             float falloff = saturate((L.FalloffEnd - distToLight) / L.FalloffEnd);
-            // Increase scaling for outer glow
-            glare += L.Strength * glow * flicker * falloff * 0.45f;
+            // Use constant for glare scaling
+            glare += L.Strength * glow * flicker * falloff * GLARE_SCALE;
         }
     }
     finalColor += glare;
