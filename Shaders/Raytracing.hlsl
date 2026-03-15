@@ -605,47 +605,97 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
         }
     }
     
-    // ---- Single-bounce Global Illumination ----
-    // Only trace GI ray for primary (camera) rays to avoid runaway recursion.
-    if (!payload.isGIRay)
-    {
-        // Build a cosine-weighted random direction in the hemisphere around N.
-        // We use the hit position as a cheap deterministic seed.
-        float seed1 = frac(sin(dot(hitPos.xy + hitPos.z, float2(127.1f, 311.7f))) * 43758.5453f);
-        float seed2 = frac(sin(dot(hitPos.yz + hitPos.x, float2(269.5f, 183.3f))) * 43758.5453f);
+   // ---- Single-bounce Global Illumination (corrected) ----
+// Only trace GI ray for primary (camera) rays to avoid runaway recursion.
+if (!payload.isGIRay)
+{
+    // -------------------------
+    // Compact deterministic hash -> two floats in [0,1)
+    // -------------------------
+    // 32-bit integer hash (Wang / PCG-like mix). Deterministic per-hitPos.
+    uint hx = asuint(hitPos.x * 1000.0f);
+    uint hy = asuint(hitPos.y * 1000.0f);
+    uint hz = asuint(hitPos.z * 1000.0f);
+    uint seed = hx * 73856093u ^ hy * 19349663u ^ hz * 83492791u;
+    seed = (seed ^ 61u) ^ (seed >> 16);
+    seed *= 9u;
+    float u1 = frac(seed * 2.3283064365386963e-10f); // 1/2^32
+    seed = seed * 1664525u + 1013904223u;
+    float u2 = frac(seed * 2.3283064365386963e-10f);
 
-        // Map to cosine-weighted hemisphere sample
-        float phi = 2.0f * PI * seed1;
-        float cosTheta = sqrt(seed2);
-        float sinTheta = sqrt(1.0f - seed2);
+    // -------------------------
+    // Cosine-weighted hemisphere sampling via disk->hemisphere (Malley)
+    // r = sqrt(u1), phi = 2pi*u2
+    // disk coords (dx,dy) -> hemisphere z = sqrt(1 - r^2)
+    // This yields PDF = cos(theta)/pi and cancels the cos factor in estimator.
+    // -------------------------
+    float r = sqrt(max(0.0f, u1));
+    float phi = 2.0f * PI * u2;
+    float dx = r * cos(phi);
+    float dy = r * sin(phi);
+    float cosTheta = sqrt(max(0.0f, 1.0f - r * r)); // hemisphere z
+    // Build local TBN aligned with N
+    float3 up = abs(N.y) < 0.999f ? float3(0.0f, 1.0f, 0.0f) : float3(1.0f, 0.0f, 0.0f);
+    float3 giT = normalize(cross(up, N));
+    float3 giB = cross(N, giT);
+    float3 giDir = normalize(dx * giT + dy * giB + cosTheta * N);
 
-        // Build a local TBN frame aligned with N so the sample points into the hemisphere
-        float3 up = abs(N.y) < 0.999f ? float3(0.0f, 1.0f, 0.0f) : float3(1.0f, 0.0f, 0.0f);
-        float3 giT = normalize(cross(up, N));
-        float3 giB = cross(N, giT);
-        float3 giDir = normalize(sinTheta * cos(phi) * giT +
-                                  sinTheta * sin(phi) * giB +
-                                  cosTheta * N);
+    // -------------------------
+    // Modulate GI ray roughness: rougher surfaces get more diffuse GI,
+    // smoother get sharper GI. Use a conservative remap for perceptual roughness.
+    // -------------------------
+    float perceptualRough = saturate(gRoughness); // assume gRoughness in [0,1]
+    // Optional remap if your material uses "roughness^2" convention:
+    // perceptualRough = perceptualRough * perceptualRough;
+    float giRoughness = saturate(perceptualRough + 0.15f * (1.0f - saturate(dot(N, V))));
 
-        RayPayload giPayload;
-        giPayload.color = float4(0.0f, 0.0f, 0.0f, 1.0f);
-        giPayload.depth = 4; // Prevent GI rays from spawning transparency continuations (depth < 4 check)
-        giPayload.isGIRay = true;
+    // -------------------------
+    // Prepare GI ray payload
+    // -------------------------
+    RayPayload giPayload;
+    giPayload.color = float4(0.0f, 0.0f, 0.0f, 1.0f);
+    giPayload.depth = 4; // Prevent GI rays from spawning transparency continuations (depth < 4 check)
+    giPayload.isGIRay = true;
 
-        RayDesc giRay;
-        giRay.Origin = hitPos + N * SHADOW_BIAS;
-        giRay.Direction = giDir;
-        giRay.TMin = 0.05f;
-        giRay.TMax = GI_MAX_DIST;
+    RayDesc giRay;
+    giRay.Origin = hitPos + N * SHADOW_BIAS;
+    giRay.Direction = giDir;
+    giRay.TMin = 0.05f;
+    giRay.TMax = GI_MAX_DIST;
 
-        TraceRay(gScene, RAY_FLAG_NONE, 0xFF, 0, 1, 0, giRay, giPayload);
+    TraceRay(gScene, RAY_FLAG_NONE, 0xFF, 0, 1, 0, giRay, giPayload);
 
-        // The returned color is the lit radiance of the secondary surface.
-        // Weight by cosTheta (Lambert) — already baked in via cosine-weighted sampling so
-        // Monte-Carlo weight cancels and we just scale by the strength knob * albedo tint.
-        float3 giColor = giPayload.color.rgb * albedo * GI_BOUNCE_STRENGTH;
-        color += giColor;
-    }
+    // -------------------------
+    // Visibility / occlusion check
+    // Use luminance instead of length(rgb) for perceptual thresholding.
+    // -------------------------
+    float giLuma = dot(giPayload.color.rgb, float3(0.2126f, 0.7152f, 0.0722f));
+    // Lower threshold to avoid discarding dim but valid indirect light.
+    float giVisibility = step(0.02f, giLuma);
+
+    // -------------------------
+    // Ambient tint and energy-conserving weighting
+    // Because we used cosine-weighted sampling, the Monte-Carlo estimator
+    // does not need an extra cos(theta)/pdf factor here (it cancels).
+    // We scale by GI_BOUNCE_STRENGTH and albedo; clamp to avoid runaway.
+    // -------------------------
+    float3 giAmbientTint = float3(0.12f, 0.16f, 0.22f);
+    float3 indirect = giPayload.color.rgb;
+
+    // Add a small ambient floor so fully occluded scenes don't go pitch black
+    float3 ambientContribution = giAmbientTint * 0.12f;
+
+    // Combine returned radiance with albedo and strength
+    float3 giColor = (indirect * albedo * GI_BOUNCE_STRENGTH + ambientContribution) * giVisibility;
+
+    // Slightly modulate GI by surface roughness for realism (dampen on rough)
+    giColor *= lerp(1.0f, 0.7f, giRoughness);
+
+    // Optional: clamp to reasonable range to avoid fireflies
+    giColor = saturate(giColor);
+
+    color += giColor;
+}
 
     // ---- Atmospheric distance fog ----
     float dist = length(hitPos - gCameraPos);
