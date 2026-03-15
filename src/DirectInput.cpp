@@ -943,7 +943,7 @@ void smooth_mouse(float time_d, float realx, float realy) {
 	use_y += (realy - use_y) * (float)d;
 
 	// Stop updating if movement is negligible
-	const float epsilon = 0.01f;
+	const float epsilon = 0.001f;
 	if (fabs(realx - use_x) < epsilon && fabs(realy - use_y) < epsilon) {
 		use_x = realx;
 		use_y = realy;
