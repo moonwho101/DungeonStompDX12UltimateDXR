@@ -942,8 +942,12 @@ void smooth_mouse(float time_d, float realx, float realy) {
 	use_x += ((realx - use_x) * (float)d);
 	use_y += (realy - use_y) * (float)d;
 
-	// sprintf(gActionMessage, "%9.6f %9.6f",use_x,use_y);
-	// UpdateScrollList(0, 255, 255);
+	// Stop updating if movement is negligible
+	const float epsilon = 0.001f;
+	if (fabs(realx - use_x) < epsilon && fabs(realy - use_y) < epsilon) {
+		use_x = realx;
+		use_y = realy;
+	}
 
 	filterx = use_x;
 	filtery = use_y;

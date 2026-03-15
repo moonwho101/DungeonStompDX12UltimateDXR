@@ -111,19 +111,23 @@ Vertex LoadVertex(uint vertexIndex)
 struct RayPayload
 {
     float4 color;
-    uint   depth;    // recursion depth for transparency
-    bool   isGIRay;  // true => secondary GI ray, skip further GI recursion
-    float  hitT;     // distance to surface (used for volumetric glare limits)
+    uint depth; // recursion depth for transparency
+    bool isGIRay; // true => secondary GI ray, skip further GI recursion
 };
 
 // Hard-coded transparent texture ranges (matching CPU-side alpha skip logic)
 bool IsTransparentTexture(uint texIdx)
 {
-    if (texIdx >= 94  && texIdx <= 101) return true;  // flames / effects
-    if (texIdx >= 278 && texIdx <= 295) return true;  // 279-1..296-1
-    if (texIdx >= 205 && texIdx <= 209) return true;  // 206-1..210-1
-    if (texIdx >= 370 && texIdx <= 378) return true;  // 371-1..379-1
-    if (texIdx == 378)                  return true;
+    if (texIdx >= 94 && texIdx <= 101)
+        return true; // flames / effects
+    if (texIdx >= 278 && texIdx <= 295)
+        return true; // 279-1..296-1
+    if (texIdx >= 205 && texIdx <= 209)
+        return true; // 206-1..210-1
+    if (texIdx >= 370 && texIdx <= 378)
+        return true; // 371-1..379-1
+    if (texIdx == 378)
+        return true;
     return false;
 }
 
@@ -300,7 +304,7 @@ float3 ComputeSpotLight(Light L, float3 pos, float3 albedo, float3 N, float3 V, 
 // Returns 1.0 if fully lit, 0.0 if fully shadowed
 float TraceShadowRay(float3 origin, float3 direction, float maxDist)
 {
-    RayQuery<RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES> shadowQuery;
+    RayQuery < RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES > shadowQuery;
     
     RayDesc shadowRay;
     shadowRay.Origin = origin;
@@ -364,45 +368,22 @@ void RayGen()
     ray.TMax = 100000.0f;
     
     RayPayload payload;
-    payload.color  = float4(0.0f, 0.0f, 0.0f, 1.0f);
-    payload.depth  = 0;
+    payload.color = float4(0.0f, 0.0f, 0.0f, 1.0f);
+    payload.depth = 0;
     payload.isGIRay = false;
-    payload.hitT   = 100000.0f;
     
     TraceRay(
         gScene,
-        RAY_FLAG_NONE,  // Don't cull - dungeon geometry might have back faces visible
+        RAY_FLAG_NONE, // Don't cull - dungeon geometry might have back faces visible
         0xFF,
-        0,  // Hit group index
-        1,  // Multiplier for geometry index
-        0,  // Miss shader index
+        0, // Hit group index
+        1, // Multiplier for geometry index
+        0, // Miss shader index
         ray,
         payload
     );
     
-    float3 finalColor = payload.color.rgb;
-    // Volumetric Fog Glow (Glare) around Point Lights
-    float3 glare = float3(0.0f, 0.0f, 0.0f);
-    for (uint i = 1; i < min(gNumLights, (uint)MaxLights); ++i)
-    {
-        Light L = gLights[i];
-        float3 lightVec = L.Position - rayOrigin;
-        float tClosest = dot(lightVec, rayDirection);
-        tClosest = clamp(tClosest, 0.0f, payload.hitT);
-        float3 closestPoint = rayOrigin + rayDirection * tClosest;
-        float distToLight = length(closestPoint - L.Position);
-        // Reduce center brightness: lower inner core weight and increase falloff
-        float glow = 0.6f * exp(-distToLight / 1.4f) + 0.4f * exp(-distToLight / 7.2f);
-        if (glow > 0.001f)
-        {
-            float flicker = TorchFlicker(1.0f, gTotalTime, 8.0f, 0.25f, (float)i);
-            float falloff = saturate((L.FalloffEnd - distToLight) / L.FalloffEnd);
-            // Increase scaling for outer glow
-            glare += L.Strength * glow * flicker * falloff * 0.45f;
-        }
-    }
-    finalColor += glare;
-    gOutput[launchIndex] = float4(finalColor, 1.0f);
+    gOutput[launchIndex] = payload.color;
 }
 
 //=============================================================================
@@ -419,7 +400,6 @@ void Miss(inout RayPayload payload)
     float3 darkCeiling = float3(0.025f, 0.02f, 0.03f);
     float3 skyColor = lerp(darkFloor, darkCeiling, upFactor);
     payload.color = float4(skyColor, 1.0f);
-    payload.hitT = 100000.0f;
 }
 
 //=============================================================================
@@ -490,11 +470,11 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
     if (normalMapIndex >= 0 && normalMapIndex < 550)
     {
         uint texW, texH;
-        gTextures[NonUniformResourceIndex((uint)normalMapIndex)].GetDimensions(texW, texH);
+        gTextures[NonUniformResourceIndex((uint) normalMapIndex)].GetDimensions(texW, texH);
         float texelArea = uvFootprintArea * texW * texH;
         float normalMip = max(0.5f * log2(max(texelArea, 1.0f)), 0.0f);
         
-        float3 normalMapSample = gTextures[NonUniformResourceIndex((uint)normalMapIndex)].SampleLevel(gSampler, texCoord, normalMip).rgb;
+        float3 normalMapSample = gTextures[NonUniformResourceIndex((uint) normalMapIndex)].SampleLevel(gSampler, texCoord, normalMip).rgb;
         N = normalize(NormalSampleToWorldSpace(normalMapSample, N, T));
     }
     
@@ -511,7 +491,7 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
     }
     
     // Alpha-test transparency: skip through transparent textures
-        if (IsTransparentTexture(texIndex) && texSample.a < 0.3f && payload.depth < 4)
+    if (IsTransparentTexture(texIndex) && texSample.a < 0.3f && payload.depth < 4)
     {
         // Fire a continuation ray through this surface
         RayDesc contRay;
@@ -521,14 +501,12 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
         contRay.TMax = 100000.0f;
         
         RayPayload contPayload;
-        contPayload.color   = float4(0.0f, 0.0f, 0.0f, 1.0f);
-        contPayload.depth   = payload.depth + 1;
+        contPayload.color = float4(0.0f, 0.0f, 0.0f, 1.0f);
+        contPayload.depth = payload.depth + 1;
         contPayload.isGIRay = payload.isGIRay;
-        contPayload.hitT    = 100000.0f;
         
         TraceRay(gScene, RAY_FLAG_NONE, 0xFF, 0, 1, 0, contRay, contPayload);
         payload.color = contPayload.color;
-        payload.hitT = RayTCurrent() + contPayload.hitT;
         return;
     }
     
@@ -546,8 +524,7 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
     // Transparent textures (torches/flames) are emissive: return raw texture color, no shading
     if (IsTransparentTexture(texIndex))
     {
-        payload.color = float4(albedo * 2.5f, texSample.a);
-        payload.hitT = RayTCurrent();
+        payload.color = float4(albedo, texSample.a);
         return;
     }
     
@@ -596,7 +573,7 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
     }
     
     // ---- Point lights (torches + missiles) with shadows ----
-    for (uint i = 1; i < min(gNumLights, (uint)MaxLights); ++i)
+    for (uint i = 1; i < min(gNumLights, (uint) MaxLights); ++i)
     {
         Light L = gLights[i];
         float3 lightVec = L.Position - hitPos;
@@ -622,54 +599,103 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
                 }
                 else
                 {
-                    color += ComputePointLight(L, hitPos, albedo, N, V, roughness, metallic, (float)i) * shadow;
+                    color += ComputePointLight(L, hitPos, albedo, N, V, roughness, metallic, (float) i) * shadow;
                 }
             }
         }
     }
     
-    // ---- Single-bounce Global Illumination ----
-    // Only trace GI ray for primary (camera) rays to avoid runaway recursion.
-    if (!payload.isGIRay)
-    {
-        // Build a cosine-weighted random direction in the hemisphere around N.
-        // We use the hit position as a cheap deterministic seed.
-        float seed1 = frac(sin(dot(hitPos.xy + hitPos.z, float2(127.1f, 311.7f))) * 43758.5453f);
-        float seed2 = frac(sin(dot(hitPos.yz + hitPos.x, float2(269.5f, 183.3f))) * 43758.5453f);
+   // ---- Single-bounce Global Illumination (corrected) ----
+// Only trace GI ray for primary (camera) rays to avoid runaway recursion.
+if (!payload.isGIRay)
+{
+    // -------------------------
+    // Compact deterministic hash -> two floats in [0,1)
+    // -------------------------
+    // 32-bit integer hash (Wang / PCG-like mix). Deterministic per-hitPos.
+    uint hx = asuint(hitPos.x * 1000.0f);
+    uint hy = asuint(hitPos.y * 1000.0f);
+    uint hz = asuint(hitPos.z * 1000.0f);
+    uint seed = hx * 73856093u ^ hy * 19349663u ^ hz * 83492791u;
+    seed = (seed ^ 61u) ^ (seed >> 16);
+    seed *= 9u;
+    float u1 = frac(seed * 2.3283064365386963e-10f); // 1/2^32
+    seed = seed * 1664525u + 1013904223u;
+    float u2 = frac(seed * 2.3283064365386963e-10f);
 
-        // Map to cosine-weighted hemisphere sample
-        float phi      = 2.0f * PI * seed1;
-        float cosTheta = sqrt(seed2);
-        float sinTheta = sqrt(1.0f - seed2);
+    // -------------------------
+    // Cosine-weighted hemisphere sampling via disk->hemisphere (Malley)
+    // r = sqrt(u1), phi = 2pi*u2
+    // disk coords (dx,dy) -> hemisphere z = sqrt(1 - r^2)
+    // This yields PDF = cos(theta)/pi and cancels the cos factor in estimator.
+    // -------------------------
+    float r = sqrt(max(0.0f, u1));
+    float phi = 2.0f * PI * u2;
+    float dx = r * cos(phi);
+    float dy = r * sin(phi);
+    float cosTheta = sqrt(max(0.0f, 1.0f - r * r)); // hemisphere z
+    // Build local TBN aligned with N
+    float3 up = abs(N.y) < 0.999f ? float3(0.0f, 1.0f, 0.0f) : float3(1.0f, 0.0f, 0.0f);
+    float3 giT = normalize(cross(up, N));
+    float3 giB = cross(N, giT);
+    float3 giDir = normalize(dx * giT + dy * giB + cosTheta * N);
 
-        // Build a local TBN frame aligned with N so the sample points into the hemisphere
-        float3 up   = abs(N.y) < 0.999f ? float3(0.0f, 1.0f, 0.0f) : float3(1.0f, 0.0f, 0.0f);
-        float3 giT  = normalize(cross(up, N));
-        float3 giB  = cross(N, giT);
-        float3 giDir = normalize(sinTheta * cos(phi) * giT +
-                                  sinTheta * sin(phi) * giB +
-                                  cosTheta             * N);
+    // -------------------------
+    // Modulate GI ray roughness: rougher surfaces get more diffuse GI,
+    // smoother get sharper GI. Use a conservative remap for perceptual roughness.
+    // -------------------------
+    float perceptualRough = saturate(gRoughness); // assume gRoughness in [0,1]
+    // Optional remap if your material uses "roughness^2" convention:
+    // perceptualRough = perceptualRough * perceptualRough;
+    float giRoughness = saturate(perceptualRough + 0.15f * (1.0f - saturate(dot(N, V))));
 
-        RayPayload giPayload;
-        giPayload.color   = float4(0.0f, 0.0f, 0.0f, 1.0f);
-        giPayload.depth   = 4; // Prevent GI rays from spawning transparency continuations (depth < 4 check)
-        giPayload.isGIRay = true;
-        giPayload.hitT    = 100000.0f;
+    // -------------------------
+    // Prepare GI ray payload
+    // -------------------------
+    RayPayload giPayload;
+    giPayload.color = float4(0.0f, 0.0f, 0.0f, 1.0f);
+    giPayload.depth = 4; // Prevent GI rays from spawning transparency continuations (depth < 4 check)
+    giPayload.isGIRay = true;
 
-        RayDesc giRay;
-        giRay.Origin    = hitPos + N * SHADOW_BIAS;
-        giRay.Direction = giDir;
-        giRay.TMin      = 0.05f;
-        giRay.TMax      = GI_MAX_DIST;
+    RayDesc giRay;
+    giRay.Origin = hitPos + N * SHADOW_BIAS;
+    giRay.Direction = giDir;
+    giRay.TMin = 0.05f;
+    giRay.TMax = GI_MAX_DIST;
 
-        TraceRay(gScene, RAY_FLAG_NONE, 0xFF, 0, 1, 0, giRay, giPayload);
+    TraceRay(gScene, RAY_FLAG_NONE, 0xFF, 0, 1, 0, giRay, giPayload);
 
-        // The returned color is the lit radiance of the secondary surface.
-        // Weight by cosTheta (Lambert) — already baked in via cosine-weighted sampling so
-        // Monte-Carlo weight cancels and we just scale by the strength knob * albedo tint.
-        float3 giColor = giPayload.color.rgb * albedo * GI_BOUNCE_STRENGTH;
-        color += giColor;
-    }
+    // -------------------------
+    // Visibility / occlusion check
+    // Use luminance instead of length(rgb) for perceptual thresholding.
+    // -------------------------
+    float giLuma = dot(giPayload.color.rgb, float3(0.2126f, 0.7152f, 0.0722f));
+    // Lower threshold to avoid discarding dim but valid indirect light.
+    float giVisibility = step(0.02f, giLuma);
+
+    // -------------------------
+    // Ambient tint and energy-conserving weighting
+    // Because we used cosine-weighted sampling, the Monte-Carlo estimator
+    // does not need an extra cos(theta)/pdf factor here (it cancels).
+    // We scale by GI_BOUNCE_STRENGTH and albedo; clamp to avoid runaway.
+    // -------------------------
+    float3 giAmbientTint = float3(0.12f, 0.16f, 0.22f);
+    float3 indirect = giPayload.color.rgb;
+
+    // Add a small ambient floor so fully occluded scenes don't go pitch black
+    float3 ambientContribution = giAmbientTint * 0.12f;
+
+    // Combine returned radiance with albedo and strength
+    float3 giColor = (indirect * albedo * GI_BOUNCE_STRENGTH + ambientContribution) * giVisibility;
+
+    // Slightly modulate GI by surface roughness for realism (dampen on rough)
+    giColor *= lerp(1.0f, 0.7f, giRoughness);
+
+    // Optional: clamp to reasonable range to avoid fireflies
+    giColor = saturate(giColor);
+
+    color += giColor;
+}
 
     // ---- Atmospheric distance fog ----
     float dist = length(hitPos - gCameraPos);
@@ -682,9 +708,11 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
     // Minimum visibility so geometry silhouettes are faintly visible
     color = max(color, float3(0.012f, 0.01f, 0.008f));
     
-    // Apply ACES filmic tone mapping and gamma correction
+    // ---- ACES filmic tone mapping ----
     color = ACESFilm(color);
+    
+    // Gamma correction
     color = pow(color, 1.0f / 2.2f);
+    
     payload.color = float4(color, 1.0f);
-    payload.hitT = RayTCurrent();
 }
