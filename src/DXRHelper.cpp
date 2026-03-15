@@ -227,9 +227,9 @@ ComPtr<ID3DBlob> DXRHelper::CompileRaytracingShader(const std::wstring &filename
 	// Compile as library (lib_6_5) - shader model 6.5 for DXR 1.1 inline raytracing
 	std::vector<LPCWSTR> args;
 #ifdef _DEBUG
-	args.push_back(L"-Zi"); // Debug info
+	args.push_back(L"-Zi");           // Debug info
 	args.push_back(L"-Qembed_debug"); // Embed debug info in shader
-	// args.push_back(L"-Od"); // Disabled optimization can cause DXR issues/black screen
+	                                  // args.push_back(L"-Od"); // Disabled optimization can cause DXR issues/black screen
 #else
 	args.push_back(L"-O3"); // Optimize
 #endif
@@ -293,8 +293,8 @@ void DXRHelper::CreateRaytracingPipelineState(ID3D12Device5 *device) {
 
 	// Shader config
 	auto shaderConfig = stateObjectDesc.CreateSubobject<CD3DX12_RAYTRACING_SHADER_CONFIG_SUBOBJECT>();
-	UINT payloadSize = sizeof(XMFLOAT4) + sizeof(UINT) + sizeof(UINT) + sizeof(float); // float4 color + uint depth + bool isGIRay (4 bytes in HLSL) + float hitT
-	UINT attributeSize = sizeof(XMFLOAT2);              // Barycentrics
+	UINT payloadSize = sizeof(XMFLOAT4) + sizeof(UINT) + sizeof(UINT); // float4 color + uint depth + bool isGIRay (4 bytes in HLSL)
+	UINT attributeSize = sizeof(XMFLOAT2);                             // Barycentrics
 	shaderConfig->Config(payloadSize, attributeSize);
 
 	// Local root signature for hit group (empty)
