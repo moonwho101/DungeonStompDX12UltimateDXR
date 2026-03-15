@@ -116,6 +116,7 @@ struct RayPayload
     float4 color;
     uint   depth;    // recursion depth for transparency
     bool   isGIRay;  // true => secondary GI ray, skip further GI recursion
+    bool   isShadowRay; // true => shadow ray
     float  hitT;     // distance to surface (used for volumetric glare limits)
 };
 
@@ -370,6 +371,7 @@ void RayGen()
     payload.color  = float4(0.0f, 0.0f, 0.0f, 1.0f);
     payload.depth  = 0;
     payload.isGIRay = false;
+    payload.isShadowRay = false;
     payload.hitT   = 100000.0f;
     
     TraceRay(
@@ -535,10 +537,11 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
         contRay.TMax = 100000.0f;
         
         RayPayload contPayload;
-        contPayload.color   = float4(0.0f, 0.0f, 0.0f, 1.0f);
-        contPayload.depth   = payload.depth + 1;
-        contPayload.isGIRay = payload.isGIRay;
-        contPayload.hitT    = 100000.0f;
+        contPayload.color       = float4(0.0f, 0.0f, 0.0f, 1.0f);
+        contPayload.depth       = payload.depth + 1;
+        contPayload.isGIRay     = payload.isGIRay;
+        contPayload.isShadowRay = payload.isShadowRay;
+        contPayload.hitT        = 100000.0f;
         
         TraceRay(gScene, RAY_FLAG_NONE, 0xFF, 0, 1, 0, contRay, contPayload);
         payload.color = contPayload.color;
@@ -665,10 +668,11 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
                                   cosTheta             * N);
 
         RayPayload giPayload;
-        giPayload.color   = float4(0.0f, 0.0f, 0.0f, 1.0f);
-        giPayload.depth   = 4; // Prevent GI rays from spawning transparency continuations (depth < 4 check)
-        giPayload.isGIRay = true;
-        giPayload.hitT    = 100000.0f;
+        giPayload.color       = float4(0.0f, 0.0f, 0.0f, 1.0f);
+        giPayload.depth       = 4; // Prevent GI rays from spawning transparency continuations (depth < 4 check)
+        giPayload.isGIRay     = true;
+        giPayload.isShadowRay = false;
+        giPayload.hitT        = 100000.0f;
 
         RayDesc giRay;
         giRay.Origin    = hitPos + N * SHADOW_BIAS;
