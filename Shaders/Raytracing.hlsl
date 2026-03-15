@@ -22,6 +22,17 @@
 #define GI_BOUNCE_STRENGTH 0.35f   // scale of the GI contribution
 #define GI_MAX_DIST        80.0f   // max distance the GI bounce ray travels
 
+// Glare and flicker constants (for RayGen glare loop)
+#define GLARE_INNER_WEIGHT      0.6f
+#define GLARE_INNER_FALLOFF     1.4f
+#define GLARE_OUTER_WEIGHT      0.4f
+#define GLARE_OUTER_FALLOFF     7.2f
+#define GLARE_THRESHOLD         0.001f
+#define GLARE_SCALE             0.45f
+#define FLICKER_BASE_STRENGTH   1.0f
+#define FLICKER_FREQ            8.0f
+#define FLICKER_AMP             0.25f
+
 // Light structure matching CPU-side
 struct Light
 {
@@ -388,6 +399,8 @@ void RayGen()
     float3 finalColor = payload.color.rgb;
     // Volumetric Fog Glow (Glare) around Point Lights
     float3 glare = float3(0.0f, 0.0f, 0.0f);
+    // Glare constants now defined as macros above
+    
     for (uint i = 1; i < min(gNumLights, (uint)MaxLights); ++i)
     {
         Light L = gLights[i];
@@ -397,13 +410,13 @@ void RayGen()
         float3 closestPoint = rayOrigin + rayDirection * tClosest;
         float distToLight = length(closestPoint - L.Position);
         // Reduce center brightness: lower inner core weight and increase falloff
-        float glow = 0.6f * exp(-distToLight / 1.4f) + 0.4f * exp(-distToLight / 7.2f);
-        if (glow > 0.001f)
+        float glow = GLARE_INNER_WEIGHT * exp(-distToLight / GLARE_INNER_FALLOFF) + GLARE_OUTER_WEIGHT * exp(-distToLight / GLARE_OUTER_FALLOFF);
+        if (glow > GLARE_THRESHOLD)
         {
-            float flicker = TorchFlicker(1.0f, gTotalTime, 8.0f, 0.25f, (float)i);
+            float flicker = TorchFlicker(FLICKER_BASE_STRENGTH, gTotalTime, FLICKER_FREQ, FLICKER_AMP, (float)i);
             float falloff = saturate((L.FalloffEnd - distToLight) / L.FalloffEnd);
             // Increase scaling for outer glow
-            glare += L.Strength * glow * flicker * falloff * 0.45f;
+            glare += L.Strength * glow * flicker * falloff * GLARE_SCALE;
         }
     }
     finalColor += glare;
@@ -563,7 +576,7 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
     // Transparent textures (torches/flames) are emissive: return raw texture color, no shading
     if (IsTransparentTexture(texIndex))
     {
-        payload.color = float4(albedo * 2.5f, texSample.a);
+        payload.color = float4(albedo, texSample.a);
         payload.hitT = RayTCurrent();
         return;
     }
