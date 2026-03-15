@@ -546,7 +546,7 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
     // Transparent textures (torches/flames) are emissive: return raw texture color, no shading
     if (IsTransparentTexture(texIndex))
     {
-        payload.color = float4(albedo * 2.5f, texSample.a);
+        payload.color = float4(albedo, texSample.a);
         payload.hitT = RayTCurrent();
         return;
     }
