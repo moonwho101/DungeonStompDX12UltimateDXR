@@ -127,9 +127,7 @@ struct RayPayload
     float4 color;
     uint   depth;    // recursion depth for transparency
     bool   isGIRay;  // true => secondary GI ray, skip further GI recursion
-    bool   isShadowRay; // true => shadow ray
     float  hitT;     // distance to surface (used for volumetric glare limits)
-    bool   shadowHit; // true => shadow ray hit something that casts shadows
 };
 
 // Hard-coded transparent texture ranges (matching CPU-side alpha skip logic)
@@ -323,67 +321,40 @@ float3 ComputeSpotLight(Light L, float3 pos, float3 albedo, float3 N, float3 V, 
 // Returns 1.0 if fully lit, 0.0 if fully shadowed
 float TraceShadowRay(float3 origin, float3 direction, float maxDist)
 {
-    RayDesc shadowRay;
-    shadowRay.Origin = origin;
-    shadowRay.Direction = direction;
-    shadowRay.TMin = 0.05f;
-    shadowRay.TMax = maxDist - 0.1f;
-    
-    RayPayload shadowPayload;
-    shadowPayload.color = float4(0.0f, 0.0f, 0.0f, 0.0f);
-    shadowPayload.depth = 0;
-    shadowPayload.isGIRay = false;
-    shadowPayload.isShadowRay = true;
-    shadowPayload.hitT = 0.0f;
-    shadowPayload.shadowHit = false;
+    // DXR 1.1 Inline RayQuery for better performance in shadow tests
+    RayDesc ray;
+    ray.Origin = origin;
+    ray.Direction = direction;
+    ray.TMin = 0.05f;
+    ray.TMax = maxDist - 0.1f;
 
-    // Use RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH for performance
-    // Use RAY_FLAG_SKIP_CLOSEST_HIT_SHADER because we only care about the anyhit result
-    // Use RAY_FLAG_FORCE_NON_OPAQUE to ensure ShadowAnyHit is invoked
-    TraceRay(
-        gScene,
-        RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER | RAY_FLAG_FORCE_NON_OPAQUE,
-        0xFF,
-        0,  // Hit group index
-        1,  // Multiplier for geometry index
-        0,  // Miss shader index
-        shadowRay,
-        shadowPayload
-    );
-    
-    return shadowPayload.shadowHit ? 0.0f : 1.0f;
-}
+    RayQuery<RAY_FLAG_SKIP_CLOSEST_HIT_SHADER | RAY_FLAG_FORCE_NON_OPAQUE> q;
+    q.TraceRayInline(gScene, RAY_FLAG_NONE, 0xFF, ray);
 
-[shader("anyhit")]
-void ShadowAnyHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttributes attribs)
-{
-    // Filter: only run for shadow rays
-    if (!payload.isShadowRay)
-        return;
-
-    uint primIdx = PrimitiveIndex();
-    uint vertexIndex = primIdx * 3;
-    
-    // Load the 3 vertices of this triangle
-    Vertex v0 = LoadVertex(vertexIndex);
-    Vertex v1 = LoadVertex(vertexIndex + 1);
-    Vertex v2 = LoadVertex(vertexIndex + 2);
-
-        // Check selective shadow casting and transparent texture
-        bool triangleCastsShadow = (v0.CastShadow == 1) || (v1.CastShadow == 1) || (v2.CastShadow == 1);
-        uint texIndex = gPrimitiveTextureIndices.Load(primIdx * 4);
-        bool isTransparent = IsTransparentTexture(texIndex);
-        bool isPlayerWeapon = IsWeaponTexture(texIndex);
-
-        if (!triangleCastsShadow || isTransparent || isPlayerWeapon)
+    bool hitFound = false;
+    while (q.Proceed())
+    {
+        if (q.CandidateType() == CANDIDATE_NON_OPAQUE_TRIANGLE)
         {
-            IgnoreHit();
+            uint primIdx = q.CandidatePrimitiveIndex();
+            uint vertexIndex = primIdx * 3;
+            
+            Vertex v0 = LoadVertex(vertexIndex);
+            Vertex v1 = LoadVertex(vertexIndex + 1);
+            Vertex v2 = LoadVertex(vertexIndex + 2);
+
+            bool triangleCastsShadow = (v0.CastShadow == 1) || (v1.CastShadow == 1) || (v2.CastShadow == 1);
+            uint texIndex = gPrimitiveTextureIndices.Load(primIdx * 4);
+
+            if (triangleCastsShadow && !IsTransparentTexture(texIndex) && !IsWeaponTexture(texIndex))
+            {
+                hitFound = true;
+                q.Abort();
+            }
         }
-        else
-        {
-            payload.shadowHit = true;
-            // AcceptHit() is implicit in AnyHit unless IgnoreHit() is called
-        }
+    }
+
+    return hitFound ? 0.0f : 1.0f;
 }
 
 //=============================================================================
@@ -439,9 +410,7 @@ void RayGen()
     payload.color  = float4(0.0f, 0.0f, 0.0f, 1.0f);
     payload.depth  = 0;
     payload.isGIRay = false;
-    payload.isShadowRay = false;
     payload.hitT   = 100000.0f;
-    payload.shadowHit = false;
     
     TraceRay(
         gScene,
@@ -613,9 +582,7 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
         contPayload.color       = float4(0.0f, 0.0f, 0.0f, 1.0f);
         contPayload.depth       = payload.depth + 1;
         contPayload.isGIRay     = payload.isGIRay;
-        contPayload.isShadowRay = payload.isShadowRay;
         contPayload.hitT        = 100000.0f;
-        contPayload.shadowHit   = false;
         
         TraceRay(gScene, RAY_FLAG_NONE, 0xFF, 0, 1, 0, contRay, contPayload);
         payload.color = contPayload.color;
@@ -745,9 +712,7 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
         giPayload.color       = float4(0.0f, 0.0f, 0.0f, 1.0f);
         giPayload.depth       = 4; // Prevent GI rays from spawning transparency continuations (depth < 4 check)
         giPayload.isGIRay     = true;
-        giPayload.isShadowRay = false;
         giPayload.hitT        = 100000.0f;
-        giPayload.shadowHit   = false;
 
         RayDesc giRay;
         giRay.Origin    = hitPos + N * SHADOW_BIAS;
