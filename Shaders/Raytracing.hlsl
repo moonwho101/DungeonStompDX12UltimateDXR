@@ -329,7 +329,7 @@ float TraceShadowRay(float3 origin, float3 direction, float maxDist)
     ray.TMax = maxDist - 0.1f;
 
     RayQuery<RAY_FLAG_SKIP_CLOSEST_HIT_SHADER | RAY_FLAG_FORCE_NON_OPAQUE> q;
-    q.TraceRayInline(gScene, RAY_FLAG_NONE, 0xFF, ray);
+    q.TraceRayInline(gScene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, 0xFF, ray);
 
     bool hitFound = false;
     while (q.Proceed())
@@ -414,7 +414,7 @@ void RayGen()
     
     TraceRay(
         gScene,
-        RAY_FLAG_NONE,  // Don't cull - dungeon geometry might have back faces visible
+        RAY_FLAG_CULL_BACK_FACING_TRIANGLES,
         0xFF,
         0,  // Hit group index
         1,  // Multiplier for geometry index
@@ -431,6 +431,7 @@ void RayGen()
     for (uint i = 1; i < min(gNumLights, (uint)MaxLights); ++i)
     {
         Light L = gLights[i];
+        if (distance(L.Position, gCameraPos) > 1500.0f) continue;
         float3 lightVec = L.Position - rayOrigin;
         float tClosest = dot(lightVec, rayDirection);
         tClosest = clamp(tClosest, 0.0f, payload.hitT);
@@ -584,7 +585,7 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
         contPayload.isGIRay     = payload.isGIRay;
         contPayload.hitT        = 100000.0f;
         
-        TraceRay(gScene, RAY_FLAG_NONE, 0xFF, 0, 1, 0, contRay, contPayload);
+        TraceRay(gScene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, 0xFF, 0, 1, 0, contRay, contPayload);
         payload.color = contPayload.color;
         payload.hitT = RayTCurrent() + contPayload.hitT;
         return;
@@ -720,7 +721,7 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
         giRay.TMin      = 0.05f;
         giRay.TMax      = GI_MAX_DIST;
 
-        TraceRay(gScene, RAY_FLAG_NONE, 0xFF, 0, 1, 0, giRay, giPayload);
+        TraceRay(gScene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, 0xFF, 0, 1, 0, giRay, giPayload);
 
         // The returned color is the lit radiance of the secondary surface.
         // Weight by cosTheta (Lambert) — already baked in via cosine-weighted sampling so
