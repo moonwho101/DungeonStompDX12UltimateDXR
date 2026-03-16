@@ -143,6 +143,13 @@ bool IsTransparentTexture(uint texIdx)
     return false;
 }
 
+// Hard-coded player weapon texture range (also treated as transparent for shadow rays to prevent black weapon silhouettes)
+bool IsWeaponTexture(uint texIdx)
+{
+    if (texIdx >= 127  && texIdx <= 137) return true;  // player weapons (swords, bows, etc)
+    return false;
+}
+
 //=============================================================================
 // Normal Map Helper
 //=============================================================================
@@ -366,8 +373,9 @@ void ShadowAnyHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttrib
         bool triangleCastsShadow = (v0.CastShadow == 1) || (v1.CastShadow == 1) || (v2.CastShadow == 1);
         uint texIndex = gPrimitiveTextureIndices.Load(primIdx * 4);
         bool isTransparent = IsTransparentTexture(texIndex);
+        bool isPlayerWeapon = IsWeaponTexture(texIndex);
 
-        if (!triangleCastsShadow || isTransparent)
+        if (!triangleCastsShadow || isTransparent || isPlayerWeapon)
         {
             IgnoreHit();
         }
