@@ -649,7 +649,8 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
         
         if (NdotL > 0.001f)
         {
-            float shadow = TraceShadowRay(shadowOrigin, lightDir, 10000.0f);
+            float shadow = 1.0f;
+            shadow = TraceShadowRay(shadowOrigin, lightDir, 10000.0f);
             color += ComputeDirectionalLight(L, albedo, N, V, roughness, metallic) * shadow;
         }
     }
