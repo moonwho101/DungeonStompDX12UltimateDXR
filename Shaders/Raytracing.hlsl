@@ -362,18 +362,20 @@ void ShadowAnyHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttrib
     Vertex v1 = LoadVertex(vertexIndex + 1);
     Vertex v2 = LoadVertex(vertexIndex + 2);
 
-    // Check selective shadow casting
-    bool triangleCastsShadow = (v0.CastShadow == 1) || (v1.CastShadow == 1) || (v2.CastShadow == 1);
+        // Check selective shadow casting and transparent texture
+        bool triangleCastsShadow = (v0.CastShadow == 1) || (v1.CastShadow == 1) || (v2.CastShadow == 1);
+        uint texIndex = gPrimitiveTextureIndices.Load(primIdx * 4);
+        bool isTransparent = IsTransparentTexture(texIndex);
 
-    if (!triangleCastsShadow)
-    {
-        IgnoreHit();
-    }
-    else
-    {
-        payload.shadowHit = true;
-        // AcceptHit() is implicit in AnyHit unless IgnoreHit() is called
-    }
+        if (!triangleCastsShadow || isTransparent)
+        {
+            IgnoreHit();
+        }
+        else
+        {
+            payload.shadowHit = true;
+            // AcceptHit() is implicit in AnyHit unless IgnoreHit() is called
+        }
 }
 
 //=============================================================================
