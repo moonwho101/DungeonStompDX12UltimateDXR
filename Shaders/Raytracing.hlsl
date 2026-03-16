@@ -129,6 +129,7 @@ struct RayPayload
     bool   isGIRay;  // true => secondary GI ray, skip further GI recursion
     bool   isShadowRay; // true => shadow ray
     float  hitT;     // distance to surface (used for volumetric glare limits)
+    bool   shadowHit; // true => shadow ray hit something that casts shadows
 };
 
 // Hard-coded transparent texture ranges (matching CPU-side alpha skip logic)
@@ -315,18 +316,64 @@ float3 ComputeSpotLight(Light L, float3 pos, float3 albedo, float3 N, float3 V, 
 // Returns 1.0 if fully lit, 0.0 if fully shadowed
 float TraceShadowRay(float3 origin, float3 direction, float maxDist)
 {
-    RayQuery<RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES> shadowQuery;
-    
     RayDesc shadowRay;
     shadowRay.Origin = origin;
     shadowRay.Direction = direction;
     shadowRay.TMin = 0.05f;
     shadowRay.TMax = maxDist - 0.1f;
     
-    shadowQuery.TraceRayInline(gScene, RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH, 0xFF, shadowRay);
-    shadowQuery.Proceed();
+    RayPayload shadowPayload;
+    shadowPayload.color = float4(0.0f, 0.0f, 0.0f, 0.0f);
+    shadowPayload.depth = 0;
+    shadowPayload.isGIRay = false;
+    shadowPayload.isShadowRay = true;
+    shadowPayload.hitT = 0.0f;
+    shadowPayload.shadowHit = false;
+
+    // Use RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH for performance
+    // Use RAY_FLAG_SKIP_CLOSEST_HIT_SHADER because we only care about the anyhit result
+    // Use RAY_FLAG_FORCE_NON_OPAQUE to ensure ShadowAnyHit is invoked
+    TraceRay(
+        gScene,
+        RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER | RAY_FLAG_FORCE_NON_OPAQUE,
+        0xFF,
+        0,  // Hit group index
+        1,  // Multiplier for geometry index
+        0,  // Miss shader index
+        shadowRay,
+        shadowPayload
+    );
     
-    return (shadowQuery.CommittedStatus() == COMMITTED_TRIANGLE_HIT) ? 0.0f : 1.0f;
+    return shadowPayload.shadowHit ? 0.0f : 1.0f;
+}
+
+[shader("anyhit")]
+void ShadowAnyHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttributes attribs)
+{
+    // Filter: only run for shadow rays
+    if (!payload.isShadowRay)
+        return;
+
+    uint primIdx = PrimitiveIndex();
+    uint vertexIndex = primIdx * 3;
+    
+    // Load the 3 vertices of this triangle
+    Vertex v0 = LoadVertex(vertexIndex);
+    Vertex v1 = LoadVertex(vertexIndex + 1);
+    Vertex v2 = LoadVertex(vertexIndex + 2);
+
+    // Check selective shadow casting
+    bool triangleCastsShadow = (v0.CastShadow == 1) || (v1.CastShadow == 1) || (v2.CastShadow == 1);
+
+    if (!triangleCastsShadow)
+    {
+        IgnoreHit();
+    }
+    else
+    {
+        payload.shadowHit = true;
+        // AcceptHit() is implicit in AnyHit unless IgnoreHit() is called
+    }
 }
 
 //=============================================================================
@@ -384,6 +431,7 @@ void RayGen()
     payload.isGIRay = false;
     payload.isShadowRay = false;
     payload.hitT   = 100000.0f;
+    payload.shadowHit = false;
     
     TraceRay(
         gScene,
@@ -457,8 +505,9 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
     Vertex v2 = LoadVertex(vertexIndex + 2);
 
     // Only cast shadow if at least one vertex is marked
-    bool triangleCastsShadow = (v0.CastShadow == 1) || (v1.CastShadow == 1) || (v2.CastShadow == 1);
-    // Only affect shadow rays, not main rendering
+    // bool triangleCastsShadow = (v0.CastShadow == 1) || (v1.CastShadow == 1) || (v2.CastShadow == 1);
+    // [MOVED TO ANYHIT] Only affect shadow rays, not main rendering
+    /*
     if (payload.isShadowRay != 0) {
         if (!triangleCastsShadow) {
             // If triangle does not cast shadow, treat as transparent to shadow rays
@@ -466,6 +515,7 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
             return;
         }
     }
+    */
     
     // Barycentric coordinates
     float3 bary = float3(1.0f - attribs.barycentrics.x - attribs.barycentrics.y,
@@ -555,6 +605,7 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
         contPayload.isGIRay     = payload.isGIRay;
         contPayload.isShadowRay = payload.isShadowRay;
         contPayload.hitT        = 100000.0f;
+        contPayload.shadowHit   = false;
         
         TraceRay(gScene, RAY_FLAG_NONE, 0xFF, 0, 1, 0, contRay, contPayload);
         payload.color = contPayload.color;
@@ -641,10 +692,10 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
             {
                 // Shadow ray for nearby lights (skip distant ones for performance)
                 float shadow = 1.0f;
-                if (i <= MAX_SHADOW_LIGHTS)
-                {
+                //if (i <= MAX_SHADOW_LIGHTS)
+                //{
                    shadow = TraceShadowRay(shadowOrigin, lightDir, d);
-                }
+                //}
                 // Spot light logic
                 if (L.SpotPower > 0.0f)
                 {
@@ -686,6 +737,7 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
         giPayload.isGIRay     = true;
         giPayload.isShadowRay = false;
         giPayload.hitT        = 100000.0f;
+        giPayload.shadowHit   = false;
 
         RayDesc giRay;
         giRay.Origin    = hitPos + N * SHADOW_BIAS;

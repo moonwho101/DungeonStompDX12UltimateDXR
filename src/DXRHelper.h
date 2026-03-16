@@ -180,5 +180,6 @@ class DXRHelper {
 	static const wchar_t *kRayGenShader;
 	static const wchar_t *kMissShader;
 	static const wchar_t *kClosestHitShader;
+	static const wchar_t *kAnyHitShader;
 	static const wchar_t *kHitGroup;
 };

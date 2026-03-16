@@ -15,6 +15,7 @@ using namespace DirectX;
 const wchar_t *DXRHelper::kRayGenShader = L"RayGen";
 const wchar_t *DXRHelper::kMissShader = L"Miss";
 const wchar_t *DXRHelper::kClosestHitShader = L"ClosestHit";
+const wchar_t *DXRHelper::kAnyHitShader = L"ShadowAnyHit";
 const wchar_t *DXRHelper::kHitGroup = L"HitGroup";
 
 // Align to shader table record alignment (D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT)
@@ -284,16 +285,18 @@ void DXRHelper::CreateRaytracingPipelineState(ID3D12Device5 *device) {
 	lib->DefineExport(kRayGenShader);
 	lib->DefineExport(kMissShader);
 	lib->DefineExport(kClosestHitShader);
+	lib->DefineExport(kAnyHitShader);
 
 	// Hit group
 	auto hitGroup = stateObjectDesc.CreateSubobject<CD3DX12_HIT_GROUP_SUBOBJECT>();
 	hitGroup->SetClosestHitShaderImport(kClosestHitShader);
+	hitGroup->SetAnyHitShaderImport(kAnyHitShader);
 	hitGroup->SetHitGroupExport(kHitGroup);
 	hitGroup->SetHitGroupType(D3D12_HIT_GROUP_TYPE_TRIANGLES);
 
 	// Shader config
 	auto shaderConfig = stateObjectDesc.CreateSubobject<CD3DX12_RAYTRACING_SHADER_CONFIG_SUBOBJECT>();
-	UINT payloadSize = sizeof(XMFLOAT4) + sizeof(UINT) + sizeof(UINT) + sizeof(UINT) + sizeof(float); // float4 color + uint depth + bool isGIRay + bool isShadowRay + float hitT
+	UINT payloadSize = sizeof(XMFLOAT4) + sizeof(UINT) + sizeof(UINT) + sizeof(UINT) + sizeof(float) + sizeof(UINT); // float4 color + uint depth + bool isGIRay + bool isShadowRay + float hitT + bool shadowHit
 	UINT attributeSize = sizeof(XMFLOAT2);              // Barycentrics
 	shaderConfig->Config(payloadSize, attributeSize);
 
