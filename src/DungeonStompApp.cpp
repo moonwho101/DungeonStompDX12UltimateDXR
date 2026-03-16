@@ -3248,7 +3248,7 @@ void DungeonStompApp::ProcessLights11() {
 
 		int spot = 16;
 
-		LightContainer[spot].Position = DirectX::XMFLOAT3{ m_vEyePt.x, m_vEyePt.y, m_vEyePt.z };
+		LightContainer[spot].Position = DirectX::XMFLOAT3{ m_vEyePt.x, m_vEyePt.y + 25.0f, m_vEyePt.z };
 		LightContainer[spot].Strength = DirectX::XMFLOAT3{ 0.0f, 0.0f, 1.0f };
 		LightContainer[spot].FalloffStart = 200.0f;
 		LightContainer[spot].Direction = { 0.0f, -1.0f, 0.0f };
