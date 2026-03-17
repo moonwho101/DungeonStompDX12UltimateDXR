@@ -701,7 +701,7 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
     if (!payload.isGIRay)
     {
         float3 giAccum = float3(0.0f, 0.0f, 0.0f);
-        const uint GI_SAMPLES = 2;
+        const uint GI_SAMPLES = 1;
 
         for (uint s = 0; s < GI_SAMPLES; ++s)
         {
