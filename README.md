@@ -1,6 +1,6 @@
 # Dungeon Stomp DirectX12 Ultimate DXR
 
-![Dungeon Stomp DX12 DXR](../main/Textures/screenshot20.jpg)
+![Dungeon Stomp DX12 DXR](../main/Textures/screenshot22.jpg)
 
 Dungeon Stomp DirectX12 Ultimate DXR (DirectX Raytracing) with PBR (Physically based rendering) and GI (Global illumination).
 
@@ -42,6 +42,8 @@ Happy Dungeon Stomping - Breeyark!
 * Maximize screen then press ALT+ENTER to enter FULLSCREEN mode
 * Press F5 to Load game, F6 to Save game
 * F11 to toggle full screen
+
+![Dungeon Stomp DX12 DXR](../main/Textures/screenshot22.jpg)
 
 ## Debug Controls
 
