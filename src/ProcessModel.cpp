@@ -248,6 +248,8 @@ void ObjectToD3DVertList(int ob_type, float angle, int oblist_index) {
 			src_v[cnt].z = D3DVAL(mz[i]);
 			src_v[cnt].tu = D3DVAL(use_texmap ? TexMap[ctext].tu[i] : tx[i]);
 			src_v[cnt].tv = D3DVAL(use_texmap ? TexMap[ctext].tv[i] : ty[i]);
+			src_v[cnt].CastShadow = 0;
+
 			src_collide[cnt] = objectcollide == 1 ? 1 : 0;
 
 			// Calculate normal for first vertex
@@ -466,6 +468,7 @@ void PlayerToD3DVertList(int pmodel_id, int curr_frame, float angle, int texture
 			src_v[cnt].z = D3DVAL(rz);
 			src_v[cnt].tu = D3DVAL(tx);
 			src_v[cnt].tv = D3DVAL(ty);
+			src_v[cnt].CastShadow = 1;
 			src_collide[cnt] = 1;
 
 			// For triangle list streams, compute normal/tangent per tri as it forms
@@ -1609,6 +1612,7 @@ void PlayerToD3DIndexedVertList(int pmodel_id, int curr_frame, float angle, int 
 			src_v[cnt].z = D3DVAL(rz);
 			src_v[cnt].tu = D3DVAL(tx);
 			src_v[cnt].tv = D3DVAL(ty);
+			src_v[cnt].CastShadow = 1;
 			src_collide[cnt] = 1;
 
 			// When a full triangle is present (streamed as list), compute normal and tangent

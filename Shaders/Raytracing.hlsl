@@ -66,19 +66,23 @@ RWTexture2D<float4> gOutput : register(u0);
 // Acceleration structure
 RaytracingAccelerationStructure gScene : register(t0);
 
-// Vertex buffer (44 bytes per vertex: Pos(12) + Normal(12) + TexC(8) + TangentU(12))
+// Vertex buffer (48 bytes per vertex: Pos(12) + Normal(12) + TexC(8) + TangentU(12) + CastShadow(4))
 struct Vertex
 {
     float3 Pos;
     float3 Normal;
     float2 TexC;
     float3 TangentU;
+    int CastShadow;
 };
 
 ByteAddressBuffer gVertices : register(t1);
 
 // Texture array (copied to DXR heap)
 Texture2D gTextures[] : register(t2);
+
+// Direct binding for sky cube map (Texture index 484 -> space2, t0)
+TextureCube gCubeMap : register(t0, space2);
 
 // Per-primitive texture index buffer
 ByteAddressBuffer gPrimitiveTextureIndices : register(t0, space1);
@@ -92,8 +96,8 @@ SamplerState gSampler : register(s0);
 // Helper to load vertex from byte address buffer
 Vertex LoadVertex(uint vertexIndex)
 {
-    // 44 bytes per vertex = 11 DWORDs
-    uint address = vertexIndex * 44;
+    // 48 bytes per vertex = 12 DWORDs
+    uint address = vertexIndex * 48;
     
     Vertex v;
     // Load position (3 floats)
@@ -115,6 +119,8 @@ Vertex LoadVertex(uint vertexIndex)
     v.TangentU.y = asfloat(gVertices.Load(address + 36));
     v.TangentU.z = asfloat(gVertices.Load(address + 40));
     
+    // Load CastShadow (int)
+    v.CastShadow = gVertices.Load(address + 44);
     return v;
 }
 
@@ -135,6 +141,13 @@ bool IsTransparentTexture(uint texIdx)
     if (texIdx >= 205 && texIdx <= 209) return true;  // 206-1..210-1
     if (texIdx >= 370 && texIdx <= 378) return true;  // 371-1..379-1
     if (texIdx == 378)                  return true;
+    return false;
+}
+
+// Hard-coded player weapon texture range (also treated as transparent for shadow rays to prevent black weapon silhouettes)
+bool IsWeaponTexture(uint texIdx)
+{
+    if (texIdx >= 127  && texIdx <= 137) return true;  // player weapons (swords, bows, etc)
     return false;
 }
 
@@ -311,18 +324,40 @@ float3 ComputeSpotLight(Light L, float3 pos, float3 albedo, float3 N, float3 V, 
 // Returns 1.0 if fully lit, 0.0 if fully shadowed
 float TraceShadowRay(float3 origin, float3 direction, float maxDist)
 {
-    RayQuery<RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES> shadowQuery;
-    
-    RayDesc shadowRay;
-    shadowRay.Origin = origin;
-    shadowRay.Direction = direction;
-    shadowRay.TMin = 0.05f;
-    shadowRay.TMax = maxDist - 0.1f;
-    
-    shadowQuery.TraceRayInline(gScene, RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH, 0xFF, shadowRay);
-    shadowQuery.Proceed();
-    
-    return (shadowQuery.CommittedStatus() == COMMITTED_TRIANGLE_HIT) ? 0.0f : 1.0f;
+    // DXR 1.1 Inline RayQuery for better performance in shadow tests
+    RayDesc ray;
+    ray.Origin = origin;
+    ray.Direction = direction;
+    ray.TMin = 0.05f;
+    ray.TMax = maxDist - 0.1f;
+
+    RayQuery<RAY_FLAG_SKIP_CLOSEST_HIT_SHADER | RAY_FLAG_FORCE_NON_OPAQUE> q;
+    q.TraceRayInline(gScene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, 0xFF, ray);
+
+    bool hitFound = false;
+    while (q.Proceed())
+    {
+        if (q.CandidateType() == CANDIDATE_NON_OPAQUE_TRIANGLE)
+        {
+            uint primIdx = q.CandidatePrimitiveIndex();
+            uint vertexIndex = primIdx * 3;
+            
+            Vertex v0 = LoadVertex(vertexIndex);
+            Vertex v1 = LoadVertex(vertexIndex + 1);
+            Vertex v2 = LoadVertex(vertexIndex + 2);
+
+            bool triangleCastsShadow = (v0.CastShadow == 1) || (v1.CastShadow == 1) || (v2.CastShadow == 1);
+            uint texIndex = gPrimitiveTextureIndices.Load(primIdx * 4);
+
+            if (triangleCastsShadow && !IsTransparentTexture(texIndex) && !IsWeaponTexture(texIndex))
+            {
+                hitFound = true;
+                q.Abort();
+            }
+        }
+    }
+
+    return hitFound ? 0.0f : 1.0f;
 }
 
 //=============================================================================
@@ -382,7 +417,7 @@ void RayGen()
     
     TraceRay(
         gScene,
-        RAY_FLAG_NONE,  // Don't cull - dungeon geometry might have back faces visible
+        RAY_FLAG_CULL_BACK_FACING_TRIANGLES,
         0xFF,
         0,  // Hit group index
         1,  // Multiplier for geometry index
@@ -399,6 +434,7 @@ void RayGen()
     for (uint i = 1; i < min(gNumLights, (uint)MaxLights); ++i)
     {
         Light L = gLights[i];
+        if (distance(L.Position, gCameraPos) > 1500.0f) continue;
         float3 lightVec = L.Position - rayOrigin;
         float tClosest = dot(lightVec, rayDirection);
         tClosest = clamp(tClosest, 0.0f, payload.hitT);
@@ -425,12 +461,17 @@ void RayGen()
 [shader("miss")]
 void Miss(inout RayPayload payload)
 {
-    // Atmospheric dungeon void - slight vertical gradient for depth
     float3 rayDir = WorldRayDirection();
+    
+    // Sample the sunset cube map for the sky
+    // We use SampleLevel with LOD 0 for the sharpest background
+    float3 skyColor = gCubeMap.SampleLevel(gSampler, rayDir, 0).rgb;
+    
+    // Apply atmospheric dungeon void vertical gradient to darken the lower part 
+    // of the cube if it's too bright for a dungeon, but keep most of it.
     float upFactor = saturate(rayDir.y * 0.5f + 0.5f);
-    float3 darkFloor = float3(0.01f, 0.01f, 0.015f);
-    float3 darkCeiling = float3(0.025f, 0.02f, 0.03f);
-    float3 skyColor = lerp(darkFloor, darkCeiling, upFactor);
+    skyColor *= lerp(0.8f, 1.0f, upFactor);
+    
     payload.color = float4(skyColor, 1.0f);
     payload.hitT = 100000.0f;
 }
@@ -450,6 +491,19 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
     Vertex v0 = LoadVertex(vertexIndex);
     Vertex v1 = LoadVertex(vertexIndex + 1);
     Vertex v2 = LoadVertex(vertexIndex + 2);
+
+    // Only cast shadow if at least one vertex is marked
+    // bool triangleCastsShadow = (v0.CastShadow == 1) || (v1.CastShadow == 1) || (v2.CastShadow == 1);
+    // [MOVED TO ANYHIT] Only affect shadow rays, not main rendering
+    /*
+    if (payload.isShadowRay != 0) {
+        if (!triangleCastsShadow) {
+            // If triangle does not cast shadow, treat as transparent to shadow rays
+            payload.color = float4(0.0f, 0.0f, 0.0f, 1.0f);
+            return;
+        }
+    }
+    */
     
     // Barycentric coordinates
     float3 bary = float3(1.0f - attribs.barycentrics.x - attribs.barycentrics.y,
@@ -534,12 +588,12 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
         contRay.TMax = 100000.0f;
         
         RayPayload contPayload;
-        contPayload.color   = float4(0.0f, 0.0f, 0.0f, 1.0f);
-        contPayload.depth   = payload.depth + 1;
-        contPayload.isGIRay = payload.isGIRay;
-        contPayload.hitT    = 100000.0f;
+        contPayload.color       = float4(0.0f, 0.0f, 0.0f, 1.0f);
+        contPayload.depth       = payload.depth + 1;
+        contPayload.isGIRay     = payload.isGIRay;
+        contPayload.hitT        = 100000.0f;
         
-        TraceRay(gScene, RAY_FLAG_NONE, 0xFF, 0, 1, 0, contRay, contPayload);
+        TraceRay(gScene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, 0xFF, 0, 1, 0, contRay, contPayload);
         payload.color = contPayload.color;
         payload.hitT = RayTCurrent() + contPayload.hitT;
         return;
@@ -603,7 +657,8 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
         
         if (NdotL > 0.001f)
         {
-            float shadow = TraceShadowRay(shadowOrigin, lightDir, 10000.0f);
+            float shadow = 1.0f;
+            shadow = TraceShadowRay(shadowOrigin, lightDir, 10000.0f);
             color += ComputeDirectionalLight(L, albedo, N, V, roughness, metallic) * shadow;
         }
     }
@@ -624,10 +679,10 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
             {
                 // Shadow ray for nearby lights (skip distant ones for performance)
                 float shadow = 1.0f;
-                if (i <= MAX_SHADOW_LIGHTS)
-                {
-                   // shadow = TraceShadowRay(shadowOrigin, lightDir, d);
-                }
+                //if (i <= MAX_SHADOW_LIGHTS)
+                //{
+                   shadow = TraceShadowRay(shadowOrigin, lightDir, d);
+                //}
                 // Spot light logic
                 if (L.SpotPower > 0.0f)
                 {
@@ -664,10 +719,10 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
                                   cosTheta             * N);
 
         RayPayload giPayload;
-        giPayload.color   = float4(0.0f, 0.0f, 0.0f, 1.0f);
-        giPayload.depth   = 4; // Prevent GI rays from spawning transparency continuations (depth < 4 check)
-        giPayload.isGIRay = true;
-        giPayload.hitT    = 100000.0f;
+        giPayload.color       = float4(0.0f, 0.0f, 0.0f, 1.0f);
+        giPayload.depth       = 4; // Prevent GI rays from spawning transparency continuations (depth < 4 check)
+        giPayload.isGIRay     = true;
+        giPayload.hitT        = 100000.0f;
 
         RayDesc giRay;
         giRay.Origin    = hitPos + N * SHADOW_BIAS;
@@ -675,7 +730,7 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
         giRay.TMin      = 0.05f;
         giRay.TMax      = GI_MAX_DIST;
 
-        TraceRay(gScene, RAY_FLAG_NONE, 0xFF, 0, 1, 0, giRay, giPayload);
+        TraceRay(gScene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, 0xFF, 0, 1, 0, giRay, giPayload);
 
         // The returned color is the lit radiance of the secondary surface.
         // Weight by cosTheta (Lambert) — already baked in via cosine-weighted sampling so

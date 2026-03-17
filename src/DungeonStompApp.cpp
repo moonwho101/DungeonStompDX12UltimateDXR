@@ -1047,6 +1047,8 @@ void DungeonStompApp::UpdateDungeon(const GameTimer &gt) {
 		v.TangentU.y = src_v[j].nmy;
 		v.TangentU.z = src_v[j].nmz;
 
+		v.CastShadow = src_v[j].CastShadow;
+
 		currDungeonVB->CopyData(j, v);
 	}
 
@@ -2772,25 +2774,8 @@ void DungeonStompApp::BuildDescriptorHeaps() {
 		hr = rectangleVertexBuffer[i]->Map(0, &readRange2, reinterpret_cast<void **>(&rectangleVBGPUAddress[i]));
 	}
 
-	// auto skyCubeMap = mTextures["skyCubeMap"]->Resource;
-	auto skyCubeMap = mTextures["sunsetcube1024"]->Resource;
-
-	D3D12_SHADER_RESOURCE_VIEW_DESC srvDescSkyMap = {};
-	srvDescSkyMap.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	// srvDescSkyMap.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-	srvDescSkyMap.Texture2D.MostDetailedMip = 0;
-	srvDescSkyMap.Texture2D.ResourceMinLODClamp = 0.0f;
-	srvDescSkyMap.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
-	srvDescSkyMap.TextureCube.MostDetailedMip = 0;
-	srvDescSkyMap.TextureCube.MipLevels = skyCubeMap->GetDesc().MipLevels;
-	srvDescSkyMap.TextureCube.ResourceMinLODClamp = 0.0f;
-	srvDescSkyMap.Format = skyCubeMap->GetDesc().Format;
-	md3dDevice->CreateShaderResourceView(skyCubeMap.Get(), &srvDescSkyMap, hDescriptor);
-
-	int counttext = number_of_tex_aliases;
-
-	mSkyTexHeapIndex = (UINT)number_of_tex_aliases;
-	mShadowMapHeapIndex = mSkyTexHeapIndex + 1;
+	mSkyTexHeapIndex = 485; // sunsetcube1024 is 486th alias -> index 485
+	mShadowMapHeapIndex = (UINT)number_of_tex_aliases + 1;
 
 	mSsaoHeapIndexStart = mShadowMapHeapIndex + 1;
 	mSsaoAmbientMapIndex = mSsaoHeapIndexStart + 3;
@@ -2948,7 +2933,7 @@ BOOL DungeonStompApp::LoadRRTextures11(char *filename) {
 
 			srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 			srvDesc.Format = currentTex->Resource->GetDesc().Format;
-			srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+			srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D; // Reset to 2D for each loop
 			srvDesc.Texture2D.MostDetailedMip = 0;
 			srvDesc.Texture2D.MipLevels = currentTex->Resource->GetDesc().MipLevels;
 			srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
@@ -3204,7 +3189,7 @@ void DungeonStompApp::ProcessLights11() {
 
 		//+1 because 0 is reserved for directional light
 		LightContainer[i + 1].Strength = { 9.0f, 9.0f, 9.0f };
-		LightContainer[i + 1].Position = DirectX::XMFLOAT3{ oblist[q].x, oblist[q].y + 50.0f, oblist[q].z };
+		LightContainer[i + 1].Position = DirectX::XMFLOAT3{ oblist[q].x, oblist[q].y + 43.0f, oblist[q].z };
 	}
 
 	int count = 0;
@@ -3246,7 +3231,7 @@ void DungeonStompApp::ProcessLights11() {
 
 		int spot = 16;
 
-		LightContainer[spot].Position = DirectX::XMFLOAT3{ m_vEyePt.x, m_vEyePt.y, m_vEyePt.z };
+		LightContainer[spot].Position = DirectX::XMFLOAT3{ m_vEyePt.x, m_vEyePt.y + 25.0f, m_vEyePt.z };
 		LightContainer[spot].Strength = DirectX::XMFLOAT3{ 0.0f, 0.0f, 1.0f };
 		LightContainer[spot].FalloffStart = 200.0f;
 		LightContainer[spot].Direction = { 0.0f, -1.0f, 0.0f };

@@ -48,6 +48,7 @@ struct Vertex {
 	DirectX::XMFLOAT3 Normal;
 	DirectX::XMFLOAT2 TexC;
 	DirectX::XMFLOAT3 TangentU;
+	int CastShadow = 0;
 };
 
 struct SsaoConstants {
