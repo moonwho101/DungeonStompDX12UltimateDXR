@@ -81,6 +81,9 @@ ByteAddressBuffer gVertices : register(t1);
 // Texture array (copied to DXR heap)
 Texture2D gTextures[] : register(t2);
 
+// Direct binding for sky cube map (Texture index 484 -> space2, t0)
+TextureCube gCubeMap : register(t0, space2);
+
 // Per-primitive texture index buffer
 ByteAddressBuffer gPrimitiveTextureIndices : register(t0, space1);
 
@@ -458,12 +461,17 @@ void RayGen()
 [shader("miss")]
 void Miss(inout RayPayload payload)
 {
-    // Atmospheric dungeon void - slight vertical gradient for depth
     float3 rayDir = WorldRayDirection();
+    
+    // Sample the sunset cube map for the sky
+    // We use SampleLevel with LOD 0 for the sharpest background
+    float3 skyColor = gCubeMap.SampleLevel(gSampler, rayDir, 0).rgb;
+    
+    // Apply atmospheric dungeon void vertical gradient to darken the lower part 
+    // of the cube if it's too bright for a dungeon, but keep most of it.
     float upFactor = saturate(rayDir.y * 0.5f + 0.5f);
-    float3 darkFloor = float3(0.01f, 0.01f, 0.015f);
-    float3 darkCeiling = float3(0.025f, 0.02f, 0.03f);
-    float3 skyColor = lerp(darkFloor, darkCeiling, upFactor);
+    skyColor *= lerp(0.8f, 1.0f, upFactor);
+    
     payload.color = float4(skyColor, 1.0f);
     payload.hitT = 100000.0f;
 }
