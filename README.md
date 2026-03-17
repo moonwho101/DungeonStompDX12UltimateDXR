@@ -43,7 +43,7 @@ Happy Dungeon Stomping - Breeyark!
 * Press F5 to Load game, F6 to Save game
 * F11 to toggle full screen
 
-![Dungeon Stomp DX12 DXR](../main/Textures/screenshot22.jpg)
+![Dungeon Stomp DX12 DXR](../main/Textures/screenshot23.jpg)
 
 ## Debug Controls
 
