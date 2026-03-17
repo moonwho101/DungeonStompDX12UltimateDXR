@@ -3,7 +3,7 @@
 // DirectX Raytracing Shader with PBR Lighting
 // Ray generation, closest hit, and miss shaders for DXR with physically-based rendering
 // Features: inline shadow rays (DXR 1.1), full Cook-Torrance PBR, ACES tone mapping,
-//           atmospheric fog, wet floor reflectance, per-light flicker
+//           atmospheric fog, wet floor reflectance, per-light flicker, 2-sample GI
 //***************************************************************************************
 
 #define MaxLights 32
@@ -696,46 +696,54 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
         }
     }
     
-    // ---- Single-bounce Global Illumination ----
+    // ---- Single-bounce Global Illumination (2 Samples) ----
     // Only trace GI ray for primary (camera) rays to avoid runaway recursion.
     if (!payload.isGIRay)
     {
-        // Build a cosine-weighted random direction in the hemisphere around N.
-        // We use the hit position as a cheap deterministic seed.
-        float seed1 = frac(sin(dot(hitPos.xy + hitPos.z, float2(127.1f, 311.7f))) * 43758.5453f);
-        float seed2 = frac(sin(dot(hitPos.yz + hitPos.x, float2(269.5f, 183.3f))) * 43758.5453f);
+        float3 giAccum = float3(0.0f, 0.0f, 0.0f);
+        const uint GI_SAMPLES = 2;
 
-        // Map to cosine-weighted hemisphere sample
-        float phi      = 2.0f * PI * seed1;
-        float cosTheta = sqrt(seed2);
-        float sinTheta = sqrt(1.0f - seed2);
+        for (uint s = 0; s < GI_SAMPLES; ++s)
+        {
+            // Build a cosine-weighted random direction in the hemisphere around N.
+            // We use the hit position and loop index as a cheap deterministic seed.
+            float seed1 = frac(sin(dot(hitPos.xy + hitPos.z, float2(12.9898f + (float)s * 1.618f, 78.233f))) * 43758.5453f);
+            float seed2 = frac(sin(dot(hitPos.yz + hitPos.x, float2(26.9511f + (float)s * 1.618f, 18.337f))) * 43758.5453f);
 
-        // Build a local TBN frame aligned with N so the sample points into the hemisphere
-        float3 up   = abs(N.y) < 0.999f ? float3(0.0f, 1.0f, 0.0f) : float3(1.0f, 0.0f, 0.0f);
-        float3 giT  = normalize(cross(up, N));
-        float3 giB  = cross(N, giT);
-        float3 giDir = normalize(sinTheta * cos(phi) * giT +
-                                  sinTheta * sin(phi) * giB +
-                                  cosTheta             * N);
+            // Map to cosine-weighted hemisphere sample
+            float phi      = 2.0f * PI * seed1;
+            float cosTheta = sqrt(seed2);
+            float sinTheta = sqrt(1.0f - seed2);
 
-        RayPayload giPayload;
-        giPayload.color       = float4(0.0f, 0.0f, 0.0f, 1.0f);
-        giPayload.depth       = 4; // Prevent GI rays from spawning transparency continuations (depth < 4 check)
-        giPayload.isGIRay     = true;
-        giPayload.hitT        = 100000.0f;
+            // Build a local TBN frame aligned with N so the sample points into the hemisphere
+            float3 up   = abs(N.y) < 0.999f ? float3(0.0f, 1.0f, 0.0f) : float3(1.0f, 0.0f, 0.0f);
+            float3 giT  = normalize(cross(up, N));
+            float3 giB  = cross(N, giT);
+            float3 giDir = normalize(sinTheta * cos(phi) * giT +
+                                      sinTheta * sin(phi) * giB +
+                                      cosTheta             * N);
 
-        RayDesc giRay;
-        giRay.Origin    = hitPos + N * SHADOW_BIAS;
-        giRay.Direction = giDir;
-        giRay.TMin      = 0.05f;
-        giRay.TMax      = GI_MAX_DIST;
+            RayPayload giPayload;
+            giPayload.color       = float4(0.0f, 0.0f, 0.0f, 1.0f);
+            giPayload.depth       = 4; // Prevent GI rays from spawning transparency continuations (depth < 4 check)
+            giPayload.isGIRay     = true;
+            giPayload.hitT        = 100000.0f;
 
-        TraceRay(gScene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, 0xFF, 0, 1, 0, giRay, giPayload);
+            RayDesc giRay;
+            giRay.Origin    = hitPos + N * SHADOW_BIAS;
+            giRay.Direction = giDir;
+            giRay.TMin      = 0.05f;
+            giRay.TMax      = GI_MAX_DIST;
 
-        // The returned color is the lit radiance of the secondary surface.
-        // Weight by cosTheta (Lambert) — already baked in via cosine-weighted sampling so
-        // Monte-Carlo weight cancels and we just scale by the strength knob * albedo tint.
-        float3 giColor = giPayload.color.rgb * albedo * GI_BOUNCE_STRENGTH;
+            TraceRay(gScene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, 0xFF, 0, 1, 0, giRay, giPayload);
+
+            // The returned color is the lit radiance of the secondary surface.
+            // Weight by cosTheta (Lambert) — already baked in via cosine-weighted sampling so
+            // Monte-Carlo weight cancels and we just scale by the strength knob * albedo tint.
+            giAccum += giPayload.color.rgb;
+        }
+
+        float3 giColor = (giAccum / (float)GI_SAMPLES) * albedo * GI_BOUNCE_STRENGTH;
         color += giColor;
     }
 
