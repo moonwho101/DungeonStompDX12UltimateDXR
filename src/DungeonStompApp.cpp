@@ -2774,25 +2774,8 @@ void DungeonStompApp::BuildDescriptorHeaps() {
 		hr = rectangleVertexBuffer[i]->Map(0, &readRange2, reinterpret_cast<void **>(&rectangleVBGPUAddress[i]));
 	}
 
-	// auto skyCubeMap = mTextures["skyCubeMap"]->Resource;
-	auto skyCubeMap = mTextures["sunsetcube1024"]->Resource;
-
-	D3D12_SHADER_RESOURCE_VIEW_DESC srvDescSkyMap = {};
-	srvDescSkyMap.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	// srvDescSkyMap.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-	srvDescSkyMap.Texture2D.MostDetailedMip = 0;
-	srvDescSkyMap.Texture2D.ResourceMinLODClamp = 0.0f;
-	srvDescSkyMap.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
-	srvDescSkyMap.TextureCube.MostDetailedMip = 0;
-	srvDescSkyMap.TextureCube.MipLevels = skyCubeMap->GetDesc().MipLevels;
-	srvDescSkyMap.TextureCube.ResourceMinLODClamp = 0.0f;
-	srvDescSkyMap.Format = skyCubeMap->GetDesc().Format;
-	md3dDevice->CreateShaderResourceView(skyCubeMap.Get(), &srvDescSkyMap, hDescriptor);
-
-	int counttext = number_of_tex_aliases;
-
-	mSkyTexHeapIndex = (UINT)number_of_tex_aliases;
-	mShadowMapHeapIndex = mSkyTexHeapIndex + 1;
+	mSkyTexHeapIndex = 485; // sunsetcube1024 is 486th alias -> index 485
+	mShadowMapHeapIndex = (UINT)number_of_tex_aliases + 1;
 
 	mSsaoHeapIndexStart = mShadowMapHeapIndex + 1;
 	mSsaoAmbientMapIndex = mSsaoHeapIndexStart + 3;
@@ -2950,7 +2933,7 @@ BOOL DungeonStompApp::LoadRRTextures11(char *filename) {
 
 			srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 			srvDesc.Format = currentTex->Resource->GetDesc().Format;
-			srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+			srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D; // Reset to 2D for each loop
 			srvDesc.Texture2D.MostDetailedMip = 0;
 			srvDesc.Texture2D.MipLevels = currentTex->Resource->GetDesc().MipLevels;
 			srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;

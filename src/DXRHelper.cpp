@@ -155,19 +155,23 @@ void DXRHelper::CreateRootSignatures(ID3D12Device5 *device) {
 	CD3DX12_DESCRIPTOR_RANGE1 uavRange;
 	uavRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0); // u0
 
-	// Texture ranges - 550 textures at t2 (space0) and the sky cubemap at t0 (space2)
-	CD3DX12_DESCRIPTOR_RANGE1 textureRanges[2];
-	textureRanges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 550, 2); // t2-t551, space0
-	textureRanges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 2, D3D12_DESCRIPTOR_RANGE_FLAG_NONE, 484); // t0, space2, offset 484 in table
+	// Texture range - 550 textures at t2 (space0)
+	CD3DX12_DESCRIPTOR_RANGE1 textureRange;
+	textureRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 550, 2); // t2-t551, space0
 
-	CD3DX12_ROOT_PARAMETER1 rootParams[7];
+	// Skycube range - 1 texture at t0 (space2)
+	CD3DX12_DESCRIPTOR_RANGE1 skyRange;
+	skyRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 2); // t0, space2
+
+	CD3DX12_ROOT_PARAMETER1 rootParams[8];
 	rootParams[0].InitAsDescriptorTable(1, &uavRange);                             // Output UAV
 	rootParams[1].InitAsShaderResourceView(0);                                     // TLAS (t0)
 	rootParams[2].InitAsConstantBufferView(0, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE); // Scene CB (b0)
 	rootParams[3].InitAsShaderResourceView(1);                                     // Vertex buffer (t1)
-	rootParams[4].InitAsDescriptorTable(2, textureRanges);                         // Texture array (t2+) and skycube (t0, space2)
+	rootParams[4].InitAsDescriptorTable(1, &textureRange);                         // Texture array (t2+)
 	rootParams[5].InitAsShaderResourceView(0, 1);                                  // Primitive indices (t0, space1)
 	rootParams[6].InitAsShaderResourceView(1, 1);                                  // Normal map indices (t1, space1)
+	rootParams[7].InitAsDescriptorTable(1, &skyRange);                             // Skycube (t0, space2)
 
 	// Static sampler for texture sampling
 	D3D12_STATIC_SAMPLER_DESC samplerDesc = {};
@@ -587,6 +591,12 @@ void DXRHelper::DispatchRays(ID3D12GraphicsCommandList5 *cmdList, UINT width, UI
 		CD3DX12_GPU_DESCRIPTOR_HANDLE texHandle(mDXRDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
 		texHandle.Offset(mTextureStartOffset, mCbvSrvUavDescriptorSize);
 		cmdList->SetComputeRootDescriptorTable(4, texHandle);
+
+		// Set skycube descriptor table (slot 7) - specifically texture at index 484
+		// (index 484 in texture array = alias 485 sunsetcube1024)
+		CD3DX12_GPU_DESCRIPTOR_HANDLE skyHandle(mDXRDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+		skyHandle.Offset(mTextureStartOffset + 485, mCbvSrvUavDescriptorSize);
+		cmdList->SetComputeRootDescriptorTable(7, skyHandle);
 	}
 
 	// Set primitive texture indices buffer (slot 5)
