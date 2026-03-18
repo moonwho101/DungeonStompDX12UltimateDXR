@@ -38,9 +38,19 @@
             "problemMatcher": "$msCompile"
         },
         {
-            "label": "dungeonStomp launch",
+            "label": "dungeonStomp launch (release)",
             "type": "shell",
             "command": "${workspaceFolder}/bin/DungeonStomp.exe",
+            "options": {
+                "cwd": "${workspaceFolder}/bin"
+            },
+            "group": "none",
+            "problemMatcher": []
+        },
+        {
+            "label": "dungeonStomp launch (debug)",
+            "type": "shell",
+            "command": "${workspaceFolder}/bin/DungeonStompDebug.exe",
             "options": {
                 "cwd": "${workspaceFolder}/bin"
             },
