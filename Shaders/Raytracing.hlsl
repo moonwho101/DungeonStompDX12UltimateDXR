@@ -577,27 +577,7 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
         texSample = gTextures[NonUniformResourceIndex(texIndex)].SampleLevel(gSampler, texCoord, albedoMip);
     }
     
-    // Alpha-test transparency: skip through transparent textures
-        if (IsTransparentTexture(texIndex) && texSample.a < 0.3f && payload.depth < 4)
-    {
-        // Fire a continuation ray through this surface
-        RayDesc contRay;
-        contRay.Origin = hitPos + rayDir * 0.01f;
-        contRay.Direction = rayDir;
-        contRay.TMin = 0.01f;
-        contRay.TMax = 100000.0f;
-        
-        RayPayload contPayload;
-        contPayload.color       = float4(0.0f, 0.0f, 0.0f, 1.0f);
-        contPayload.depth       = payload.depth + 1;
-        contPayload.isGIRay     = payload.isGIRay;
-        contPayload.hitT        = 100000.0f;
-        
-        TraceRay(gScene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, 0xFF, 0, 1, 0, contRay, contPayload);
-        payload.color = contPayload.color;
-        payload.hitT = RayTCurrent() + contPayload.hitT;
-        return;
-    }
+    // Skip old alpha test block - merged into IsTransparentTexture handling below
     
     float3 albedo;
     if (texIndex < 550)
@@ -610,10 +590,34 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
         albedo = lerp(float3(0.4f, 0.38f, 0.35f), float3(0.55f, 0.52f, 0.48f), variation);
     }
     
-    // Transparent textures (torches/flames) are emissive: return raw texture color, no shading
+    // Alpha Blending for Transparent textures (torches/flames/translucent effects)
     if (IsTransparentTexture(texIndex))
     {
-        payload.color = float4(albedo, texSample.a);
+        float alpha = texSample.a;
+        float3 surfaceColor = albedo;
+        
+        if (alpha < 0.99f && payload.depth < 4)
+        {
+            // Fire a continuation ray through this surface to get what's behind it
+            RayDesc contRay;
+            contRay.Origin = hitPos + rayDir * 0.01f;
+            contRay.Direction = rayDir;
+            contRay.TMin = 0.01f;
+            contRay.TMax = 100000.0f;
+            
+            RayPayload contPayload;
+            contPayload.color       = float4(0.0f, 0.0f, 0.0f, 1.0f);
+            contPayload.depth       = payload.depth + 1;
+            contPayload.isGIRay     = payload.isGIRay;
+            contPayload.hitT        = 100000.0f;
+            
+            TraceRay(gScene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, 0xFF, 0, 1, 0, contRay, contPayload);
+            
+            // Standard linear alpha blending: src * alpha + dst * (1 - alpha)
+            surfaceColor = lerp(contPayload.color.rgb, surfaceColor, alpha);
+        }
+        
+        payload.color = float4(surfaceColor, 1.0f);
         payload.hitT = RayTCurrent();
         return;
     }

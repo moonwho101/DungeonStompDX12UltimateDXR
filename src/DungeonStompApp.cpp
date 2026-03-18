@@ -296,12 +296,14 @@ void DungeonStompApp::Update(const GameTimer &gt) {
 		XMStoreFloat3(&mRotatedLightDirections[i], lightDir);
 	}
 
-	UpdateObjectCBs(gt);
-	UpdateMaterialCBs(gt);
-	UpdateShadowTransform(gt, 0);
-	UpdateMainPassCB(gt);
-	UpdateSsaoCB(gt);
-	UpdateShadowPassCB(gt);
+	if (!enableDXR) {
+		UpdateObjectCBs(gt);
+		UpdateMaterialCBs(gt);
+		UpdateShadowTransform(gt, 0);
+		UpdateMainPassCB(gt);
+		UpdateSsaoCB(gt);
+		UpdateShadowPassCB(gt);
+	}
 	// DisplayPlayerCaption();
 	UpdateDungeon(gt);
 }
@@ -324,13 +326,15 @@ void DungeonStompApp::Draw(const GameTimer &gt) {
 
 	mCommandList->SetGraphicsRootSignature(mRootSignature.Get());
 
-	// Bind null SRV for shadow map pass.
-	mCommandList->SetGraphicsRootDescriptorTable(5, mNullSrv);
+	if (!enableDXR) {
+		// Bind null SRV for shadow map pass.
+		mCommandList->SetGraphicsRootDescriptorTable(5, mNullSrv);
 
-	// Render shadow map to texture.
-	DrawSceneToShadowMap(gt);
+		// Render shadow map to texture.
+		DrawSceneToShadowMap(gt);
+	}
 
-	if (enableSSao) {
+	if (enableSSao && !enableDXR) {
 
 		drawingSSAO = true;
 		// Normal/depth pass.
