@@ -330,7 +330,7 @@ float TraceShadowRay(float3 origin, float3 direction, float maxDist)
     ray.Origin = origin;
     ray.Direction = direction;
     ray.TMin = 0.05f;
-    ray.TMax = maxDist - 0.1f;
+    ray.TMax = max(0.05f, maxDist - 0.1f);
 
     RayQuery<RAY_FLAG_SKIP_CLOSEST_HIT_SHADER | RAY_FLAG_FORCE_NON_OPAQUE> q;
     q.TraceRayInline(gScene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, 0xFF, ray);
@@ -452,6 +452,11 @@ void RayGen()
         }
     }
     finalColor += glare;
+    
+    // Apply ACES filmic tone mapping and gamma correction
+    finalColor = ACESFilm(finalColor);
+    finalColor = pow(finalColor, 1.0f / 2.2f);
+    
     gOutput[launchIndex] = float4(finalColor, 1.0f);
 }
 
@@ -512,7 +517,6 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
                          attribs.barycentrics.y);
     
     // Interpolate vertex attributes
-    float3 localPos = v0.Pos * bary.x + v1.Pos * bary.y + v2.Pos * bary.z;
     float3 N = normalize(v0.Normal * bary.x + v1.Normal * bary.y + v2.Normal * bary.z);
     float2 texCoord = v0.TexC * bary.x + v1.TexC * bary.y + v2.TexC * bary.z;
     float3 T = normalize(v0.TangentU * bary.x + v1.TangentU * bary.y + v2.TangentU * bary.z);
@@ -763,9 +767,6 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
     // Minimum visibility so geometry silhouettes are faintly visible
     color = max(color, float3(0.012f, 0.01f, 0.008f));
     
-    // Apply ACES filmic tone mapping and gamma correction
-    color = ACESFilm(color);
-    color = pow(color, 1.0f / 2.2f);
     payload.color = float4(color, 1.0f);
     payload.hitT = RayTCurrent();
 }
