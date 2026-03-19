@@ -137,10 +137,11 @@ struct RayPayload
 bool IsTransparentTexture(uint texIdx)
 {
     if (texIdx >= 94  && texIdx <= 101) return true;  // flames / effects
-    if (texIdx >= 278 && texIdx <= 295) return true;  // 279-1..296-1
-    if (texIdx >= 205 && texIdx <= 209) return true;  // 206-1..210-1
-    if (texIdx >= 370 && texIdx <= 378) return true;  // 371-1..379-1
-    if (texIdx == 378)                  return true;
+    if (texIdx >= 278 && texIdx <= 295) return true;  // portal effects
+    if (texIdx >= 205 && texIdx <= 209) return true;  // flare
+    if (texIdx >= 370 && texIdx <= 378) return true;  // blood splatter decals
+    if (texIdx == 156)                  return true;  // wall crystal
+    if (texIdx == 181)                  return true;  // potion
     return false;
 }
 
