@@ -152,6 +152,14 @@ bool IsWeaponTexture(uint texIdx)
     return false;
 }
 
+// Hard-coded player weapon texture range (also treated as transparent for shadow rays to prevent black weapon silhouettes)
+bool IsFlameTexture(uint texIdx)
+{
+	if (texIdx >= 94 && texIdx <= 101)
+		return true; // flames / effects
+	return false;
+}
+
 //=============================================================================
 // Normal Map Helper
 //=============================================================================
@@ -626,9 +634,20 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
             }
             else if (alpha < 0.99f)
             {
-                // Standard linear alpha blending: src * alpha + dst * (1 - alpha)
-                surfaceColor = lerp(contPayload.color.rgb, surfaceColor, alpha);
-            }
+				if (IsFlameTexture(texIndex))
+				{
+                    // Transparent textures (torches/flames) are emissive: return raw texture color, no shading
+					payload.color = float4(albedo, texSample.a);
+					payload.hitT = RayTCurrent();
+					return;
+
+				}
+				else
+				{
+                    // Standard linear alpha blending: src * alpha + dst * (1 - alpha)
+					surfaceColor = lerp(contPayload.color.rgb, surfaceColor, alpha);
+				}
+			}
         }
         
         payload.color = float4(surfaceColor, 1.0f);
