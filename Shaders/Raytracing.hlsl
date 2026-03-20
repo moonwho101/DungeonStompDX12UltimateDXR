@@ -26,7 +26,7 @@
 #define GLARE_INNER_WEIGHT      0.6f
 #define GLARE_INNER_FALLOFF     0.9f
 #define GLARE_OUTER_WEIGHT      0.4f
-#define GLARE_OUTER_FALLOFF     6.7f
+#define GLARE_OUTER_FALLOFF     4.7f
 #define GLARE_THRESHOLD         0.001f
 #define GLARE_SCALE             0.45f
 #define FLICKER_BASE_STRENGTH   1.0f
