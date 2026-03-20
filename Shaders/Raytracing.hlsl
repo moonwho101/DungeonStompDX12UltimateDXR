@@ -24,9 +24,9 @@
 
 // Glare and flicker constants (for RayGen glare loop)
 #define GLARE_INNER_WEIGHT      0.6f
-#define GLARE_INNER_FALLOFF     1.4f
+#define GLARE_INNER_FALLOFF     0.9f
 #define GLARE_OUTER_WEIGHT      0.4f
-#define GLARE_OUTER_FALLOFF     7.2f
+#define GLARE_OUTER_FALLOFF     4.7f
 #define GLARE_THRESHOLD         0.001f
 #define GLARE_SCALE             0.45f
 #define FLICKER_BASE_STRENGTH   1.0f
@@ -141,7 +141,7 @@ bool IsTransparentTexture(uint texIdx)
     if (texIdx >= 205 && texIdx <= 209) return true;  // flare
     if (texIdx >= 370 && texIdx <= 378) return true;  // blood splatter decals
     if (texIdx == 156)                  return true;  // wall crystal
-    //if (texIdx == 181)                  return true;  // potion
+    if (texIdx == 181)                  return true;  // potion
     return false;
 }
 
@@ -150,6 +150,14 @@ bool IsWeaponTexture(uint texIdx)
 {
     if (texIdx >= 127  && texIdx <= 137) return true;  // player weapons (swords, bows, etc)
     return false;
+}
+
+// Hard-coded player weapon texture range (also treated as transparent for shadow rays to prevent black weapon silhouettes)
+bool IsFlameTexture(uint texIdx)
+{
+	if (texIdx >= 94 && texIdx <= 101)
+		return true; // flames / effects
+	return false;
 }
 
 //=============================================================================
@@ -330,7 +338,7 @@ float TraceShadowRay(float3 origin, float3 direction, float maxDist)
     ray.Origin = origin;
     ray.Direction = direction;
     ray.TMin = 0.05f;
-    ray.TMax = maxDist - 0.1f;
+    ray.TMax = max(0.05f, maxDist - 0.1f);
 
     RayQuery<RAY_FLAG_SKIP_CLOSEST_HIT_SHADER | RAY_FLAG_FORCE_NON_OPAQUE> q;
     q.TraceRayInline(gScene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, 0xFF, ray);
@@ -452,6 +460,11 @@ void RayGen()
         }
     }
     finalColor += glare;
+    
+    // Apply ACES filmic tone mapping and gamma correction
+    finalColor = ACESFilm(finalColor);
+    finalColor = pow(finalColor, 1.0f / 2.2f);
+    
     gOutput[launchIndex] = float4(finalColor, 1.0f);
 }
 
@@ -512,7 +525,6 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
                          attribs.barycentrics.y);
     
     // Interpolate vertex attributes
-    float3 localPos = v0.Pos * bary.x + v1.Pos * bary.y + v2.Pos * bary.z;
     float3 N = normalize(v0.Normal * bary.x + v1.Normal * bary.y + v2.Normal * bary.z);
     float2 texCoord = v0.TexC * bary.x + v1.TexC * bary.y + v2.TexC * bary.z;
     float3 T = normalize(v0.TangentU * bary.x + v1.TangentU * bary.y + v2.TangentU * bary.z);
@@ -595,9 +607,10 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
     if (IsTransparentTexture(texIndex))
     {
         float alpha = texSample.a;
-        float3 surfaceColor = albedo;
+        const float alphaTolerance = 0.05f;
+        float3 surfaceColor = albedo * 1.0f; // Boost brightness for transparent effects (fire, flares, etc)
         
-        if (alpha < 0.99f && payload.depth < 4)
+        if (payload.depth < 4)
         {
             // Fire a continuation ray through this surface to get what's behind it
             RayDesc contRay;
@@ -614,8 +627,27 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
             
             TraceRay(gScene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, 0xFF, 0, 1, 0, contRay, contPayload);
             
-            // Standard linear alpha blending: src * alpha + dst * (1 - alpha)
-            surfaceColor = lerp(contPayload.color.rgb, surfaceColor, alpha);
+            if (alpha < alphaTolerance)
+            {
+                // Alpha Test: discard this hit part and return what's behind it
+                surfaceColor = contPayload.color.rgb;
+            }
+            else if (alpha < 0.99f)
+            {
+				if (IsFlameTexture(texIndex))
+				{
+                    // Transparent textures (torches/flames) are emissive: return raw texture color, no shading
+					payload.color = float4(albedo, texSample.a);
+					payload.hitT = RayTCurrent();
+					return;
+
+				}
+				else
+				{
+                    // Standard linear alpha blending: src * alpha + dst * (1 - alpha)
+					surfaceColor = lerp(contPayload.color.rgb, surfaceColor, alpha);
+				}
+			}
         }
         
         payload.color = float4(surfaceColor, 1.0f);
@@ -763,9 +795,6 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
     // Minimum visibility so geometry silhouettes are faintly visible
     color = max(color, float3(0.012f, 0.01f, 0.008f));
     
-    // Apply ACES filmic tone mapping and gamma correction
-    color = ACESFilm(color);
-    color = pow(color, 1.0f / 2.2f);
     payload.color = float4(color, 1.0f);
     payload.hitT = RayTCurrent();
 }
