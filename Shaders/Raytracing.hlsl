@@ -599,9 +599,10 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
     if (IsTransparentTexture(texIndex))
     {
         float alpha = texSample.a;
-        float3 surfaceColor = albedo;
+        const float alphaTolerance = 0.05f;
+        float3 surfaceColor = albedo * 1.0f; // Boost brightness for transparent effects (fire, flares, etc)
         
-        if (alpha < 0.99f && payload.depth < 4)
+        if (payload.depth < 4)
         {
             // Fire a continuation ray through this surface to get what's behind it
             RayDesc contRay;
@@ -618,8 +619,16 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
             
             TraceRay(gScene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, 0xFF, 0, 1, 0, contRay, contPayload);
             
-            // Standard linear alpha blending: src * alpha + dst * (1 - alpha)
-            surfaceColor = lerp(contPayload.color.rgb, surfaceColor, alpha);
+            if (alpha < alphaTolerance)
+            {
+                // Alpha Test: discard this hit part and return what's behind it
+                surfaceColor = contPayload.color.rgb;
+            }
+            else if (alpha < 0.99f)
+            {
+                // Standard linear alpha blending: src * alpha + dst * (1 - alpha)
+                surfaceColor = lerp(contPayload.color.rgb, surfaceColor, alpha);
+            }
         }
         
         payload.color = float4(surfaceColor, 1.0f);

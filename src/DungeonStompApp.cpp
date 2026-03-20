@@ -3193,7 +3193,7 @@ void DungeonStompApp::ProcessLights11() {
 
 		//+1 because 0 is reserved for directional light
 		LightContainer[i + 1].Strength = { 9.0f, 9.0f, 9.0f };
-		LightContainer[i + 1].Position = DirectX::XMFLOAT3{ oblist[q].x, oblist[q].y + 43.0f, oblist[q].z };
+		LightContainer[i + 1].Position = DirectX::XMFLOAT3{ oblist[q].x, oblist[q].y + 45.0f, oblist[q].z };
 	}
 
 	int count = 0;
