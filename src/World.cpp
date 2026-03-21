@@ -8,7 +8,7 @@
 #include "Missle.hpp"
 
 int endc = 0;
-
+extern bool enableDXR;
 // TODO: fix
 float wWidth = 1;
 float wHeight = 1;
@@ -510,16 +510,17 @@ void UpdateWorld(float fElapsedTime) {
 	DrawPlayerGun(0);
 
 	//// Draw player model
-	// int nextFrame = GetNextFramePlayer();
+	int nextFrame = GetNextFramePlayer();
 
 	playerObjectStart = number_of_polys_per_frame;
-	// PlayerToD3DVertList(0,
-	//                     player_list[trueplayernum].current_frame, player_list[trueplayernum].gunangle,
-	//                     112,
-	//                     0, player_list[trueplayernum].x, player_list[trueplayernum].y - 55.0f, player_list[trueplayernum].z, nextFrame);
-	//// playerObjectEnd = number_of_polys_per_frame;
 
-	// DrawPlayerGun(1);
+	if (!enableDXR) {
+		PlayerToD3DVertList(0,
+		                    player_list[trueplayernum].current_frame, player_list[trueplayernum].gunangle,
+		                    112,
+		                    0, player_list[trueplayernum].x, player_list[trueplayernum].y - 55.0f, player_list[trueplayernum].z, nextFrame);
+		DrawPlayerGun(1);
+	}
 	playerObjectEnd = number_of_polys_per_frame;
 
 	int lsort = 0;
