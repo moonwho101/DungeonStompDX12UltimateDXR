@@ -680,6 +680,10 @@ void SmoothNormalsNoHash(int start_cnt) {
 	const float epsilon = 0.0001f;
 	const float smooth_threshold = 0.2f; // approx 60 degrees. 0.7f is 45 deg. 0.5f is more aggressive.
 
+	//0.707: Smooths up to 45° (Common default for most models).
+	//0.500: Smooths up to 60°.
+	//0.000: Smooths up to 90° (Everything up to a perfect right angle will be smoothed).
+
 	for (int i = start_cnt; i < cnt; i++) {
 		tracknormal[i] = 0;
 	}
