@@ -24,7 +24,7 @@ float mx[100], my[100], mz[100], mw[100];
 float cx[100], cy[100], cz[100], cw[100];
 float tx[10000], ty[10000];
 
-int sharedv[1000];
+int sharedv[2000];
 int track[60000];
 
 void SmoothNormals(int start_cnt);
@@ -671,59 +671,66 @@ void SmoothNormals(int start_cnt) {
 }
 
 void SmoothNormalsNoHash(int start_cnt) {
-
 	// Smooth the vertex normals out so the models look less blocky.
+	// Improvements:
+	// - Use epsilon for position comparison to handle floating point errors from tessellation.
+	// - Use a dot product threshold to avoid smoothing across sharp edges (smooth when you can).
+	// - Better management of shared vertex groups.
 
-	XMVECTOR sum, sumtan, average;
-	XMFLOAT3 x1, xtan, final2, finaltan;
-
-	int scount = 0;
+	const float epsilon = 0.0001f;
+	const float smooth_threshold = 0.2f; // approx 60 degrees. 0.7f is 45 deg. 0.5f is more aggressive.
 
 	for (int i = start_cnt; i < cnt; i++) {
 		tracknormal[i] = 0;
 	}
 
 	for (int i = start_cnt; i < cnt; i++) {
-
 		if (tracknormal[i] == 0) {
 			float x = src_v[i].x;
 			float y = src_v[i].y;
 			float z = src_v[i].z;
+			
+			XMVECTOR ni = XMVectorSet(src_v[i].nx, src_v[i].ny, src_v[i].nz, 0);
 
-			scount = 0;
-
-			// GitHub copilot fixed this! AI is the future.
-			// old code: for (int j = start_cnt; j < cnt; j++)
-
+			int scount = 0;
+			// Pass 1: find all vertices at the same location with similar normals
 			for (int j = i; j < cnt; j++) {
-				if (tracknormal[j] == 0 && x == src_v[j].x && y == src_v[j].y && z == src_v[j].z) {
-					// found shared vertex
-					sharedv[scount] = j;
-					scount++;
+				if (tracknormal[j] == 0) {
+					// Check position with epsilon
+					if (fabsf(src_v[j].x - x) < epsilon && 
+						fabsf(src_v[j].y - y) < epsilon && 
+						fabsf(src_v[j].z - z) < epsilon) {
+						
+						// Condition for smoothing: similar normals (smooth when you can)
+						XMVECTOR nj = XMVectorSet(src_v[j].nx, src_v[j].ny, src_v[j].nz, 0);
+						float dot = XMVectorGetX(XMVector3Dot(ni, nj));
+
+						// If normals are within the threshold, or if they are very similar (likely part of same quad)
+						if (dot > smooth_threshold) {
+							if (scount < 2000) {
+								sharedv[scount++] = j;
+							}
+						}
+					}
 				}
 			}
 
 			if (scount > 1) {
-				sum = XMVectorSet(0, 0, 0, 0);
-				sumtan = XMVectorSet(0, 0, 0, 0);
+				XMVECTOR sum = XMVectorSet(0, 0, 0, 0);
+				XMVECTOR sumtan = XMVectorSet(0, 0, 0, 0);
 
 				for (int k = 0; k < scount; k++) {
-					x1.x = src_v[sharedv[k]].nx;
-					x1.y = src_v[sharedv[k]].ny;
-					x1.z = src_v[sharedv[k]].nz;
-					sum = sum + XMLoadFloat3(&x1);
-
-					xtan.x = src_v[sharedv[k]].nmx;
-					xtan.y = src_v[sharedv[k]].nmy;
-					xtan.z = src_v[sharedv[k]].nmz;
-					sumtan = sumtan + XMLoadFloat3(&xtan);
+					sum = sum + XMVectorSet(src_v[sharedv[k]].nx, src_v[sharedv[k]].ny, src_v[sharedv[k]].nz, 0);
+					sumtan = sumtan + XMVectorSet(src_v[sharedv[k]].nmx, src_v[sharedv[k]].nmy, src_v[sharedv[k]].nmz, 0);
 				}
 
-				average = XMVector3Normalize(sum);
+				XMVECTOR average = XMVector3Normalize(sum);
+				XMFLOAT3 final2;
 				XMStoreFloat3(&final2, average);
 
-				average = XMVector3Normalize(sumtan);
-				XMStoreFloat3(&finaltan, average);
+				XMVECTOR averagetan = XMVector3Normalize(sumtan);
+				XMFLOAT3 finaltan;
+				XMStoreFloat3(&finaltan, averagetan);
 
 				for (int k = 0; k < scount; k++) {
 					src_v[sharedv[k]].nx = final2.x;
@@ -736,6 +743,10 @@ void SmoothNormalsNoHash(int start_cnt) {
 
 					tracknormal[sharedv[k]] = 1;
 				}
+			} else if (scount == 1) {
+				// Even if only one matched the normal threshold, we must mark it as tracked
+				// to avoid re-processing it as a new seed.
+				tracknormal[sharedv[0]] = 1;
 			}
 		}
 	}
