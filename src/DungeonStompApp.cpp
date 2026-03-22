@@ -179,7 +179,7 @@ bool DungeonStompApp::Initialize() {
 	} else {
 		OutputDebugStringA("DXR: Raytracing not supported on this device.\n");
 	}
-
+	BuildMaterials();
 	LoadTextures();
 	BuildRootSignature();
 	BuildSsaoRootSignature();
@@ -193,7 +193,7 @@ bool DungeonStompApp::Initialize() {
 	BuildShadersAndInputLayout();
 	BuildLandGeometry();
 	BuildDungeonGeometryBuffers();
-	BuildMaterials();
+	
 	BuildRenderItems();
 	BuildFrameResources();
 	BuildPSOs();
@@ -2613,6 +2613,7 @@ void DungeonStompApp::DrawDungeon(ID3D12GraphicsCommandList *cmdList, const std:
 
 			UINT materialIndex = mMaterials[textureType].get()->MatCBIndex;
 
+
 			D3D12_GPU_VIRTUAL_ADDRESS objCBAddress = objectCB->GetGPUVirtualAddress() + ri->ObjCBIndex * objCBByteSize;
 			D3D12_GPU_VIRTUAL_ADDRESS matCBAddress = matCB->GetGPUVirtualAddress() + materialIndex * matCBByteSize;
 
@@ -3085,6 +3086,16 @@ BOOL DungeonStompApp::LoadRRTextures11(char *filename) {
 			// Default PBR properties based on material name
 			TexMap[tex_alias_counter].material.roughness = 0.5f;
 			TexMap[tex_alias_counter].material.metallic = 0.0f;
+
+			auto textureType = TexMap[tex_alias_counter].material.name;
+
+			float roughness = mMaterials[textureType].get()->Roughness;
+			float metalicness = mMaterials[textureType].get()->Metal;
+
+			TexMap[tex_alias_counter].material.roughness = roughness;
+			TexMap[tex_alias_counter].material.metallic = metalicness;
+
+
 
 		/*	char *matName = TexMap[tex_alias_counter].material.name;
 			if (_stricmp(matName, "stone") == 0 || _stricmp(matName, "brick") == 0 || _stricmp(matName, "tile") == 0 || _stricmp(matName, "coble") == 0 || _stricmp(matName, "pave") == 0 || _stricmp(matName, "brick4") == 0 || _stricmp(matName, "brick5") == 0) {
