@@ -742,50 +742,56 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
         }
     }
     
-    // ---- Single-bounce Global Illumination (2 Samples) ----
+    // ---- Optimized Single-bounce Global Illumination (2 Samples) ----
     // Only trace GI ray for primary (camera) rays to avoid runaway recursion.
     if (!payload.isGIRay)
     {
         float3 giAccum = float3(0.0f, 0.0f, 0.0f);
         const uint GI_SAMPLES = 1;
 
+        // Build a local TBN frame aligned with N once outside the loop
+        float3 up   = abs(N.y) < 0.999f ? float3(0.0f, 1.0f, 0.0f) : float3(1.0f, 0.0f, 0.0f);
+        float3 giT  = normalize(cross(up, N));
+        float3 giB  = cross(N, giT);
+
+        // Incorporate pixel index and time for better noise distribution
+        uint2 launchIdx = DispatchRaysIndex().xy;
+        float baseSeed = (float)(launchIdx.x * 1973 + launchIdx.y * 9277 + gTotalTime * 1000.0f);
+
         for (uint s = 0; s < GI_SAMPLES; ++s)
         {
-            // Build a cosine-weighted random direction in the hemisphere around N.
-            // We use the hit position and loop index as a cheap deterministic seed.
-            float seed1 = frac(sin(dot(hitPos.xy + hitPos.z, float2(12.9898f + (float)s * 1.618f, 78.233f))) * 43758.5453f);
-            float seed2 = frac(sin(dot(hitPos.yz + hitPos.x, float2(26.9511f + (float)s * 1.618f, 18.337f))) * 43758.5453f);
+            // Improved pseudo-random hash using position and sample index
+            float3 p3 = frac(float3(hitPos.x + hitPos.y, hitPos.z + baseSeed, (float)s * 1.618f) * float3(.1031, .1030, .0973));
+            p3 += dot(p3, p3.yzx + 33.33);
+            float3 rand = frac((p3.xxy + p3.yxx) * p3.zyx);
+            
+            float seed1 = rand.x;
+            float seed2 = rand.y;
 
             // Map to cosine-weighted hemisphere sample
             float phi      = 2.0f * PI * seed1;
             float cosTheta = sqrt(seed2);
-            float sinTheta = sqrt(1.0f - seed2);
+            float sinTheta = sqrt(max(0.0f, 1.0f - seed2));
 
-            // Build a local TBN frame aligned with N so the sample points into the hemisphere
-            float3 up   = abs(N.y) < 0.999f ? float3(0.0f, 1.0f, 0.0f) : float3(1.0f, 0.0f, 0.0f);
-            float3 giT  = normalize(cross(up, N));
-            float3 giB  = cross(N, giT);
             float3 giDir = normalize(sinTheta * cos(phi) * giT +
                                       sinTheta * sin(phi) * giB +
                                       cosTheta             * N);
 
             RayPayload giPayload;
             giPayload.color       = float4(0.0f, 0.0f, 0.0f, 1.0f);
-            giPayload.depth       = 4; // Prevent GI rays from spawning transparency continuations (depth < 4 check)
+            giPayload.depth       = 4; // Prevent GI rays from spawning transparency continuations
             giPayload.isGIRay     = true;
             giPayload.hitT        = 100000.0f;
 
             RayDesc giRay;
             giRay.Origin    = hitPos + N * SHADOW_BIAS;
             giRay.Direction = giDir;
-            giRay.TMin      = 0.05f;
+            giRay.TMin      = 0.1f;
             giRay.TMax      = GI_MAX_DIST;
 
             TraceRay(gScene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, 0xFF, 0, 1, 0, giRay, giPayload);
 
-            // The returned color is the lit radiance of the secondary surface.
-            // Weight by cosTheta (Lambert) — already baked in via cosine-weighted sampling so
-            // Monte-Carlo weight cancels and we just scale by the strength knob * albedo tint.
+            // Use simple accumulation for diffuse bounce
             giAccum += giPayload.color.rgb;
         }
 
