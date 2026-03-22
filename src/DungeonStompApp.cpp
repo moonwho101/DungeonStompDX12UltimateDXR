@@ -179,7 +179,7 @@ bool DungeonStompApp::Initialize() {
 	} else {
 		OutputDebugStringA("DXR: Raytracing not supported on this device.\n");
 	}
-
+	BuildMaterials();
 	LoadTextures();
 	BuildRootSignature();
 	BuildSsaoRootSignature();
@@ -193,7 +193,7 @@ bool DungeonStompApp::Initialize() {
 	BuildShadersAndInputLayout();
 	BuildLandGeometry();
 	BuildDungeonGeometryBuffers();
-	BuildMaterials();
+	
 	BuildRenderItems();
 	BuildFrameResources();
 	BuildPSOs();
@@ -1099,10 +1099,9 @@ void DungeonStompApp::UpdateDungeon(const GameTimer &gt) {
 				OutputDebugStringA(buf);
 			}
 
-			// Assign texture to all triangles in this object
+			// Assign alias to all triangles in this object
 			for (int t = 0; t < numTriangles && (startTriangle + t) < (int)totalTriangles; t++) {
-				primitiveTextureIndices[startTriangle + t] = (UINT)textureNumber;
-				primitiveNormalMapIndices[startTriangle + t] = (INT)normalMapTexture;
+				primitiveTextureIndices[startTriangle + t] = (UINT)textureAliasNumber;
 				trianglesSet++;
 			}
 		}
@@ -1126,12 +1125,19 @@ void DungeonStompApp::UpdateDungeon(const GameTimer &gt) {
 			if (primitiveTextureIndices[i] == 999)
 				primitiveTextureIndices[i] = 0;
 		}
-
-		// Upload primitive texture indices to DXR
+		// Upload primitive alias indices to DXR (reusing texture indices buffer)
 		mDXRHelper->UpdatePrimitiveTextureIndices(md3dDevice.Get(), primitiveTextureIndices.data(), totalTriangles);
+ 
+		// Upload alias material data to DXR
+		std::vector<DXRMaterialData> aliasData(number_of_tex_aliases);
+		for (int i = 0; i < number_of_tex_aliases; i++) {
+			aliasData[i].TextureIndex = (UINT)TexMap[i].texture;
+			aliasData[i].NormalMapIndex = TexMap[i].normalmaptextureid;
+			aliasData[i].Roughness = TexMap[i].material.roughness;
+			aliasData[i].Metallic = TexMap[i].material.metallic;
+		}
+		mDXRHelper->UpdateAliasData(md3dDevice.Get(), aliasData.data(), (UINT)aliasData.size());
 
-		// Upload primitive normal map indices to DXR
-		mDXRHelper->UpdatePrimitiveNormalMapIndices(md3dDevice.Get(), primitiveNormalMapIndices.data(), totalTriangles);
 
 		// Update scene constants for DXR
 		XMMATRIX view = XMLoadFloat4x4(&mView);
@@ -1148,8 +1154,8 @@ void DungeonStompApp::UpdateDungeon(const GameTimer &gt) {
 		    LightContainer,
 		    MaxLights,
 		    gt.TotalTime(),
-		    0.5f,  // Default roughness
-		    0.0f); // Default metallic
+		    0.5f,  // Default roughness (deprecated, now per-alias)
+		    0.0f); // Default metallic (deprecated, now per-alias)
 	}
 }
 
@@ -2603,9 +2609,10 @@ void DungeonStompApp::DrawDungeon(ID3D12GraphicsCommandList *cmdList, const std:
 		if (draw) {
 
 			// default,grass,water,brick,stone,tile,crate,ice,bone,metal,wood
-			auto textureType = TexMap[texture_number].material;
+			auto textureType = TexMap[texture_number].material.name;
 
 			UINT materialIndex = mMaterials[textureType].get()->MatCBIndex;
+
 
 			D3D12_GPU_VIRTUAL_ADDRESS objCBAddress = objectCB->GetGPUVirtualAddress() + ri->ObjCBIndex * objCBByteSize;
 			D3D12_GPU_VIRTUAL_ADDRESS matCBAddress = matCB->GetGPUVirtualAddress() + materialIndex * matCBByteSize;
@@ -3074,7 +3081,39 @@ BOOL DungeonStompApp::LoadRRTextures11(char *filename) {
 			}
 
 			fscanf_s(fp, "%s", &p, 256);
-			strcpy_s((char *)TexMap[tex_alias_counter].material, 100, (char *)&p);
+			strcpy_s((char *)TexMap[tex_alias_counter].material.name, 100, (char *)&p);
+
+			// Default PBR properties based on material name
+			TexMap[tex_alias_counter].material.roughness = 0.5f;
+			TexMap[tex_alias_counter].material.metallic = 0.0f;
+
+			auto textureType = TexMap[tex_alias_counter].material.name;
+
+			float roughness = mMaterials[textureType].get()->Roughness;
+			float metalicness = mMaterials[textureType].get()->Metal;
+
+			TexMap[tex_alias_counter].material.roughness = roughness;
+			TexMap[tex_alias_counter].material.metallic = metalicness;
+
+
+
+		/*	char *matName = TexMap[tex_alias_counter].material.name;
+			if (_stricmp(matName, "stone") == 0 || _stricmp(matName, "brick") == 0 || _stricmp(matName, "tile") == 0 || _stricmp(matName, "coble") == 0 || _stricmp(matName, "pave") == 0 || _stricmp(matName, "brick4") == 0 || _stricmp(matName, "brick5") == 0) {
+				TexMap[tex_alias_counter].material.roughness = 0.8f;
+				TexMap[tex_alias_counter].material.metallic = 0.0f;
+			} else if (_stricmp(matName, "metal") == 0 || _stricmp(matName, "chestmetal") == 0 || _stricmp(matName, "doormetal") == 0 || _stricmp(matName, "torchholder") == 0 || _stricmp(matName, "metal20") == 0 || _stricmp(matName, "oldmetal") == 0) {
+				TexMap[tex_alias_counter].material.roughness = 0.2f;
+				TexMap[tex_alias_counter].material.metallic = 1.0f;
+			} else if (_stricmp(matName, "wood") == 0 || _stricmp(matName, "crate") == 0 || _stricmp(matName, "doorwood") == 0 || _stricmp(matName, "chestwood") == 0 || _stricmp(matName, "woodbowl") == 0 || _stricmp(matName, "woodcup") == 0 || _stricmp(matName, "woodfrnt") == 0) {
+				TexMap[tex_alias_counter].material.roughness = 0.7f;
+				TexMap[tex_alias_counter].material.metallic = 0.0f;
+			} else if (_stricmp(matName, "glass") == 0 || _stricmp(matName, "water") == 0 || _stricmp(matName, "ice") == 0 || _stricmp(matName, "chem1") == 0) {
+				TexMap[tex_alias_counter].material.roughness = 0.1f;
+				TexMap[tex_alias_counter].material.metallic = 0.0f;
+			} else if (_stricmp(matName, "grass") == 0) {
+				TexMap[tex_alias_counter].material.roughness = 0.9f;
+				TexMap[tex_alias_counter].material.metallic = 0.0f;
+			}*/
 
 			tex_alias_counter++;
 			found = TRUE;
