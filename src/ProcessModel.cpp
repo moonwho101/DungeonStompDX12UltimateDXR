@@ -663,7 +663,8 @@ void SmoothNormals(int start_cnt) {
 					sumT = XMVectorAdd(sumT, XMVectorSet(v.nmx, v.nmy, v.nmz, 0.0f));
 				}
 				sumN = XMVector3Normalize(sumN);
-				sumT = XMVector3Normalize(sumT);
+				// Gram-Schmidt orthogonalization: ensure Tangent is orthogonal to Normal
+				sumT = XMVector3Normalize(XMVectorSubtract(sumT, XMVectorMultiply(sumN, XMVector3Dot(sumN, sumT))));
 
 				XMFLOAT3 fN, fT;
 				XMStoreFloat3(&fN, sumN);
@@ -737,10 +738,11 @@ void SmoothNormalsNoHash(int start_cnt) {
 				}
 
 				XMVECTOR average = XMVector3Normalize(sum);
+				XMVECTOR averagetan = XMVector3Normalize(XMVectorSubtract(sumtan, XMVectorMultiply(average, XMVector3Dot(average, sumtan))));
+				
 				XMFLOAT3 final2;
 				XMStoreFloat3(&final2, average);
 
-				XMVECTOR averagetan = XMVector3Normalize(sumtan);
 				XMFLOAT3 finaltan;
 				XMStoreFloat3(&finaltan, averagetan);
 
@@ -855,8 +857,8 @@ void SmoothNormalsWeighted(int start_cnt) {
 				average = XMVector3Normalize(sum);
 				XMStoreFloat3(&final2, average);
 
-				average = XMVector3Normalize(sumtan);
-				XMStoreFloat3(&finaltan, average);
+				XMVECTOR average_tan = XMVector3Normalize(XMVectorSubtract(sumtan, XMVectorMultiply(average, XMVector3Dot(average, sumtan))));
+				XMStoreFloat3(&finaltan, average_tan);
 
 				for (int k = 0; k < scount; k++) {
 					src_v[sharedv[k]].nx = final2.x;
