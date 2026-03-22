@@ -32,6 +32,14 @@ DXRHelper::~DXRHelper() {
 			mSceneConstantBuffer[i]->Unmap(0, nullptr);
 			mSceneCBMappedData[i] = nullptr;
 		}
+		if (mPrimitiveTextureMappedData[i] && mPrimitiveTextureBuffer[i]) {
+			mPrimitiveTextureBuffer[i]->Unmap(0, nullptr);
+			mPrimitiveTextureMappedData[i] = nullptr;
+		}
+		if (mAliasDataMappedData[i] && mAliasDataBuffer[i]) {
+			mAliasDataBuffer[i]->Unmap(0, nullptr);
+			mAliasDataMappedData[i] = nullptr;
+		}
 	}
 }
 
@@ -150,8 +158,9 @@ void DXRHelper::CreateRootSignatures(ID3D12Device5 *device) {
 	// Slot 2: Scene CBV (b0) - inline
 	// Slot 3: Vertex Buffer SRV (t1) - inline
 	// Slot 4: Texture Array SRV (t2-t551) - descriptor table
-	// Slot 5: Primitive Texture Indices (t0, space1) - inline
-	// Slot 6: Primitive Normal Map Indices (t1, space1) - inline
+	// Slot 5: Primitive Alias Indices (t0, space1) - inline
+	// Slot 6: SkyCube (t0, space2) - descriptor table
+	// Slot 7: Alias Data (t1, space1) - inline
 	CD3DX12_DESCRIPTOR_RANGE1 uavRange;
 	uavRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0); // u0
 
@@ -162,7 +171,7 @@ void DXRHelper::CreateRootSignatures(ID3D12Device5 *device) {
 	// Skycube range - 1 texture at t0 (space2)
 	CD3DX12_DESCRIPTOR_RANGE1 skyRange;
 	skyRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 2); // t0, space2
-
+ 
 	CD3DX12_ROOT_PARAMETER1 rootParams[8];
 	rootParams[0].InitAsDescriptorTable(1, &uavRange);                             // Output UAV
 	rootParams[1].InitAsShaderResourceView(0);                                     // TLAS (t0)
@@ -170,8 +179,8 @@ void DXRHelper::CreateRootSignatures(ID3D12Device5 *device) {
 	rootParams[3].InitAsShaderResourceView(1);                                     // Vertex buffer (t1)
 	rootParams[4].InitAsDescriptorTable(1, &textureRange);                         // Texture array (t2+)
 	rootParams[5].InitAsShaderResourceView(0, 1);                                  // Primitive indices (t0, space1)
-	rootParams[6].InitAsShaderResourceView(1, 1);                                  // Normal map indices (t1, space1)
-	rootParams[7].InitAsDescriptorTable(1, &skyRange);                             // Skycube (t0, space2)
+	rootParams[6].InitAsDescriptorTable(1, &skyRange);                             // Skycube (t0, space2)
+	rootParams[7].InitAsShaderResourceView(1, 1);                                  // Alias data (t1, space1)
 
 	// Static sampler for texture sampling
 	D3D12_STATIC_SAMPLER_DESC samplerDesc = {};
@@ -592,11 +601,11 @@ void DXRHelper::DispatchRays(ID3D12GraphicsCommandList5 *cmdList, UINT width, UI
 		texHandle.Offset(mTextureStartOffset, mCbvSrvUavDescriptorSize);
 		cmdList->SetComputeRootDescriptorTable(4, texHandle);
 
-		// Set skycube descriptor table (slot 7) - specifically texture at index 484
+		// Set skycube descriptor table (slot 6) - specifically texture at index 484
 		// (index 484 in texture array = alias 485 sunsetcube1024)
 		CD3DX12_GPU_DESCRIPTOR_HANDLE skyHandle(mDXRDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
 		skyHandle.Offset(mTextureStartOffset + 485, mCbvSrvUavDescriptorSize);
-		cmdList->SetComputeRootDescriptorTable(7, skyHandle);
+		cmdList->SetComputeRootDescriptorTable(6, skyHandle);
 	}
 
 	// Set primitive texture indices buffer (slot 5)
@@ -604,9 +613,9 @@ void DXRHelper::DispatchRays(ID3D12GraphicsCommandList5 *cmdList, UINT width, UI
 		cmdList->SetComputeRootShaderResourceView(5, mPrimitiveTextureBuffer[mCurrentFrameIndex]->GetGPUVirtualAddress());
 	}
 
-	// Set primitive normal map indices buffer (slot 6)
-	if (mPrimitiveNormalMapBuffer[mCurrentFrameIndex]) {
-		cmdList->SetComputeRootShaderResourceView(6, mPrimitiveNormalMapBuffer[mCurrentFrameIndex]->GetGPUVirtualAddress());
+	// Set alias data buffer (slot 7)
+	if (mAliasDataBuffer[mCurrentFrameIndex]) {
+		cmdList->SetComputeRootShaderResourceView(7, mAliasDataBuffer[mCurrentFrameIndex]->GetGPUVirtualAddress());
 	}
 
 	// Dispatch rays
@@ -697,12 +706,6 @@ void DXRHelper::CopyTextureDescriptors(ID3D12Device *device, ID3D12DescriptorHea
 		UpdatePrimitiveTextureIndices(device, defaultIndices.data(), defaultPrimitiveCount);
 	}
 
-	// Initialize primitive normal map indices buffers for all frames with -1 (no normal map)
-	std::vector<INT> defaultNormalMapIndices(defaultPrimitiveCount, -1);
-	for (UINT i = 0; i < kNumFrameResources; ++i) {
-		mCurrentFrameIndex = i;
-		UpdatePrimitiveNormalMapIndices(device, defaultNormalMapIndices.data(), defaultPrimitiveCount);
-	}
 	mCurrentFrameIndex = savedFrame;
 }
 
@@ -746,44 +749,42 @@ void DXRHelper::UpdatePrimitiveTextureIndices(ID3D12Device *device, const UINT *
 		memcpy(mPrimitiveTextureMappedData[fi], textureIndices, primitiveCount * sizeof(UINT));
 	}
 }
-
-void DXRHelper::UpdatePrimitiveNormalMapIndices(ID3D12Device *device, const INT *normalMapIndices, UINT primitiveCount) {
+ 
+void DXRHelper::UpdateAliasData(ID3D12Device *device, const DXRMaterialData *materialData, UINT aliasCount) {
 	UINT fi = mCurrentFrameIndex;
-
-	// Create or resize the normal map index buffer for this frame if needed
-	if (!mPrimitiveNormalMapBuffer[fi] || primitiveCount > mMaxNormalMapPrimitives[fi]) {
+ 
+	// Create or resize the alias data buffer for this frame if needed
+	if (!mAliasDataBuffer[fi] || aliasCount > mMaxAliases[fi]) {
 		// Release old buffer
-		if (mPrimitiveNormalMapMappedData[fi]) {
-			mPrimitiveNormalMapBuffer[fi]->Unmap(0, nullptr);
-			mPrimitiveNormalMapMappedData[fi] = nullptr;
+		if (mAliasDataMappedData[fi]) {
+			mAliasDataBuffer[fi]->Unmap(0, nullptr);
+			mAliasDataMappedData[fi] = nullptr;
 		}
-		mPrimitiveNormalMapBuffer[fi].Reset();
-
+		mAliasDataBuffer[fi].Reset();
+ 
 		// Create new buffer with some headroom
-		mMaxNormalMapPrimitives[fi] = max(primitiveCount, mMaxNormalMapPrimitives[fi] * 2);
-		if (mMaxNormalMapPrimitives[fi] == 0)
-			mMaxNormalMapPrimitives[fi] = 65536;
-
-		UINT bufferSize = mMaxNormalMapPrimitives[fi] * sizeof(INT);
-
+		mMaxAliases[fi] = max(aliasCount, 550u); // MAX_NUM_TEXTURES = 550
+ 
+		UINT bufferSize = mMaxAliases[fi] * sizeof(DXRMaterialData);
+ 
 		CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_UPLOAD);
 		CD3DX12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(bufferSize);
-
+ 
 		ThrowIfFailed(device->CreateCommittedResource(
 		    &heapProps,
 		    D3D12_HEAP_FLAG_NONE,
 		    &bufferDesc,
 		    D3D12_RESOURCE_STATE_GENERIC_READ,
 		    nullptr,
-		    IID_PPV_ARGS(&mPrimitiveNormalMapBuffer[fi])));
-
+		    IID_PPV_ARGS(&mAliasDataBuffer[fi])));
+ 
 		// Map the buffer
 		CD3DX12_RANGE readRange(0, 0);
-		ThrowIfFailed(mPrimitiveNormalMapBuffer[fi]->Map(0, &readRange, reinterpret_cast<void **>(&mPrimitiveNormalMapMappedData[fi])));
+		ThrowIfFailed(mAliasDataBuffer[fi]->Map(0, &readRange, reinterpret_cast<void **>(&mAliasDataMappedData[fi])));
 	}
-
-	// Copy normal map indices
-	if (mPrimitiveNormalMapMappedData[fi] && normalMapIndices) {
-		memcpy(mPrimitiveNormalMapMappedData[fi], normalMapIndices, primitiveCount * sizeof(INT));
+ 
+	// Copy alias data
+	if (mAliasDataMappedData[fi] && materialData) {
+		memcpy(mAliasDataMappedData[fi], materialData, aliasCount * sizeof(DXRMaterialData));
 	}
 }

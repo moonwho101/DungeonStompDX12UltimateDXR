@@ -37,6 +37,13 @@ struct DXRSceneConstants {
 	float RayConeSpreadAngle;
 	float Pad1[3]; // keep 16-byte alignment
 };
+ 
+struct DXRMaterialData {
+	UINT TextureIndex;
+	INT NormalMapIndex;
+	float Roughness;
+	float Metallic;
+};
 
 class DXRHelper {
   public:
@@ -79,9 +86,9 @@ class DXRHelper {
 
 	// Update per-primitive texture indices
 	void UpdatePrimitiveTextureIndices(ID3D12Device *device, const UINT *textureIndices, UINT primitiveCount);
-
-	// Update per-primitive normal map texture indices
-	void UpdatePrimitiveNormalMapIndices(ID3D12Device *device, const INT *normalMapIndices, UINT primitiveCount);
+ 
+	// Update per-alias material data
+	void UpdateAliasData(ID3D12Device *device, const DXRMaterialData *materialData, UINT aliasCount);
 
 	// Set current frame resource index (call once per frame before any DXR updates)
 	void SetFrameIndex(UINT frameIndex) {
@@ -171,10 +178,10 @@ class DXRHelper {
 	UINT8 *mPrimitiveTextureMappedData[kNumFrameResources] = {};
 	UINT mMaxPrimitives[kNumFrameResources] = {};
 
-	// Per-primitive normal map index buffer (per-frame to avoid CPU/GPU race)
-	ComPtr<ID3D12Resource> mPrimitiveNormalMapBuffer[kNumFrameResources];
-	UINT8 *mPrimitiveNormalMapMappedData[kNumFrameResources] = {};
-	UINT mMaxNormalMapPrimitives[kNumFrameResources] = {};
+	// Per-alias material data buffer (per-frame to avoid CPU/GPU race)
+	ComPtr<ID3D12Resource> mAliasDataBuffer[kNumFrameResources];
+	UINT8 *mAliasDataMappedData[kNumFrameResources] = {};
+	UINT mMaxAliases[kNumFrameResources] = {};
 
 	// Shader identifiers
 	static const wchar_t *kRayGenShader;

@@ -87,8 +87,15 @@ TextureCube gCubeMap : register(t0, space2);
 // Per-primitive texture index buffer
 ByteAddressBuffer gPrimitiveTextureIndices : register(t0, space1);
 
-// Per-primitive normal map texture index buffer (-1 = no normal map)
-ByteAddressBuffer gPrimitiveNormalMapIndices : register(t1, space1);
+struct AliasData {
+	uint textureIndex;
+	int normalMapIndex;
+	float roughness;
+	float metallic;
+};
+
+// Per-alias material data buffer (roughness, metallic, etc)
+StructuredBuffer<AliasData> gAliasData : register(t1, space1);
 
 // Sampler for texture sampling
 SamplerState gSampler : register(s0);
@@ -541,7 +548,9 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
     float3 V = normalize(gCameraPos - hitPos);
     
     // Sample texture
-    uint texIndex = gPrimitiveTextureIndices.Load(primIdx * 4);
+    uint aliasIndex = gPrimitiveTextureIndices.Load(primIdx * 4);
+    AliasData ad = gAliasData[aliasIndex];
+    uint texIndex = ad.textureIndex;
     
     // --- Compute Ray Cone Mip Level ---
     // 1. Calculate texture to world area ratio
@@ -566,7 +575,7 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
     float uvFootprintArea = footPrintArea * areaRatio;
     
     // Normal mapping: sample and apply if this primitive has a normal map
-    int normalMapIndex = asint(gPrimitiveNormalMapIndices.Load(primIdx * 4));
+    int normalMapIndex = ad.normalMapIndex;
     if (normalMapIndex >= 0 && normalMapIndex < 550)
     {
         uint texW, texH;
@@ -656,8 +665,8 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
     }
     
     // ---- Material properties ----
-    float roughness = gRoughness;
-    float metallic = gMetallic;
+    float roughness = ad.roughness;
+    float metallic = ad.metallic;
     
     // Wet floor effect: horizontal surfaces get slight glossiness
     float floorFactor = saturate(dot(N, float3(0.0f, 1.0f, 0.0f)));

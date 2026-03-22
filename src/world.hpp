@@ -32,6 +32,12 @@ typedef struct CUSTOMVERTEXTEST {
 
 #endif
 } CUSTOMVERT;
+ 
+struct DungeonMaterial {
+	float roughness;
+	float metallic;
+	char name[100];
+};
 
 typedef struct texturemapping_typ {
 	float tu[4];
@@ -39,7 +45,7 @@ typedef struct texturemapping_typ {
 	int texture;
 	char tex_alias_name[100];
 	BOOL is_alpha_texture;
-	char material[100];
+	DungeonMaterial material;
 	int normalmaptextureid = -1;
 } TEXTUREMAPPING, *texturemapping_ptr;
 
