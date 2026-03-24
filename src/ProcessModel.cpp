@@ -738,6 +738,7 @@ void SmoothNormalsNoHash(int start_cnt) {
 				}
 
 				XMVECTOR average = XMVector3Normalize(sum);
+				// Gram-Schmidt orthogonalization: ensure Tangent is orthogonal to Normal (matches SmoothNormals)
 				XMVECTOR averagetan = XMVector3Normalize(XMVectorSubtract(sumtan, XMVectorMultiply(average, XMVector3Dot(average, sumtan))));
 				
 				XMFLOAT3 final2;
