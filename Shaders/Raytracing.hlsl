@@ -229,11 +229,13 @@ float CalcAttenuation(float d, float falloffStart, float falloffEnd)
 // Torch flicker effect
 float TorchFlicker(float baseStrength, float time, float freq, float amp, float offset)
 {
+    // Each sin term oscillates around zero; sum them, then remap [−1,+1] → [0,1].
     float t = time + offset;
-    float flicker = sin(t * freq) * 0.5f + 0.5f;
-    flicker += sin(t * (freq * 2.13f)) * 0.25f + 0.25f;
-    flicker += sin(t * (freq * 0.77f)) * 0.15f + 0.15f;
-    flicker = saturate(flicker);
+    float flicker = sin(t * freq)        * 0.50f   // primary wave
+                  + sin(t * (freq * 2.13f)) * 0.25f   // harmonic
+                  + sin(t * (freq * 0.77f)) * 0.15f;  // sub-harmonic
+    // flicker is now in [−0.90, +0.90]; remap to [0, 1] and saturate for safety.
+    flicker = saturate(flicker * 0.5f + 0.5f);
     return baseStrength * (1.0f - amp * flicker);
 }
 
@@ -617,8 +619,8 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
     {
         float alpha = texSample.a;
         const float alphaTolerance = 0.05f;
-        float3 surfaceColor = albedo * 1.0f; // Boost brightness for transparent effects (fire, flares, etc)
-        
+        float3 surfaceColor = albedo; // default: opaque surface color
+
         if (payload.depth < 4)
         {
             // Fire a continuation ray through this surface to get what's behind it
@@ -627,40 +629,54 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
             contRay.Direction = rayDir;
             contRay.TMin = 0.01f;
             contRay.TMax = 100000.0f;
-            
+
             RayPayload contPayload;
-            contPayload.color       = float4(0.0f, 0.0f, 0.0f, 1.0f);
-            contPayload.depth       = payload.depth + 1;
-            contPayload.isGIRay     = payload.isGIRay;
-            contPayload.hitT        = 100000.0f;
-            
+            contPayload.color   = float4(0.0f, 0.0f, 0.0f, 1.0f);
+            contPayload.depth   = payload.depth + 1;
+            contPayload.isGIRay = payload.isGIRay;
+            contPayload.hitT    = 100000.0f;
+
             TraceRay(gScene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, 0xFF, 0, 1, 0, contRay, contPayload);
-            
+
             if (alpha < alphaTolerance)
             {
-                // Alpha Test: discard this hit part and return what's behind it
+                // Fully transparent pixel: discard this hit and return what lies behind.
                 surfaceColor = contPayload.color.rgb;
             }
             else if (alpha < 0.99f)
             {
-				if (IsFlameTexture(texIndex))
-				{
-                    // Transparent textures (torches/flames) are emissive: return raw texture color, no shading
-					payload.color = float4(albedo, texSample.a);
-					payload.hitT = RayTCurrent();
-					return;
-
-				}
-				else
-				{
-                    // Standard linear alpha blending: src * alpha + dst * (1 - alpha)
-					surfaceColor = lerp(contPayload.color.rgb, surfaceColor, alpha);
-				}
-			}
+                if (IsFlameTexture(texIndex))
+                {
+                    // Emissive flame: return raw texture color unshaded.
+                    payload.color = float4(albedo, texSample.a);
+                    payload.hitT  = RayTCurrent();
+                    return;
+                }
+                else
+                {
+                    // Standard linear alpha blend: src*alpha + dst*(1-alpha)
+                    surfaceColor = lerp(contPayload.color.rgb, surfaceColor, alpha);
+                }
+            }
+            // alpha >= 0.99: treat as fully opaque, surfaceColor = albedo (already set)
         }
-        
+        else
+        {
+            // Recursion limit reached – no continuation ray available.
+            // For near-transparent pixels return black; for opaque keep albedo.
+            if (alpha < alphaTolerance)
+                surfaceColor = float3(0.0f, 0.0f, 0.0f);
+            else if (alpha < 0.99f && IsFlameTexture(texIndex))
+            {
+                payload.color = float4(albedo, texSample.a);
+                payload.hitT  = RayTCurrent();
+                return;
+            }
+            // else surfaceColor = albedo
+        }
+
         payload.color = float4(surfaceColor, 1.0f);
-        payload.hitT = RayTCurrent();
+        payload.hitT  = RayTCurrent();
         return;
     }
     
