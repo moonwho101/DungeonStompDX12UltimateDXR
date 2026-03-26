@@ -10,7 +10,7 @@
 #define PI 3.14159265f
 
 // Max point lights that cast shadow rays (performance knob)
-#define MAX_SHADOW_LIGHTS 12
+#define MAX_SHADOW_LIGHTS 32
 
 // Fog density for dungeon atmosphere
 #define FOG_DENSITY 0.0025f
@@ -22,6 +22,7 @@
 #define GI_BOUNCE_STRENGTH 0.35f   // scale of the GI contribution
 #define GI_MAX_DIST        80.0f   // max distance the GI bounce ray travels
 
+
 // Glare and flicker constants (for RayGen glare loop)
 #define GLARE_INNER_WEIGHT      0.6f
 #define GLARE_INNER_FALLOFF     0.9f
@@ -32,6 +33,9 @@
 #define FLICKER_BASE_STRENGTH   1.0f
 #define FLICKER_FREQ            8.0f
 #define FLICKER_AMP             0.25f
+
+// Max distance for glare effect from camera to light
+#define GLARE_MAX_DISTANCE      1500.0f
 
 // Light structure matching CPU-side
 struct Light
@@ -452,7 +456,7 @@ void RayGen()
     for (uint i = 1; i < min(gNumLights, (uint)MaxLights); ++i)
     {
         Light L = gLights[i];
-        if (distance(L.Position, gCameraPos) > 1500.0f) continue;
+        if (distance(L.Position, gCameraPos) > GLARE_MAX_DISTANCE) continue;
         float3 lightVec = L.Position - rayOrigin;
         float tClosest = dot(lightVec, rayDirection);
         tClosest = clamp(tClosest, 0.0f, payload.hitT);
@@ -741,10 +745,10 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
             {
                 // Shadow ray for nearby lights (skip distant ones for performance)
                 float shadow = 1.0f;
-                //if (i <= MAX_SHADOW_LIGHTS)
-                //{
+                if (i <= MAX_SHADOW_LIGHTS)
+                {
                    shadow = TraceShadowRay(shadowOrigin, lightDir, d);
-                //}
+                }
                 // Spot light logic
                 if (L.SpotPower > 0.0f)
                 {
