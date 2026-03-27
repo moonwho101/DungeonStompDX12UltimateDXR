@@ -57,6 +57,21 @@ HRESULT FrameMove(double fTime, FLOAT fTimeKey) {
 	float newangle = 0;
 	newangle = fixangle(look_up_ang, 90);
 
+	// Strafe view-roll:
+
+	float rollTarget = 0.0f;
+	if (playermovestrife == 6)
+		rollTarget = 2.0f; // strafe left → lean left
+	if (playermovestrife == 7)
+		rollTarget = -2.0f; // strafe right → lean right
+
+	float lerpRate = fTimeKey * 10.0f;
+	if (lerpRate > 1.0f)
+		lerpRate = 1.0f;
+	look_roll_ang += (rollTarget - look_roll_ang) * lerpRate;
+
+
+
 	m_vLookatPt.x = m_vEyePt.x + cameradist * sinf(newangle * k) * sinf(angy * k);
 	m_vLookatPt.y = m_vEyePt.y + cameradist * cosf(newangle * k);
 	m_vLookatPt.z = m_vEyePt.z + cameradist * sinf(newangle * k) * cosf(angy * k);
