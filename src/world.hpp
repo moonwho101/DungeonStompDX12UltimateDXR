@@ -497,6 +497,8 @@ extern int runflag;
 extern XMFLOAT3 eRadius;
 extern XMFLOAT3 GunTruesave;
 
+extern float look_roll_ang;
+
 extern float wWidth;
 extern float wHeight;
 extern int objectcollide;

@@ -62,6 +62,8 @@ int playermovestrife = 0;
 float cameraheight = 50.0f;
 float currentspeed = 0;
 
+float look_roll_ang = 0.0f; // current strafe view-roll (degrees)
+
 char gfinaltext[2048];
 extern int textcounter;
 gametext gtext[200];

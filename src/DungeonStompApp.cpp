@@ -797,6 +797,12 @@ void DungeonStompApp::UpdateCamera(const GameTimer &gt) {
 	// XMMATRIX view = XMMatrixLookAtLH(pos, target, up);
 	XMMATRIX view = XMMatrixLookAtLH(pos, target, up);
 
+	if (look_roll_ang != 0.0f) {
+		float rollRad = look_roll_ang * (3.14159265f / 180.0f);
+		// Multiply rolling on the view-space Z axis
+		view = XMMatrixMultiply(view, XMMatrixRotationZ(-rollRad));
+	}
+
 	XMStoreFloat4x4(&mView, view);
 
 	mSceneBounds.Center = XMFLOAT3(mEyePos.x, mEyePos.y, mEyePos.z);
