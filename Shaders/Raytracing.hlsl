@@ -151,7 +151,7 @@ bool IsTransparentTexture(uint texIdx)
     if (texIdx >= 278 && texIdx <= 295) return true;  // portal effects
     if (texIdx >= 205 && texIdx <= 209) return true;  // flare
     if (texIdx >= 370 && texIdx <= 378) return true;  // blood splatter decals
-    if (texIdx == 156)                  return true;  // wall crystal
+    //if (texIdx == 156)                  return true;  // wall crystal
     //if (texIdx == 181)                  return true;  // potion
     return false;
 }
