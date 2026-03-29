@@ -948,21 +948,9 @@ void DungeonStompApp::UpdateShadowTransform(const GameTimer &gt, int light) {
 }
 
 void DungeonStompApp::UpdateMainPassCB(const GameTimer &gt) {
-	// FOV Kick based on speed
-	float dt = gt.DeltaTime();
-	float speed = currentspeed / dt; // currentspeed is set in MovePlayer as (playerspeed * fTimeKey)
-	float targetFov = 50.0f;
-	if (speed > 10.0f) {
-		targetFov = 50.0f + (speed - 10.0f) * 0.05f;
-	}
-	targetFov = MathHelper::Clamp(targetFov, 50.0f, 65.0f);
-	mCurrentFov += (targetFov - mCurrentFov) * MathHelper::Clamp(dt * 4.0f, 0.0f, 1.0f);
-
-	float fovRad = mCurrentFov * (MathHelper::Pi / 180.0f);
-	XMMATRIX proj = XMMatrixPerspectiveFovLH(fovRad, AspectRatio(), 1.0f, 10000.0f);
-	XMStoreFloat4x4(&mProj, proj);
-
+	
 	XMMATRIX view = XMLoadFloat4x4(&mView);
+	XMMATRIX proj = XMLoadFloat4x4(&mProj);
 
 	XMMATRIX viewProj = XMMatrixMultiply(view, proj);
 	XMMATRIX invView = XMMatrixInverse(&XMMatrixDeterminant(view), view);
