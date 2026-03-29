@@ -100,6 +100,14 @@ ComPtr<ID3D12DescriptorHeap> mSrvDescriptorHeap = nullptr;
 extern ID3D12PipelineState *textPSO;                    // pso containing a pipeline state
 extern ID3D12PipelineState *rectanglePSO[MaxRectangle]; // pso containing a pipeline state
 
+DungeonStompApp *gApp = nullptr;
+extern float currentspeed;
+
+void TriggerLandingDip(float amount) {
+	if (gApp)
+		gApp->mLandingDip = amount;
+}
+
 VOID UpdateControls();
 HRESULT FrameMove(double fTime, FLOAT fTimeKey);
 void UpdateWorld(float fElapsedTime);
@@ -125,6 +133,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance,
 
 DungeonStompApp::DungeonStompApp(HINSTANCE hInstance)
     : D3DApp(hInstance) {
+	gApp = this;
 
 	// Estimate the scene bounding sphere manually since we know how the scene was constructed.
 	// The grid is the "widest object" with a width of 20 and depth of 30.0f, and centered at
@@ -701,6 +710,33 @@ void DungeonStompApp::OnKeyboardInput(const GameTimer &gt) {
 }
 
 void DungeonStompApp::UpdateCamera(const GameTimer &gt) {
+	float dt = gt.DeltaTime();
+
+	// Decay landing dip
+	mLandingDip -= 150.0f * dt;
+	if (mLandingDip < 0.0f)
+		mLandingDip = 0.0f;
+
+	// Idle sway
+	float swayY = 0.0f;
+	if (playercurrentmove == 0 && enableCameraBob) {
+		mIdleSwayTime += dt;
+		swayY = sinf(mIdleSwayTime * 1.25f) * 1.2f; // Subtle breathing
+	} else {
+		mIdleSwayTime = 0.0f;
+	}
+
+	// Turn leaning
+	float deltaAngy = angy - mLastAngy;
+	if (deltaAngy > 180.0f)
+		deltaAngy -= 360.0f;
+	if (deltaAngy < -180.0f)
+		deltaAngy += 360.0f;
+	mLastAngy = angy;
+
+	float turnTarget = -deltaAngy * 0.4f; // Lean into turns
+	mTurnRoll += (turnTarget - mTurnRoll) * MathHelper::Clamp(dt * 8.0f, 0.0f, 1.0f);
+
 	float adjust = 50.0f;
 	float bx = 0.0f;
 	float by = 0.0f;
@@ -757,7 +793,7 @@ void DungeonStompApp::UpdateCamera(const GameTimer &gt) {
 		r = bx; // bx is bobX.getY() which is updated with damping
 
 		newspot.x = player_list[trueplayernum].x + r * sinf(step_left_angy * k);
-		newspot.y = player_list[trueplayernum].y + by; // by is bobY.getY() which is updated with damping
+		newspot.y = player_list[trueplayernum].y + by - mLandingDip + swayY;
 		newspot.z = player_list[trueplayernum].z + r * cosf(step_left_angy * k);
 
 		float cameradist = 50.0f;
@@ -771,7 +807,11 @@ void DungeonStompApp::UpdateCamera(const GameTimer &gt) {
 
 		mEyePos = newspot;
 
-		GunTruesave = newspot;
+		// Weapon Sway / Lagged position
+		float gunLerp = MathHelper::Clamp(dt * 15.0f, 0.0f, 1.0f);
+		GunTruesave.x += (newspot.x - GunTruesave.x) * gunLerp;
+		GunTruesave.y += (newspot.y - GunTruesave.y) * gunLerp;
+		GunTruesave.z += (newspot.z - GunTruesave.z) * gunLerp;
 
 		// Build the view matrix.
 
@@ -779,10 +819,14 @@ void DungeonStompApp::UpdateCamera(const GameTimer &gt) {
 		target = XMVectorSet(newspot2.x, newspot2.y, newspot2.z, 1.0f);
 	} else {
 		// Build the view matrix.
-		pos = XMVectorSet(mEyePos.x, mEyePos.y, mEyePos.z, 1.0f);
+		pos = XMVectorSet(mEyePos.x, mEyePos.y - mLandingDip + swayY, mEyePos.z, 1.0f);
 		target = XMVectorSet(m_vLookatPt.x, m_vLookatPt.y + adjust, m_vLookatPt.z, 1.0f);
 
-		GunTruesave = mEyePos;
+		// Weapon Sway / Lagged position
+		float gunLerp = MathHelper::Clamp(dt * 15.0f, 0.0f, 1.0f);
+		GunTruesave.x += (mEyePos.x - GunTruesave.x) * gunLerp;
+		GunTruesave.y += (mEyePos.y - GunTruesave.y) * gunLerp;
+		GunTruesave.z += (mEyePos.z - GunTruesave.z) * gunLerp;
 	}
 
 	XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
@@ -793,12 +837,12 @@ void DungeonStompApp::UpdateCamera(const GameTimer &gt) {
 	if (XMVector3Equal(EyeDirection, XMVectorZero())) {
 		return;
 	}
-
-	// XMMATRIX view = XMMatrixLookAtLH(pos, target, up);
+	
 	XMMATRIX view = XMMatrixLookAtLH(pos, target, up);
 
-	if (look_roll_ang != 0.0f) {
-		float rollRad = look_roll_ang * (3.14159265f / 180.0f);
+	float totalRoll = look_roll_ang + mTurnRoll;
+	if (totalRoll != 0.0f) {
+		float rollRad = totalRoll * (3.14159265f / 180.0f);
 		// Multiply rolling on the view-space Z axis
 		view = XMMatrixMultiply(view, XMMatrixRotationZ(-rollRad));
 	}
@@ -904,6 +948,7 @@ void DungeonStompApp::UpdateShadowTransform(const GameTimer &gt, int light) {
 }
 
 void DungeonStompApp::UpdateMainPassCB(const GameTimer &gt) {
+	
 	XMMATRIX view = XMLoadFloat4x4(&mView);
 	XMMATRIX proj = XMLoadFloat4x4(&mProj);
 

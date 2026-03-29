@@ -58,6 +58,12 @@ class DungeonStompApp : public D3DApp {
 
 	virtual bool Initialize() override;
 
+	float mTurnRoll = 0.0f;
+	float mLastAngy = 0.0f;
+	float mLandingDip = 0.0f;
+	float mCurrentFov = 50.0f;
+	float mIdleSwayTime = 0.0f;
+
   private:
 	virtual void OnResize() override;
 	virtual void Update(const GameTimer &gt) override;

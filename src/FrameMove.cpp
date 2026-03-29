@@ -179,8 +179,10 @@ void PlayerJump(const FLOAT &fTimeKey) {
 			// something is under us
 
 			if (lastcollide == 1 && savevelocity.y <= 0) {
-				if (gravitytime >= 0.4f)
+				if (gravitytime >= 0.4f) {
 					PlayWavSound(SoundID("jump_land"), 100);
+					TriggerLandingDip(20.0f);
+				}
 
 				gravityvector.y = 0.0f;
 				gravityvectorold.y = 0.0f;
@@ -191,8 +193,10 @@ void PlayerJump(const FLOAT &fTimeKey) {
 
 				gravitytime = 0.0f;
 			} else if (lastcollide == 1 && savevelocity.y > 0) {
-				if (gravitytime >= 0.4f)
+				if (gravitytime >= 0.4f) {
 					PlayWavSound(SoundID("jump_land"), 100);
+					TriggerLandingDip(20.0f);
+				}
 
 				cleanjumpspeed = -200.0f;
 				lastcollide = 0;
