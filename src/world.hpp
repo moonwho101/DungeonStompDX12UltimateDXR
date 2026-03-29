@@ -546,5 +546,6 @@ void CheckMidiMusic();
 int MakeDice();
 wchar_t *charToWChar(const char *text);
 int GetNextFramePlayer();
+void TriggerLandingDip(float amount);
 
 #endif // __WORLD_H__
