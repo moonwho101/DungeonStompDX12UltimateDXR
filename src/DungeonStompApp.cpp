@@ -717,6 +717,9 @@ void DungeonStompApp::UpdateCamera(const GameTimer &gt) {
 	if (mLandingDip < 0.0f)
 		mLandingDip = 0.0f;
 
+	//Disable for now
+	mLandingDip = 0.0f;
+
 	// Idle sway
 	float swayY = 0.0f;
 	if (playercurrentmove == 0 && enableCameraBob) {
@@ -806,12 +809,7 @@ void DungeonStompApp::UpdateCamera(const GameTimer &gt) {
 		newspot2.z = newspot.z + cameradist * sinf(newangle * k) * cosf(angy * k);
 
 		mEyePos = newspot;
-
-		// Weapon Sway / Lagged position
-		float gunLerp = MathHelper::Clamp(dt * 15.0f, 0.0f, 1.0f);
-		GunTruesave.x += (newspot.x - GunTruesave.x) * gunLerp;
-		GunTruesave.y += (newspot.y - GunTruesave.y) * gunLerp;
-		GunTruesave.z += (newspot.z - GunTruesave.z) * gunLerp;
+		GunTruesave = newspot;
 
 		// Build the view matrix.
 
@@ -822,11 +820,8 @@ void DungeonStompApp::UpdateCamera(const GameTimer &gt) {
 		pos = XMVectorSet(mEyePos.x, mEyePos.y - mLandingDip + swayY, mEyePos.z, 1.0f);
 		target = XMVectorSet(m_vLookatPt.x, m_vLookatPt.y + adjust, m_vLookatPt.z, 1.0f);
 
-		// Weapon Sway / Lagged position
-		float gunLerp = MathHelper::Clamp(dt * 15.0f, 0.0f, 1.0f);
-		GunTruesave.x += (mEyePos.x - GunTruesave.x) * gunLerp;
-		GunTruesave.y += (mEyePos.y - GunTruesave.y) * gunLerp;
-		GunTruesave.z += (mEyePos.z - GunTruesave.z) * gunLerp;
+		GunTruesave = mEyePos;
+
 	}
 
 	XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
