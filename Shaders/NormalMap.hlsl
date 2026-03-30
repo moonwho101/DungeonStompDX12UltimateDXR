@@ -24,6 +24,20 @@
 
 #define MaxLights 32
 
+// Glare and flicker constants (for RayGen glare loop)
+#define GLARE_INNER_WEIGHT      0.6f
+#define GLARE_INNER_FALLOFF     0.9f
+#define GLARE_OUTER_WEIGHT      0.4f
+#define GLARE_OUTER_FALLOFF     4.7f
+#define GLARE_THRESHOLD         0.001f
+#define GLARE_SCALE             0.45f
+#define FLICKER_BASE_STRENGTH   1.0f
+#define FLICKER_FREQ            8.0f
+#define FLICKER_AMP             0.25f
+
+// Max distance for glare effect from camera to light
+#define GLARE_MAX_DISTANCE      1500.0f
+
 struct Light
 {
     float3 Strength;
@@ -157,12 +171,15 @@ float CalcAttenuation(float d, float falloffStart, float falloffEnd)
     return saturate((falloffEnd - d) / (falloffEnd - falloffStart));
 }
 
-float TorchFlicker(float baseStrength, float time, float freq, float amp)
+float TorchFlicker(float baseStrength, float time, float freq, float amp, float offset)
 {
-    float flicker = sin(time * freq) * 0.5f + 0.5f;
-    flicker += sin(time * (freq * 2.13f)) * 0.25f + 0.25f;
-    flicker += sin(time * (freq * 0.77f)) * 0.15f + 0.15f;
-    flicker = saturate(flicker);
+    // Each sin term oscillates around zero; sum them, then remap [−1,+1] → [0,1].
+    float t = time + offset;
+    float flicker = sin(t * freq)        * 0.50f   // primary wave
+                  + sin(t * (freq * 2.13f)) * 0.25f   // harmonic
+                  + sin(t * (freq * 0.77f)) * 0.15f;  // sub-harmonic
+    // flicker is now in [−0.90, +0.90]; remap to [0, 1] and saturate for safety.
+    flicker = saturate(flicker * 0.5f + 0.5f);
     return baseStrength * (1.0f - amp * flicker);
 }
 
@@ -191,7 +208,7 @@ float3 PBRLightingUnified(
             return 0.0f;
         Ld = normalize(lightVec);
         attenuation = CalcAttenuation(d, L.FalloffStart, L.FalloffEnd);
-        flicker = TorchFlicker(1.0f, mat.Timertick + timertickOffset, 8.0f, 0.25f);
+        flicker = TorchFlicker(1.0f, mat.Timertick, 8.0f, 0.25f, timertickOffset);
     }
     else // Spot
     {
@@ -398,6 +415,32 @@ float4 PS(VertexOut pin) : SV_Target
     float fogAmount = saturate((distToEye - gFogStart) / gFogRange);
     color = lerp(color, gFogColor.rgb, fogAmount);
 #endif
+
+    // Volumetric Fog Glow (Glare) around Point Lights
+    float3 glare = float3(0.0f, 0.0f, 0.0f);
+    float3 rayOrigin = gEyePosW;
+    float3 rayDirection = -V; 
+    float hitT = distToEye;
+
+    for (int j = NUM_DIR_LIGHTS; j < NUM_DIR_LIGHTS + NUM_POINT_LIGHTS; ++j)
+    {
+        Light L = gLights[j];
+        if (distance(L.Position, gEyePosW) > GLARE_MAX_DISTANCE) continue;
+        float3 lightVec = L.Position - rayOrigin;
+        float tClosest = dot(lightVec, rayDirection);
+        tClosest = clamp(tClosest, 0.0f, hitT);
+        float3 closestPoint = rayOrigin + rayDirection * tClosest;
+        float distToLight = length(closestPoint - L.Position);
+        
+        float glow = GLARE_INNER_WEIGHT * exp(-distToLight / GLARE_INNER_FALLOFF) + GLARE_OUTER_WEIGHT * exp(-distToLight / GLARE_OUTER_FALLOFF);
+        if (glow > GLARE_THRESHOLD)
+        {
+            float flicker = TorchFlicker(FLICKER_BASE_STRENGTH, gTotalTime, FLICKER_FREQ, FLICKER_AMP, (float)j);
+            float falloff = saturate((L.FalloffEnd - distToLight) / L.FalloffEnd);
+            glare += L.Strength * glow * flicker * falloff * GLARE_SCALE;
+        }
+    }
+    color += glare;
 
     return float4(color, diffuseAlbedo.a);
 }
