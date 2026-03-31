@@ -441,21 +441,176 @@ void DungeonStompApp::DrawDungeon(ID3D12GraphicsCommandList *cmdList, const std:
 	}
 }
 
-void ProcessMissleLights();
-void ProcessPlayerLight();
-void ProcessTorchLight();
-void ProcessMonstersLights();
-void ProcessDungeonLights();
-
 void DungeonStompApp::ProcessLights11() {
-	int i;
-	for (i = 0; i < MaxLights; i++) {
-		LightContainer[i].Strength = { 0.0f, 0.0f, 0.0f };
+	// P = pointlight, M = misslelight, C = sword light S = spotlight
+	// 12345678901234567890
+	// 01234567890123456789
+	// PPPPPPPPPPPMMMMCSSSS
+
+	int sort[200];
+	float dist[200];
+	int obj[200];
+	int temp;
+
+	for (int i = 0; i < MaxLights; i++) {
+		LightContainer[i].Strength = { 1.0f, 1.0f, 1.0f };
+		LightContainer[i].FalloffStart = 80.0f;
+		LightContainer[i].Direction = { 0.0f, -1.0f, 0.0f };
+		LightContainer[i].FalloffEnd = 120.0f;
+		LightContainer[i].Position = DirectX::XMFLOAT3{ 0.0f, 9000.0f, 0.0f };
+		LightContainer[i].SpotPower = 0.0f;
 	}
 
-	ProcessMissleLights();
-	ProcessPlayerLight();
-	ProcessTorchLight();
-	ProcessMonstersLights();
-	ProcessDungeonLights();
+	// first light is directional
+	LightContainer[0].Strength = { 0.15f, 0.15f, 0.15f };
+	LightContainer[0].Direction = mRotatedLightDirections[0];
+
+	int dcount = 0;
+	// Find lights
+	for (int q = 0; q < oblist_length; q++) {
+		int ob_type = oblist[q].type;
+		float qdist = FastDistance(m_vEyePt.x - oblist[q].x,
+		                           m_vEyePt.y - oblist[q].y,
+		                           m_vEyePt.z - oblist[q].z);
+		// if (ob_type == 57)
+		if (ob_type == 6 && oblist[q].light_source->command == 900)
+		// if (ob_type == 6 && qdist < 2500 && oblist[q].light_source->command == 900)
+		{
+			dist[dcount] = qdist;
+			sort[dcount] = dcount;
+			obj[dcount] = q;
+			dcount++;
+		}
+	}
+	// sorting - ASCENDING ORDER
+	for (int i = 0; i < dcount; i++) {
+		for (int j = i + 1; j < dcount; j++) {
+			if (dist[sort[i]] > dist[sort[j]]) {
+				temp = sort[i];
+				sort[i] = sort[j];
+				sort[j] = temp;
+			}
+		}
+	}
+
+	if (dcount > 16) {
+		dcount = 16;
+	}
+
+	for (int i = 0; i < dcount; i++) {
+		int q = obj[sort[i]];
+		float dist2 = dist[sort[i]];
+
+		int angle = (int)oblist[q].rot_angle;
+		int ob_type = oblist[q].type;
+
+		//+1 because 0 is reserved for directional light
+		LightContainer[i + 1].Strength = { 9.0f, 9.0f, 9.0f };
+		LightContainer[i + 1].Position = DirectX::XMFLOAT3{ oblist[q].x, oblist[q].y + 43.0f, oblist[q].z };
+	}
+
+	int count = 0;
+
+	for (int misslecount = 0; misslecount < MAX_MISSLE; misslecount++) {
+		if (your_missle[misslecount].active == 1) {
+			if (count < 4) {
+
+				float r = MathHelper::RandF(10.0f, 100.0f);
+
+				LightContainer[12 + count].Position = DirectX::XMFLOAT3{ your_missle[misslecount].x, your_missle[misslecount].y, your_missle[misslecount].z };
+				LightContainer[12 + count].Strength = DirectX::XMFLOAT3{ 0.0f, 0.0f, 1.0f };
+				LightContainer[12 + count].FalloffStart = 100.0f;
+				LightContainer[12 + count].Direction = { 0.0f, -1.0f, 0.0f };
+				LightContainer[12 + count].FalloffEnd = 200.0f;
+				LightContainer[12 + count].SpotPower = 0.0f;
+
+				if (your_missle[misslecount].model_id == 103) {
+					LightContainer[12 + count].Strength = DirectX::XMFLOAT3{ 0.0f, 3.0f, 2.843f };
+				} else if (your_missle[misslecount].model_id == 104) {
+					LightContainer[12 + count].Strength = DirectX::XMFLOAT3{ 3.0f, 0.396f, 0.5f };
+				} else if (your_missle[misslecount].model_id == 105) {
+					LightContainer[12 + count].Strength = DirectX::XMFLOAT3{ 1.91f, 3.1f, 1.0f };
+				}
+				count++;
+			}
+		}
+	}
+
+	bool flamesword = false;
+
+	if (strstr(your_gun[current_gun].gunname, "FLAME") != NULL ||
+	    strstr(your_gun[current_gun].gunname, "ICE") != NULL ||
+	    strstr(your_gun[current_gun].gunname, "LIGHTNINGSWORD") != NULL) {
+		flamesword = true;
+	}
+
+	if (flamesword) {
+
+		int spot = 16;
+
+		LightContainer[spot].Position = DirectX::XMFLOAT3{ m_vEyePt.x, m_vEyePt.y + 25.0f, m_vEyePt.z };
+		LightContainer[spot].Strength = DirectX::XMFLOAT3{ 0.0f, 0.0f, 1.0f };
+		LightContainer[spot].FalloffStart = 200.0f;
+		LightContainer[spot].Direction = { 0.0f, -1.0f, 0.0f };
+		LightContainer[spot].FalloffEnd = 300.0f;
+		LightContainer[spot].SpotPower = 0.0f;
+
+		if (strstr(your_gun[current_gun].gunname, "SUPERFLAME") != NULL) {
+			LightContainer[spot].Strength = DirectX::XMFLOAT3{ 8.0f, 0.867f, 0.0f };
+		} else if (strstr(your_gun[current_gun].gunname, "FLAME") != NULL) {
+			LightContainer[spot].Strength = DirectX::XMFLOAT3{ 7.0f, 0.369f, 0.0f };
+		} else if (strstr(your_gun[current_gun].gunname, "ICE") != NULL) {
+
+			LightContainer[spot].Strength = DirectX::XMFLOAT3{ 0.0f, 0.796f, 5.0f };
+		} else if (strstr(your_gun[current_gun].gunname, "LIGHTNINGSWORD") != NULL) {
+			LightContainer[spot].Strength = DirectX::XMFLOAT3{ 6.0f, 6.0f, 6.0f };
+		}
+	}
+
+	count = 0;
+	dcount = 0;
+
+	// Find lights SPOT
+	for (int q = 0; q < oblist_length; q++) {
+		int ob_type = oblist[q].type;
+		float qdist = FastDistance(m_vEyePt.x - oblist[q].x,
+		                           m_vEyePt.y - oblist[q].y,
+		                           m_vEyePt.z - oblist[q].z);
+		// if (ob_type == 6)
+		if (ob_type == 6 && qdist < 2500 && oblist[q].light_source->command == 1) {
+			dist[dcount] = qdist;
+			sort[dcount] = dcount;
+			obj[dcount] = q;
+			dcount++;
+		}
+	}
+
+	// sorting - ASCENDING ORDER
+	for (int i = 0; i < dcount; i++) {
+		for (int j = i + 1; j < dcount; j++) {
+			if (dist[sort[i]] > dist[sort[j]]) {
+				temp = sort[i];
+				sort[i] = sort[j];
+				sort[j] = temp;
+			}
+		}
+	}
+
+	if (dcount > 10) {
+		dcount = 10;
+	}
+
+	for (int i = 0; i < dcount; i++) {
+		int q = obj[sort[i]];
+		float dist2 = dist[sort[i]];
+		int angle = (int)oblist[q].rot_angle;
+		int ob_type = oblist[q].type;
+		float adjust = 0.0f;
+		LightContainer[i + 17].Position = DirectX::XMFLOAT3{ oblist[q].x, oblist[q].y + 0.0f, oblist[q].z };
+		LightContainer[i + 17].Strength = DirectX::XMFLOAT3{ (float)oblist[q].light_source->rcolour + adjust, (float)oblist[q].light_source->gcolour + adjust, (float)oblist[q].light_source->bcolour + adjust };
+		LightContainer[i + 17].FalloffStart = 600.0f;
+		LightContainer[i + 17].Direction = { oblist[q].light_source->direction_x, oblist[q].light_source->direction_y, oblist[q].light_source->direction_z };
+		LightContainer[i + 17].FalloffEnd = 650.0f;
+		LightContainer[i + 17].SpotPower = 1.9f;
+	}
 }
