@@ -30,6 +30,27 @@ extern bool enableVsync;
 extern bool enableNormalmap;
 extern Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> mSrvDescriptorHeap;
 
+extern int displayCaptureIndex[1000];
+extern int displayCaptureCount[1000];
+extern int displayCapture;
+extern int gravityon;
+extern int outside;
+extern OBJECTLIST *oblist;
+extern int oblist_length;
+extern GUNLIST *your_missle;
+extern GUNLIST *your_gun;
+extern int current_gun;
+extern XMFLOAT3 mRotatedLightDirections[3];
+extern int playerObjectStart;
+extern int playerGunObjectStart;
+extern int playerObjectEnd;
+extern int number_of_tex_aliases;
+extern bool ObjectHasShadow(int object_id);
+extern int *texture_list_buffer;
+extern TEXTUREMAPPING TexMap[MAX_NUM_TEXTURES];
+
+float FastDistance(float fx, float fy, float fz);
+
 void DungeonStompApp::Draw(const GameTimer &gt) {
 	auto cmdListAlloc = mCurrFrameResource->CmdListAlloc;
 
@@ -326,119 +347,262 @@ void DungeonStompApp::DrawRenderItemsFL(ID3D12GraphicsCommandList *cmdList, cons
 }
 
 void DungeonStompApp::DrawRenderItems(ID3D12GraphicsCommandList *cmdList, const std::vector<RenderItem *> &ritems, const GameTimer &gt) {
+
+	auto ri = ritems[0];
+
+	cmdList->IASetVertexBuffers(0, 1, &ri->Geo->VertexBufferView());
+	cmdList->IASetIndexBuffer(&ri->Geo->IndexBufferView());
+	cmdList->IASetPrimitiveTopology(ri->PrimitiveType);
+
+	CD3DX12_GPU_DESCRIPTOR_HANDLE tex(mSrvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+	tex.Offset(1, mCbvSrvDescriptorSize);
+	cmdList->SetGraphicsRootDescriptorTable(3, tex);
+
+	bool enablePSO = true;
+
+	if (drawingShadowMap || drawingSSAO) {
+		enablePSO = false;
+	}
+
+	if (enablePSO) {
+		if (enableSSao) {
+			mCommandList->SetPipelineState(mPSOs["normalMapSsao"].Get());
+		} else {
+			mCommandList->SetPipelineState(mPSOs["normalMap"].Get());
+		}
+	}
+	// VRS: Full rate for normal-mapped geometry (high-frequency detail benefits most)
+	if (enableVRS && mVRSHelper.IsSupported()) {
+		mVRSHelper.SetFullRate(mCommandList.Get());
+	}
+	// Draw dungeon, monsters and items with normal maps
+	DrawDungeon(cmdList, ritems, false, false, true);
+
+	if (enablePSO) {
+		if (enableSSao) {
+			mCommandList->SetPipelineState(mPSOs["opaqueSsao"].Get());
+		} else {
+			mCommandList->SetPipelineState(mPSOs["opaque"].Get());
+		}
+	}
+	// VRS: Reduced rate for non-normal-mapped geometry (less detail to preserve)
+	if (enableVRS && mVRSHelper.IsSupported()) {
+		mVRSHelper.SetReducedRate(mCommandList.Get());
+	}
+	// Draw dungeon, monsters and items without normal maps
+	DrawDungeon(cmdList, ritems, false, false, false);
+
+	if (enablePSO) {
+		mCommandList->SetPipelineState(mPSOs["transparent"].Get());
+	}
+	// VRS: Reduced rate for transparent items
+	if (enableVRS && mVRSHelper.IsSupported()) {
+		mVRSHelper.SetReducedRate(mCommandList.Get());
+	}
+	// Draw alpha transparent items
+	DrawDungeon(cmdList, ritems, true);
+
+	if (enablePSO) {
+		mCommandList->SetPipelineState(mPSOs["torchTested"].Get());
+	}
+	// VRS: Reduced rate for torches/effects (visual noise masks quality differences)
+	if (enableVRS && mVRSHelper.IsSupported()) {
+		mVRSHelper.SetReducedRate(mCommandList.Get());
+	}
+	// Draw the torches and effects
+	DrawDungeon(cmdList, ritems, true, true);
+
+	if (enablePSO) {
+
+		tex.Offset(377, mCbvSrvDescriptorSize);
+		cmdList->SetGraphicsRootDescriptorTable(3, tex);
+
+		cmdList->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+		// cmdList->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+
+		if (enablePlayerHUD) {
+			for (int i = 0; i < displayCapture; i++) {
+				for (int j = 0; j < displayCaptureCount[i]; j++) {
+					cmdList->DrawInstanced(4, 1, displayCaptureIndex[i] + (j * 4), 0);
+				}
+			}
+		}
+
+		// Draw the skybox
+		if (!gravityon || outside) {
+			mCommandList->SetPipelineState(mPSOs["sky"].Get());
+			// VRS: Reduced rate for skybox (low-detail, distant geometry)
+			if (enableVRS && mVRSHelper.IsSupported()) {
+				mVRSHelper.SetReducedRate(mCommandList.Get());
+			}
+			DrawRenderItemsFL(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Opaque]);
+		}
+
+		if (enablePlayerHUD) {
+			DisplayHud();
+			SetDungeonText();
+		}
+
+		ScanMod(gt.DeltaTime());
+	}
+
+	return;
+}
+
+
+
+void DungeonStompApp::DrawDungeon(ID3D12GraphicsCommandList *cmdList, const std::vector<RenderItem *> &ritems, BOOL isAlpha, bool isTorch, bool normalMap) {
+
+	auto ri = ritems[0];
+
 	UINT objCBByteSize = d3dUtil::CalcConstantBufferByteSize(sizeof(ObjectConstants));
 	UINT matCBByteSize = d3dUtil::CalcConstantBufferByteSize(sizeof(MaterialConstants));
 
 	auto objectCB = mCurrFrameResource->ObjectCB->Resource();
 	auto matCB = mCurrFrameResource->MaterialCB->Resource();
 
-	// For each render item...
-	for (size_t i = 0; i < ritems.size(); ++i) {
-		auto ri = ritems[i];
+	bool draw = true;
 
-		cmdList->IASetVertexBuffers(0, 1, &ri->Geo->VertexBufferView());
-		cmdList->IASetIndexBuffer(&ri->Geo->IndexBufferView());
-		cmdList->IASetPrimitiveTopology(ri->PrimitiveType);
+	int currentObject = 0;
+	for (currentObject = 0; currentObject < number_of_polys_per_frame; currentObject++) {
+		int i = ObjectsToDraw[currentObject].vert_index;
+		int vert_index = ObjectsToDraw[currentObject].srcstart;
+		int fperpoly = ObjectsToDraw[currentObject].srcfstart;
+		int face_index = ObjectsToDraw[currentObject].srcfstart;
 
-		D3D12_GPU_VIRTUAL_ADDRESS objCBAddress = objectCB->GetGPUVirtualAddress() + ri->ObjCBIndex * objCBByteSize;
-		D3D12_GPU_VIRTUAL_ADDRESS matCBAddress = matCB->GetGPUVirtualAddress() + ri->Mat->MatCBIndex * matCBByteSize;
+		int texture_alias_number = texture_list_buffer[i];
+		int texture_number = TexMap[texture_alias_number].texture;
 
-		cmdList->SetGraphicsRootConstantBufferView(0, objCBAddress);
-		cmdList->SetGraphicsRootConstantBufferView(1, matCBAddress);
+		int normal_map_texture = TexMap[texture_alias_number].normalmaptextureid;
 
-		if (ri->Geo->Name == "waterGeo") {
-			DrawDungeon(cmdList, ritems, FALSE, false, enableNormalmap);
-			break;
-		} else {
-
-			cmdList->DrawIndexedInstanced(ri->IndexCount, 1, ri->StartIndexLocation, ri->BaseVertexLocation, 0);
+		if (texture_alias_number == 104) {
+			TexMap[texture_alias_number].is_alpha_texture = 1;
 		}
-	}
-}
 
-void DungeonStompApp::DrawDungeon(ID3D12GraphicsCommandList *cmdList, const std::vector<RenderItem *> &ritems, BOOL isAlpha, bool isTorch, bool normalMap) {
-	// static int savelastmove = 0;
-	// static int savelastmove2 = 0;
+		draw = true;
 
-	// savelastmove2 = playercurrentmove;
+		if (isAlpha) {
+			if (texture_number >= 94 && texture_number <= 101 ||
+			    texture_number >= 289 - 1 && texture_number <= 296 - 1 ||
+			    texture_number >= 279 - 1 && texture_number <= 288 - 1 ||
+			    texture_number >= 206 - 1 && texture_number <= 210 - 1 ||
+			    texture_number == 378) {
 
-	// Apply Variable Rate Shading (VRS) based on render type
-	if (enableVRS && mVRSHelper.IsSupported()) {
-		if (drawingShadowMap) {
-			// Shadow pass doesn't need high precision
-			mVRSHelper.SetShadingRate(mCommandList.Get(), D3D12_SHADING_RATE_2X2);
-		} else if (drawingSSAO) {
-			// SSAO normals/depth pass
-			mVRSHelper.SetShadingRate(mCommandList.Get(), D3D12_SHADING_RATE_1X2);
-		} else {
-			// Main scene pass - full rate
-			mVRSHelper.SetFullRate(mCommandList.Get());
-		}
-	}
+				if (isAlpha && !isTorch) {
+					draw = false;
+				}
 
-	for (int currentObject = 0; currentObject < number_of_polys_per_frame; currentObject++) {
-
-		int srcStart = ObjectsToDraw[currentObject].srcstart;
-		int vertsPerPoly = verts_per_poly[currentObject];
-		int vertIndex = ObjectsToDraw[currentObject].vert_index;
-
-		int textureAliasNumber = texture_list_buffer[vertIndex];
-
-		short tex_id = (short)TexMap[textureAliasNumber].texture;
-
-		int normalMapAliasId = TexMap[textureAliasNumber].normalmaptextureid;
-		int normalMapTexture = (normalMapAliasId >= 0) ? TexMap[normalMapAliasId].texture : -1;
-
-		if (tex_id < 0)
-			continue;
-
-		if (tex_id >= MAX_NUM_TEXTURES)
-			continue;
-
-		if (isTorch == false) {
-			if (normalMap == true && normalMapTexture != -1) {
-				if (enableSSao && !drawingShadowMap)
-					mCommandList->SetPipelineState(mPSOs["normalMapSsao"].Get());
-				else
-					mCommandList->SetPipelineState(mPSOs["normalMap"].Get());
-			} else {
-				if (enableSSao && !drawingShadowMap)
-					mCommandList->SetPipelineState(mPSOs["opaqueSsao"].Get());
-				else
-					mCommandList->SetPipelineState(mPSOs["opaque"].Get());
+				if (isAlpha && isTorch) {
+					draw = true;
+				}
 			}
-		} else {
-			mCommandList->SetPipelineState(mPSOs["torch"].Get());
+		}
+
+		if (normal_map_texture == -1 && normalMap) {
+			draw = false;
+		}
+
+		if (!normalMap && normal_map_texture != -1) {
+			draw = false;
+		}
+
+		int oid = 0;
+
+		if (drawingSSAO || drawingShadowMap) {
+			oid = ObjectsToDraw[currentObject].objectId;
+
+			// Don't draw player captions
+			if (oid == -99) {
+				draw = false;
+			}
 		}
 
 		if (drawingShadowMap) {
-			mCommandList->SetPipelineState(mPSOs["shadow_opaque"].Get());
+
+			if (oid == -1) {
+				// Draw 3DS and MD2 Shadows
+				draw = true;
+			} else {
+				draw = false;
+			}
+
+			if (oid > 0) {
+				// Draw objects.dat that have SHADOW attribute set to 1
+				if (ObjectHasShadow(oid)) {
+					draw = true;
+				}
+			}
+
+			if (ObjectsToDraw[currentObject].castshaddow == 0) {
+				draw = false;
+			}
 		}
 
-		if (drawingSSAO) {
-			mCommandList->SetPipelineState(mPSOs["drawNormals"].Get());
+		if (currentObject >= playerGunObjectStart && currentObject < playerObjectStart && drawingShadowMap) {
+			// don't draw the onscreen player weapon
+			draw = false;
 		}
 
-		mCommandList->SetGraphicsRootDescriptorTable(3, GetGpuSrv(tex_id));
-
-		if (normalMap == true && normalMapTexture != -1) {
-			mCommandList->SetGraphicsRootDescriptorTable(6, GetGpuSrv(normalMapTexture));
-		} else {
-			mCommandList->SetGraphicsRootDescriptorTable(6, mNullSrv);
+		if (currentObject >= playerObjectStart && currentObject < playerObjectEnd && !drawingShadowMap) {
+			draw = false;
 		}
 
-		if (enableSSao && !drawingShadowMap) {
-			mCommandList->SetGraphicsRootDescriptorTable(4, mSsao->AmbientMapSrv());
-		} else {
-			mCommandList->SetGraphicsRootDescriptorTable(4, mNullSrv);
+		if (currentObject >= playerObjectStart && currentObject < playerObjectEnd && drawingShadowMap) {
+			draw = true;
 		}
 
-		if (!drawingShadowMap) {
-			mCommandList->SetGraphicsRootDescriptorTable(5, mShadowMap->Srv());
-		}
+		if (draw) {
 
-		mCommandList->DrawInstanced(vertsPerPoly, 1, srcStart, 0);
+			// default,grass,water,brick,stone,tile,crate,ice,bone,metal,wood
+			auto textureType = TexMap[texture_number].material.name;
+
+			UINT materialIndex = mMaterials[textureType].get()->MatCBIndex;
+
+			D3D12_GPU_VIRTUAL_ADDRESS objCBAddress = objectCB->GetGPUVirtualAddress() + ri->ObjCBIndex * objCBByteSize;
+			D3D12_GPU_VIRTUAL_ADDRESS matCBAddress = matCB->GetGPUVirtualAddress() + materialIndex * matCBByteSize;
+
+			cmdList->SetGraphicsRootConstantBufferView(0, objCBAddress); // Set cbPerObject
+			cmdList->SetGraphicsRootConstantBufferView(1, matCBAddress); // Set cbMaterial
+
+			CD3DX12_GPU_DESCRIPTOR_HANDLE tex(mSrvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+			tex.Offset(texture_number, mCbvSrvDescriptorSize);
+			cmdList->SetGraphicsRootDescriptorTable(3, tex); // Set gDiffuseMap
+
+			CD3DX12_GPU_DESCRIPTOR_HANDLE tex3(mSrvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+			tex3.Offset(number_of_tex_aliases + 1, mCbvSrvDescriptorSize);
+			cmdList->SetGraphicsRootDescriptorTable(5, tex3); // Set gShadowMap
+
+			CD3DX12_GPU_DESCRIPTOR_HANDLE tex4(mSrvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+			tex4.Offset(number_of_tex_aliases + 2, mCbvSrvDescriptorSize);
+			cmdList->SetGraphicsRootDescriptorTable(7, tex4); // Set gSsaoMap
+
+			// CHECK THIS
+			if (normalMap && !drawingShadowMap && !drawingSSAO) {
+				CD3DX12_GPU_DESCRIPTOR_HANDLE tex2(mSrvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+				tex2.Offset(normal_map_texture, mCbvSrvDescriptorSize);
+				cmdList->SetGraphicsRootDescriptorTable(4, tex2); // Set gNormalMap
+			}
+
+			if (dp_command_index_mode[i] == 1 && TexMap[texture_alias_number].is_alpha_texture == isAlpha) { // USE_NON_INDEXED_DP
+				int v = verts_per_poly[currentObject];
+
+				if (dp_commands[currentObject] == D3DPT_TRIANGLELIST) {
+					cmdList->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+				} else if (dp_commands[currentObject] == D3DPT_TRIANGLESTRIP) {
+					cmdList->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+				}
+				cmdList->DrawInstanced(v, 1, vert_index, 0);
+			}
+		}
 	}
+
+	UINT materialIndex = mMaterials["default"].get()->MatCBIndex;
+
+	D3D12_GPU_VIRTUAL_ADDRESS objCBAddress = objectCB->GetGPUVirtualAddress() + ri->ObjCBIndex * objCBByteSize;
+	D3D12_GPU_VIRTUAL_ADDRESS matCBAddress = matCB->GetGPUVirtualAddress() + materialIndex * matCBByteSize;
+
+	cmdList->SetGraphicsRootConstantBufferView(0, objCBAddress);
+	cmdList->SetGraphicsRootConstantBufferView(1, matCBAddress);
 }
 
 void DungeonStompApp::ProcessLights11() {
