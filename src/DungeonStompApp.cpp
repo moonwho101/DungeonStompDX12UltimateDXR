@@ -29,69 +29,13 @@ using namespace DirectX::PackedVector;
 Font LoadFont(LPCWSTR filename, int windowWidth, int windowHeight);
 
 const int gNumFrameResources = 3;
-extern int numCharacters;
-extern char gfinaltext[2048];
-int LevelUpXPNeeded(int xp);
+
 extern Font arialFont; // this will store our arial font information
 extern int maxNumTextCharacters;
 extern int maxNumRectangleCharacters;
 
-extern POLY_SORT ObjectsToDraw[MAX_NUM_QUADS];
-extern BOOL *dp_command_index_mode;
-extern int cnt;
-extern D3DVERTEX2 *src_v;
-extern int number_of_polys_per_frame;
-extern int savelastmove;
-
-extern int displayCaptureIndex[1000];
-extern int displayCaptureCount[1000];
-extern int displayCapture;
-extern int displayShadowMap;
-
-extern int playercurrentmove;
-
-int displayShadowMapKeyPress = 0;
-
-bool enableSSao = false;
-bool enableSSaoKey = false;
-
-bool enableCameraBob = true;
-bool enableCameraBobKey = false;
-
-bool enableVsync = true;
-bool enableVsyncKey = false;
-
-bool enableNormalmap = true;
-bool enableNormalmapKey = false;
-
-bool enableShadowmapFeature = true;
-bool enableShadowmapFeatureKey = false;
-
-bool enableVRS = false;
-bool enableVRSKey = false;
-
-bool enablePlayerHUD = true;
-bool enablePlayerHUDKey = false;
-
-bool enableDXR = true;
-bool enableDXRKey = false;
-
-extern int playerObjectStart;
-extern int playerGunObjectStart;
-extern int playerObjectEnd;
-extern int gravityon;
-extern int outside;
-
 CameraBob bobY;
 CameraBob bobX;
-float centrex = 0;
-float centrey = 0;
-bool centre = false;
-bool stopx = false;
-bool stopy = false;
-
-bool drawingShadowMap = false;
-bool drawingSSAO = false;
 
 std::unordered_map<std::string, std::unique_ptr<Texture>> mTextures;
 extern int number_of_tex_aliases;
@@ -101,7 +45,7 @@ extern ID3D12PipelineState *textPSO;                    // pso containing a pipe
 extern ID3D12PipelineState *rectanglePSO[MaxRectangle]; // pso containing a pipeline state
 
 DungeonStompApp *gApp = nullptr;
-extern float currentspeed;
+
 
 void TriggerLandingDip(float amount) {
 	if (gApp)

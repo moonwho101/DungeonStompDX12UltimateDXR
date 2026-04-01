@@ -13,26 +13,31 @@
 
 using namespace DirectX;
 
+bool drawingShadowMap = false;
+bool drawingSSAO = false;
+int displayShadowMapKeyPress = 0;
+
+bool enableSSao = false;
+bool enableSSaoKey = false;
+bool enableCameraBob = true;
+bool enableCameraBobKey = false;
+bool enableVsync = true;
+bool enableVsyncKey = false;
+bool enableNormalmap = true;
+bool enableNormalmapKey = false;
+bool enableShadowmapFeature = true;
+bool enableShadowmapFeatureKey = false;
+bool enableVRS = false;
+bool enableVRSKey = false;
+bool enablePlayerHUD = true;
+bool enablePlayerHUDKey = false;
+bool enableDXR = true;
+bool enableDXRKey = false;
+
 extern int trueplayernum;
 extern PLAYER *player_list;
 extern int displayShadowMap;
-extern int displayShadowMapKeyPress;
-extern bool enableSSao;
-extern bool enableSSaoKey;
-extern bool enableCameraBob;
-extern bool enableCameraBobKey;
-extern bool enableNormalmap;
-extern bool enableNormalmapKey;
-extern bool enableVsync;
-extern bool enableVsyncKey;
-extern bool enableShadowmapFeature;
-extern bool enableShadowmapFeatureKey;
-extern bool enableVRS;
-extern bool enableVRSKey;
-extern bool enablePlayerHUD;
-extern bool enablePlayerHUDKey;
-extern bool enableDXR;
-extern bool enableDXRKey;
+
 extern char gActionMessage[2048];
 extern int playercurrentmove;
 extern CameraBob bobY;
