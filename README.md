@@ -10,30 +10,13 @@
 [![C++](https://img.shields.io/badge/language-C%2B%2B-orange?style=flat-square&logo=cplusplus)](https://github.com/moonwho101/DungeonStompDX12UltimateDXR)
 [![Visual Studio](https://img.shields.io/badge/VS-2022-purple?style=flat-square&logo=visualstudio)](https://visualstudio.microsoft.com/)
 
-![Dungeon Stomp DX12 DXR](Textures/screen1/pb0.jpg)
+![Dungeon Stomp DX12 DXR](Textures/screenshot29.jpg)
 
 **Explore 15 hand-crafted dungeon levels, battle 25+ enemy types, collect weapons & spells, and experience real-time ray-traced lighting — all in an open-source C++ engine.**
 
 [Download & Play](#quick-start) · [Screenshots](#screenshots) · [Build from Source](#build-from-source) · [Controls](#controls) · [Related Projects](#related-projects)
 
 </div>
-
----
-
-## Table of Contents
-
-[Highlights](#highlights)
-[Quick Start](#quick-start)
-[Screenshots](#screenshots)
-[Rendering Features](#rendering-features)
-[Gameplay Features](#gameplay-features)
-[Build from Source](#build-from-source)
-[Controls](#controls)
-[Debug & Developer Controls](#debug--developer-controls)
-[Project Structure](#project-structure)
-[Related Projects](#related-projects)
-[Credits](#credits)
-[License](#license)
 
 ---
 
@@ -73,7 +56,7 @@
 
 ![Ray-traced dungeon scene](Textures/screenshot22.jpg)
 
-![Combat encounter](Textures/screenshot21.jpg)
+![Combat encounter](Textures/screenshot28.jpg)
 
 |  |  |
 |---|---|
