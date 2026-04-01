@@ -202,7 +202,7 @@ bool DungeonStompApp::Initialize() {
 	BuildShadersAndInputLayout();
 	BuildLandGeometry();
 	BuildDungeonGeometryBuffers();
-	
+
 	BuildRenderItems();
 	BuildFrameResources();
 	BuildPSOs();
@@ -272,9 +272,7 @@ void DungeonStompApp::OnResize() {
 	}
 }
 
-
 void DungeonStompApp::BuildRootSignature() {
-
 
 	const int rootItems = 8;
 
@@ -981,8 +979,6 @@ void DungeonStompApp::BuildDungeonGeometryBuffers() {
 	mGeometries["waterGeo"] = std::move(geo);
 }
 
-
-
 void DungeonStompApp::BuildPSOs() {
 
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC opaquePsoDesc;
@@ -1389,11 +1385,7 @@ void DungeonStompApp::BuildRenderItems() {
 	mAllRitems.push_back(std::move(gridRitem));
 }
 
-
-
 extern bool ObjectHasShadow(int object_id);
-
-
 
 float DungeonStompApp::GetHillsHeight(float x, float z) const {
 	return 0.3f * (z * sinf(0.1f * x) + x * cosf(0.1f * z));
@@ -1829,25 +1821,23 @@ BOOL DungeonStompApp::LoadRRTextures11(char *filename) {
 			TexMap[tex_alias_counter].material.roughness = roughness;
 			TexMap[tex_alias_counter].material.metallic = metalicness;
 
-
-
-		/*	char *matName = TexMap[tex_alias_counter].material.name;
-			if (_stricmp(matName, "stone") == 0 || _stricmp(matName, "brick") == 0 || _stricmp(matName, "tile") == 0 || _stricmp(matName, "coble") == 0 || _stricmp(matName, "pave") == 0 || _stricmp(matName, "brick4") == 0 || _stricmp(matName, "brick5") == 0) {
-				TexMap[tex_alias_counter].material.roughness = 0.8f;
-				TexMap[tex_alias_counter].material.metallic = 0.0f;
-			} else if (_stricmp(matName, "metal") == 0 || _stricmp(matName, "chestmetal") == 0 || _stricmp(matName, "doormetal") == 0 || _stricmp(matName, "torchholder") == 0 || _stricmp(matName, "metal20") == 0 || _stricmp(matName, "oldmetal") == 0) {
-				TexMap[tex_alias_counter].material.roughness = 0.2f;
-				TexMap[tex_alias_counter].material.metallic = 1.0f;
-			} else if (_stricmp(matName, "wood") == 0 || _stricmp(matName, "crate") == 0 || _stricmp(matName, "doorwood") == 0 || _stricmp(matName, "chestwood") == 0 || _stricmp(matName, "woodbowl") == 0 || _stricmp(matName, "woodcup") == 0 || _stricmp(matName, "woodfrnt") == 0) {
-				TexMap[tex_alias_counter].material.roughness = 0.7f;
-				TexMap[tex_alias_counter].material.metallic = 0.0f;
-			} else if (_stricmp(matName, "glass") == 0 || _stricmp(matName, "water") == 0 || _stricmp(matName, "ice") == 0 || _stricmp(matName, "chem1") == 0) {
-				TexMap[tex_alias_counter].material.roughness = 0.1f;
-				TexMap[tex_alias_counter].material.metallic = 0.0f;
-			} else if (_stricmp(matName, "grass") == 0) {
-				TexMap[tex_alias_counter].material.roughness = 0.9f;
-				TexMap[tex_alias_counter].material.metallic = 0.0f;
-			}*/
+			/*	char *matName = TexMap[tex_alias_counter].material.name;
+			    if (_stricmp(matName, "stone") == 0 || _stricmp(matName, "brick") == 0 || _stricmp(matName, "tile") == 0 || _stricmp(matName, "coble") == 0 || _stricmp(matName, "pave") == 0 || _stricmp(matName, "brick4") == 0 || _stricmp(matName, "brick5") == 0) {
+			        TexMap[tex_alias_counter].material.roughness = 0.8f;
+			        TexMap[tex_alias_counter].material.metallic = 0.0f;
+			    } else if (_stricmp(matName, "metal") == 0 || _stricmp(matName, "chestmetal") == 0 || _stricmp(matName, "doormetal") == 0 || _stricmp(matName, "torchholder") == 0 || _stricmp(matName, "metal20") == 0 || _stricmp(matName, "oldmetal") == 0) {
+			        TexMap[tex_alias_counter].material.roughness = 0.2f;
+			        TexMap[tex_alias_counter].material.metallic = 1.0f;
+			    } else if (_stricmp(matName, "wood") == 0 || _stricmp(matName, "crate") == 0 || _stricmp(matName, "doorwood") == 0 || _stricmp(matName, "chestwood") == 0 || _stricmp(matName, "woodbowl") == 0 || _stricmp(matName, "woodcup") == 0 || _stricmp(matName, "woodfrnt") == 0) {
+			        TexMap[tex_alias_counter].material.roughness = 0.7f;
+			        TexMap[tex_alias_counter].material.metallic = 0.0f;
+			    } else if (_stricmp(matName, "glass") == 0 || _stricmp(matName, "water") == 0 || _stricmp(matName, "ice") == 0 || _stricmp(matName, "chem1") == 0) {
+			        TexMap[tex_alias_counter].material.roughness = 0.1f;
+			        TexMap[tex_alias_counter].material.metallic = 0.0f;
+			    } else if (_stricmp(matName, "grass") == 0) {
+			        TexMap[tex_alias_counter].material.roughness = 0.9f;
+			        TexMap[tex_alias_counter].material.metallic = 0.0f;
+			    }*/
 
 			tex_alias_counter++;
 			found = TRUE;
@@ -1900,5 +1890,3 @@ void DungeonStompApp::SetTextureNormalMapEmpty() {
 		TexMap[i].normalmaptextureid = -1;
 	}
 }
-
-

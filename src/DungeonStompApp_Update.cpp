@@ -294,7 +294,7 @@ void DungeonStompApp::UpdateCamera(const GameTimer &gt) {
 	if (mLandingDip < 0.0f)
 		mLandingDip = 0.0f;
 
-	//Disable for now
+	// Disable for now
 	mLandingDip = 0.0f;
 
 	// Idle sway
@@ -398,7 +398,6 @@ void DungeonStompApp::UpdateCamera(const GameTimer &gt) {
 		target = XMVectorSet(m_vLookatPt.x, m_vLookatPt.y + adjust, m_vLookatPt.z, 1.0f);
 
 		GunTruesave = mEyePos;
-
 	}
 
 	XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
@@ -409,7 +408,7 @@ void DungeonStompApp::UpdateCamera(const GameTimer &gt) {
 	if (XMVector3Equal(EyeDirection, XMVectorZero())) {
 		return;
 	}
-	
+
 	XMMATRIX view = XMMatrixLookAtLH(pos, target, up);
 
 	float totalRoll = look_roll_ang + mTurnRoll;
@@ -520,7 +519,7 @@ void DungeonStompApp::UpdateShadowTransform(const GameTimer &gt, int light) {
 }
 
 void DungeonStompApp::UpdateMainPassCB(const GameTimer &gt) {
-	
+
 	XMMATRIX view = XMLoadFloat4x4(&mView);
 	XMMATRIX proj = XMLoadFloat4x4(&mProj);
 
@@ -738,7 +737,7 @@ void DungeonStompApp::UpdateDungeon(const GameTimer &gt) {
 		}
 		// Upload primitive alias indices to DXR (reusing texture indices buffer)
 		mDXRHelper->UpdatePrimitiveTextureIndices(md3dDevice.Get(), primitiveTextureIndices.data(), totalTriangles);
- 
+
 		// Upload alias material data to DXR
 		std::vector<DXRMaterialData> aliasData(number_of_tex_aliases);
 		for (int i = 0; i < number_of_tex_aliases; i++) {
@@ -748,7 +747,6 @@ void DungeonStompApp::UpdateDungeon(const GameTimer &gt) {
 			aliasData[i].Metallic = TexMap[i].material.metallic;
 		}
 		mDXRHelper->UpdateAliasData(md3dDevice.Get(), aliasData.data(), (UINT)aliasData.size());
-
 
 		// Update scene constants for DXR
 		XMMATRIX view = XMLoadFloat4x4(&mView);

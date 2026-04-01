@@ -361,8 +361,6 @@ void DungeonStompApp::DrawRenderItemsFL(ID3D12GraphicsCommandList *cmdList, cons
 	//}
 }
 
-
-
 void DungeonStompApp::DrawRenderItems(ID3D12GraphicsCommandList *cmdList, const std::vector<RenderItem *> &ritems, const GameTimer &gt) {
 
 	auto ri = ritems[0];
@@ -465,8 +463,6 @@ void DungeonStompApp::DrawRenderItems(ID3D12GraphicsCommandList *cmdList, const 
 
 	return;
 }
-
-
 
 void DungeonStompApp::DrawDungeon(ID3D12GraphicsCommandList *cmdList, const std::vector<RenderItem *> &ritems, BOOL isAlpha, bool isTorch, bool normalMap) {
 
