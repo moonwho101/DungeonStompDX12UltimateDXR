@@ -21,13 +21,13 @@
     <ClCompile Include="FrameResource.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="DungeonStompApp.cpp">
+    <ClCompile Include="DungeonStomp.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="DungeonStompApp_Update.cpp">
+    <ClCompile Include="DungeonStomp_Update.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="DungeonStompApp_Render.cpp">
+    <ClCompile Include="DungeonStomp_Render.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Dungeon.cpp">

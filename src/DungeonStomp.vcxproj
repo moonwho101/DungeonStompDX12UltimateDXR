@@ -173,9 +173,9 @@
     <ClCompile Include="GameLogic.cpp" />
     <ClCompile Include="Import3DS.cpp" />
     <ClCompile Include="ImportMD2.cpp" />
-    <ClCompile Include="DungeonStompApp.cpp" />
-    <ClCompile Include="DungeonStompApp_Update.cpp" />
-    <ClCompile Include="DungeonStompApp_Render.cpp" />
+    <ClCompile Include="DungeonStomp.cpp" />
+    <ClCompile Include="DungeonStomp_Update.cpp" />
+    <ClCompile Include="DungeonStomp_Render.cpp" />
     <ClCompile Include="LoadWorld.cpp" />
     <ClCompile Include="Missle.cpp" />
     <ClCompile Include="ProcessModel.cpp" />
