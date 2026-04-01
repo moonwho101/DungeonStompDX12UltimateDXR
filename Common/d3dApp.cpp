@@ -8,8 +8,12 @@
 // ---- DirectX 12 Agility SDK opt-in ----
 // These exports tell the D3D12 loader to use the Agility SDK runtime (D3D12Core.dll)
 // from the D3D12\ subdirectory next to the executable.
-extern "C" { __declspec(dllexport) extern const UINT D3D12SDKVersion = 614; }
-extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".\\D3D12\\"; }
+extern "C" {
+__declspec(dllexport) extern const UINT D3D12SDKVersion = 614;
+}
+extern "C" {
+__declspec(dllexport) extern const char *D3D12SDKPath = ".\\D3D12\\";
+}
 
 using Microsoft::WRL::ComPtr;
 using namespace std;
@@ -34,7 +38,7 @@ bool IsSoftwareAdapter(IDXGIAdapter1 *adapter) {
 }
 
 bool TryCreateDeviceForAdapter(IDXGIAdapter1 *adapter, ComPtr<ID3D12Device> &outDevice,
-	                           D3D_FEATURE_LEVEL &outFeatureLevel) {
+                               D3D_FEATURE_LEVEL &outFeatureLevel) {
 	for (auto fl : kFeatureLevels) {
 		ComPtr<ID3D12Device> candidate;
 		if (SUCCEEDED(D3D12CreateDevice(adapter, fl, IID_PPV_ARGS(&candidate)))) {
@@ -48,10 +52,10 @@ bool TryCreateDeviceForAdapter(IDXGIAdapter1 *adapter, ComPtr<ID3D12Device> &out
 }
 
 bool SelectBestHardwareAdapter(IDXGIFactory6 *factory,
-	                           ComPtr<IDXGIAdapter1> &outAdapter,
-	                           ComPtr<ID3D12Device> &outDevice,
-	                           D3D_FEATURE_LEVEL &outFeatureLevel,
-	                           std::wstring &outAdapterName) {
+                               ComPtr<IDXGIAdapter1> &outAdapter,
+                               ComPtr<ID3D12Device> &outDevice,
+                               D3D_FEATURE_LEVEL &outFeatureLevel,
+                               std::wstring &outAdapterName) {
 	ComPtr<IDXGIAdapter1> bestAdapter;
 	ComPtr<ID3D12Device> bestDevice;
 	D3D_FEATURE_LEVEL bestFeatureLevel = D3D_FEATURE_LEVEL_11_0;
@@ -61,9 +65,9 @@ bool SelectBestHardwareAdapter(IDXGIFactory6 *factory,
 	for (UINT i = 0;; ++i) {
 		ComPtr<IDXGIAdapter1> adapter;
 		if (FAILED(factory->EnumAdapterByGpuPreference(
-		    i,
-		    DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE,
-		    IID_PPV_ARGS(&adapter)))) {
+		        i,
+		        DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE,
+		        IID_PPV_ARGS(&adapter)))) {
 			break;
 		}
 
@@ -80,9 +84,7 @@ bool SelectBestHardwareAdapter(IDXGIFactory6 *factory,
 		DXGI_ADAPTER_DESC1 desc = {};
 		adapter->GetDesc1(&desc);
 
-		const bool isBetter = !found
-		    || (featureLevel > bestFeatureLevel)
-		    || (featureLevel == bestFeatureLevel && desc.DedicatedVideoMemory > bestDedicatedMemory);
+		const bool isBetter = !found || (featureLevel > bestFeatureLevel) || (featureLevel == bestFeatureLevel && desc.DedicatedVideoMemory > bestDedicatedMemory);
 
 		if (isBetter) {
 			found = true;
@@ -114,9 +116,7 @@ bool SelectBestHardwareAdapter(IDXGIFactory6 *factory,
 			DXGI_ADAPTER_DESC1 desc = {};
 			adapter->GetDesc1(&desc);
 
-			const bool isBetter = !found
-			    || (featureLevel > bestFeatureLevel)
-			    || (featureLevel == bestFeatureLevel && desc.DedicatedVideoMemory > bestDedicatedMemory);
+			const bool isBetter = !found || (featureLevel > bestFeatureLevel) || (featureLevel == bestFeatureLevel && desc.DedicatedVideoMemory > bestDedicatedMemory);
 
 			if (isBetter) {
 				found = true;
@@ -156,14 +156,14 @@ const wchar_t *FeatureLevelToString(D3D_FEATURE_LEVEL fl) {
 
 const char *ShaderModelToString(D3D_SHADER_MODEL model) {
 	switch (model) {
-	#if defined(D3D_SHADER_MODEL_6_8)
+#if defined(D3D_SHADER_MODEL_6_8)
 	case D3D_SHADER_MODEL_6_8:
 		return "6.8";
-	#endif
-	#if defined(D3D_SHADER_MODEL_6_7)
+#endif
+#if defined(D3D_SHADER_MODEL_6_7)
 	case D3D_SHADER_MODEL_6_7:
 		return "6.7";
-	#endif
+#endif
 	case D3D_SHADER_MODEL_6_6:
 		return "6.6";
 	case D3D_SHADER_MODEL_6_5:
@@ -598,8 +598,7 @@ bool D3DApp::InitDirect3D() {
 
 	if (SelectBestHardwareAdapter(mdxgiFactory.Get(), bestAdapter, baseDevice, mFeatureLevel, bestAdapterName)) {
 		hardwareResult = S_OK;
-		OutputDebugString((L"Using adapter: " + bestAdapterName + L" (FL "
-		                   + FeatureLevelToString(mFeatureLevel) + L")\n").c_str());
+		OutputDebugString((L"Using adapter: " + bestAdapterName + L" (FL " + FeatureLevelToString(mFeatureLevel) + L")\n").c_str());
 	}
 
 	// Fallback to WARP device.
@@ -733,11 +732,7 @@ void D3DApp::CheckDX12UltimateFeatures() {
 	OutputDebugStringA(mDX12UltimateFeatures.GPUUploadHeapSupported ? "GPU Upload Heap: Supported\n" : "GPU Upload Heap: Not supported\n");
 	OutputDebugStringA((std::string("Shader Model: ") + ShaderModelToString(mDX12UltimateFeatures.HighestShaderModel) + "\n").c_str());
 
-	const bool dx12UltimateReady = (mFeatureLevel >= D3D_FEATURE_LEVEL_12_2)
-	    && mDX12UltimateFeatures.RaytracingSupported
-	    && mDX12UltimateFeatures.VariableRateShadingSupported
-	    && mDX12UltimateFeatures.MeshShaderSupported
-	    && mDX12UltimateFeatures.SamplerFeedbackSupported;
+	const bool dx12UltimateReady = (mFeatureLevel >= D3D_FEATURE_LEVEL_12_2) && mDX12UltimateFeatures.RaytracingSupported && mDX12UltimateFeatures.VariableRateShadingSupported && mDX12UltimateFeatures.MeshShaderSupported && mDX12UltimateFeatures.SamplerFeedbackSupported;
 	OutputDebugStringA(dx12UltimateReady ? "DX12 Ultimate Baseline: Ready\n" : "DX12 Ultimate Baseline: Partial\n");
 
 	OutputDebugStringA(mTearingSupported ? "Tearing: Supported\n" : "Tearing: Not supported\n");

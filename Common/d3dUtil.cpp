@@ -5,10 +5,11 @@
 
 using Microsoft::WRL::ComPtr;
 
-DxException::DxException(HRESULT hr, const std::wstring &functionName, const std::wstring &filename, int lineNumber) : ErrorCode(hr),
-                                                                                                                       FunctionName(functionName),
-                                                                                                                       Filename(filename),
-                                                                                                                       LineNumber(lineNumber) {
+DxException::DxException(HRESULT hr, const std::wstring &functionName, const std::wstring &filename, int lineNumber)
+    : ErrorCode(hr),
+      FunctionName(functionName),
+      Filename(filename),
+      LineNumber(lineNumber) {
 }
 
 bool d3dUtil::IsKeyDown(int vkeyCode) {
@@ -118,7 +119,7 @@ ComPtr<ID3DBlob> d3dUtil::CompileShaderDXC(
     const D3D_SHADER_MACRO *defines,
     const std::string &entrypoint,
     const std::string &target) {
-	
+
 	// Create DXC compiler instance
 	CComPtr<IDxcUtils> pUtils;
 	CComPtr<IDxcCompiler3> pCompiler;
@@ -151,20 +152,20 @@ ComPtr<ID3DBlob> d3dUtil::CompileShaderDXC(
 	arguments.push_back(wTarget.c_str());
 
 #if defined(DEBUG) || defined(_DEBUG)
-	arguments.push_back(L"-Zi");  // Debug info
-	arguments.push_back(L"-Od");  // Disable optimizations
+	arguments.push_back(L"-Zi"); // Debug info
+	arguments.push_back(L"-Od"); // Disable optimizations
 #endif
 
 	// Add defines
 	std::vector<std::wstring> defineStrings;
 	if (defines) {
-		for (const D3D_SHADER_MACRO* p = defines; p->Name != nullptr; ++p) {
+		for (const D3D_SHADER_MACRO *p = defines; p->Name != nullptr; ++p) {
 			std::wstring defineName(p->Name, p->Name + strlen(p->Name));
 			std::wstring defineValue(p->Definition, p->Definition + strlen(p->Definition));
 			defineStrings.push_back(L"-D");
 			defineStrings.push_back(defineName + L"=" + defineValue);
 		}
-		for (const auto& def : defineStrings) {
+		for (const auto &def : defineStrings) {
 			arguments.push_back(def.c_str());
 		}
 	}
@@ -172,17 +173,17 @@ ComPtr<ID3DBlob> d3dUtil::CompileShaderDXC(
 	// Compile
 	CComPtr<IDxcResult> pResults;
 	ThrowIfFailed(pCompiler->Compile(
-		&sourceBuffer,
-		arguments.data(),
-		(UINT32)arguments.size(),
-		pIncludeHandler,
-		IID_PPV_ARGS(&pResults)));
+	    &sourceBuffer,
+	    arguments.data(),
+	    (UINT32)arguments.size(),
+	    pIncludeHandler,
+	    IID_PPV_ARGS(&pResults)));
 
 	// Check for errors
 	CComPtr<IDxcBlobUtf8> pErrors;
 	pResults->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&pErrors), nullptr);
 	if (pErrors && pErrors->GetStringLength() > 0) {
-		OutputDebugStringA((char*)pErrors->GetStringPointer());
+		OutputDebugStringA((char *)pErrors->GetStringPointer());
 	}
 
 	HRESULT hrStatus;

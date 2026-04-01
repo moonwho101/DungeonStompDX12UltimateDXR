@@ -46,7 +46,6 @@ extern ID3D12PipelineState *rectanglePSO[MaxRectangle]; // pso containing a pipe
 
 DungeonStompApp *gApp = nullptr;
 
-
 void TriggerLandingDip(float amount) {
 	if (gApp)
 		gApp->mLandingDip = amount;
@@ -79,12 +78,8 @@ DungeonStompApp::DungeonStompApp(HINSTANCE hInstance)
     : D3DApp(hInstance) {
 	gApp = this;
 
-	// Estimate the scene bounding sphere manually since we know how the scene was constructed.
-	// The grid is the "widest object" with a width of 20 and depth of 30.0f, and centered at
-	// the world space origin.  In general, you need to loop over every world space vertex
-	// position and compute the bounding sphere.
+	// Estimate the scene bounding sphere
 	mSceneBounds.Center = XMFLOAT3(0.0f, 0.0f, 0.0f);
-	// mSceneBounds.Radius = sqrtf(110.0f * 110.0f + 115.0f * 115.0f);
 
 	float scale = 1415.0f;
 	mSceneBounds.Radius = sqrtf((10.0f * 10.0f) * scale + (15.0f * 15.0f) * scale);
@@ -823,10 +818,6 @@ void DungeonStompApp::BuildLandGeometry() {
 
 	std::vector<Vertex> vertices(grid.Vertices.size());
 	for (size_t i = 0; i < grid.Vertices.size(); ++i) {
-		// auto& p = grid.Vertices[i].Position;
-		// vertices[i].Pos = p;
-		// vertices[i].Pos.y = GetHillsHeight(p.x, p.z);
-		// vertices[i].Normal = GetHillsNormal(p.x, p.z);
 		vertices[i].Pos = grid.Vertices[i].Position;
 		vertices[i].Normal = grid.Vertices[i].Normal;
 		vertices[i].TexC = grid.Vertices[i].TexC;
@@ -870,26 +861,6 @@ void DungeonStompApp::BuildLandGeometry() {
 void DungeonStompApp::BuildDungeonGeometryBuffers() {
 	std::vector<std::uint16_t> indices(3 * mDungeon->TriangleCount()); // 3 indices per face
 	assert(mDungeon->VertexCount() < 0x0000ffff);
-
-	//// Iterate over each quad.
-	// int m = mDungeon->RowCount();
-	// int n = mDungeon->ColumnCount();
-	// int k = 0;
-	// for (int i = 0; i < m - 1; ++i)
-	//{
-	//	for (int j = 0; j < n - 1; ++j)
-	//	{
-	//		indices[k] = i * n + j;
-	//		indices[k + 1] = i * n + j + 1;
-	//		indices[k + 2] = (i + 1) * n + j;
-
-	//		indices[k + 3] = (i + 1) * n + j;
-	//		indices[k + 4] = i * n + j + 1;
-	//		indices[k + 5] = (i + 1) * n + j + 1;
-
-	//		k += 6; // next quad
-	//	}
-	//}
 
 	// UINT vbByteSize = mDungeon->VertexCount() * sizeof(Vertex);
 	UINT vbByteSize = MAX_NUM_QUADS * sizeof(Vertex);
@@ -951,9 +922,6 @@ void DungeonStompApp::BuildPSOs() {
 	opaquePsoDesc.SampleDesc.Count = m4xMsaaState ? 4 : 1;
 	opaquePsoDesc.SampleDesc.Quality = m4xMsaaState ? (m4xMsaaQuality - 1) : 0;
 	opaquePsoDesc.DSVFormat = mDepthStencilFormat;
-
-	// opaquePsoDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_EQUAL;
-	// opaquePsoDesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
 
 	ThrowIfFailed(md3dDevice->CreateGraphicsPipelineState(&opaquePsoDesc, IID_PPV_ARGS(&mPSOs["opaque"])));
 
@@ -1313,8 +1281,6 @@ void DungeonStompApp::BuildRenderItems() {
 	auto gridRitem = std::make_unique<RenderItem>();
 	gridRitem->World = MathHelper::Identity4x4();
 
-	// XMStoreFloat4x4(&gridRitem->World, XMMatrixScaling(5000.0f, 5000.0f, 5000.0f));
-
 	gridRitem->ObjCBIndex = 1;
 	gridRitem->Mat = mMaterials["grass"].get();
 	gridRitem->Geo = mGeometries["landGeo"].get();
@@ -1555,11 +1521,6 @@ BOOL DungeonStompApp::LoadRRTextures11(char *filename) {
 		// return FALSE;
 	}
 
-	// TODO: fix this
-	// for (int i = 0;i < 400;i++) {
-	// textures[i] = NULL;
-	//}
-
 	CD3DX12_CPU_DESCRIPTOR_HANDLE hDescriptor(mSrvDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 
@@ -1764,24 +1725,6 @@ BOOL DungeonStompApp::LoadRRTextures11(char *filename) {
 
 			TexMap[tex_alias_counter].material.roughness = roughness;
 			TexMap[tex_alias_counter].material.metallic = metalicness;
-
-			/*	char *matName = TexMap[tex_alias_counter].material.name;
-			    if (_stricmp(matName, "stone") == 0 || _stricmp(matName, "brick") == 0 || _stricmp(matName, "tile") == 0 || _stricmp(matName, "coble") == 0 || _stricmp(matName, "pave") == 0 || _stricmp(matName, "brick4") == 0 || _stricmp(matName, "brick5") == 0) {
-			        TexMap[tex_alias_counter].material.roughness = 0.8f;
-			        TexMap[tex_alias_counter].material.metallic = 0.0f;
-			    } else if (_stricmp(matName, "metal") == 0 || _stricmp(matName, "chestmetal") == 0 || _stricmp(matName, "doormetal") == 0 || _stricmp(matName, "torchholder") == 0 || _stricmp(matName, "metal20") == 0 || _stricmp(matName, "oldmetal") == 0) {
-			        TexMap[tex_alias_counter].material.roughness = 0.2f;
-			        TexMap[tex_alias_counter].material.metallic = 1.0f;
-			    } else if (_stricmp(matName, "wood") == 0 || _stricmp(matName, "crate") == 0 || _stricmp(matName, "doorwood") == 0 || _stricmp(matName, "chestwood") == 0 || _stricmp(matName, "woodbowl") == 0 || _stricmp(matName, "woodcup") == 0 || _stricmp(matName, "woodfrnt") == 0) {
-			        TexMap[tex_alias_counter].material.roughness = 0.7f;
-			        TexMap[tex_alias_counter].material.metallic = 0.0f;
-			    } else if (_stricmp(matName, "glass") == 0 || _stricmp(matName, "water") == 0 || _stricmp(matName, "ice") == 0 || _stricmp(matName, "chem1") == 0) {
-			        TexMap[tex_alias_counter].material.roughness = 0.1f;
-			        TexMap[tex_alias_counter].material.metallic = 0.0f;
-			    } else if (_stricmp(matName, "grass") == 0) {
-			        TexMap[tex_alias_counter].material.roughness = 0.9f;
-			        TexMap[tex_alias_counter].material.metallic = 0.0f;
-			    }*/
 
 			tex_alias_counter++;
 			found = TRUE;

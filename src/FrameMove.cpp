@@ -70,8 +70,6 @@ HRESULT FrameMove(double fTime, FLOAT fTimeKey) {
 		lerpRate = 1.0f;
 	look_roll_ang += (rollTarget - look_roll_ang) * lerpRate;
 
-
-
 	m_vLookatPt.x = m_vEyePt.x + cameradist * sinf(newangle * k) * sinf(angy * k);
 	m_vLookatPt.y = m_vEyePt.y + cameradist * cosf(newangle * k);
 	m_vLookatPt.z = m_vEyePt.z + cameradist * sinf(newangle * k) * cosf(angy * k);

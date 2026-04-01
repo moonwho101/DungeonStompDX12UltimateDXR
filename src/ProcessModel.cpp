@@ -598,7 +598,8 @@ void SmoothNormals(int start_cnt) {
 	memset(processed, 0, total * sizeof(bool));
 
 	for (int i = 0; i < total; ++i) {
-		if (processed[i]) continue;
+		if (processed[i])
+			continue;
 
 		const auto &v_base = src_v[start_cnt + i];
 		int pg_cnt = 0;
@@ -628,12 +629,14 @@ void SmoothNormals(int start_cnt) {
 			entry = sn_next[entry];
 		}
 
-		if (pg_cnt < 2) continue;
+		if (pg_cnt < 2)
+			continue;
 
 		// 4. Smooth within position group (SIMD)
-		bool sub_proc[512] = {false};
+		bool sub_proc[512] = { false };
 		for (int j = 0; j < pg_cnt; ++j) {
-			if (sub_proc[j]) continue;
+			if (sub_proc[j])
+				continue;
 
 			int sg_cnt = 0;
 			int baseIdx = sn_group[j];
@@ -644,7 +647,8 @@ void SmoothNormals(int start_cnt) {
 			XMVECTOR ni = XMVectorSet(src_v[baseIdx].nx, src_v[baseIdx].ny, src_v[baseIdx].nz, 0.0f);
 
 			for (int k = j + 1; k < pg_cnt; ++k) {
-				if (sub_proc[k]) continue;
+				if (sub_proc[k])
+					continue;
 				int testIdx = sn_group[k];
 				XMVECTOR nj = XMVectorSet(src_v[testIdx].nx, src_v[testIdx].ny, src_v[testIdx].nz, 0.0f);
 
@@ -672,8 +676,12 @@ void SmoothNormals(int start_cnt) {
 
 				for (int k = 0; k < sg_cnt; ++k) {
 					auto &v = src_v[smooth_group[k]];
-					v.nx = fN.x; v.ny = fN.y; v.nz = fN.z;
-					v.nmx = fT.x; v.nmy = fT.y; v.nmz = fT.z;
+					v.nx = fN.x;
+					v.ny = fN.y;
+					v.nz = fN.z;
+					v.nmx = fT.x;
+					v.nmy = fT.y;
+					v.nmz = fT.z;
 				}
 			}
 		}
@@ -689,9 +697,9 @@ void SmoothNormalsNoHash(int start_cnt) {
 	const float epsilon = 0.0001f;
 	const float smooth_threshold = 0.2f; // approx 60 degrees. 0.7f is 45 deg. 0.5f is more aggressive.
 
-	//0.707: Smooths up to 45� (Common default for most models).
-	//0.500: Smooths up to 60�.
-	//0.000: Smooths up to 90� (Everything up to a perfect right angle will be smoothed).
+	// 0.707: Smooths up to 45� (Common default for most models).
+	// 0.500: Smooths up to 60�.
+	// 0.000: Smooths up to 90� (Everything up to a perfect right angle will be smoothed).
 
 	for (int i = start_cnt; i < cnt; i++) {
 		tracknormal[i] = 0;
@@ -702,7 +710,7 @@ void SmoothNormalsNoHash(int start_cnt) {
 			float x = src_v[i].x;
 			float y = src_v[i].y;
 			float z = src_v[i].z;
-			
+
 			XMVECTOR ni = XMVectorSet(src_v[i].nx, src_v[i].ny, src_v[i].nz, 0);
 
 			int scount = 0;
@@ -710,10 +718,10 @@ void SmoothNormalsNoHash(int start_cnt) {
 			for (int j = i; j < cnt; j++) {
 				if (tracknormal[j] == 0) {
 					// Check position with epsilon
-					if (fabsf(src_v[j].x - x) < epsilon && 
-						fabsf(src_v[j].y - y) < epsilon && 
-						fabsf(src_v[j].z - z) < epsilon) {
-						
+					if (fabsf(src_v[j].x - x) < epsilon &&
+					    fabsf(src_v[j].y - y) < epsilon &&
+					    fabsf(src_v[j].z - z) < epsilon) {
+
 						// Condition for smoothing: similar normals (smooth when you can)
 						XMVECTOR nj = XMVectorSet(src_v[j].nx, src_v[j].ny, src_v[j].nz, 0);
 						float dot = XMVectorGetX(XMVector3Dot(ni, nj));
@@ -740,7 +748,7 @@ void SmoothNormalsNoHash(int start_cnt) {
 				XMVECTOR average = XMVector3Normalize(sum);
 				// Gram-Schmidt orthogonalization: ensure Tangent is orthogonal to Normal (matches SmoothNormals)
 				XMVECTOR averagetan = XMVector3Normalize(XMVectorSubtract(sumtan, XMVectorMultiply(average, XMVector3Dot(average, sumtan))));
-				
+
 				XMFLOAT3 final2;
 				XMStoreFloat3(&final2, average);
 
