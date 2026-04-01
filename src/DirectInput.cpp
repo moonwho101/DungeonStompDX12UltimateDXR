@@ -294,6 +294,13 @@ VOID UpdateControls() {
 			Controls.spell = dims.rgbButtons[0] && 0x80;
 
 			Controls.missle = diks[DIK_E] && 0x80;
+
+			// Mouse wheel: cycle weapons
+			if (dims.lZ > 0)
+				Controls.bNextWeap = 1;
+			else if (dims.lZ < 0)
+				Controls.bPrevWeap = 1;
+
 		}
 
 		// Read joystick input
