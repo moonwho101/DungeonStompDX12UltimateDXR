@@ -1,3 +1,7 @@
+//***************************************************************************************
+// DungeonStompApp_Render.cpp by Mark Longo (C) 2026 All Rights Reserved.
+//***************************************************************************************
+
 #include "../Common/d3dApp.h"
 #include "../Common/MathHelper.h"
 #include "FrameResource.h"
