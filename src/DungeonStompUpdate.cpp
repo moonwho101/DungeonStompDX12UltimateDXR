@@ -117,8 +117,9 @@ void DungeonStompApp::Update(const GameTimer &gt) {
 		UpdateMainPassCB(gt);
 		UpdateSsaoCB(gt);
 		UpdateShadowPassCB(gt);
+		DisplayPlayerCaption();
 	}
-	// DisplayPlayerCaption();
+	
 	UpdateDungeon(gt);
 }
 
