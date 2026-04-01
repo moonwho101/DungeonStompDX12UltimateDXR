@@ -54,13 +54,13 @@
 
 <div align="center">
 
-![Ray-traced dungeon scene](Textures/screenshot22.jpg)
+![Ray-traced dungeon scene](Textures/screenshot31.jpg)
 
 ![Combat encounter](Textures/screenshot30.jpg)
 
 |  |  |
 |---|---|
-| ![Screenshot](Textures/screenshot23.jpg) | ![Screenshot](Textures/screenshot31.jpg) |
+| ![Screenshot](Textures/screenshot23.jpg) | ![Screenshot](Textures/screenshot22.jpg) |
 | ![Screenshot](Textures/screenshot25.jpg) | ![Screenshot](Textures/screenshot26.jpg) |
 
 </div>
