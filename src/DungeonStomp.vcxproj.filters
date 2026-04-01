@@ -24,10 +24,10 @@
     <ClCompile Include="DungeonStomp.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="DungeonStomp_Update.cpp">
+    <ClCompile Include="DungeonStompUpdate.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="DungeonStomp_Render.cpp">
+    <ClCompile Include="DungeonStompRender.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Dungeon.cpp">

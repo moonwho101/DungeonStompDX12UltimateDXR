@@ -174,8 +174,8 @@
     <ClCompile Include="Import3DS.cpp" />
     <ClCompile Include="ImportMD2.cpp" />
     <ClCompile Include="DungeonStomp.cpp" />
-    <ClCompile Include="DungeonStomp_Update.cpp" />
-    <ClCompile Include="DungeonStomp_Render.cpp" />
+    <ClCompile Include="DungeonStompUpdate.cpp" />
+    <ClCompile Include="DungeonStompRender.cpp" />
     <ClCompile Include="LoadWorld.cpp" />
     <ClCompile Include="Missle.cpp" />
     <ClCompile Include="ProcessModel.cpp" />
