@@ -122,6 +122,165 @@ void DungeonStompApp::Update(const GameTimer &gt) {
 	UpdateDungeon(gt);
 }
 
+void DungeonStompApp::UpdateCamera(const GameTimer &gt) {
+	float dt = gt.DeltaTime();
+
+	// Decay landing dip
+	mLandingDip -= 150.0f * dt;
+	if (mLandingDip < 0.0f)
+		mLandingDip = 0.0f;
+
+	// Disable for now
+	mLandingDip = 0.0f;
+
+	// Idle sway
+	float swayY = 0.0f;
+	if (playercurrentmove == 0 && enableCameraBob) {
+		mIdleSwayTime += dt;
+		swayY = sinf(mIdleSwayTime * 1.25f) * 1.2f; // Subtle breathing
+	} else {
+		mIdleSwayTime = 0.0f;
+	}
+
+	// Turn leaning
+	float deltaAngy = angy - mLastAngy;
+	if (deltaAngy > 180.0f)
+		deltaAngy -= 360.0f;
+	if (deltaAngy < -180.0f)
+		deltaAngy += 360.0f;
+	mLastAngy = angy;
+
+	float turnTarget = -deltaAngy * 0.4f; // Lean into turns
+	mTurnRoll += (turnTarget - mTurnRoll) * MathHelper::Clamp(dt * 8.0f, 0.0f, 1.0f);
+
+	float adjust = 50.0f;
+	float bx = 0.0f;
+	float by = 0.0f;
+
+	bx = bobX.getY();
+	by = bobY.getY();
+
+	if (player_list[trueplayernum].bIsPlayerAlive == FALSE) {
+		// Dead on floor
+		adjust = 0.0f;
+	}
+
+	mEyePos.x = m_vEyePt.x;
+	mEyePos.y = m_vEyePt.y + adjust;
+	mEyePos.z = m_vEyePt.z;
+
+	player_list[trueplayernum].x = m_vEyePt.x;
+	player_list[trueplayernum].y = m_vEyePt.y + adjust;
+	player_list[trueplayernum].z = m_vEyePt.z;
+
+	XMVECTOR pos, target;
+
+	XMFLOAT3 newspot;
+	XMFLOAT3 newspot2;
+
+	if (enableCameraBob) {
+		float step_left_angy = 0;
+		float r = 15.0f;
+
+		step_left_angy = angy - 90;
+
+		if (step_left_angy < 0)
+			step_left_angy += 360;
+
+		if (step_left_angy >= 360)
+			step_left_angy = step_left_angy - 360;
+
+		r = bx;
+
+		if (playercurrentmove == 1 || playercurrentmove == 4) {
+			// Player is moving, ensure bobbing is active
+			if (!bobX.getIsBobbing())
+				bobX.SinWave(bobX.getSpeed(), bobX.getAmplitude(), bobX.getFrequency());
+			if (!bobY.getIsBobbing())
+				bobY.SinWave(bobY.getSpeed(), bobY.getAmplitude(), bobY.getFrequency());
+		} else if (playercurrentmove == 0) {
+			// Player is not moving, stop bobbing
+			bobX.stopBobbing();
+			bobY.stopBobbing();
+		}
+
+		// bx and by will now smoothly interpolate to 0 when bobbing stops,
+		// due to the changes in CameraBob::update()
+		r = bx; // bx is bobX.getY() which is updated with damping
+
+		newspot.x = player_list[trueplayernum].x + r * sinf(step_left_angy * k);
+		newspot.y = player_list[trueplayernum].y + by - mLandingDip + swayY;
+		newspot.z = player_list[trueplayernum].z + r * cosf(step_left_angy * k);
+
+		float cameradist = 50.0f;
+
+		float newangle = 0;
+		newangle = fixangle(look_up_ang, 90);
+
+		newspot2.x = newspot.x + cameradist * sinf(newangle * k) * sinf(angy * k);
+		newspot2.y = newspot.y + cameradist * cosf(newangle * k);
+		newspot2.z = newspot.z + cameradist * sinf(newangle * k) * cosf(angy * k);
+
+		mEyePos = newspot;
+		GunTruesave = newspot;
+
+		// Build the view matrix.
+
+		pos = XMVectorSet(newspot.x, newspot.y, newspot.z, 1.0f);
+		target = XMVectorSet(newspot2.x, newspot2.y, newspot2.z, 1.0f);
+	} else {
+		// Build the view matrix.
+		pos = XMVectorSet(mEyePos.x, mEyePos.y - mLandingDip + swayY, mEyePos.z, 1.0f);
+		target = XMVectorSet(m_vLookatPt.x, m_vLookatPt.y + adjust, m_vLookatPt.z, 1.0f);
+
+		GunTruesave = mEyePos;
+	}
+
+	XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+
+	// Check for collision and nan errors
+	XMVECTOR EyeDirection = XMVectorSubtract(pos, target);
+	// assert(!XMVector3Equal(EyeDirection, XMVectorZero()));
+	if (XMVector3Equal(EyeDirection, XMVectorZero())) {
+		return;
+	}
+
+	XMMATRIX view = XMMatrixLookAtLH(pos, target, up);
+
+	float totalRoll = look_roll_ang + mTurnRoll;
+	if (totalRoll != 0.0f) {
+		float rollRad = totalRoll * (3.14159265f / 180.0f);
+		// Multiply rolling on the view-space Z axis
+		view = XMMatrixMultiply(view, XMMatrixRotationZ(-rollRad));
+	}
+
+	XMStoreFloat4x4(&mView, view);
+
+	mSceneBounds.Center = XMFLOAT3(mEyePos.x, mEyePos.y, mEyePos.z);
+}
+
+void DungeonStompApp::UpdateObjectCBs(const GameTimer &gt) {
+	auto currObjectCB = mCurrFrameResource->ObjectCB.get();
+	for (auto &e : mAllRitems) {
+		// Only update the cbuffer data if the constants have changed.
+		// This needs to be tracked per frame resource.
+		if (e->NumFramesDirty > 0) {
+			XMMATRIX world = XMLoadFloat4x4(&e->World);
+			XMMATRIX texTransform = XMLoadFloat4x4(&e->TexTransform);
+
+			ObjectConstants objConstants;
+			XMStoreFloat4x4(&objConstants.World, XMMatrixTranspose(world));
+			XMStoreFloat4x4(&objConstants.TexTransform, XMMatrixTranspose(texTransform));
+			// objConstants.MaterialIndex = e->Mat->MatCBIndex;
+
+			currObjectCB->CopyData(e->ObjCBIndex, objConstants);
+
+			// Next FrameResource need to be updated too.
+			e->NumFramesDirty--;
+		}
+	}
+}
+
 void DungeonStompApp::OnMouseDown(WPARAM btnState, int x, int y) {
 }
 
@@ -292,165 +451,6 @@ void DungeonStompApp::OnKeyboardInput(const GameTimer &gt) {
 		enableDXRKey = true;
 	} else {
 		enableDXRKey = false;
-	}
-}
-
-void DungeonStompApp::UpdateCamera(const GameTimer &gt) {
-	float dt = gt.DeltaTime();
-
-	// Decay landing dip
-	mLandingDip -= 150.0f * dt;
-	if (mLandingDip < 0.0f)
-		mLandingDip = 0.0f;
-
-	// Disable for now
-	mLandingDip = 0.0f;
-
-	// Idle sway
-	float swayY = 0.0f;
-	if (playercurrentmove == 0 && enableCameraBob) {
-		mIdleSwayTime += dt;
-		swayY = sinf(mIdleSwayTime * 1.25f) * 1.2f; // Subtle breathing
-	} else {
-		mIdleSwayTime = 0.0f;
-	}
-
-	// Turn leaning
-	float deltaAngy = angy - mLastAngy;
-	if (deltaAngy > 180.0f)
-		deltaAngy -= 360.0f;
-	if (deltaAngy < -180.0f)
-		deltaAngy += 360.0f;
-	mLastAngy = angy;
-
-	float turnTarget = -deltaAngy * 0.4f; // Lean into turns
-	mTurnRoll += (turnTarget - mTurnRoll) * MathHelper::Clamp(dt * 8.0f, 0.0f, 1.0f);
-
-	float adjust = 50.0f;
-	float bx = 0.0f;
-	float by = 0.0f;
-
-	bx = bobX.getY();
-	by = bobY.getY();
-
-	if (player_list[trueplayernum].bIsPlayerAlive == FALSE) {
-		// Dead on floor
-		adjust = 0.0f;
-	}
-
-	mEyePos.x = m_vEyePt.x;
-	mEyePos.y = m_vEyePt.y + adjust;
-	mEyePos.z = m_vEyePt.z;
-
-	player_list[trueplayernum].x = m_vEyePt.x;
-	player_list[trueplayernum].y = m_vEyePt.y + adjust;
-	player_list[trueplayernum].z = m_vEyePt.z;
-
-	XMVECTOR pos, target;
-
-	XMFLOAT3 newspot;
-	XMFLOAT3 newspot2;
-
-	if (enableCameraBob) {
-		float step_left_angy = 0;
-		float r = 15.0f;
-
-		step_left_angy = angy - 90;
-
-		if (step_left_angy < 0)
-			step_left_angy += 360;
-
-		if (step_left_angy >= 360)
-			step_left_angy = step_left_angy - 360;
-
-		r = bx;
-
-		if (playercurrentmove == 1 || playercurrentmove == 4) {
-			// Player is moving, ensure bobbing is active
-			if (!bobX.getIsBobbing())
-				bobX.SinWave(bobX.getSpeed(), bobX.getAmplitude(), bobX.getFrequency());
-			if (!bobY.getIsBobbing())
-				bobY.SinWave(bobY.getSpeed(), bobY.getAmplitude(), bobY.getFrequency());
-		} else if (playercurrentmove == 0) {
-			// Player is not moving, stop bobbing
-			bobX.stopBobbing();
-			bobY.stopBobbing();
-		}
-
-		// bx and by will now smoothly interpolate to 0 when bobbing stops,
-		// due to the changes in CameraBob::update()
-		r = bx; // bx is bobX.getY() which is updated with damping
-
-		newspot.x = player_list[trueplayernum].x + r * sinf(step_left_angy * k);
-		newspot.y = player_list[trueplayernum].y + by - mLandingDip + swayY;
-		newspot.z = player_list[trueplayernum].z + r * cosf(step_left_angy * k);
-
-		float cameradist = 50.0f;
-
-		float newangle = 0;
-		newangle = fixangle(look_up_ang, 90);
-
-		newspot2.x = newspot.x + cameradist * sinf(newangle * k) * sinf(angy * k);
-		newspot2.y = newspot.y + cameradist * cosf(newangle * k);
-		newspot2.z = newspot.z + cameradist * sinf(newangle * k) * cosf(angy * k);
-
-		mEyePos = newspot;
-		GunTruesave = newspot;
-
-		// Build the view matrix.
-
-		pos = XMVectorSet(newspot.x, newspot.y, newspot.z, 1.0f);
-		target = XMVectorSet(newspot2.x, newspot2.y, newspot2.z, 1.0f);
-	} else {
-		// Build the view matrix.
-		pos = XMVectorSet(mEyePos.x, mEyePos.y - mLandingDip + swayY, mEyePos.z, 1.0f);
-		target = XMVectorSet(m_vLookatPt.x, m_vLookatPt.y + adjust, m_vLookatPt.z, 1.0f);
-
-		GunTruesave = mEyePos;
-	}
-
-	XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
-
-	// Check for collision and nan errors
-	XMVECTOR EyeDirection = XMVectorSubtract(pos, target);
-	// assert(!XMVector3Equal(EyeDirection, XMVectorZero()));
-	if (XMVector3Equal(EyeDirection, XMVectorZero())) {
-		return;
-	}
-
-	XMMATRIX view = XMMatrixLookAtLH(pos, target, up);
-
-	float totalRoll = look_roll_ang + mTurnRoll;
-	if (totalRoll != 0.0f) {
-		float rollRad = totalRoll * (3.14159265f / 180.0f);
-		// Multiply rolling on the view-space Z axis
-		view = XMMatrixMultiply(view, XMMatrixRotationZ(-rollRad));
-	}
-
-	XMStoreFloat4x4(&mView, view);
-
-	mSceneBounds.Center = XMFLOAT3(mEyePos.x, mEyePos.y, mEyePos.z);
-}
-
-void DungeonStompApp::UpdateObjectCBs(const GameTimer &gt) {
-	auto currObjectCB = mCurrFrameResource->ObjectCB.get();
-	for (auto &e : mAllRitems) {
-		// Only update the cbuffer data if the constants have changed.
-		// This needs to be tracked per frame resource.
-		if (e->NumFramesDirty > 0) {
-			XMMATRIX world = XMLoadFloat4x4(&e->World);
-			XMMATRIX texTransform = XMLoadFloat4x4(&e->TexTransform);
-
-			ObjectConstants objConstants;
-			XMStoreFloat4x4(&objConstants.World, XMMatrixTranspose(world));
-			XMStoreFloat4x4(&objConstants.TexTransform, XMMatrixTranspose(texTransform));
-			// objConstants.MaterialIndex = e->Mat->MatCBIndex;
-
-			currObjectCB->CopyData(e->ObjCBIndex, objConstants);
-
-			// Next FrameResource need to be updated too.
-			e->NumFramesDirty--;
-		}
 	}
 }
 
