@@ -14,7 +14,7 @@
 
 **Explore 15 hand-crafted dungeon levels, battle 25+ enemy types, collect weapons & spells, and experience real-time ray-traced lighting — all in an open-source C++ engine.**
 
-[Download & Play](#-quick-start) · [Screenshots](#-screenshots) · [Build from Source](#%EF%B8%8F-build-from-source) · [Controls](#-controls) · [Related Projects](#-related-projects)
+[Download & Play](#quick-start) · [Screenshots](#screenshots) · [Build from Source](#build-from-source) · [Controls](#controls) · [Related Projects](#related-projects)
 
 </div>
 
@@ -22,18 +22,18 @@
 
 ## Table of Contents
 
-- [Highlights](#-highlights)
-- [Quick Start](#-quick-start)
-- [Screenshots](#-screenshots)
-- [Rendering Features](#-rendering-features)
-- [Gameplay Features](#-gameplay-features)
-- [Build from Source](#%EF%B8%8F-build-from-source)
-- [Controls](#-controls)
-- [Debug & Developer Controls](#-debug--developer-controls)
-- [Project Structure](#-project-structure)
-- [Related Projects](#-related-projects)
-- [Credits](#-credits)
-- [License](#-license)
+[Highlights](#highlights)
+[Quick Start](#quick-start)
+[Screenshots](#screenshots)
+[Rendering Features](#rendering-features)
+[Gameplay Features](#gameplay-features)
+[Build from Source](#build-from-source)
+[Controls](#controls)
+[Debug & Developer Controls](#debug--developer-controls)
+[Project Structure](#project-structure)
+[Related Projects](#related-projects)
+[Credits](#credits)
+[License](#license)
 
 ---
 
