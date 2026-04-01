@@ -10,7 +10,7 @@
 [![C++](https://img.shields.io/badge/language-C%2B%2B-orange?style=flat-square&logo=cplusplus)](https://github.com/moonwho101/DungeonStompDX12UltimateDXR)
 [![Visual Studio](https://img.shields.io/badge/VS-2022-purple?style=flat-square&logo=visualstudio)](https://visualstudio.microsoft.com/)
 
-![Dungeon Stomp DX12 DXR](Textures/screenshotai.jpg)
+![Dungeon Stomp DX12 DXR](Textures/screen1/pb0.jpg)
 
 **Explore 15 hand-crafted dungeon levels, battle 25+ enemy types, collect weapons & spells, and experience real-time ray-traced lighting — all in an open-source C++ engine.**
 
@@ -77,8 +77,8 @@
 
 |  |  |
 |---|---|
-| ![Screenshot](Textures/screenshot20.jpg) | ![Screenshot](Textures/screenshot11.jpg) |
-| ![Screenshot](Textures/screenshot10.jpg) | ![Screenshot](Textures/screenshot9.jpg) |
+| ![Screenshot](Textures/screenshot23.jpg) | ![Screenshot](Textures/screenshot24.jpg) |
+| ![Screenshot](Textures/screenshot25.jpg) | ![Screenshot](Textures/screenshot26.jpg) |
 
 </div>
 
@@ -274,6 +274,8 @@ Dungeon Stomp would not have been possible without the amazing MD2 models made b
 | Tentacle | Marcus Lutz |
 | Troll | Thargar |
 | Werewolf | Brian Yee |
+| Winter's Faerie | Evil Bastard |
+| Wraith | Burnt Kona |
 
 </details>
 
@@ -292,5 +294,4 @@ This project is open source. See the [LICENSE](LICENSE) file for details.
 *If you enjoy this project, consider giving it a* ⭐
 
 </div>
-* Winter's Faerie [ Author: Evil Bastard ]
-* Wraith [ Author: Burnt Kona ]
+
