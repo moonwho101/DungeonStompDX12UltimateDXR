@@ -51,10 +51,6 @@ void TriggerLandingDip(float amount) {
 		gApp->mLandingDip = amount;
 }
 
-VOID UpdateControls();
-HRESULT FrameMove(double fTime, FLOAT fTimeKey);
-void UpdateWorld(float fElapsedTime);
-
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance,
                    PSTR cmdLine, int showCmd) {
 	// Enable run-time memory check for debug builds.
