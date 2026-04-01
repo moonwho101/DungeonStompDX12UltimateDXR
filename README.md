@@ -37,7 +37,7 @@ Happy Dungeon Stomping - Breeyark!
 
 * WSAD to move, E to JUMP
 * SPACE to open doors
-* Q/Z to cycle weapons/spells
+* Q/Z to cycle weapons/spells (mouse wheel)
 * Left mouse button to attack, right mouse button to move forward
 * Maximize screen then press ALT+ENTER to enter FULLSCREEN mode
 * Press F5 to Load game, F6 to Save game
