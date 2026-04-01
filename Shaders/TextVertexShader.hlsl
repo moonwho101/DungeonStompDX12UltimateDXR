@@ -3,15 +3,15 @@
 struct VS_INPUT
 {
 	float4 pos : POSITION;
-	float4 texCoord: TEXCOORD;
-	float4 color: COLOR;
+	float4 texCoord : TEXCOORD;
+	float4 color : COLOR;
 };
 
 struct VS_OUTPUT
 {
-	float4 pos: SV_POSITION;
-	float4 color: COLOR;
-	float2 texCoord: TEXCOORD;
+	float4 pos : SV_POSITION;
+	float4 color : COLOR;
+	float2 texCoord : TEXCOORD;
 };
 
 VS_OUTPUT main(VS_INPUT input, uint vertexID : SV_VertexID)

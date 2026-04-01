@@ -171,7 +171,7 @@ void DXRHelper::CreateRootSignatures(ID3D12Device5 *device) {
 	// Skycube range - 1 texture at t0 (space2)
 	CD3DX12_DESCRIPTOR_RANGE1 skyRange;
 	skyRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 2); // t0, space2
- 
+
 	CD3DX12_ROOT_PARAMETER1 rootParams[8];
 	rootParams[0].InitAsDescriptorTable(1, &uavRange);                             // Output UAV
 	rootParams[1].InitAsShaderResourceView(0);                                     // TLAS (t0)
@@ -242,9 +242,9 @@ ComPtr<ID3DBlob> DXRHelper::CompileRaytracingShader(const std::wstring &filename
 	// Compile as library (lib_6_5) - shader model 6.5 for DXR 1.1 inline raytracing
 	std::vector<LPCWSTR> args;
 #ifdef _DEBUG
-	args.push_back(L"-Zi"); // Debug info
+	args.push_back(L"-Zi");           // Debug info
 	args.push_back(L"-Qembed_debug"); // Embed debug info in shader
-	// args.push_back(L"-Od"); // Disabled optimization can cause DXR issues/black screen
+	                                  // args.push_back(L"-Od"); // Disabled optimization can cause DXR issues/black screen
 #else
 	args.push_back(L"-O3"); // Optimize
 #endif
@@ -309,7 +309,7 @@ void DXRHelper::CreateRaytracingPipelineState(ID3D12Device5 *device) {
 	// Shader config
 	auto shaderConfig = stateObjectDesc.CreateSubobject<CD3DX12_RAYTRACING_SHADER_CONFIG_SUBOBJECT>();
 	UINT payloadSize = sizeof(XMFLOAT4) + sizeof(UINT) + sizeof(UINT) + sizeof(float); // float4 color + uint depth + bool isGIRay + float hitT (Total: 28 bytes)
-	UINT attributeSize = sizeof(XMFLOAT2);              // Barycentrics
+	UINT attributeSize = sizeof(XMFLOAT2);                                             // Barycentrics
 	shaderConfig->Config(payloadSize, attributeSize);
 
 	// Local root signature for hit group (empty)
@@ -749,10 +749,10 @@ void DXRHelper::UpdatePrimitiveTextureIndices(ID3D12Device *device, const UINT *
 		memcpy(mPrimitiveTextureMappedData[fi], textureIndices, primitiveCount * sizeof(UINT));
 	}
 }
- 
+
 void DXRHelper::UpdateAliasData(ID3D12Device *device, const DXRMaterialData *materialData, UINT aliasCount) {
 	UINT fi = mCurrentFrameIndex;
- 
+
 	// Create or resize the alias data buffer for this frame if needed
 	if (!mAliasDataBuffer[fi] || aliasCount > mMaxAliases[fi]) {
 		// Release old buffer
@@ -761,15 +761,15 @@ void DXRHelper::UpdateAliasData(ID3D12Device *device, const DXRMaterialData *mat
 			mAliasDataMappedData[fi] = nullptr;
 		}
 		mAliasDataBuffer[fi].Reset();
- 
+
 		// Create new buffer with some headroom
 		mMaxAliases[fi] = max(aliasCount, 550u); // MAX_NUM_TEXTURES = 550
- 
+
 		UINT bufferSize = mMaxAliases[fi] * sizeof(DXRMaterialData);
- 
+
 		CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_UPLOAD);
 		CD3DX12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(bufferSize);
- 
+
 		ThrowIfFailed(device->CreateCommittedResource(
 		    &heapProps,
 		    D3D12_HEAP_FLAG_NONE,
@@ -777,12 +777,12 @@ void DXRHelper::UpdateAliasData(ID3D12Device *device, const DXRMaterialData *mat
 		    D3D12_RESOURCE_STATE_GENERIC_READ,
 		    nullptr,
 		    IID_PPV_ARGS(&mAliasDataBuffer[fi])));
- 
+
 		// Map the buffer
 		CD3DX12_RANGE readRange(0, 0);
 		ThrowIfFailed(mAliasDataBuffer[fi]->Map(0, &readRange, reinterpret_cast<void **>(&mAliasDataMappedData[fi])));
 	}
- 
+
 	// Copy alias data
 	if (mAliasDataMappedData[fi] && materialData) {
 		memcpy(mAliasDataMappedData[fi], materialData, aliasCount * sizeof(DXRMaterialData));

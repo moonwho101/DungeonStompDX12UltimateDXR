@@ -37,7 +37,7 @@ struct DXRSceneConstants {
 	float RayConeSpreadAngle;
 	float Pad1[3]; // keep 16-byte alignment
 };
- 
+
 struct DXRMaterialData {
 	UINT TextureIndex;
 	INT NormalMapIndex;
@@ -86,7 +86,7 @@ class DXRHelper {
 
 	// Update per-primitive texture indices
 	void UpdatePrimitiveTextureIndices(ID3D12Device *device, const UINT *textureIndices, UINT primitiveCount);
- 
+
 	// Update per-alias material data
 	void UpdateAliasData(ID3D12Device *device, const DXRMaterialData *materialData, UINT aliasCount);
 
