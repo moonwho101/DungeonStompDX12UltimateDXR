@@ -84,13 +84,13 @@ float OcclusionFunction(float distZ)
 	// We use the following function to determine the occlusion.  
 	// 
 	//
-	//       1.0     -------------\
-	//               |           |  \
-	//               |           |    \
-	//               |           |      \ 
-	//               |           |        \
-	//               |           |          \
-	//               |           |            \
+	//       1.0     -------------.
+	//               |           |  .
+	//               |           |    .
+	//               |           |      . 
+	//               |           |        .
+	//               |           |          .
+	//               |           |            .
 	//  ------|------|-----------|-------------|---------|--> zv
 	//        0     Eps          z0            z1        
 	//
