@@ -15,7 +15,7 @@
 float mouseSensitivity = 0.074f;
 float mouseDeadzone = 0.5f;
 float mouseExponent = 1.15f;
-float mouseMaxDelta = 150.0f;
+float mouseMaxDelta = 250.0f;
 
 // Only one input device should be true.  Set g_bUseJoystick=true for xbox controller.
 BOOL g_bUseMouse = true;
