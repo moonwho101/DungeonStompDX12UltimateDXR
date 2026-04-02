@@ -12,7 +12,7 @@
 #include <math.h>
 
 // Mouse tuning keeps small movements precise while allowing quicker large turns.
-float mouseSensitivity = 0.075f;
+float mouseSensitivity = 0.074f;
 float mouseDeadzone = 0.5f;
 float mouseExponent = 1.15f;
 float mouseMaxDelta = 150.0f;
