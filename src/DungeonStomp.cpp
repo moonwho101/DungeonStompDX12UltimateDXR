@@ -1708,19 +1708,23 @@ BOOL DungeonStompApp::LoadRRTextures11(char *filename) {
 			}
 
 			fscanf_s(fp, "%s", &p, 256);
-			strcpy_s((char *)TexMap[tex_alias_counter].material.name, 100, (char *)&p);
+			auto &texMaterial = TexMap[tex_alias_counter].material;
+			strcpy_s((char *)texMaterial.name, 100, (char *)&p);
 
-			// Default PBR properties based on material name
-			TexMap[tex_alias_counter].material.roughness = 0.5f;
-			TexMap[tex_alias_counter].material.metallic = 0.0f;
+			texMaterial.roughness = 0.5f;
+			texMaterial.metallic = 0.0f;
+			texMaterial.DiffuseAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
+			texMaterial.FresnelR0 = XMFLOAT3(0.05f, 0.05f, 0.05f);
 
-			auto textureType = TexMap[tex_alias_counter].material.name;
-
-			float roughness = mMaterials[textureType].get()->Roughness;
-			float metalicness = mMaterials[textureType].get()->Metal;
-
-			TexMap[tex_alias_counter].material.roughness = roughness;
-			TexMap[tex_alias_counter].material.metallic = metalicness;
+			std::string textureType = texMaterial.name;
+			auto materialIt = mMaterials.find(textureType);
+			if (materialIt != mMaterials.end() && materialIt->second) {
+				const Material *material = materialIt->second.get();
+				texMaterial.roughness = material->Roughness;
+				texMaterial.metallic = material->Metal;
+				texMaterial.DiffuseAlbedo = material->DiffuseAlbedo;
+				texMaterial.FresnelR0 = material->FresnelR0;
+			}
 
 			tex_alias_counter++;
 			found = TRUE;

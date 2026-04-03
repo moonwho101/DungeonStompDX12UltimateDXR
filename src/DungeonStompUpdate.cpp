@@ -755,6 +755,8 @@ void DungeonStompApp::UpdateDungeon(const GameTimer &gt) {
 			aliasData[i].NormalMapIndex = TexMap[i].normalmaptextureid;
 			aliasData[i].Roughness = TexMap[i].material.roughness;
 			aliasData[i].Metallic = TexMap[i].material.metallic;
+			aliasData[i].DiffuseAlbedo = TexMap[i].material.DiffuseAlbedo;
+			aliasData[i].FresnelR0 = TexMap[i].material.FresnelR0;
 		}
 		mDXRHelper->UpdateAliasData(md3dDevice.Get(), aliasData.data(), (UINT)aliasData.size());
 

@@ -43,6 +43,9 @@ struct DXRMaterialData {
 	INT NormalMapIndex;
 	float Roughness;
 	float Metallic;
+	DirectX::XMFLOAT4 DiffuseAlbedo;
+	DirectX::XMFLOAT3 FresnelR0;
+	float Pad0 = 0.0f;
 };
 
 class DXRHelper {
