@@ -9,13 +9,9 @@
 #include "DirectInput.hpp"
 #include "GameLogic.hpp"
 #include "Dice.hpp"
-#include <math.h>
 
-// Mouse tuning keeps small movements precise while allowing quicker large turns.
-float mouseSensitivity = 0.074f;
-float mouseDeadzone = 0.5f;
-float mouseExponent = 1.15f;
-float mouseMaxDelta = 250.0f;
+// mouse sensitivity
+float mousediv = 12.0f;
 
 // Only one input device should be true.  Set g_bUseJoystick=true for xbox controller.
 BOOL g_bUseMouse = true;
@@ -89,7 +85,6 @@ float use_x, use_y;    // position to use for displaying
 float springiness = 9; // tweak to taste.
 
 void smooth_mouse(float time_d, float realx, float realy);
-float CalculateMouseLookDelta(int rawDelta);
 extern int firemissle;
 
 CONTROLS Controls;
@@ -480,7 +475,7 @@ VOID WalkMode(CONTROLS *Controls) {
 	if (Controls->bLeft) {
 		playermove = 2;
 		if (g_bUseMouse) {
-			filterx = CalculateMouseLookDelta(Controls->bLeft);
+			filterx = (float)Controls->bLeft / (float)mousediv;
 		} else {
 			angy -= 105 * elapsegametimersave;
 			have_i_moved_flag = TRUE;
@@ -491,7 +486,7 @@ VOID WalkMode(CONTROLS *Controls) {
 	if (Controls->bRight) {
 		playermove = 3;
 		if (g_bUseMouse) {
-			filterx = CalculateMouseLookDelta(Controls->bRight);
+			filterx = (float)Controls->bRight / (float)mousediv;
 		} else {
 			angy += 105 * elapsegametimersave;
 			have_i_moved_flag = TRUE;
@@ -597,7 +592,7 @@ VOID WalkMode(CONTROLS *Controls) {
 	// tilt head upwards
 	if (Controls->bHeadDown) {
 		if (g_bUseMouse) {
-			filtery = CalculateMouseLookDelta(Controls->bHeadDown);
+			filtery = (float)Controls->bHeadDown / (float)mousediv;
 		} else {
 			look_up_ang += 105 * elapsegametimersave;
 			/*if (look_up_ang > 90)
@@ -608,7 +603,7 @@ VOID WalkMode(CONTROLS *Controls) {
 	// tilt head downward
 	if (Controls->bHeadUp) {
 		if (g_bUseMouse) {
-			filtery = CalculateMouseLookDelta(Controls->bHeadUp);
+			filtery = (float)Controls->bHeadUp / (float)mousediv;
 		} else {
 			look_up_ang -= 105 * elapsegametimersave;
 			// if (look_up_ang < -90)
@@ -936,27 +931,6 @@ void GiveWeapons() {
 	your_gun[19].active = 1;
 	your_gun[20].active = 1;
 	your_gun[21].active = 1;
-}
-
-float CalculateMouseLookDelta(int rawDelta) {
-	float delta = (float)rawDelta;
-
-	if (delta > mouseMaxDelta)
-		delta = mouseMaxDelta;
-	else if (delta < -mouseMaxDelta)
-		delta = -mouseMaxDelta;
-
-	float magnitude = fabsf(delta);
-	if (magnitude <= mouseDeadzone)
-		return 0.0f;
-
-	magnitude -= mouseDeadzone;
-	float curvedMagnitude = powf(magnitude, mouseExponent) * mouseSensitivity;
-
-	if (delta < 0.0f)
-		return -curvedMagnitude;
-
-	return curvedMagnitude;
 }
 
 void smooth_mouse(float time_d, float realx, float realy) {
