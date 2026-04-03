@@ -97,9 +97,12 @@ struct AliasData
 	int normalMapIndex;
 	float roughness;
 	float metallic;
+	float4 diffuseAlbedo;
+	float3 fresnelR0;
+	float pad0;
 };
 
-// Per-alias material data buffer (roughness, metallic, etc)
+// Per-alias material data buffer (texture indices + PBR material state)
 StructuredBuffer<AliasData> gAliasData : register(t1, space1);
 
 // Sampler for texture sampling
@@ -250,9 +253,9 @@ float TorchFlicker(float baseStrength, float time, float freq, float amp, float 
 }
 
 // PBR lighting for directional light
-float3 ComputeDirectionalLight(Light L, float3 albedo, float3 N, float3 V, float roughness, float metallic)
+float3 ComputeDirectionalLight(Light L, float3 albedo, float3 fresnelR0, float3 N, float3 V, float roughness, float metallic)
 {
-	float3 F0 = lerp(float3(0.04f, 0.04f, 0.04f), albedo, metallic);
+	float3 F0 = lerp(fresnelR0, albedo, metallic);
 	float3 Ld = -normalize(L.Direction);
 	float3 H = normalize(V + Ld);
     
@@ -275,7 +278,7 @@ float3 ComputeDirectionalLight(Light L, float3 albedo, float3 N, float3 V, float
 }
 
 // PBR lighting for point light (with torch flicker)
-float3 ComputePointLight(Light L, float3 pos, float3 albedo, float3 N, float3 V, float roughness, float metallic, float lightIndex)
+float3 ComputePointLight(Light L, float3 pos, float3 albedo, float3 fresnelR0, float3 N, float3 V, float roughness, float metallic, float lightIndex)
 {
 	float3 lightVec = L.Position - pos;
 	float d = length(lightVec);
@@ -283,7 +286,7 @@ float3 ComputePointLight(Light L, float3 pos, float3 albedo, float3 N, float3 V,
 	if (d > L.FalloffEnd)
 		return float3(0.0f, 0.0f, 0.0f);
     
-	float3 F0 = lerp(float3(0.04f, 0.04f, 0.04f), albedo, metallic);
+	float3 F0 = lerp(fresnelR0, albedo, metallic);
 	float3 Ld = normalize(lightVec);
 	float3 H = normalize(V + Ld);
     
@@ -311,7 +314,7 @@ float3 ComputePointLight(Light L, float3 pos, float3 albedo, float3 N, float3 V,
 }
 
 // PBR lighting for spot light
-float3 ComputeSpotLight(Light L, float3 pos, float3 albedo, float3 N, float3 V, float roughness, float metallic)
+float3 ComputeSpotLight(Light L, float3 pos, float3 albedo, float3 fresnelR0, float3 N, float3 V, float roughness, float metallic)
 {
 	float3 lightVec = L.Position - pos;
 	float d = length(lightVec);
@@ -319,7 +322,7 @@ float3 ComputeSpotLight(Light L, float3 pos, float3 albedo, float3 N, float3 V, 
 	if (d > L.FalloffEnd)
 		return float3(0.0f, 0.0f, 0.0f);
     
-	float3 F0 = lerp(float3(0.04f, 0.04f, 0.04f), albedo, metallic);
+	float3 F0 = lerp(fresnelR0, albedo, metallic);
 	float3 Ld = normalize(lightVec);
 	float3 H = normalize(V + Ld);
     
@@ -564,6 +567,8 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
 	uint aliasIndex = gPrimitiveTextureIndices.Load(primIdx * 4);
 	AliasData ad = gAliasData[aliasIndex];
 	uint texIndex = ad.textureIndex;
+	float4 materialDiffuseAlbedo = ad.diffuseAlbedo;
+	float3 materialFresnelR0 = ad.fresnelR0;
     
     // --- Compute Ray Cone Mip Level ---
     // 1. Calculate texture to world area ratio
@@ -617,18 +622,18 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
 	float3 albedo;
 	if (texIndex < 550)
 	{
-		albedo = texSample.rgb;
+		albedo = texSample.rgb * materialDiffuseAlbedo.rgb;
 	}
 	else
 	{
 		float variation = frac(sin(dot(texCoord, float2(12.9898f, 78.233f))) * 43758.5453f);
-		albedo = lerp(float3(0.4f, 0.38f, 0.35f), float3(0.55f, 0.52f, 0.48f), variation);
+		albedo = lerp(float3(0.4f, 0.38f, 0.35f), float3(0.55f, 0.52f, 0.48f), variation) * materialDiffuseAlbedo.rgb;
 	}
     
     // Alpha Blending for Transparent textures (torches/flames/translucent effects)
 	if (IsTransparentTexture(texIndex))
 	{
-		float alpha = texSample.a;
+		float alpha = texSample.a * materialDiffuseAlbedo.a;
 		const float alphaTolerance = 0.05f;
 		float3 surfaceColor = albedo; // default: opaque surface color
 
@@ -732,7 +737,7 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
 		{
 			float shadow = 1.0f;
 			shadow = TraceShadowRay(shadowOrigin, lightDir, 10000.0f);
-			color += ComputeDirectionalLight(L, albedo, N, V, roughness, metallic) * shadow;
+			color += ComputeDirectionalLight(L, albedo, materialFresnelR0, N, V, roughness, metallic) * shadow;
 		}
 	}
     
@@ -759,11 +764,11 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
                 // Spot light logic
 				if (L.SpotPower > 0.0f)
 				{
-					color += ComputeSpotLight(L, hitPos, albedo, N, V, roughness, metallic) * shadow;
+					color += ComputeSpotLight(L, hitPos, albedo, materialFresnelR0, N, V, roughness, metallic) * shadow;
 				}
 				else
 				{
-					color += ComputePointLight(L, hitPos, albedo, N, V, roughness, metallic, (float) i) * shadow;
+					color += ComputePointLight(L, hitPos, albedo, materialFresnelR0, N, V, roughness, metallic, (float) i) * shadow;
 				}
 			}
 		}

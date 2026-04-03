@@ -34,9 +34,11 @@ typedef struct CUSTOMVERTEXTEST {
 } CUSTOMVERT;
 
 struct DungeonMaterial {
-	float roughness;
-	float metallic;
-	char name[100];
+	float roughness = 0.5f;
+	float metallic = 0.0f;
+	XMFLOAT4 DiffuseAlbedo = { 1.0f, 1.0f, 1.0f, 1.0f };
+	XMFLOAT3 FresnelR0 = { 0.05f, 0.05f, 0.05f };
+	char name[100] = {};
 };
 
 typedef struct texturemapping_typ {
