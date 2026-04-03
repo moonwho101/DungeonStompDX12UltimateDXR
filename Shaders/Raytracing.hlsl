@@ -1,9 +1,10 @@
 //***************************************************************************************
 // Raytracing.hlsl by Mark Longo 2026 All Rights Reserved
-// DirectX Raytracing Shader with PBR Lighting
+// DirectX Raytracing Shader with PBR Lighting and Path Tracing
 // Ray generation, closest hit, and miss shaders for DXR with physically-based rendering
 // Features: inline shadow rays (DXR 1.1), full Cook-Torrance PBR, ACES tone mapping,
-//           atmospheric fog, wet floor reflectance, per-light flicker, 2-sample GI
+//           atmospheric fog, wet floor reflectance, per-light flicker,
+//           multi-bounce path tracing with Russian Roulette, GGX importance sampling
 //***************************************************************************************
 
 #define MaxLights 32
@@ -18,9 +19,20 @@
 // Shadow ray bias to prevent self-intersection
 #define SHADOW_BIAS 0.15f
 
-// Global illumination: single-bounce indirect diffuse
+// Global illumination: single-bounce indirect diffuse (legacy, for reference)
 #define GI_BOUNCE_STRENGTH 0.35f   // scale of the GI contribution
 #define GI_MAX_DIST        80.0f   // max distance the GI bounce ray travels
+
+//=============================================================================
+// PATH TRACING CONFIGURATION
+//=============================================================================
+#define PATH_TRACING_ENABLED    1       // 0 = single-bounce GI, 1 = full path tracing
+#define PT_MAX_BOUNCES          4       // Maximum path depth (2-8 recommended)
+#define PT_MIN_BOUNCES          2       // Minimum bounces before Russian Roulette
+#define PT_RR_PROBABILITY       0.95f   // Russian Roulette survival probability
+#define PT_SAMPLES_PER_PIXEL    1       // Samples per pixel per frame (temporal accumulation handles the rest)
+#define PT_CLAMP_FIREFLIES      5.0f    // Max luminance to prevent fireflies
+#define PT_SPECULAR_PROBABILITY 0.5f    // Probability of specular vs diffuse bounce (MIS)
 
 
 // Glare and flicker constants (for RayGen glare loop)
@@ -146,6 +158,17 @@ struct RayPayload
 	uint depth; // recursion depth for transparency
 	bool isGIRay; // true => secondary GI ray, skip further GI recursion
 	float hitT; // distance to surface (used for volumetric glare limits)
+};
+
+// Path tracing payload - carries throughput and state through bounces
+struct PathPayload
+{
+	float3 radiance;        // Accumulated radiance
+	float3 throughput;      // Path throughput (energy remaining)
+	uint   bounceCount;     // Current bounce depth
+	uint   seed;            // Random seed for this path
+	bool   terminated;      // Path terminated flag
+	float  hitT;            // Distance to surface
 };
 
 // Hard-coded transparent texture ranges (matching CPU-side alpha skip logic)
@@ -349,6 +372,130 @@ float3 ComputeSpotLight(Light L, float3 pos, float3 albedo, float3 fresnelR0, fl
 }
 
 //=============================================================================
+// Path Tracing Random Number Generation (PCG-based)
+//=============================================================================
+
+// PCG random number generator state advance
+uint PCGHash(uint input)
+{
+	uint state = input * 747796405u + 2891336453u;
+	uint word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+	return (word >> 22u) ^ word;
+}
+
+// Generate random float in [0, 1) from seed, advances seed
+float RandomFloat(inout uint seed)
+{
+	seed = PCGHash(seed);
+	return float(seed) / 4294967296.0f;
+}
+
+// Generate 2D random sample
+float2 RandomFloat2(inout uint seed)
+{
+	return float2(RandomFloat(seed), RandomFloat(seed));
+}
+
+// Create initial seed from pixel coordinates and frame number
+uint InitRandomSeed(uint2 pixelCoord, uint frame)
+{
+	return PCGHash(pixelCoord.x + PCGHash(pixelCoord.y + PCGHash(frame)));
+}
+
+//=============================================================================
+// Path Tracing Sampling Functions
+//=============================================================================
+
+// Cosine-weighted hemisphere sampling (for diffuse)
+float3 SampleCosineHemisphere(float2 u, float3 N, out float pdf)
+{
+	float phi = 2.0f * PI * u.x;
+	float cosTheta = sqrt(u.y);
+	float sinTheta = sqrt(1.0f - u.y);
+	
+	// Build orthonormal basis
+	float3 up = abs(N.y) < 0.999f ? float3(0.0f, 1.0f, 0.0f) : float3(1.0f, 0.0f, 0.0f);
+	float3 T = normalize(cross(up, N));
+	float3 B = cross(N, T);
+	
+	float3 dir = normalize(sinTheta * cos(phi) * T + sinTheta * sin(phi) * B + cosTheta * N);
+	pdf = cosTheta / PI;
+	return dir;
+}
+
+// GGX importance sampling for specular (samples visible normals)
+float3 SampleGGX(float2 u, float3 N, float3 V, float roughness, out float pdf)
+{
+	float a = roughness * roughness;
+	float a2 = a * a;
+	
+	// Sample half-vector in tangent space
+	float phi = 2.0f * PI * u.x;
+	float cosTheta = sqrt((1.0f - u.y) / (1.0f + (a2 - 1.0f) * u.y));
+	float sinTheta = sqrt(1.0f - cosTheta * cosTheta);
+	
+	float3 H_tangent = float3(sinTheta * cos(phi), sinTheta * sin(phi), cosTheta);
+	
+	// Build orthonormal basis around N
+	float3 up = abs(N.y) < 0.999f ? float3(0.0f, 1.0f, 0.0f) : float3(1.0f, 0.0f, 0.0f);
+	float3 T = normalize(cross(up, N));
+	float3 B = cross(N, T);
+	
+	// Transform to world space
+	float3 H = normalize(T * H_tangent.x + B * H_tangent.y + N * H_tangent.z);
+	
+	// Reflect V around H to get L
+	float3 L = reflect(-V, H);
+	
+	// Compute PDF
+	float NdotH = max(dot(N, H), 0.001f);
+	float VdotH = max(dot(V, H), 0.001f);
+	float D = DistributionGGX(N, H, roughness);
+	pdf = D * NdotH / (4.0f * VdotH);
+	
+	return L;
+}
+
+// Evaluate BSDF for diffuse component
+float3 EvaluateDiffuseBSDF(float3 albedo, float metallic)
+{
+	// Metals have no diffuse
+	return albedo * (1.0f - metallic) / PI;
+}
+
+// Evaluate BSDF for specular component (Cook-Torrance)
+float3 EvaluateSpecularBSDF(float3 albedo, float3 fresnelR0, float3 N, float3 V, float3 L, float roughness, float metallic)
+{
+	float3 H = normalize(V + L);
+	float3 F0 = lerp(fresnelR0, albedo, metallic);
+	
+	float NDF = DistributionGGX(N, H, roughness);
+	float G = GeometrySmith(N, V, L, roughness);
+	float3 F = FresnelSchlick(max(dot(H, V), 0.0f), F0);
+	
+	float NdotV = max(dot(N, V), 0.001f);
+	float NdotL = max(dot(N, L), 0.001f);
+	
+	return (NDF * G * F) / (4.0f * NdotV * NdotL + 0.001f);
+}
+
+// Russian Roulette probability based on throughput luminance
+float ComputeRRProbability(float3 throughput)
+{
+	float luminance = dot(throughput, float3(0.2126f, 0.7152f, 0.0722f));
+	return min(PT_RR_PROBABILITY, luminance);
+}
+
+// Clamp fireflies
+float3 ClampFireflies(float3 radiance)
+{
+	float lum = dot(radiance, float3(0.2126f, 0.7152f, 0.0722f));
+	if (lum > PT_CLAMP_FIREFLIES)
+		return radiance * (PT_CLAMP_FIREFLIES / lum);
+	return radiance;
+}
+
+//=============================================================================
 // Shadow Ray (DXR 1.1 Inline Raytracing)
 //=============================================================================
 
@@ -389,6 +536,229 @@ float TraceShadowRay(float3 origin, float3 direction, float maxDist)
 	}
 
 	return hitFound ? 0.0f : 1.0f;
+}
+
+//=============================================================================
+// Path Tracing Core Function
+// Traces a complete path through the scene with multiple bounces
+//=============================================================================
+
+float3 TracePathSegment(float3 hitPos, float3 N, float3 V, float3 albedo, 
+                        float3 fresnelR0, float roughness, float metallic, 
+                        inout uint seed, float3 incomingThroughput)
+{
+    float3 totalRadiance = float3(0.0f, 0.0f, 0.0f);
+    float3 throughput = incomingThroughput;
+    float3 rayOrigin = hitPos;
+    float3 rayDir;
+    float3 currentN = N;
+    float3 currentAlbedo = albedo;
+    float3 currentFresnelR0 = fresnelR0;
+    float currentRoughness = roughness;
+    float currentMetallic = metallic;
+    
+    for (uint bounce = 0; bounce < PT_MAX_BOUNCES; bounce++)
+    {
+        // Russian Roulette termination after minimum bounces
+        if (bounce >= PT_MIN_BOUNCES)
+        {
+            float rrProb = ComputeRRProbability(throughput);
+            if (RandomFloat(seed) > rrProb)
+                break;
+            throughput /= rrProb;
+        }
+        
+        // Choose between diffuse and specular sampling based on metallic
+        // Higher metallic = more specular, rougher = more diffuse-like
+        float specularWeight = lerp(0.04f, 1.0f, currentMetallic);
+        specularWeight = lerp(specularWeight, 0.5f, currentRoughness * 0.5f);
+        
+        float pdf;
+        float3 bsdfValue;
+        float2 u = RandomFloat2(seed);
+        
+        if (RandomFloat(seed) < specularWeight)
+        {
+            // Specular bounce (GGX importance sampling)
+            rayDir = SampleGGX(u, currentN, V, max(currentRoughness, 0.05f), pdf);
+            if (dot(rayDir, currentN) <= 0.0f || pdf < 0.0001f)
+                break;
+            
+            bsdfValue = EvaluateSpecularBSDF(currentAlbedo, currentFresnelR0, currentN, V, rayDir, currentRoughness, currentMetallic);
+            float NdotL = max(dot(currentN, rayDir), 0.0f);
+            
+            // MIS weight for specular: account for the specularWeight probability
+            throughput *= bsdfValue * NdotL / (pdf * specularWeight);
+        }
+        else
+        {
+            // Diffuse bounce (cosine-weighted hemisphere sampling)
+            rayDir = SampleCosineHemisphere(u, currentN, pdf);
+            if (pdf < 0.0001f)
+                break;
+            
+            bsdfValue = EvaluateDiffuseBSDF(currentAlbedo, currentMetallic);
+            float NdotL = max(dot(currentN, rayDir), 0.0f);
+            
+            // MIS weight for diffuse
+            throughput *= bsdfValue * NdotL / (pdf * (1.0f - specularWeight));
+        }
+        
+        // Prevent throughput explosion
+        if (any(isnan(throughput)) || any(isinf(throughput)))
+            break;
+        throughput = min(throughput, float3(10.0f, 10.0f, 10.0f));
+        
+        // Trace the bounce ray using inline ray query
+        RayDesc bounceRay;
+        bounceRay.Origin = rayOrigin + currentN * SHADOW_BIAS;
+        bounceRay.Direction = rayDir;
+        bounceRay.TMin = 0.01f;
+        bounceRay.TMax = GI_MAX_DIST;
+        
+        RayQuery<RAY_FLAG_SKIP_CLOSEST_HIT_SHADER | RAY_FLAG_FORCE_NON_OPAQUE> bounceQuery;
+        bounceQuery.TraceRayInline(gScene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, 0xFF, bounceRay);
+        
+        bool hitSurface = false;
+        float3 hitPosition;
+        float3 hitNormal;
+        float3 hitAlbedo = float3(0.5f, 0.5f, 0.5f);
+        float3 hitFresnelR0 = float3(0.04f, 0.04f, 0.04f);
+        float hitRoughness = 0.8f;
+        float hitMetallic = 0.0f;
+        uint hitTexIndex = 0;
+        
+        while (bounceQuery.Proceed())
+        {
+            if (bounceQuery.CandidateType() == CANDIDATE_NON_OPAQUE_TRIANGLE)
+            {
+                uint primIdx = bounceQuery.CandidatePrimitiveIndex();
+                uint texIndex = gPrimitiveTextureIndices.Load(primIdx * 4);
+                
+                // Skip transparent textures for path tracing bounces
+                if (!IsTransparentTexture(texIndex) && !IsWeaponTexture(texIndex))
+                {
+                    bounceQuery.CommitNonOpaqueTriangleHit();
+                }
+            }
+        }
+        
+        if (bounceQuery.CommittedStatus() == COMMITTED_TRIANGLE_HIT)
+        {
+            hitSurface = true;
+            float t = bounceQuery.CommittedRayT();
+            hitPosition = bounceRay.Origin + bounceRay.Direction * t;
+            
+            // Get hit primitive data
+            uint primIdx = bounceQuery.CommittedPrimitiveIndex();
+            uint vertexIndex = primIdx * 3;
+            
+            Vertex v0 = LoadVertex(vertexIndex);
+            Vertex v1 = LoadVertex(vertexIndex + 1);
+            Vertex v2 = LoadVertex(vertexIndex + 2);
+            
+            float2 bary2D = bounceQuery.CommittedTriangleBarycentrics();
+            float3 bary = float3(1.0f - bary2D.x - bary2D.y, bary2D.x, bary2D.y);
+            
+            hitNormal = normalize(v0.Normal * bary.x + v1.Normal * bary.y + v2.Normal * bary.z);
+            float2 texCoord = v0.TexC * bary.x + v1.TexC * bary.y + v2.TexC * bary.z;
+            
+            // Ensure normal faces incoming direction
+            if (dot(hitNormal, -rayDir) < 0.0f)
+                hitNormal = -hitNormal;
+            
+            // Get material data
+            uint aliasIndex = gPrimitiveTextureIndices.Load(primIdx * 4);
+            AliasData ad = gAliasData[aliasIndex];
+            hitTexIndex = ad.textureIndex;
+            hitRoughness = ad.roughness;
+            hitMetallic = ad.metallic;
+            hitFresnelR0 = ad.fresnelR0;
+            
+            // Sample albedo texture
+            if (hitTexIndex < 550)
+            {
+                float4 texSample = gTextures[NonUniformResourceIndex(hitTexIndex)].SampleLevel(gSampler, texCoord, 2.0f);
+                hitAlbedo = texSample.rgb * ad.diffuseAlbedo.rgb;
+            }
+            else
+            {
+                hitAlbedo = ad.diffuseAlbedo.rgb;
+            }
+        }
+        
+        if (!hitSurface)
+        {
+            // Hit sky - sample environment and terminate
+            float3 skyColor = gCubeMap.SampleLevel(gSampler, rayDir, 0).rgb;
+            float upFactor = saturate(rayDir.y * 0.5f + 0.5f);
+            skyColor *= lerp(0.4f, 1.0f, upFactor); // Darken lower sky for dungeon
+            totalRadiance += throughput * skyColor * 0.3f; // Reduce sky contribution for indoor feel
+            break;
+        }
+        
+        // Direct lighting at hit point (next event estimation)
+        float3 directLight = float3(0.0f, 0.0f, 0.0f);
+        float3 hitV = -rayDir;
+        float3 shadowOrigin = hitPosition + hitNormal * SHADOW_BIAS;
+        
+        // Sample one random light for direct illumination (stochastic next event estimation)
+        if (gNumLights > 1)
+        {
+            uint lightIdx = 1 + uint(RandomFloat(seed) * float(min(gNumLights - 1, (uint)MaxLights - 1)));
+            Light L = gLights[lightIdx];
+            
+            float3 lightVec = L.Position - hitPosition;
+            float d = length(lightVec);
+            
+            if (d < L.FalloffEnd && d > 0.01f)
+            {
+                float3 lightDir = lightVec / d;
+                float NdotL = max(dot(hitNormal, lightDir), 0.0f);
+                
+                if (NdotL > 0.001f)
+                {
+                    float shadow = TraceShadowRay(shadowOrigin, lightDir, d);
+                    if (shadow > 0.0f)
+                    {
+                        float attenuation = CalcAttenuation(d, L.FalloffStart, L.FalloffEnd);
+                        float flicker = TorchFlicker(1.0f, gTotalTime, 8.0f, 0.25f, (float)lightIdx);
+                        
+                        // Evaluate BSDF for direct light
+                        float3 H = normalize(hitV + lightDir);
+                        float3 F0 = lerp(hitFresnelR0, hitAlbedo, hitMetallic);
+                        float3 F = FresnelSchlick(max(dot(H, hitV), 0.0f), F0);
+                        
+                        float3 kS = F;
+                        float3 kD = (1.0f - kS) * (1.0f - hitMetallic);
+                        float3 diffuse = kD * hitAlbedo / PI;
+                        
+                        float NDF = DistributionGGX(hitNormal, H, hitRoughness);
+                        float G = GeometrySmith(hitNormal, hitV, lightDir, hitRoughness);
+                        float NdotV = max(dot(hitNormal, hitV), 0.001f);
+                        float3 specular = (NDF * G * F) / (4.0f * NdotV * NdotL + 0.001f);
+                        
+                        // Scale by number of lights for unbiased estimate
+                        float lightCount = float(min(gNumLights - 1, (uint)MaxLights - 1));
+                        directLight = (diffuse + specular) * L.Strength * flicker * attenuation * NdotL * shadow * lightCount;
+                    }
+                }
+            }
+        }
+        
+        totalRadiance += throughput * ClampFireflies(directLight);
+        
+        // Setup for next bounce
+        rayOrigin = hitPosition;
+        V = -rayDir;
+        currentN = hitNormal;
+        currentAlbedo = hitAlbedo;
+        currentFresnelR0 = hitFresnelR0;
+        currentRoughness = hitRoughness;
+        currentMetallic = hitMetallic;
+    }
+    
+    return totalRadiance;
 }
 
 //=============================================================================
@@ -778,6 +1148,24 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
     // Only trace GI ray for primary (camera) rays to avoid runaway recursion.
 	if (!payload.isGIRay)
 	{
+#if PATH_TRACING_ENABLED
+        // ============ Full Path Tracing ============
+        // Initialize random seed from hit position and time for temporal variance
+        uint2 pixelIdx = DispatchRaysIndex().xy;
+        uint frameHash = asuint(gTotalTime * 1000.0f);
+        uint pathSeed = InitRandomSeed(pixelIdx, frameHash);
+        pathSeed = PCGHash(pathSeed + asuint(hitPos.x + hitPos.y * 137.0f + hitPos.z * 59.0f));
+        
+        // Trace path with multiple bounces
+        float3 pathRadiance = TracePathSegment(hitPos, N, V, albedo, materialFresnelR0, 
+                                               roughness, metallic, pathSeed, 
+                                               float3(1.0f, 1.0f, 1.0f));
+        
+        // Clamp and add path tracing contribution
+        pathRadiance = ClampFireflies(pathRadiance);
+        color += pathRadiance * GI_BOUNCE_STRENGTH;
+#else
+        // ============ Legacy Single-Bounce GI ============
         // --- High-quality 3D hash seeded with time for temporal jitter ---
         // Each frame picks a different hemisphere direction so successive frames
         // average out to smooth, near-noiseless GI without extra samples.
@@ -825,6 +1213,7 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
         // leaving just the radiance scaled by albedo and the GI strength knob.
 		float3 giColor = giRadiance * albedo * GI_BOUNCE_STRENGTH;
 		color += giColor;
+#endif
 	}
 
     // ---- Atmospheric distance fog ----
