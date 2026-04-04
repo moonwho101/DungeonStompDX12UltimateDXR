@@ -501,8 +501,7 @@ void Miss(inout RayPayload payload)
 {
 	float3 rayDir = WorldRayDirection();
     
-    // Sample the sunset cube map for the sky
-    // We use SampleLevel with LOD 0 for the sharpest background
+    // Sample the sunset cube map for the sky (always used for GI bounces)
 	float3 skyColor = gCubeMap.SampleLevel(gSampler, rayDir, 0).rgb;
     
     // Apply atmospheric dungeon void vertical gradient to darken the lower part 
@@ -513,8 +512,16 @@ void Miss(inout RayPayload payload)
     // For GI bounce rays, keep the raw (brighter) sRGB sample so indirect
     // lighting stays strong.  For primary (display) rays, linearize so the
     // RayGen ACES tone map + gamma correction doesn't double-encode.
+    // For display rays indoors (gOutside == 0), show black sky instead of cubemap.
 	if (!payload.isGIRay)
 	{
+		if (gOutside == 0)
+		{
+            // Indoor dungeon: no sky visible — return black
+			payload.color = float4(0.0f, 0.0f, 0.0f, 1.0f);
+			payload.hitT = 100000.0f;
+			return;
+		}
 		skyColor = pow(max(skyColor, 0.0f), 2.2f);
 	}
     
