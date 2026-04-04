@@ -509,6 +509,14 @@ void Miss(inout RayPayload payload)
 	float upFactor = saturate(rayDir.y * 0.5f + 0.5f);
 	skyColor *= lerp(0.8f, 1.0f, upFactor);
     
+    // For GI bounce rays, keep the raw (brighter) sRGB sample so indirect
+    // lighting stays strong.  For primary (display) rays, linearize so the
+    // RayGen ACES tone map + gamma correction doesn't double-encode.
+	if (!payload.isGIRay)
+	{
+		skyColor = pow(max(skyColor, 0.0f), 2.2f);
+	}
+    
 	payload.color = float4(skyColor, 1.0f);
 	payload.hitT = 100000.0f;
 }
