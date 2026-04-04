@@ -517,8 +517,14 @@ void Miss(inout RayPayload payload)
 	{
 		if (gOutside == 0)
 		{
-            // Indoor dungeon: no sky visible — return black
-			payload.color = float4(0.0f, 0.0f, 0.0f, 1.0f);
+			// Indoor dungeon: simple dark cavern gradient.
+			float ceilingFactor = smoothstep(-0.30f, 0.80f, rayDir.y);
+			float horizonFactor = 1.0f - saturate(abs(rayDir.y));
+			float3 dungeonSky = lerp(float3(0.006f, 0.007f, 0.010f),
+			                          float3(0.030f, 0.040f, 0.054f),
+			                          ceilingFactor);
+			dungeonSky += float3(0.005f, 0.006f, 0.005f) * horizonFactor;
+			payload.color = float4(dungeonSky, 1.0f);
 			payload.hitT = 100000.0f;
 			return;
 		}
