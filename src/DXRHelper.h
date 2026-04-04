@@ -35,7 +35,8 @@ struct DXRSceneConstants {
 	float Metallic;
 	// Ray cone spread angle for mip level estimation: 2*tan(fovY/2)/screenHeight
 	float RayConeSpreadAngle;
-	float Pad1[3]; // keep 16-byte alignment
+	int Outside;     // 1 = outdoor level, 0 = indoor dungeon
+	float Pad1[2];   // keep 16-byte alignment
 };
 
 struct DXRMaterialData {
@@ -75,7 +76,7 @@ class DXRHelper {
 	                          const DirectX::XMFLOAT4 &ambientLight,
 	                          const Light *lights, UINT numLights,
 	                          float totalTime, float roughness, float metallic,
-	                          float rayConeSpreadAngle = 0.001f);
+	                          float rayConeSpreadAngle = 0.001f, int outside = 0);
 
 	// Copy raytracing output to back buffer
 	void CopyOutputToBackBuffer(ID3D12GraphicsCommandList *cmdList,

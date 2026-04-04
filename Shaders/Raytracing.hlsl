@@ -61,7 +61,8 @@ cbuffer SceneConstants : register(b0)
 	float gRoughness;
 	float gMetallic;
 	float gRayConeSpreadAngle;
-	float3 gPad1;
+	uint gOutside;    // 1 = outdoor level, 0 = indoor dungeon
+	float2 gPad1;
 };
 
 // Raytracing output
@@ -500,8 +501,7 @@ void Miss(inout RayPayload payload)
 {
 	float3 rayDir = WorldRayDirection();
     
-    // Sample the sunset cube map for the sky
-    // We use SampleLevel with LOD 0 for the sharpest background
+    // Sample the sunset cube map for the sky (always used for GI bounces)
 	float3 skyColor = gCubeMap.SampleLevel(gSampler, rayDir, 0).rgb;
     
     // Apply atmospheric dungeon void vertical gradient to darken the lower part 
@@ -512,8 +512,22 @@ void Miss(inout RayPayload payload)
     // For GI bounce rays, keep the raw (brighter) sRGB sample so indirect
     // lighting stays strong.  For primary (display) rays, linearize so the
     // RayGen ACES tone map + gamma correction doesn't double-encode.
+    // For display rays indoors (gOutside == 0), show black sky instead of cubemap.
 	if (!payload.isGIRay)
 	{
+		if (gOutside == 0)
+		{
+			// Indoor dungeon: simple dark cavern gradient.
+			float ceilingFactor = smoothstep(-0.30f, 0.80f, rayDir.y);
+			float horizonFactor = 1.0f - saturate(abs(rayDir.y));
+			float3 dungeonSky = lerp(float3(0.006f, 0.007f, 0.010f),
+			                          float3(0.030f, 0.040f, 0.054f),
+			                          ceilingFactor);
+			dungeonSky += float3(0.005f, 0.006f, 0.005f) * horizonFactor;
+			payload.color = float4(dungeonSky, 1.0f);
+			payload.hitT = 100000.0f;
+			return;
+		}
 		skyColor = pow(max(skyColor, 0.0f), 2.2f);
 	}
     
