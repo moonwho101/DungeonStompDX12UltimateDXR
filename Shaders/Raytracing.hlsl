@@ -504,6 +504,12 @@ void Miss(inout RayPayload payload)
     // We use SampleLevel with LOD 0 for the sharpest background
 	float3 skyColor = gCubeMap.SampleLevel(gSampler, rayDir, 0).rgb;
     
+    // The cube map is stored as sRGB (gamma-encoded) but the SRV format
+    // doesn't auto-linearize, so convert to linear here.  Without this
+    // the RayGen ACES tone map + pow(1/2.2) double-gamma-corrects the sky,
+    // washing it out.
+	skyColor = pow(max(skyColor, 0.0f), 2.2f);
+    
     // Apply atmospheric dungeon void vertical gradient to darken the lower part 
     // of the cube if it's too bright for a dungeon, but keep most of it.
 	float upFactor = saturate(rayDir.y * 0.5f + 0.5f);
