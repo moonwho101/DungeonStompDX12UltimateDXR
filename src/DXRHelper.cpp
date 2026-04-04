@@ -561,7 +561,7 @@ void DXRHelper::UpdateSceneConstants(const DirectX::XMFLOAT4X4 &invViewProj,
                                      const DirectX::XMFLOAT4 &ambientLight,
                                      const Light *lights, UINT numLights,
                                      float totalTime, float roughness, float metallic,
-                                     float rayConeSpreadAngle) {
+                                     float rayConeSpreadAngle, int outside) {
 	mSceneConstants.InvViewProj = invViewProj;
 	mSceneConstants.CameraPosition = cameraPos;
 	mSceneConstants.AmbientLight = ambientLight;
@@ -570,6 +570,7 @@ void DXRHelper::UpdateSceneConstants(const DirectX::XMFLOAT4X4 &invViewProj,
 	mSceneConstants.Roughness = roughness;
 	mSceneConstants.Metallic = metallic;
 	mSceneConstants.RayConeSpreadAngle = rayConeSpreadAngle;
+	mSceneConstants.Outside = outside;
 
 	for (UINT i = 0; i < mSceneConstants.NumLights; ++i) {
 		mSceneConstants.Lights[i] = lights[i];

@@ -61,7 +61,8 @@ cbuffer SceneConstants : register(b0)
 	float gRoughness;
 	float gMetallic;
 	float gRayConeSpreadAngle;
-	float3 gPad1;
+	uint gOutside;    // 1 = outdoor level, 0 = indoor dungeon
+	float2 gPad1;
 };
 
 // Raytracing output
