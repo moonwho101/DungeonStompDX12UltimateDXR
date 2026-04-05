@@ -771,10 +771,10 @@ void DungeonStompApp::BuildShadersAndInputLayout() {
 			// rectanglepsoDesc.PS = rectanglePixelMapShaderBytecode;
 		}
 
-		// if (i == MaxRectangle - 2 || i == MaxRectangle - 3) {
-		//	//make the dice not transparent
-		//	rectangleBlendStateDesc.RenderTarget[0].BlendEnable = FALSE;
-		// }
+		if (i == MaxRectangle - 3 || i == MaxRectangle - 4) {
+			//make the dice not transparent
+			rectangleBlendStateDesc.RenderTarget[0].BlendEnable = FALSE;
+		}
 
 		// if (i == 4) {
 		//	// make the logo not transparent
