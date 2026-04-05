@@ -773,7 +773,7 @@ void DungeonStompApp::BuildShadersAndInputLayout() {
 
 		if (i == MaxRectangle - 3 || i == MaxRectangle - 4) {
 			//make the dice not transparent
-			rectangleBlendStateDesc.RenderTarget[0].BlendEnable = FALSE;
+			rectangleBlendStateDesc.RenderTarget[0].BlendEnable = TRUE;
 		}
 
 		// if (i == 4) {
