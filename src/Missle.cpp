@@ -458,7 +458,7 @@ void ApplyMissleDamage(int playernum) {
 								UpdateScrollList(255, 255, 0);
 							}
 
-							DisplayDamage(your_missle[misslecount].x, your_missle[misslecount].y - 20.0f, your_missle[misslecount].z, 1, i, 0);
+							DisplayDamage(your_missle[misslecount].x - 2.0f, your_missle[misslecount].y - 20.0f, your_missle[misslecount].z, 1, i, 0);
 
 							monster_list[i].health = monster_list[i].health - action;
 							int painaction = random_num(3);
