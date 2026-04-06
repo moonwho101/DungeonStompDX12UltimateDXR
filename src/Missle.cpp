@@ -175,6 +175,7 @@ void FirePlayerMissle(float x, float y, float z, float angy, int owner, int shoo
 		your_missle[misslespot].playertype = (int)1;
 		your_missle[misslespot].guntype = current_gun;
 		your_missle[misslespot].blood = 0;
+		your_missle[misslespot].critical = 0;
 
 		lastgun = current_gun;
 
@@ -813,6 +814,7 @@ void FireMonsterMissle(int monsterid, int type) {
 	your_missle[misslespot].y_offset = (float)type;
 	your_missle[misslespot].playernum = (int)monsterid;
 	your_missle[misslespot].playertype = (int)0;
+	your_missle[misslespot].critical = 0;
 
 	if (your_missle[misslespot].sexplode != 0) {
 		// ToODO: fix delete sounds
