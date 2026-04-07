@@ -15,6 +15,7 @@
 #include "Ssao.h"
 #include "VRSHelper.h"
 #include "DXRHelper.h"
+#include "DLSSHelper.h"
 
 using namespace DirectX;
 
@@ -23,6 +24,7 @@ extern bool enableSSao;
 extern bool drawingSSAO;
 extern bool enableVRS;
 extern bool enablePlayerHUD;
+extern bool enableDLSS;
 extern int cnt;
 extern int trueplayernum;
 extern bool drawingShadowMap;
@@ -126,13 +128,61 @@ void DungeonStompApp::Draw(const GameTimer &gt) {
 		blasBuilt = true;
 		lastBlasCnt = cnt;
 
+		// When DLSS is active, dispatch rays at the lower render resolution
+		UINT dxrWidth = mClientWidth;
+		UINT dxrHeight = mClientHeight;
+		if (enableDLSS && mDLSSInitialized && mDLSSHelper) {
+			dxrWidth = mDLSSHelper->GetRenderWidth();
+			dxrHeight = mDLSSHelper->GetRenderHeight();
+		}
+
 		// Dispatch rays for raytracing
-		mDXRHelper->DispatchRays(mCommandList.Get(), mClientWidth, mClientHeight);
+		mDXRHelper->DispatchRays(mCommandList.Get(), dxrWidth, dxrHeight);
 
-		// Copy raytracing output to back buffer
-		mDXRHelper->CopyOutputToBackBuffer(mCommandList.Get(), CurrentBackBuffer());
+		if (enableDLSS && mDLSSInitialized && mDLSSHelper) {
+			// DLSS upscaling path: DXR output -> DLSS -> back buffer
+			// Transition DXR output to copy source and DLSS color buffer to copy dest
+			D3D12_RESOURCE_BARRIER preCopyBarriers[2];
+			preCopyBarriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
+			    mDXRHelper->GetOutputResource(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE);
+			preCopyBarriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(
+			    mDLSSHelper->GetRenderTarget(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_DEST);
+			mCommandList->ResourceBarrier(2, preCopyBarriers);
 
-		// Begin main render pass. Preserve the raytracing output we copied to the back buffer
+			// Copy DXR output to DLSS color input
+			mCommandList->CopyResource(mDLSSHelper->GetRenderTarget(), mDXRHelper->GetOutputResource());
+
+			// Transition back
+			preCopyBarriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
+			    mDXRHelper->GetOutputResource(), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+			preCopyBarriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(
+			    mDLSSHelper->GetRenderTarget(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_RENDER_TARGET);
+			mCommandList->ResourceBarrier(2, preCopyBarriers);
+
+			// Get jitter offsets
+			float jitterX = 0.0f, jitterY = 0.0f;
+			mDLSSHelper->GetJitterOffset(mDLSSFrameIndex, jitterX, jitterY);
+			mDLSSFrameIndex++;
+
+			// Evaluate DLSS (upscale from render resolution to display resolution)
+			// For DXR path: no depth or motion vectors available (null), DLSS uses internal estimation
+			mDLSSHelper->Evaluate(
+			    mCommandList.Get(),
+			    mDLSSHelper->GetRenderTarget(),
+			    nullptr, // No depth buffer from DXR
+			    nullptr, // No motion vectors from DXR
+			    jitterX, jitterY,
+			    gt.DeltaTime(),
+			    false);
+
+			// Copy DLSS output to back buffer
+			mDLSSHelper->CopyOutputToBackBuffer(mCommandList.Get(), CurrentBackBuffer());
+		} else {
+			// Non-DLSS path: copy DXR output directly to back buffer
+			mDXRHelper->CopyOutputToBackBuffer(mCommandList.Get(), CurrentBackBuffer());
+		}
+
+		// Begin main render pass. Preserve the raytracing/DLSS output we copied to the back buffer
 		// instead of clearing it so HUD can be drawn on top of the DXR result.
 		D3D12_RENDER_PASS_RENDER_TARGET_DESC mainRtDesc = {};
 		mainRtDesc.cpuDescriptor = CurrentBackBufferView();
@@ -166,6 +216,113 @@ void DungeonStompApp::Draw(const GameTimer &gt) {
 		if (enableVRS && mVRSHelper.IsSupported()) {
 			mVRSHelper.SetFullRate(mCommandList.Get());
 		}
+
+		mCommandList->EndRenderPass();
+
+	} else if (enableDLSS && mDLSSInitialized && mDLSSHelper && !enableDXR) {
+		// Rasterization + DLSS path: render at lower resolution, DLSS upscales
+
+		// Use DLSS render-resolution viewport and targets
+		mCommandList->RSSetViewports(1, &mDLSSHelper->RenderViewport());
+		mCommandList->RSSetScissorRects(1, &mDLSSHelper->RenderScissorRect());
+
+		// Begin render pass targeting DLSS low-res color/depth buffers
+		D3D12_RENDER_PASS_RENDER_TARGET_DESC mainRtDesc = {};
+		mainRtDesc.cpuDescriptor = mDLSSHelper->GetRenderTargetRTV();
+		mainRtDesc.BeginningAccess.Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_CLEAR;
+		mainRtDesc.BeginningAccess.Clear.ClearValue.Format = mBackBufferFormat;
+		memcpy(mainRtDesc.BeginningAccess.Clear.ClearValue.Color, &mMainPassCB.FogColor, 4 * sizeof(float));
+		mainRtDesc.EndingAccess.Type = D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_PRESERVE;
+
+		D3D12_RENDER_PASS_DEPTH_STENCIL_DESC mainDsDesc = {};
+		mainDsDesc.cpuDescriptor = mDLSSHelper->GetDepthDSV();
+		mainDsDesc.DepthBeginningAccess.Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_CLEAR;
+		mainDsDesc.DepthBeginningAccess.Clear.ClearValue.Format = DXGI_FORMAT_D32_FLOAT;
+		mainDsDesc.DepthBeginningAccess.Clear.ClearValue.DepthStencil.Depth = 1.0f;
+		mainDsDesc.DepthBeginningAccess.Clear.ClearValue.DepthStencil.Stencil = 0;
+		mainDsDesc.StencilBeginningAccess.Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_DISCARD;
+		mainDsDesc.DepthEndingAccess.Type = D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_PRESERVE;
+		mainDsDesc.StencilEndingAccess.Type = D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_DISCARD;
+
+		mCommandList->BeginRenderPass(1, &mainRtDesc, &mainDsDesc, D3D12_RENDER_PASS_FLAG_NONE);
+
+		auto passCB = mCurrFrameResource->PassCB->Resource();
+		mCommandList->SetGraphicsRootConstantBufferView(2, passCB->GetGPUVirtualAddress());
+
+		// Render the main scene at lower resolution
+		DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Opaque], gt);
+
+		if (enableVRS && mVRSHelper.IsSupported()) {
+			mVRSHelper.SetFullRate(mCommandList.Get());
+		}
+
+		mCommandList->EndRenderPass();
+
+		// Generate motion vectors from depth buffer reprojection
+		XMMATRIX view = XMLoadFloat4x4(&mView);
+		XMMATRIX proj = XMLoadFloat4x4(&mProj);
+		XMMATRIX viewProj = view * proj;
+		XMMATRIX invViewProj = XMMatrixInverse(nullptr, viewProj);
+		XMFLOAT4X4 invViewProjF, prevViewProjF;
+		XMStoreFloat4x4(&invViewProjF, XMMatrixTranspose(invViewProj));
+		prevViewProjF = mPrevViewProj;
+
+		mDLSSHelper->GenerateMotionVectors(mCommandList.Get(),
+		    mDLSSHelper->GetDepthResource(),
+		    invViewProjF, prevViewProjF);
+
+		// Store current viewProj for next frame's motion vectors
+		XMStoreFloat4x4(&mPrevViewProj, XMMatrixTranspose(viewProj));
+
+		// Get jitter offsets
+		float jitterX = 0.0f, jitterY = 0.0f;
+		mDLSSHelper->GetJitterOffset(mDLSSFrameIndex, jitterX, jitterY);
+		mDLSSFrameIndex++;
+
+		// Evaluate DLSS (upscale)
+		mDLSSHelper->Evaluate(
+		    mCommandList.Get(),
+		    mDLSSHelper->GetRenderTarget(),
+		    mDLSSHelper->GetDepthResource(),
+		    mDLSSHelper->GetMotionVectorResource(),
+		    jitterX, jitterY,
+		    gt.DeltaTime(),
+		    false);
+
+		// Copy DLSS output to back buffer
+		mDLSSHelper->CopyOutputToBackBuffer(mCommandList.Get(), CurrentBackBuffer());
+
+		// Now switch viewport back to display resolution for HUD
+		mCommandList->RSSetViewports(1, &mScreenViewport);
+		mCommandList->RSSetScissorRects(1, &mScissorRect);
+
+		// Begin render pass on back buffer (preserve DLSS output) for HUD overlay
+		D3D12_RENDER_PASS_RENDER_TARGET_DESC hudRtDesc = {};
+		hudRtDesc.cpuDescriptor = CurrentBackBufferView();
+		hudRtDesc.BeginningAccess.Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_PRESERVE;
+		hudRtDesc.EndingAccess.Type = D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_PRESERVE;
+
+		D3D12_RENDER_PASS_DEPTH_STENCIL_DESC hudDsDesc = {};
+		hudDsDesc.cpuDescriptor = DepthStencilView();
+		hudDsDesc.DepthBeginningAccess.Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_CLEAR;
+		hudDsDesc.DepthBeginningAccess.Clear.ClearValue.Format = mDepthStencilFormat;
+		hudDsDesc.DepthBeginningAccess.Clear.ClearValue.DepthStencil.Depth = 1.0f;
+		hudDsDesc.DepthBeginningAccess.Clear.ClearValue.DepthStencil.Stencil = 0;
+		hudDsDesc.StencilBeginningAccess.Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_CLEAR;
+		hudDsDesc.StencilBeginningAccess.Clear.ClearValue = hudDsDesc.DepthBeginningAccess.Clear.ClearValue;
+		hudDsDesc.DepthEndingAccess.Type = D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_PRESERVE;
+		hudDsDesc.StencilEndingAccess.Type = D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_PRESERVE;
+
+		mCommandList->BeginRenderPass(1, &hudRtDesc, &hudDsDesc, D3D12_RENDER_PASS_FLAG_NONE);
+
+		mCommandList->SetGraphicsRootConstantBufferView(2, passCB->GetGPUVirtualAddress());
+
+		if (enablePlayerHUD) {
+			DisplayHud();
+			SetDungeonText();
+		}
+
+		ScanMod(gt.DeltaTime());
 
 		mCommandList->EndRenderPass();
 

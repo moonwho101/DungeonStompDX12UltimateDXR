@@ -14,6 +14,7 @@
 #include "DungeonStomp.hpp"
 #include "Ssao.h"
 #include "CameraBob.hpp"
+#include "DLSSHelper.h"
 
 using namespace DirectX;
 
@@ -37,6 +38,9 @@ bool enablePlayerHUD = true;
 bool enablePlayerHUDKey = false;
 bool enableDXR = true;
 bool enableDXRKey = false;
+bool enableDLSS = false;
+bool enableDLSSKey = false;
+bool enableDLSSModeKey = false;
 
 extern int trueplayernum;
 extern PLAYER *player_list;
@@ -453,6 +457,45 @@ void DungeonStompApp::OnKeyboardInput(const GameTimer &gt) {
 	} else {
 		enableDXRKey = false;
 	}
+
+	// DLSS toggle ('Y' key)
+	if (GetAsyncKeyState('Y') && !enableDLSSKey) {
+		enableDLSS = !enableDLSS;
+		if (enableDLSS && mDLSSInitialized) {
+			char msg[256];
+			sprintf_s(msg, "DLSS Enabled (%s)", DLSSHelper::GetQualityModeName(mDLSSHelper->GetQualityMode()));
+			strcpy_s(gActionMessage, msg);
+		} else if (!mDLSSInitialized) {
+			enableDLSS = false;
+			strcpy_s(gActionMessage, "DLSS Not Supported (requires NVIDIA RTX GPU)");
+		} else {
+			strcpy_s(gActionMessage, "DLSS Disabled");
+		}
+		UpdateScrollList(0, 255, 255);
+	}
+	if (GetAsyncKeyState('Y')) {
+		enableDLSSKey = true;
+	} else {
+		enableDLSSKey = false;
+	}
+
+	// DLSS quality mode cycle ('U' key)
+	if (GetAsyncKeyState('U') && !enableDLSSModeKey) {
+		if (enableDLSS && mDLSSInitialized && mDLSSHelper) {
+			DLSSQualityMode nextMode = mDLSSHelper->GetNextQualityMode();
+			mDLSSHelper->SetQualityMode(mCommandList.Get(), nextMode);
+			char msg[256];
+			sprintf_s(msg, "DLSS Mode: %s (%ux%u)", DLSSHelper::GetQualityModeName(nextMode),
+			          mDLSSHelper->GetRenderWidth(), mDLSSHelper->GetRenderHeight());
+			strcpy_s(gActionMessage, msg);
+			UpdateScrollList(0, 255, 255);
+		}
+	}
+	if (GetAsyncKeyState('U')) {
+		enableDLSSModeKey = true;
+	} else {
+		enableDLSSModeKey = false;
+	}
 }
 
 void DungeonStompApp::UpdateMaterialCBs(const GameTimer &gt) {
@@ -532,6 +575,25 @@ void DungeonStompApp::UpdateMainPassCB(const GameTimer &gt) {
 
 	XMMATRIX view = XMLoadFloat4x4(&mView);
 	XMMATRIX proj = XMLoadFloat4x4(&mProj);
+
+	// Apply DLSS temporal jitter to projection matrix
+	if (enableDLSS && mDLSSInitialized && mDLSSHelper) {
+		float jitterX = 0.0f, jitterY = 0.0f;
+		mDLSSHelper->GetJitterOffset(mDLSSFrameIndex, jitterX, jitterY);
+
+		// Convert pixel-space jitter to clip-space jitter
+		UINT renderW = mDLSSHelper->GetRenderWidth();
+		UINT renderH = mDLSSHelper->GetRenderHeight();
+		float jitterClipX = 2.0f * jitterX / static_cast<float>(renderW);
+		float jitterClipY = -2.0f * jitterY / static_cast<float>(renderH);
+
+		// Apply jitter by modifying the projection matrix translation
+		XMFLOAT4X4 projF;
+		XMStoreFloat4x4(&projF, proj);
+		projF._31 += jitterClipX;
+		projF._32 += jitterClipY;
+		proj = XMLoadFloat4x4(&projF);
+	}
 
 	XMMATRIX viewProj = XMMatrixMultiply(view, proj);
 	XMMATRIX invView = XMMatrixInverse(&XMMatrixDeterminant(view), view);
@@ -763,6 +825,24 @@ void DungeonStompApp::UpdateDungeon(const GameTimer &gt) {
 		// Update scene constants for DXR
 		XMMATRIX view = XMLoadFloat4x4(&mView);
 		XMMATRIX proj = XMLoadFloat4x4(&mProj);
+
+		// Apply DLSS jitter to the DXR projection matrix for temporal stability
+		if (enableDLSS && mDLSSInitialized && mDLSSHelper) {
+			float jitterX = 0.0f, jitterY = 0.0f;
+			mDLSSHelper->GetJitterOffset(mDLSSFrameIndex, jitterX, jitterY);
+
+			UINT renderW = mDLSSHelper->GetRenderWidth();
+			UINT renderH = mDLSSHelper->GetRenderHeight();
+			float jitterClipX = 2.0f * jitterX / static_cast<float>(renderW);
+			float jitterClipY = -2.0f * jitterY / static_cast<float>(renderH);
+
+			XMFLOAT4X4 projF;
+			XMStoreFloat4x4(&projF, proj);
+			projF._31 += jitterClipX;
+			projF._32 += jitterClipY;
+			proj = XMLoadFloat4x4(&projF);
+		}
+
 		XMMATRIX viewProj = view * proj;
 		XMMATRIX invViewProj = XMMatrixInverse(nullptr, viewProj);
 		XMFLOAT4X4 invViewProjF;

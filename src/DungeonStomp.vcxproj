@@ -107,12 +107,18 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <!-- Uncomment the line below and add DLSS SDK include path when SDK is installed:
+      <AdditionalIncludeDirectories>$(SolutionDir)..\ThirdParty\DLSS\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      -->
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <ProgramDatabaseFile>..\bin\$(TargetName).pdb</ProgramDatabaseFile>
       <AdditionalDependencies>dxcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <!-- Uncomment the line below and add DLSS SDK library path when SDK is installed:
+      <AdditionalLibraryDirectories>$(SolutionDir)..\ThirdParty\DLSS\lib\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      -->
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -143,6 +149,9 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <!-- Uncomment the line below and add DLSS SDK include path when SDK is installed:
+      <AdditionalIncludeDirectories>$(SolutionDir)..\ThirdParty\DLSS\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      -->
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -152,6 +161,9 @@
       <ProgramDatabaseFile>..\bin\$(TargetName).pdb</ProgramDatabaseFile>
       <Profile>true</Profile>
       <AdditionalDependencies>dxcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <!-- Uncomment the line below and add DLSS SDK library path when SDK is installed:
+      <AdditionalLibraryDirectories>$(SolutionDir)..\ThirdParty\DLSS\lib\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      -->
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -183,6 +195,7 @@
     <ClCompile Include="ShadowMap.cpp" />
     <ClCompile Include="VRSHelper.cpp" />
     <ClCompile Include="DXRHelper.cpp" />
+    <ClCompile Include="DLSSHelper.cpp" />
     <ClCompile Include="Ssao.cpp" />
     <ClCompile Include="WAVFileReader.cpp" />
     <ClCompile Include="World.cpp" />
@@ -218,6 +231,7 @@
     <ClInclude Include="ShadowMap.h" />
     <ClInclude Include="VRSHelper.h" />
     <ClInclude Include="DXRHelper.h" />
+    <ClInclude Include="DLSSHelper.h" />
     <ClInclude Include="Ssao.h" />
     <ClInclude Include="WAVFileReader.h" />
     <ClInclude Include="world.hpp" />
@@ -225,6 +239,13 @@
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\Shaders\Default.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <FileType>Document</FileType>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="..\Shaders\MotionVectors.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <FileType>Document</FileType>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>

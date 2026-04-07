@@ -3,6 +3,7 @@
 #include "Ssao.h"
 #include "VRSHelper.h"
 #include "DXRHelper.h"
+#include "DLSSHelper.h"
 
 using Microsoft::WRL::ComPtr;
 using namespace DirectX;
@@ -198,6 +199,10 @@ class DungeonStompApp : public D3DApp {
 	VRSHelper mVRSHelper;
 	std::unique_ptr<DXRHelper> mDXRHelper;
 	bool mDXRInitialized = false;
+	std::unique_ptr<DLSSHelper> mDLSSHelper;
+	bool mDLSSInitialized = false;
+	UINT mDLSSFrameIndex = 0;
+	DirectX::XMFLOAT4X4 mPrevViewProj = MathHelper::Identity4x4();
 
 	DirectX::BoundingSphere mSceneBounds;
 

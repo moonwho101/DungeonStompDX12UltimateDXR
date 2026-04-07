@@ -123,6 +123,20 @@ bool DungeonStompApp::Initialize() {
 	} else {
 		OutputDebugStringA("DXR: Raytracing not supported on this device.\n");
 	}
+
+	// Initialize NVIDIA DLSS (Deep Learning Super Sampling)
+	mDLSSHelper = std::make_unique<DLSSHelper>();
+	mDLSSInitialized = mDLSSHelper->Initialize(
+	    md3dDevice.Get(),
+	    mCommandList.Get(),
+	    mCommandQueue.Get(),
+	    mClientWidth, mClientHeight,
+	    mBackBufferFormat);
+	if (mDLSSInitialized) {
+		OutputDebugStringA("DLSS: Deep Learning Super Sampling initialized successfully.\n");
+	} else {
+		OutputDebugStringA("DLSS: Not available (requires NVIDIA RTX GPU with driver 470+).\n");
+	}
 	BuildMaterials();
 	LoadTextures();
 	BuildRootSignature();
@@ -204,6 +218,18 @@ void DungeonStompApp::OnResize() {
 	// Resize DXR output texture
 	if (mDXRHelper != nullptr && mDXRInitialized) {
 		mDXRHelper->OnResize(md3dDevice.Get(), mClientWidth, mClientHeight);
+	}
+
+	// Resize DLSS resources
+	if (mDLSSHelper != nullptr && mDLSSInitialized) {
+		// Need a command list for recreating the DLSS feature
+		ThrowIfFailed(mDirectCmdListAlloc->Reset());
+		ThrowIfFailed(mCommandList->Reset(mDirectCmdListAlloc.Get(), nullptr));
+		mDLSSHelper->OnResize(mCommandList.Get(), mClientWidth, mClientHeight);
+		ThrowIfFailed(mCommandList->Close());
+		ID3D12CommandList *cmdsLists[] = { mCommandList.Get() };
+		mCommandQueue->ExecuteCommandLists(_countof(cmdsLists), cmdsLists);
+		FlushCommandQueue();
 	}
 }
 
