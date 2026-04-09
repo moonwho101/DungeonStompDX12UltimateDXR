@@ -161,43 +161,43 @@ XMFLOAT3 collideWithWorld(XMFLOAT3 position, XMFLOAT3 velocity) {
 
 	VECTOR V = vel;
 
-	VECTOR slidePlaneNormal;
-
-	if (collisionPackage.nearestDistance < veryCloseDistance) {
-		// Embedded or very close to surface - don't advance further into it
-		newSourcePoint = pos;
-		slidePlaneNormal = pos - collisionPackage.intersectionPoint;
-		float normalLen = slidePlaneNormal.length();
-		if (normalLen < 0.0001f) {
-			// Completely overlapping intersection point - push back along velocity
-			slidePlaneNormal = collisionPackage.normalizedVelocity * -1.0f;
-		} else {
-			slidePlaneNormal.normalize();
-		}
-	} else {
-		// Normal case - advance to the contact point
-		V.SetLength(collisionPackage.nearestDistance);
-		newSourcePoint = collisionPackage.basePoint + V;
-
-		slidePlaneNormal = newSourcePoint - collisionPackage.intersectionPoint;
-		float normalLen = slidePlaneNormal.length();
-		if (normalLen < 0.0001f) {
-			slidePlaneNormal = collisionPackage.normalizedVelocity * -1.0f;
-		} else {
-			slidePlaneNormal.normalize();
-		}
+	// added by silencer ver 2.0 new untested unconfirmed
+	if (collisionPackage.nearestDistance == 0.0f) {
+		final.x = pos.x;
+		final.y = pos.y;
+		final.z = pos.z;
+		return final;
 	}
+
+	V.SetLength(collisionPackage.nearestDistance);
+
+	newSourcePoint = collisionPackage.basePoint + V;
+
+	VECTOR slidePlaneNormal = newSourcePoint - collisionPackage.intersectionPoint;
 
 	eTest.x = slidePlaneNormal.x;
 	eTest.y = slidePlaneNormal.y;
 	eTest.z = slidePlaneNormal.z;
 
-	// Push sphere slightly off the surface along the normal to prevent
-	// re-collision and embedding. This replaces the silencer v2.0 approach
-	// which divided by cos(angle) and exploded for edge-on thin triangles.
-	VECTOR displacementVector = slidePlaneNormal * veryCloseDistance;
-	newSourcePoint = newSourcePoint + displacementVector;
-	collisionPackage.intersectionPoint = collisionPackage.intersectionPoint + displacementVector;
+	// fixed by tele forgot to normalize slideplane
+	slidePlaneNormal.normalize();
+
+	// silencer ver 1.0
+	// VECTOR displacementVector=slidePlaneNormal * veryCloseDistance;
+
+	// silencer ver 2.0 - i think it fixed it can u believe it 2 years and these 5 lines did it.
+	float factor;
+	V.SetLength(veryCloseDistance);
+	factor = veryCloseDistance / (V.x * slidePlaneNormal.x + V.y * slidePlaneNormal.y + V.z * slidePlaneNormal.z);
+
+	V.SetLength(1);
+
+	VECTOR displacementVector = V * veryCloseDistance * factor;
+
+	if ((V.x * slidePlaneNormal.x + V.y * slidePlaneNormal.y + V.z * slidePlaneNormal.z) != 0.0f) {
+		newSourcePoint = newSourcePoint + displacementVector;
+		collisionPackage.intersectionPoint = collisionPackage.intersectionPoint + displacementVector;
+	}
 
 	// Determine the sliding plane
 	VECTOR slidePlaneOrigin = collisionPackage.intersectionPoint;
