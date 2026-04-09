@@ -747,6 +747,12 @@ void DungeonStompApp::BuildShadersAndInputLayout() {
 	// create the text pso
 	hr = md3dDevice->CreateGraphicsPipelineState(&textpsoDesc, IID_PPV_ARGS(&textPSO));
 
+	const int hStats = 0;
+	const int hDice1 = 1;
+	const int hDice2 = 2;
+	const int hShadowMap = 3;
+	const int hLogo = 4;
+
 	// create the rectangles for HUD
 	for (int i = 0; i < MaxRectangle; i++) {
 		D3D12_GRAPHICS_PIPELINE_STATE_DESC rectanglepsoDesc = {};
@@ -765,31 +771,23 @@ void DungeonStompApp::BuildShadersAndInputLayout() {
 		rectangleBlendStateDesc.IndependentBlendEnable = FALSE;
 		rectangleBlendStateDesc.RenderTarget[0].BlendEnable = TRUE;
 
-		if (i == 4) {
-			//	// shadowmap/ssoa texture - make it not transparent
+		if (i == hLogo) {
 			rectangleBlendStateDesc.RenderTarget[0].BlendEnable = FALSE;
-			// rectanglepsoDesc.PS = rectanglePixelMapShaderBytecode;
 		}
 
-		// if (i == MaxRectangle - 2 || i == MaxRectangle - 3) {
-		//	//make the dice not transparent
-		//	rectangleBlendStateDesc.RenderTarget[0].BlendEnable = FALSE;
-		// }
-
-		// if (i == 4) {
-		//	// make the logo not transparent
-		//	rectangleBlendStateDesc.RenderTarget[0].BlendEnable = FALSE;
-		// }
+		if (i == hDice1 || i == hDice2) {
+			rectangleBlendStateDesc.RenderTarget[0].BlendEnable = TRUE;
+		}
 
 		rectangleBlendStateDesc.RenderTarget[0].SrcBlend = D3D12_BLEND_SRC_ALPHA;
 		rectangleBlendStateDesc.RenderTarget[0].DestBlend = D3D12_BLEND_ONE;
 		rectangleBlendStateDesc.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
 
-		// if (i == 0) {
-		rectangleBlendStateDesc.RenderTarget[0].SrcBlend = D3D12_BLEND_SRC_COLOR;
-		rectangleBlendStateDesc.RenderTarget[0].DestBlend = D3D12_BLEND_INV_SRC_COLOR;
-		rectangleBlendStateDesc.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
-		//}
+		if (i == hStats) {
+			rectangleBlendStateDesc.RenderTarget[0].SrcBlend = D3D12_BLEND_SRC_COLOR;
+			rectangleBlendStateDesc.RenderTarget[0].DestBlend = D3D12_BLEND_INV_SRC_COLOR;
+			rectangleBlendStateDesc.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
+		}
 
 		rectangleBlendStateDesc.RenderTarget[0].SrcBlendAlpha = D3D12_BLEND_SRC_ALPHA;
 		rectangleBlendStateDesc.RenderTarget[0].DestBlendAlpha = D3D12_BLEND_ONE;

@@ -775,7 +775,9 @@ void DungeonStompApp::UpdateDungeon(const GameTimer &gt) {
 		    LightContainer,
 		    MaxLights,
 		    gt.TotalTime(),
-		    0.5f,  // Default roughness (deprecated, now per-alias)
-		    0.0f); // Default metallic (deprecated, now per-alias)
+		    0.5f,    // Default roughness (deprecated, now per-alias)
+		    0.0f,    // Default metallic (deprecated, now per-alias)
+		    0.001f,  // rayConeSpreadAngle
+		    outside);
 	}
 }

@@ -175,6 +175,7 @@ void FirePlayerMissle(float x, float y, float z, float angy, int owner, int shoo
 		your_missle[misslespot].playertype = (int)1;
 		your_missle[misslespot].guntype = current_gun;
 		your_missle[misslespot].blood = 0;
+		your_missle[misslespot].critical = 0;
 
 		lastgun = current_gun;
 
@@ -458,7 +459,7 @@ void ApplyMissleDamage(int playernum) {
 								UpdateScrollList(255, 255, 0);
 							}
 
-							DisplayDamage(monster_list[i].x, monster_list[i].y, monster_list[i].z, 1, i, 0);
+							DisplayDamage(your_missle[misslecount].x - 2.0f, your_missle[misslecount].y - 20.0f, your_missle[misslecount].z, 1, i, 0);
 
 							monster_list[i].health = monster_list[i].health - action;
 							int painaction = random_num(3);
@@ -813,6 +814,7 @@ void FireMonsterMissle(int monsterid, int type) {
 	your_missle[misslespot].y_offset = (float)type;
 	your_missle[misslespot].playernum = (int)monsterid;
 	your_missle[misslespot].playertype = (int)0;
+	your_missle[misslespot].critical = 0;
 
 	if (your_missle[misslespot].sexplode != 0) {
 		// ToODO: fix delete sounds
