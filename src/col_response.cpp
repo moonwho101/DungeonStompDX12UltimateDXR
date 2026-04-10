@@ -196,7 +196,7 @@ XMFLOAT3 collideWithWorld(XMFLOAT3 position, XMFLOAT3 velocity) {
 
 	VECTOR displacementVector = V * veryCloseDistance * factor;
 
-	if ((V.x * slidePlaneNormal.x + V.y * slidePlaneNormal.y + V.z * slidePlaneNormal.z) != 0.0f) {
+	if (fabs(V.x * slidePlaneNormal.x + V.y * slidePlaneNormal.y + V.z * slidePlaneNormal.z) > 1e-6f) {
 		newSourcePoint = newSourcePoint + displacementVector;
 		collisionPackage.intersectionPoint = collisionPackage.intersectionPoint + displacementVector;
 	}
