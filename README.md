@@ -210,7 +210,6 @@ The compiled binary is output to the `bin/` directory.
 | [Dungeon Stomp DirectX 12](https://github.com/moonwho101/DungeonStompDirectX12) | DirectX 12 (non-DXR) |
 | [Dungeon Stomp Vulkan](https://github.com/moonwho101/DungeonStompVulkan) | Vulkan (WIP) |
 | [Dungeon Stomp DirectX 7](https://github.com/moonwho101/DungeonStomp) | DirectX 7 (classic) |
-| [Swept Ellipsoid Collider](https://github.com/moonwho101/swept-ellipsoid-collider) | Collision detection reference |
 
 ---
 
