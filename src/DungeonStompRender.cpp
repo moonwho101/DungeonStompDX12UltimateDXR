@@ -87,9 +87,20 @@ void DungeonStompApp::Draw(const GameTimer &gt) {
 		// Normal/depth pass.
 		DrawNormalsAndDepth(gt);
 		drawingSSAO = false;
+
+		mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+			mDepthStencilBuffer.Get(),
+			D3D12_RESOURCE_STATE_DEPTH_WRITE,
+			D3D12_RESOURCE_STATE_GENERIC_READ));
+
 		// Compute SSAO.
 		mCommandList->SetGraphicsRootSignature(mSsaoRootSignature.Get());
 		mSsao->ComputeSsao(mCommandList.Get(), mCurrFrameResource, 3);
+
+		mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+			mDepthStencilBuffer.Get(),
+			D3D12_RESOURCE_STATE_GENERIC_READ,
+			D3D12_RESOURCE_STATE_DEPTH_WRITE));
 	}
 
 	// Main rendering pass.
@@ -131,6 +142,12 @@ void DungeonStompApp::Draw(const GameTimer &gt) {
 
 		// Copy raytracing output to back buffer
 		mDXRHelper->CopyOutputToBackBuffer(mCommandList.Get(), CurrentBackBuffer());
+
+		// DispatchRays binds the DXR heap; restore the main SRV heap so subsequent
+		// graphics calls (HUD, text) can use handles from mSrvDescriptorHeap.
+		ID3D12DescriptorHeap *srvHeaps[] = { mSrvDescriptorHeap.Get() };
+		mCommandList->SetDescriptorHeaps(1, srvHeaps);
+		mCommandList->SetGraphicsRootSignature(mRootSignature.Get());
 
 		// Begin main render pass. Preserve the raytracing output we copied to the back buffer
 		// instead of clearing it so HUD can be drawn on top of the DXR result.
@@ -585,12 +602,23 @@ void DungeonStompApp::DrawDungeon(ID3D12GraphicsCommandList *cmdList, const std:
 			tex.Offset(texture_number, mCbvSrvDescriptorSize);
 			cmdList->SetGraphicsRootDescriptorTable(3, tex); // Set gDiffuseMap
 
+			CD3DX12_GPU_DESCRIPTOR_HANDLE nullTex(mSrvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+			nullTex.Offset(mNullTexSrvIndex1, mCbvSrvDescriptorSize);
+
 			CD3DX12_GPU_DESCRIPTOR_HANDLE tex3(mSrvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
-			tex3.Offset(number_of_tex_aliases + 1, mCbvSrvDescriptorSize);
+			if (drawingShadowMap || drawingSSAO) {
+				tex3 = nullTex;
+			} else {
+				tex3.Offset(number_of_tex_aliases + 1, mCbvSrvDescriptorSize);
+			}
 			cmdList->SetGraphicsRootDescriptorTable(5, tex3); // Set gShadowMap
 
 			CD3DX12_GPU_DESCRIPTOR_HANDLE tex4(mSrvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
-			tex4.Offset(number_of_tex_aliases + 2, mCbvSrvDescriptorSize);
+			if (drawingShadowMap || drawingSSAO) {
+				tex4 = nullTex;
+			} else {
+				tex4.Offset(number_of_tex_aliases + 2, mCbvSrvDescriptorSize);
+			}
 			cmdList->SetGraphicsRootDescriptorTable(7, tex4); // Set gSsaoMap
 
 			// CHECK THIS
