@@ -134,14 +134,23 @@ void DungeonStompApp::UpdateCamera(const GameTimer &gt) {
 	// Disable for now
 	mLandingDip = 0.0f;
 
-	// Idle sway
+	// Idle sway (smoothed to avoid jitter when target changes)
 	float swayY = 0.0f;
+	float targetSway = 0.0f;
 	if (playercurrentmove == 0 && enableCameraBob) {
 		mIdleSwayTime += dt;
-		swayY = sinf(mIdleSwayTime * 1.25f) * 1.2f; // Subtle breathing
+		targetSway = sinf(mIdleSwayTime * 1.25f) * 1.2f; // Subtle breathing
 	} else {
-		mIdleSwayTime = 0.0f;
+		// Preserve mIdleSwayTime (don't reset) so the sinusoid phase remains continuous
+		// and the sway can smoothly decay to zero. This prevents abrupt jumps.
+		targetSway = 0.0f;
 	}
+
+	// Smooth the sway value to remove jitter caused by sudden target changes.
+	static float s_lastSwayY = 0.0f;
+	float swayLerp = MathHelper::Clamp(dt * 8.0f, 0.0f, 1.0f);
+	swayY = s_lastSwayY + (targetSway - s_lastSwayY) * swayLerp;
+	s_lastSwayY = swayY;
 
 	// Turn leaning
 	float deltaAngy = angy - mLastAngy;
