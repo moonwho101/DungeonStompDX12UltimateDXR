@@ -378,7 +378,7 @@ void DungeonStompApp::BuildSsaoRootSignature() {
 	texTable0.NumDescriptors = 2;
 	texTable0.BaseShaderRegister = 0;
 	texTable0.RegisterSpace = 0;
-	texTable0.Flags = D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC;
+	texTable0.Flags = D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE;
 	texTable0.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
 	D3D12_DESCRIPTOR_RANGE1 texTable1 = {};
@@ -386,7 +386,7 @@ void DungeonStompApp::BuildSsaoRootSignature() {
 	texTable1.NumDescriptors = 1;
 	texTable1.BaseShaderRegister = 2;
 	texTable1.RegisterSpace = 0;
-	texTable1.Flags = D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC;
+	texTable1.Flags = D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE;
 	texTable1.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
 	// Root parameters using RS 1.1
