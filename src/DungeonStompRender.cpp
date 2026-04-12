@@ -132,6 +132,12 @@ void DungeonStompApp::Draw(const GameTimer &gt) {
 		// Copy raytracing output to back buffer
 		mDXRHelper->CopyOutputToBackBuffer(mCommandList.Get(), CurrentBackBuffer());
 
+		// DispatchRays binds the DXR heap; restore the main SRV heap so subsequent
+		// graphics calls (HUD, text) can use handles from mSrvDescriptorHeap.
+		ID3D12DescriptorHeap *srvHeaps[] = { mSrvDescriptorHeap.Get() };
+		mCommandList->SetDescriptorHeaps(1, srvHeaps);
+		mCommandList->SetGraphicsRootSignature(mRootSignature.Get());
+
 		// Begin main render pass. Preserve the raytracing output we copied to the back buffer
 		// instead of clearing it so HUD can be drawn on top of the DXR result.
 		D3D12_RENDER_PASS_RENDER_TARGET_DESC mainRtDesc = {};

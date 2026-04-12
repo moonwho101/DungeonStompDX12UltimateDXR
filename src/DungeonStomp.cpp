@@ -131,7 +131,7 @@ bool DungeonStompApp::Initialize() {
 
 	// Copy texture descriptors to DXR heap for raytracing
 	if (mDXRInitialized && mDXRHelper) {
-		mDXRHelper->CopyTextureDescriptors(md3dDevice.Get(), mSrvDescriptorHeap.Get(), MAX_NUM_TEXTURES);
+		mDXRHelper->CopyTextureDescriptors(md3dDevice.Get(), mSrvDescriptorHeap.Get(), number_of_tex_aliases);
 	}
 
 	BuildShadersAndInputLayout();
@@ -743,6 +743,7 @@ void DungeonStompApp::BuildShadersAndInputLayout() {
 	D3D12_DEPTH_STENCIL_DESC textDepthStencilDesc = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
 	textDepthStencilDesc.DepthEnable = false;
 	textpsoDesc.DepthStencilState = textDepthStencilDesc;
+	textpsoDesc.DSVFormat = mDepthStencilFormat;
 
 	// create the text pso
 	hr = md3dDevice->CreateGraphicsPipelineState(&textpsoDesc, IID_PPV_ARGS(&textPSO));
@@ -800,6 +801,7 @@ void DungeonStompApp::BuildShadersAndInputLayout() {
 		D3D12_DEPTH_STENCIL_DESC rectangleDepthStencilDesc = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
 		rectangleDepthStencilDesc.DepthEnable = false;
 		rectanglepsoDesc.DepthStencilState = rectangleDepthStencilDesc;
+		rectanglepsoDesc.DSVFormat = mDepthStencilFormat;
 
 		// create the rectangle pso
 		hr = md3dDevice->CreateGraphicsPipelineState(&rectanglepsoDesc, IID_PPV_ARGS(&rectanglePSO[i]));
@@ -1587,9 +1589,7 @@ BOOL DungeonStompApp::LoadRRTextures11(char *filename) {
 			srvDesc.Format = currentTex->Resource->GetDesc().Format;
 			md3dDevice->CreateShaderResourceView(currentTex->Resource.Get(), &srvDesc, hDescriptor);
 
-			// auto a = mTextures[currentTex->Name].get();
-
-			mTextures[currentTex->Name] = std::move(currentTex);
+			mLoadedWorldTextures.push_back(std::move(currentTex));
 
 			// next descriptor
 			hDescriptor.Offset(1, mCbvSrvDescriptorSize);
