@@ -165,15 +165,18 @@ bool IsTransparentTexture(uint texIdx)
 	return false;
 }
 
-// Hard-coded player weapon texture range (also treated as transparent for shadow rays to prevent black weapon silhouettes)
-bool IsWeaponTexture(uint texIdx)
+bool IsTextureCastNoShadow(uint texIdx)
 {
 	if (texIdx >= 127 && texIdx <= 137)
 		return true; // player weapons (swords, bows, etc)
+
+	if (texIdx >= 471 && texIdx <= 474)
+		return true; // missile textures (treated as non-shadow-casting to prevent black silhouettes of missiles in flight)
+
+
 	return false;
 }
 
-// Hard-coded player weapon texture range (also treated as transparent for shadow rays to prevent black weapon silhouettes)
 bool IsFlameTexture(uint texIdx)
 {
 	if (texIdx >= 94 && texIdx <= 101)
@@ -381,7 +384,7 @@ float TraceShadowRay(float3 origin, float3 direction, float maxDist)
 			bool triangleCastsShadow = (v0.CastShadow == 1) || (v1.CastShadow == 1) || (v2.CastShadow == 1);
 			uint texIndex = gPrimitiveTextureIndices.Load(primIdx * 4);
 
-			if (triangleCastsShadow && !IsTransparentTexture(texIndex) && !IsWeaponTexture(texIndex))
+			if (triangleCastsShadow && !IsTransparentTexture(texIndex) && !IsTextureCastNoShadow(texIndex))
 			{
 				hitFound = true;
 				q.Abort();
