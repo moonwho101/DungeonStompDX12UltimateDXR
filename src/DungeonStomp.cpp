@@ -131,7 +131,7 @@ bool DungeonStompApp::Initialize() {
 
 	// Copy texture descriptors to DXR heap for raytracing
 	if (mDXRInitialized && mDXRHelper) {
-		mDXRHelper->CopyTextureDescriptors(md3dDevice.Get(), mSrvDescriptorHeap.Get(), number_of_tex_aliases);
+		mDXRHelper->CopyTextureDescriptors(md3dDevice.Get(), mSrvCopySourceHeap.Get(), number_of_tex_aliases);
 	}
 
 	BuildShadersAndInputLayout();
@@ -1359,10 +1359,17 @@ void DungeonStompApp::BuildDescriptorHeaps() {
 	srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	ThrowIfFailed(md3dDevice->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&mSrvDescriptorHeap)));
 
+	D3D12_DESCRIPTOR_HEAP_DESC srvCopyHeapDesc = {};
+	srvCopyHeapDesc.NumDescriptors = MAX_NUM_TEXTURES;
+	srvCopyHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	srvCopyHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+	ThrowIfFailed(md3dDevice->CreateDescriptorHeap(&srvCopyHeapDesc, IID_PPV_ARGS(&mSrvCopySourceHeap)));
+
 	//
 	// Fill out the heap with actual descriptors.
 	//
 	CD3DX12_CPU_DESCRIPTOR_HANDLE hDescriptor(mSrvDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
+	CD3DX12_CPU_DESCRIPTOR_HANDLE hCopyDescriptor(mSrvCopySourceHeap->GetCPUDescriptorHandleForHeapStart());
 
 	auto woodCrateTex = mTextures["woodCrateTex"]->Resource;
 	auto grassTex = mTextures["grassTex"]->Resource;
@@ -1376,11 +1383,14 @@ void DungeonStompApp::BuildDescriptorHeaps() {
 	srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
 
 	md3dDevice->CreateShaderResourceView(woodCrateTex.Get(), &srvDesc, hDescriptor);
+	md3dDevice->CreateShaderResourceView(woodCrateTex.Get(), &srvDesc, hCopyDescriptor);
 
 	hDescriptor.Offset(1, mCbvSrvDescriptorSize);
+	hCopyDescriptor.Offset(1, mCbvSrvDescriptorSize);
 
 	srvDesc.Format = grassTex->GetDesc().Format;
 	md3dDevice->CreateShaderResourceView(grassTex.Get(), &srvDesc, hDescriptor);
+	md3dDevice->CreateShaderResourceView(grassTex.Get(), &srvDesc, hCopyDescriptor);
 
 	LoadRRTextures11("textures.dat");
 
@@ -1518,6 +1528,7 @@ BOOL DungeonStompApp::LoadRRTextures11(char *filename) {
 	}
 
 	CD3DX12_CPU_DESCRIPTOR_HANDLE hDescriptor(mSrvDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
+	CD3DX12_CPU_DESCRIPTOR_HANDLE hCopyDescriptor(mSrvCopySourceHeap->GetCPUDescriptorHandleForHeapStart());
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 
 	int flip = 0;
@@ -1588,11 +1599,13 @@ BOOL DungeonStompApp::LoadRRTextures11(char *filename) {
 
 			srvDesc.Format = currentTex->Resource->GetDesc().Format;
 			md3dDevice->CreateShaderResourceView(currentTex->Resource.Get(), &srvDesc, hDescriptor);
+			md3dDevice->CreateShaderResourceView(currentTex->Resource.Get(), &srvDesc, hCopyDescriptor);
 
 			mLoadedWorldTextures.push_back(std::move(currentTex));
 
 			// next descriptor
 			hDescriptor.Offset(1, mCbvSrvDescriptorSize);
+			hCopyDescriptor.Offset(1, mCbvSrvDescriptorSize);
 
 			fscanf_s(fp, "%s", &p, 256);
 			if (strcmp(p, "AlphaTransparent") == 0)
