@@ -86,14 +86,21 @@ void checkTriangle(CollisionPacket *colPackage, VECTOR p1, VECTOR p2, VECTOR p3)
 		// cache this as we're going to use it a few times below:
 		float normalDotVelocity = trianglePlane.normal.dot(colPackage->velocity);
 
-		// if sphere is travelling parrallel to the plane:
-		if (normalDotVelocity == 0.0f) {
+		// Treat near-parallel as parallel to avoid unstable division.
+		// Use a velocity-scaled epsilon: when the velocity is nearly tangent
+		// to the plane, the plane intersection math produces huge t values.
+		// Keep epsilon tight (0.005) to avoid misclassifying floor triangles.
+		float parallelEpsilon = 0.005f * colPackage->velocityLength;
+		bool nearlyParallel = (fabs(normalDotVelocity) < parallelEpsilon);
+
+		// if sphere is travelling parallel (or nearly parallel) to the plane:
+		if (nearlyParallel) {
 			if (fabs(signedDistToTrianglePlane) >= 1.0f) {
 				// Sphere is not embedded in plane.
 				// No collision possible:
 				return;
 			} else {
-				// sphere is embedded in plane.
+				// sphere is embedded in or very close to plane.
 				// It intersects in the whole range [0..1]
 				embeddedInPlane = true;
 				t0 = 0.0;
