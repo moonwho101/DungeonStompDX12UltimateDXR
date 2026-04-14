@@ -170,7 +170,7 @@ bool IsTextureCastNoShadow(uint texIdx)
 	if (texIdx >= 127 && texIdx <= 137)
 		return true; // player weapons (swords, bows, etc)
 
-	if (texIdx >= 471 && texIdx <= 474)
+	if (texIdx >= 296 && texIdx <= 299)
 		return true; // missile textures (treated as non-shadow-casting to prevent black silhouettes of missiles in flight)
 
 
