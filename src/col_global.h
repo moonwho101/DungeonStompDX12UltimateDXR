@@ -6,6 +6,8 @@
 struct CollisionTrace {
 	bool foundCollision;
 	float nearestDistance;
+	float toi;                // CCD time of impact [0,1]
 	float intersectionPoint[3];
+	float contactNormal[3];   // Contact normal at collision point
 	float finalPosition[3];
 };
