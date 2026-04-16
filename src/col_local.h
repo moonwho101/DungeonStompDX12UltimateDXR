@@ -49,9 +49,12 @@ struct CollisionPacket {
 	VECTOR normalizedVelocity;
 	float velocityLength;
 
+	// CCD TOI results
 	bool foundCollision;
-	float nearestDistance;
-	VECTOR intersectionPoint;
+	float toi;                // Time of impact [0,1] — fraction of velocity at first contact
+	float nearestDistance;    // Legacy: derived from toi * velocityLength for compatibility
+	VECTOR intersectionPoint; // Contact point in eSpace
+	VECTOR contactNormal;     // Surface normal at contact point
 
 	VECTOR sourcePoint;
 	XMFLOAT3 realpos;
