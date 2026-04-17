@@ -31,7 +31,6 @@
 | **Levels** | 15 dungeon levels | Full campaign with level progression |
 | **Enemies** | 25+ monster types | AI with animated MD2 & 3DS models |
 | **Combat** | 30+ weapons & spells | Melee, ranged, and magic with projectile system |
-| **Collision** | CCD + TOI character movement | Swept collision with sliding response for stable traversal |
 | **Audio** | XAudio2 sound engine | Monster voices, ambient loops, music |
 
 ---
@@ -92,21 +91,8 @@
 **Engine:**
 - **BMFont GPU text rendering** — fast bitmap font system (AngelCode Hiero format)
 - **Camera head bob** — dual sine-wave movement simulation
-- **CCD + TOI collision system** — swept collision detection with time-of-impact based response
 - **3-frame buffered rendering** with frame resource management
 - **Bounding box culling** and spatial cell partitioning
-
----
-
-## Movement & Collision
-
-- **Continuous Collision Detection (CCD)** drives player and actor world collision, reducing tunneling when moving quickly across dungeon geometry.
-- **Time of Impact (TOI)** is stored per collision as a normalized fraction in `[0,1]`, allowing the engine to stop exactly at first contact instead of relying on a late overlap fix.
-- **Contact normals** are generated from the hit feature, using triangle plane normals for face hits and center-to-feature normals for edge or vertex impacts.
-- **Sliding response** advances to the TOI contact point, nudges slightly outward, and projects the remaining velocity onto the collision plane for wall sliding and stair-step style traversal.
-- **Crease handling and capped recursion** help prevent ping-pong behavior in corners while preserving the older swept-ellipsoid movement feel.
-
-Implementation lives primarily in `src/col_step.cpp`, `src/col_response.cpp`, `src/col_local.h`, and `src/col_global.h`.
 
 ---
 
@@ -212,8 +198,6 @@ The compiled binary is output to the `bin/` directory.
 | `src/LoadWorld.cpp` | Level loading & world initialization |
 | `src/ImportMD2.cpp` | Animated MD2 model importer |
 | `src/Import3DS.cpp` | 3DS model importer |
-| `src/col_step.cpp` | CCD broad/narrow phase triangle sweep and earliest TOI detection |
-| `src/col_response.cpp` | TOI-based slide response and recursive world collision resolution |
 | `src/DXRHelper.cpp` | DXR acceleration structures & ray tracing setup |
 | `Shaders/Raytracing.hlsl` | DXR shader with PBR & global illumination |
 
@@ -226,7 +210,6 @@ The compiled binary is output to the `bin/` directory.
 | [Dungeon Stomp DirectX 12](https://github.com/moonwho101/DungeonStompDirectX12) | DirectX 12 (non-DXR) |
 | [Dungeon Stomp Vulkan](https://github.com/moonwho101/DungeonStompVulkan) | Vulkan (WIP) |
 | [Dungeon Stomp DirectX 7](https://github.com/moonwho101/DungeonStomp) | DirectX 7 (classic) |
-| [Swept Ellipsoid Collider](https://github.com/moonwho101/swept-ellipsoid-collider) | Swept Ellipsoid Collider |
 
 ---
 
