@@ -150,9 +150,6 @@ XMFLOAT3 collideWithWorld(XMFLOAT3 position, XMFLOAT3 velocity) {
 		final.z = pos.z;
 		collisionRecursionDepth = 0;
 		return final;
-		if (toi < 0.0f) {
-			toi = 0.0f;
-		}
 	}
 
 	// Advance position to the TOI contact point
