@@ -142,14 +142,8 @@ XMFLOAT3 collideWithWorld(XMFLOAT3 position, XMFLOAT3 velocity) {
 
 	// --- CCD TOI collision response ---
 	float toi = collisionPackage.toi;
-
-	// TOI == 0 means already touching / embedded — stop
-	if (toi <= 0.0f) {
-		final.x = pos.x;
-		final.y = pos.y;
-		final.z = pos.z;
-		collisionRecursionDepth = 0;
-		return final;
+	if (toi < 0.0f) {
+		toi = 0.0f;
 	}
 
 	// Advance position to the TOI contact point
