@@ -92,46 +92,48 @@ void checkCollision() {
 
 XMFLOAT3 collideWithWorld(XMFLOAT3 position, XMFLOAT3 velocity) {
 
+	// SILENCERS
 	XMFLOAT3 final;
 
+	// All hard-coded distances in this function is
+	// scaled to fit the setting above..
 	float unitsPerMeter = 100.0f;
 	float unitScale = unitsPerMeter / 100.0f;
 	float veryCloseDistance = 0.005f * unitScale;
 
-	// Max recursion depth for multi-surface sliding
+	// do we need to worry?
 	if (collisionRecursionDepth > 5) {
 		collisionRecursionDepth = 0;
 		return position;
 	}
 
+	// Ok, we need to worry:
 	VECTOR vel;
 	vel.x = (float)velocity.x;
 	vel.y = (float)velocity.y;
 	vel.z = (float)velocity.z;
 
 	VECTOR pos;
+
 	pos.x = position.x;
 	pos.y = position.y;
 	pos.z = position.z;
 
-	// Initialize CCD collision packet
 	collisionPackage.velocity = vel;
 	collisionPackage.normalizedVelocity = vel;
 	collisionPackage.normalizedVelocity.normalize();
 	collisionPackage.velocityLength = vel.length();
 	collisionPackage.basePoint = pos;
 	collisionPackage.foundCollision = false;
-	collisionPackage.toi = 1.0f;              // CCD: no collision = full travel
 	collisionPackage.nearestDistance = 10000000;
-	collisionPackage.contactNormal.set(0, 0, 0);
 	collisionPackage.realpos.x = pos.x * eRadius.x;
 	collisionPackage.realpos.y = pos.y * eRadius.y;
 	collisionPackage.realpos.z = pos.z * eRadius.z;
 
-	// Broad-phase + narrow-phase CCD sweep
+	// Check for collision (calls the collision routines)
+	// Application specific!!
 	ObjectCollision();
-
-	// No collision: advance the full velocity
+	// If no collision we just move along the velocity
 	if (collisionPackage.foundCollision == false) {
 		final.x = pos.x + vel.x;
 		final.y = pos.y + vel.y;
@@ -140,49 +142,90 @@ XMFLOAT3 collideWithWorld(XMFLOAT3 position, XMFLOAT3 velocity) {
 		return final;
 	}
 
-	// --- CCD TOI collision response ---
-	float toi = collisionPackage.toi;
-	
-	// TOI == 0 means already touching / embedded — stop
-	if (toi <= 0.0f) {
+	/*
+	if (collisionPackage.nearestDistance == 0.0f)
+	{
+	    //quick fix for an embedded object - this needs a lot of work this area here we should un embed ourselves simply by looping through objects and push out if we are embedded, i will fix this one day mark my words , i will fix it and i will be quite pleased about that such thing
+
+	    final.x = pos.x;
+	    final.y = pos.y;
+	    final.z = pos.z;
+	    collisionRecursionDepth = 0;
+	    return final;
+	}
+	*/
+
+	// *** Collision occured ***
+	// The original destination point
+	VECTOR destinationPoint = pos + vel;
+	VECTOR newSourcePoint = pos;
+
+	VECTOR V = vel;
+
+	// added by silencer ver 2.0 new untested unconfirmed
+	if (collisionPackage.nearestDistance == 0.0f) {
 		final.x = pos.x;
 		final.y = pos.y;
 		final.z = pos.z;
-		collisionRecursionDepth = 0;
 		return final;
 	}
 
-	// Advance position to the TOI contact point
-	VECTOR newSourcePoint = pos + vel * toi;
+	V.SetLength(collisionPackage.nearestDistance);
 
-	// Use the contact normal computed during CCD detection
-	VECTOR contactNormal = collisionPackage.contactNormal;
+	newSourcePoint = collisionPackage.basePoint + V;
 
-	// Push out slightly along contact normal to prevent re-collision
-	VECTOR pushOut = contactNormal * veryCloseDistance;
-	newSourcePoint = newSourcePoint + pushOut;
+	VECTOR slidePlaneNormal = newSourcePoint - collisionPackage.intersectionPoint;
 
-	// Remaining velocity after the TOI
-	float remainingFraction = 1.0f - toi;
-	VECTOR remainingVel = vel * remainingFraction;
+	eTest.x = slidePlaneNormal.x;
+	eTest.y = slidePlaneNormal.y;
+	eTest.z = slidePlaneNormal.z;
 
-	// Project remaining velocity onto the sliding plane (remove normal component)
-	float normalComponent = remainingVel.dot(contactNormal);
-	VECTOR slideVelocity = remainingVel - contactNormal * normalComponent;
+	// fixed by tele forgot to normalize slideplane
+	slidePlaneNormal.normalize();
 
-	// Anti-ping-pong: handle crease between two collision planes
+	// silencer ver 1.0
+	// VECTOR displacementVector=slidePlaneNormal * veryCloseDistance;
+
+	// silencer ver 2.0 - i think it fixed it can u believe it 2 years and these 5 lines did it.
+	float factor;
+	V.SetLength(veryCloseDistance);
+	factor = veryCloseDistance / (V.x * slidePlaneNormal.x + V.y * slidePlaneNormal.y + V.z * slidePlaneNormal.z);
+
+	V.SetLength(1);
+
+	VECTOR displacementVector = V * veryCloseDistance * factor;
+
+	if ((V.x * slidePlaneNormal.x + V.y * slidePlaneNormal.y + V.z * slidePlaneNormal.z) != 0.0f) {
+		newSourcePoint = newSourcePoint + displacementVector;
+		collisionPackage.intersectionPoint = collisionPackage.intersectionPoint + displacementVector;
+	}
+
+	// Determine the sliding plane
+	VECTOR slidePlaneOrigin = collisionPackage.intersectionPoint;
+
+	PLANE slidingPlane(slidePlaneOrigin, slidePlaneNormal);
+
+	// Again, sorry about formatting.. but look carefully ;)
+
+	VECTOR newDestinationPoint = destinationPoint - slidePlaneNormal * slidingPlane.signedDistanceTo(destinationPoint);
+
+	// Generate the slide vector, which will become our new
+	// velocity vector for the next iteration
+	VECTOR newVelocityVector = newDestinationPoint - collisionPackage.intersectionPoint;
+
+	// Anti-ping-pong: handle crease between multiple colliders
 	if (collisionRecursionDepth == 0) {
-		firstSlideNormal = contactNormal;
+		firstSlideNormal = slidePlaneNormal;
 	} else {
-		float normalDot = firstSlideNormal.x * contactNormal.x +
-		                  firstSlideNormal.y * contactNormal.y +
-		                  firstSlideNormal.z * contactNormal.z;
+		float normalDot = firstSlideNormal.x * slidePlaneNormal.x +
+		                  firstSlideNormal.y * slidePlaneNormal.y +
+		                  firstSlideNormal.z * slidePlaneNormal.z;
 		if (normalDot < 0.99f) {
-			// Two different collision planes — constrain to crease line
-			VECTOR crease = firstSlideNormal.cross(contactNormal);
+			// Two different collision planes - constrain to crease line
+			VECTOR crease = firstSlideNormal.cross(slidePlaneNormal);
 			float creaseLen = crease.length();
 			if (creaseLen < 0.001f) {
-				// Opposing parallel planes — stop movement
+				// Opposing parallel planes - stop movement
 				final.x = newSourcePoint.x;
 				final.y = newSourcePoint.y;
 				final.z = newSourcePoint.z;
@@ -190,23 +233,24 @@ XMFLOAT3 collideWithWorld(XMFLOAT3 position, XMFLOAT3 velocity) {
 				return final;
 			}
 			crease.normalize();
-			float d = slideVelocity.x * crease.x +
-			          slideVelocity.y * crease.y +
-			          slideVelocity.z * crease.z;
-			slideVelocity = crease * d;
+			float d = newVelocityVector.x * crease.x +
+			          newVelocityVector.y * crease.y +
+			          newVelocityVector.z * crease.z;
+			newVelocityVector = crease * d;
 		}
 	}
 
-	// If remaining slide velocity is negligible, stop
-	if (slideVelocity.length() < veryCloseDistance) {
+	// Recurse:
+	// dont recurse if the new velocity is very small
+	if (newVelocityVector.length() < veryCloseDistance) {
 		final.x = newSourcePoint.x;
 		final.y = newSourcePoint.y;
 		final.z = newSourcePoint.z;
 		collisionRecursionDepth = 0;
+
 		return final;
 	}
 
-	// Recurse with slide velocity
 	collisionRecursionDepth++;
 
 	XMFLOAT3 newP;
@@ -216,9 +260,9 @@ XMFLOAT3 collideWithWorld(XMFLOAT3 position, XMFLOAT3 velocity) {
 	newP.y = newSourcePoint.y;
 	newP.z = newSourcePoint.z;
 
-	newV.x = slideVelocity.x;
-	newV.y = slideVelocity.y;
-	newV.z = slideVelocity.z;
+	newV.x = newVelocityVector.x;
+	newV.y = newVelocityVector.y;
+	newV.z = newVelocityVector.z;
 
 	return collideWithWorld(newP, newV);
 }
@@ -241,7 +285,6 @@ void ObjectCollision() {
 	int vertnum = 0;
 
 	colPack2.foundCollision = false;
-	colPack2.toi = 1.0f;
 	colPack2.nearestDistance = 10000000;
 
 	vertnum = verts_per_poly[vertcount];
