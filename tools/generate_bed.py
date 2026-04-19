@@ -9,6 +9,93 @@ import os
 import shutil
 
 
+def orient_faces_outward(vertices, faces):
+    """Flip triangles so normals point away from the mesh center."""
+    if not vertices:
+        return vertices, faces
+
+    center = (
+        sum(v[0] for v in vertices) / len(vertices),
+        sum(v[1] for v in vertices) / len(vertices),
+        sum(v[2] for v in vertices) / len(vertices),
+    )
+
+    oriented_faces = []
+    for a, b, c in faces:
+        va, vb, vc = vertices[a], vertices[b], vertices[c]
+        ab = (vb[0] - va[0], vb[1] - va[1], vb[2] - va[2])
+        ac = (vc[0] - va[0], vc[1] - va[1], vc[2] - va[2])
+        normal = (
+            ab[1] * ac[2] - ab[2] * ac[1],
+            ab[2] * ac[0] - ab[0] * ac[2],
+            ab[0] * ac[1] - ab[1] * ac[0],
+        )
+        centroid = (
+            (va[0] + vb[0] + vc[0]) / 3.0,
+            (va[1] + vb[1] + vc[1]) / 3.0,
+            (va[2] + vb[2] + vc[2]) / 3.0,
+        )
+        outward = (
+            centroid[0] - center[0],
+            centroid[1] - center[1],
+            centroid[2] - center[2],
+        )
+        facing = (
+            normal[0] * outward[0]
+            + normal[1] * outward[1]
+            + normal[2] * outward[2]
+        )
+        if facing < 0.0:
+            oriented_faces.append((a, c, b))
+        else:
+            oriented_faces.append((a, b, c))
+
+    return vertices, oriented_faces
+
+
+def validate_faces_outward(vertices, faces):
+    """Raise if any triangle normal points toward the mesh center."""
+    if not vertices:
+        return
+
+    center = (
+        sum(v[0] for v in vertices) / len(vertices),
+        sum(v[1] for v in vertices) / len(vertices),
+        sum(v[2] for v in vertices) / len(vertices),
+    )
+
+    inward_faces = []
+    for index, (a, b, c) in enumerate(faces):
+        va, vb, vc = vertices[a], vertices[b], vertices[c]
+        ab = (vb[0] - va[0], vb[1] - va[1], vb[2] - va[2])
+        ac = (vc[0] - va[0], vc[1] - va[1], vc[2] - va[2])
+        normal = (
+            ab[1] * ac[2] - ab[2] * ac[1],
+            ab[2] * ac[0] - ab[0] * ac[2],
+            ab[0] * ac[1] - ab[1] * ac[0],
+        )
+        centroid = (
+            (va[0] + vb[0] + vc[0]) / 3.0,
+            (va[1] + vb[1] + vc[1]) / 3.0,
+            (va[2] + vb[2] + vc[2]) / 3.0,
+        )
+        outward = (
+            centroid[0] - center[0],
+            centroid[1] - center[1],
+            centroid[2] - center[2],
+        )
+        facing = (
+            normal[0] * outward[0]
+            + normal[1] * outward[1]
+            + normal[2] * outward[2]
+        )
+        if facing < 0.0:
+            inward_faces.append(index)
+
+    if inward_faces:
+        raise ValueError(f"Found inward-facing triangles: {inward_faces[:10]}")
+
+
 def make_box(x1, y1, z1, x2, y2, z2):
     """Create a box with separate vertices per face (flat shading).
     Returns (vertices, faces). 24 vertices, 12 triangles."""
@@ -45,6 +132,8 @@ def make_box(x1, y1, z1, x2, y2, z2):
     verts += [(x1, y2, z1), (x1, y1, z1), (x2, y1, z1), (x2, y2, z1)]
     faces += [(b, b+1, b+2), (b, b+2, b+3)]
 
+    verts, faces = orient_faces_outward(verts, faces)
+    validate_faces_outward(verts, faces)
     return verts, faces
 
 
@@ -87,6 +176,8 @@ def make_beveled_box(x1, y1, z1, x2, y2, z2, bevel):
     verts += [(x1, y2, z1), (x1, y1, z1), (x2, y1, z1), (x2, y2, z1)]
     faces += [(b, b+1, b+2), (b, b+2, b+3)]
 
+    verts, faces = orient_faces_outward(verts, faces)
+    validate_faces_outward(verts, faces)
     return verts, faces
 
 
@@ -177,6 +268,8 @@ def make_headboard_arch(x1, y1, x2, y2, z_base, z_top, thickness, segments=8):
     ]
     faces += [(b, b+1, b+2), (b, b+2, b+3)]
 
+    verts, faces = orient_faces_outward(verts, faces)
+    validate_faces_outward(verts, faces)
     return verts, faces
 
 
@@ -329,7 +422,6 @@ def main():
     for i, f in enumerate(faces):
         for vi in f:
             assert 0 <= vi <= max_idx, f"Face {i} has invalid vertex index {vi} (max {max_idx})"
-
     write_3ds(src, "Bed", verts, faces)
 
 

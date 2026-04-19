@@ -11,6 +11,100 @@ import shutil
 import math
 
 
+def orient_faces_outward(vertices, faces):
+    """Flip triangles so normals point away from the mesh center."""
+    if not vertices:
+        return vertices, faces
+
+    center = (
+        sum(v[0] for v in vertices) / len(vertices),
+        sum(v[1] for v in vertices) / len(vertices),
+        sum(v[2] for v in vertices) / len(vertices),
+    )
+
+    oriented_faces = []
+    for a, b, c in faces:
+        va, vb, vc = vertices[a], vertices[b], vertices[c]
+        ab = (vb[0] - va[0], vb[1] - va[1], vb[2] - va[2])
+        ac = (vc[0] - va[0], vc[1] - va[1], vc[2] - va[2])
+        normal = (
+            ab[1] * ac[2] - ab[2] * ac[1],
+            ab[2] * ac[0] - ab[0] * ac[2],
+            ab[0] * ac[1] - ab[1] * ac[0],
+        )
+        centroid = (
+            (va[0] + vb[0] + vc[0]) / 3.0,
+            (va[1] + vb[1] + vc[1]) / 3.0,
+            (va[2] + vb[2] + vc[2]) / 3.0,
+        )
+        outward = (
+            centroid[0] - center[0],
+            centroid[1] - center[1],
+            centroid[2] - center[2],
+        )
+        facing = (
+            normal[0] * outward[0]
+            + normal[1] * outward[1]
+            + normal[2] * outward[2]
+        )
+        if facing < 0.0:
+            oriented_faces.append((a, c, b))
+        else:
+            oriented_faces.append((a, b, c))
+
+    return vertices, oriented_faces
+
+
+def validate_faces_outward(vertices, faces):
+    """Raise if any triangle normal points toward the mesh center."""
+    if not vertices:
+        return
+
+    center = (
+        sum(v[0] for v in vertices) / len(vertices),
+        sum(v[1] for v in vertices) / len(vertices),
+        sum(v[2] for v in vertices) / len(vertices),
+    )
+
+    inward_faces = []
+    for index, (a, b, c) in enumerate(faces):
+        va, vb, vc = vertices[a], vertices[b], vertices[c]
+        ab = (vb[0] - va[0], vb[1] - va[1], vb[2] - va[2])
+        ac = (vc[0] - va[0], vc[1] - va[1], vc[2] - va[2])
+        normal = (
+            ab[1] * ac[2] - ab[2] * ac[1],
+            ab[2] * ac[0] - ab[0] * ac[2],
+            ab[0] * ac[1] - ab[1] * ac[0],
+        )
+        centroid = (
+            (va[0] + vb[0] + vc[0]) / 3.0,
+            (va[1] + vb[1] + vc[1]) / 3.0,
+            (va[2] + vb[2] + vc[2]) / 3.0,
+        )
+        outward = (
+            centroid[0] - center[0],
+            centroid[1] - center[1],
+            centroid[2] - center[2],
+        )
+        facing = (
+            normal[0] * outward[0]
+            + normal[1] * outward[1]
+            + normal[2] * outward[2]
+        )
+        if facing < 0.0:
+            inward_faces.append(index)
+
+    if inward_faces:
+        raise ValueError(f"Found inward-facing triangles: {inward_faces[:10]}")
+
+
+def finalize_table_part(mesh):
+    """Normalize table part winding without affecting stool generation."""
+    vertices, faces = orient_faces_outward(*mesh)
+    validate_faces_outward(vertices, faces)
+    return vertices, faces
+
+
 def make_box(x1, y1, z1, x2, y2, z2):
     """Box with separate verts per face (flat shading). 24 verts, 12 tris."""
     verts = []
@@ -343,6 +437,9 @@ def build_table():
     parts = []
     segs = 8
 
+    def add_part(mesh):
+        parts.append(finalize_table_part(mesh))
+
     # Dimensions matching original ~75x47x35 bounding box
     # X: -37 to 37 (length)
     # Y: -23 to 23 (width)
@@ -373,19 +470,19 @@ def build_table():
     leg_hw = 2.2  # leg half-width
 
     # --- TABLETOP: beveled box ---
-    parts.append(make_beveled_box(top_x1, top_y1, top_z1, top_x2, top_y2, top_z2, 1.5))
+    add_part(make_beveled_box(top_x1, top_y1, top_z1, top_x2, top_y2, top_z2, 1.5))
 
     # --- TABLETOP EDGE TRIM (thin lip around perimeter) ---
     trim_h = 1.5
     trim_t = 1.0
     # Front edge
-    parts.append(make_box(top_x1 + 2, top_y2 - trim_t, top_z1 - trim_h, top_x2 - 2, top_y2, top_z1))
+    add_part(make_box(top_x1 + 2, top_y2 - trim_t, top_z1 - trim_h, top_x2 - 2, top_y2, top_z1))
     # Back edge
-    parts.append(make_box(top_x1 + 2, top_y1, top_z1 - trim_h, top_x2 - 2, top_y1 + trim_t, top_z1))
+    add_part(make_box(top_x1 + 2, top_y1, top_z1 - trim_h, top_x2 - 2, top_y1 + trim_t, top_z1))
     # Right edge
-    parts.append(make_box(top_x2 - trim_t, top_y1 + 2, top_z1 - trim_h, top_x2, top_y2 - 2, top_z1))
+    add_part(make_box(top_x2 - trim_t, top_y1 + 2, top_z1 - trim_h, top_x2, top_y2 - 2, top_z1))
     # Left edge
-    parts.append(make_box(top_x1, top_y1 + 2, top_z1 - trim_h, top_x1 + trim_t, top_y2 - 2, top_z1))
+    add_part(make_box(top_x1, top_y1 + 2, top_z1 - trim_h, top_x1 + trim_t, top_y2 - 2, top_z1))
 
     # --- APRON (horizontal rails connecting legs under tabletop) ---
     apron_z1 = 9.0
@@ -393,39 +490,39 @@ def build_table():
     apron_t = 1.5  # apron thickness
 
     # Front apron (+Y)
-    parts.append(make_box(lx1 + leg_hw, ly2 - apron_t, apron_z1, lx2 - leg_hw, ly2, apron_z2))
+    add_part(make_box(lx1 + leg_hw, ly2 - apron_t, apron_z1, lx2 - leg_hw, ly2, apron_z2))
     # Back apron (-Y)
-    parts.append(make_box(lx1 + leg_hw, ly1, apron_z1, lx2 - leg_hw, ly1 + apron_t, apron_z2))
+    add_part(make_box(lx1 + leg_hw, ly1, apron_z1, lx2 - leg_hw, ly1 + apron_t, apron_z2))
     # Right apron (+X)
-    parts.append(make_box(lx2 - apron_t, ly1 + leg_hw, apron_z1, lx2, ly2 - leg_hw, apron_z2))
+    add_part(make_box(lx2 - apron_t, ly1 + leg_hw, apron_z1, lx2, ly2 - leg_hw, apron_z2))
     # Left apron (-X)
-    parts.append(make_box(lx1, ly1 + leg_hw, apron_z1, lx1 + apron_t, ly2 - leg_hw, apron_z2))
+    add_part(make_box(lx1, ly1 + leg_hw, apron_z1, lx1 + apron_t, ly2 - leg_hw, apron_z2))
 
     # --- 4 LEGS: tapered with decorative turnings ---
     for lx, ly in leg_positions:
         # Main tapered leg
-        parts.append(make_tapered_leg(
+        add_part(make_tapered_leg(
             lx - leg_hw, ly - leg_hw, leg_z1,
             lx + leg_hw, ly + leg_hw, leg_z2,
             taper=0.6
         ))
 
         # Upper decorative block (just below apron)
-        parts.append(make_box(
+        add_part(make_box(
             lx - leg_hw - 0.3, ly - leg_hw - 0.3, apron_z1 - 1.5,
             lx + leg_hw + 0.3, ly + leg_hw + 0.3, apron_z1
         ))
 
         # Mid-height turned bulge (cylinder)
         mid_z = (leg_z1 + leg_z2) / 2
-        parts.append(make_cylinder(lx, ly, mid_z - 2, mid_z + 2, leg_hw * 1.3, segments=segs))
+        add_part(make_cylinder(lx, ly, mid_z - 2, mid_z + 2, leg_hw * 1.3, segments=segs))
 
         # Lower turned detail
         low_z = leg_z1 + (leg_z2 - leg_z1) * 0.25
-        parts.append(make_cylinder(lx, ly, low_z - 1, low_z + 1, leg_hw * 1.15, segments=segs))
+        add_part(make_cylinder(lx, ly, low_z - 1, low_z + 1, leg_hw * 1.15, segments=segs))
 
         # Foot pad
-        parts.append(make_box(
+        add_part(make_box(
             lx - leg_hw * 0.8, ly - leg_hw * 0.8, leg_z1,
             lx + leg_hw * 0.8, ly + leg_hw * 0.8, leg_z1 + 0.8
         ))
@@ -436,11 +533,11 @@ def build_table():
     stretch_w = 0.8
 
     # Long stretchers along X
-    parts.append(make_box(lx1, ly2 - stretch_w, stretch_z, lx2, ly2 + stretch_w, stretch_z + stretch_h))
-    parts.append(make_box(lx1, ly1 - stretch_w, stretch_z, lx2, ly1 + stretch_w, stretch_z + stretch_h))
+    add_part(make_box(lx1, ly2 - stretch_w, stretch_z, lx2, ly2 + stretch_w, stretch_z + stretch_h))
+    add_part(make_box(lx1, ly1 - stretch_w, stretch_z, lx2, ly1 + stretch_w, stretch_z + stretch_h))
 
     # Cross stretcher along Y (center)
-    parts.append(make_box(-stretch_w, ly1, stretch_z, stretch_w, ly2, stretch_z + stretch_h))
+    add_part(make_box(-stretch_w, ly1, stretch_z, stretch_w, ly2, stretch_z + stretch_h))
 
     return combine_meshes(parts)
 
