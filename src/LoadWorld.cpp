@@ -153,6 +153,8 @@ BOOL CLoadWorld::LoadWorldMap(char *filename) {
 	int bufc2 = 0;
 	int loop1 = 0;
 
+	int addflame=0;
+
 	// oblist = new OBJECTLIST[1000];
 
 	doorcounter = 0;
@@ -198,6 +200,11 @@ BOOL CLoadWorld::LoadWorldMap(char *filename) {
 					addanewplayer = 1;
 			}
 
+
+			if (strstr(p, "!flamesnohit") != NULL) {
+				addflame = 1;
+			}
+
 			if (object_id == -1) {
 				// PrintMessage(hwnd, "Error Bad Object ID in: LoadWorld ", p, SCN_AND_FILE);
 				// MessageBox(hwnd, "Error Bad Object ID in: LoadWorld", NULL, MB_OK);
@@ -241,6 +248,11 @@ BOOL CLoadWorld::LoadWorldMap(char *filename) {
 				startpos[startposcounter].x = oblist[object_count].x;
 				startpos[startposcounter].y = oblist[object_count].y + 100.0f;
 				startpos[startposcounter].z = oblist[object_count].z;
+			}
+
+			if (addflame == 1) {
+				oblist[object_count].y = oblist[object_count].y + 12.0f;
+				addflame = 0;
 			}
 		}
 
