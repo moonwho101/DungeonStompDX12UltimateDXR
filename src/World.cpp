@@ -1013,6 +1013,7 @@ void DrawIndexedItems(int fakel, int vert_index) {
 			src_v[cnt].nmx = temp_v[j].nmx;
 			src_v[cnt].nmy = temp_v[j].nmy;
 			src_v[cnt].nmz = temp_v[j].nmz;
+			src_v[cnt].CastShadow =1;
 
 			cnt++;
 		}
