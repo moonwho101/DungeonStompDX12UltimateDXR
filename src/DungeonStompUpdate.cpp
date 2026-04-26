@@ -147,10 +147,9 @@ void DungeonStompApp::UpdateCamera(const GameTimer &gt) {
 	}
 
 	// Smooth the sway value to remove jitter caused by sudden target changes.
-	static float s_lastSwayY = 0.0f;
 	float swayLerp = MathHelper::Clamp(dt * 8.0f, 0.0f, 1.0f);
-	swayY = s_lastSwayY + (targetSway - s_lastSwayY) * swayLerp;
-	s_lastSwayY = swayY;
+	swayY = mLastSwayY + (targetSway - mLastSwayY) * swayLerp;
+	mLastSwayY = swayY;
 
 	// Turn leaning
 	float deltaAngy = angy - mLastAngy;
@@ -176,7 +175,7 @@ void DungeonStompApp::UpdateCamera(const GameTimer &gt) {
 	}
 
 	mEyePos.x = m_vEyePt.x;
-	mEyePos.y = m_vEyePt.y + adjust;
+	mEyePos.y = m_vEyePt.y + adjust - mLandingDip + swayY;
 	mEyePos.z = m_vEyePt.z;
 
 	player_list[trueplayernum].x = m_vEyePt.x;
@@ -240,8 +239,8 @@ void DungeonStompApp::UpdateCamera(const GameTimer &gt) {
 		target = XMVectorSet(newspot2.x, newspot2.y, newspot2.z, 1.0f);
 	} else {
 		// Build the view matrix.
-		pos = XMVectorSet(mEyePos.x, mEyePos.y - mLandingDip + swayY, mEyePos.z, 1.0f);
-		target = XMVectorSet(m_vLookatPt.x, m_vLookatPt.y + adjust, m_vLookatPt.z, 1.0f);
+		pos = XMVectorSet(mEyePos.x, mEyePos.y, mEyePos.z, 1.0f);
+		target = XMVectorSet(m_vLookatPt.x, m_vLookatPt.y + adjust - mLandingDip + swayY, m_vLookatPt.z, 1.0f);
 
 		GunTruesave = mEyePos;
 	}
