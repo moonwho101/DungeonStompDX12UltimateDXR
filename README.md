@@ -35,6 +35,16 @@
 
 ---
 
+## Ray Tracing (DXR) Support
+
+Dungeon Stomp DX12 Ultimate DXR features a modern ray tracing implementation using **DirectX 12 DXR**.
+
+*   **Hardware Compatibility:** Fully supports **NVIDIA RTX** and **AMD Ray Tracing (RT)** capable GPUs.
+*   **Inline Ray Tracing (DXR 1.1):** This project leverages the **DirectX 12 Ultimate** feature set, specifically **DXR 1.1 Inline Ray Tracing**.
+*   **Shadow Rays:** The engine implements ray-traced **shadow rays** to calculate light visibility. This provides physically accurate, pixel-perfect dynamic shadows that correctly handle overlapping geometry and provide superior visual fidelity compared to standard shadow mapping.
+
+---
+
 ## Quick Start
 
 > **No build required** — a pre-built binary is included.
