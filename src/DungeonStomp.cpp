@@ -40,6 +40,8 @@ CameraBob bobX;
 std::unordered_map<std::string, std::unique_ptr<Texture>> mTextures;
 extern int number_of_tex_aliases;
 
+extern bool enableDXR;
+
 ComPtr<ID3D12DescriptorHeap> mSrvDescriptorHeap = nullptr;
 extern ID3D12PipelineState *textPSO;                    // pso containing a pipeline state
 extern ID3D12PipelineState *rectanglePSO[MaxRectangle]; // pso containing a pipeline state
@@ -123,6 +125,9 @@ bool DungeonStompApp::Initialize() {
 	} else {
 		OutputDebugStringA("DXR: Raytracing not supported on this device.\n");
 	}
+
+	// Enable DXR usage only if initialization succeeded.
+	enableDXR = mDXRInitialized;
 	BuildMaterials();
 	LoadTextures();
 	BuildRootSignature();

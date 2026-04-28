@@ -35,7 +35,7 @@ bool enableVRS = false;
 bool enableVRSKey = false;
 bool enablePlayerHUD = true;
 bool enablePlayerHUDKey = false;
-bool enableDXR = true;
+bool enableDXR = false;
 bool enableDXRKey = false;
 
 extern int trueplayernum;
