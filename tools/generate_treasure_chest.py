@@ -114,33 +114,40 @@ def combine_meshes(mesh_list):
         offset += len(verts)
     return all_verts, all_faces
 
-def write_3ds(filepath, object_name, vertices, faces):
-    """Write a .3DS file with a single mesh object."""
-    vert_data = struct.pack('<H', len(vertices))
-    for v in vertices:
-        vert_data += struct.pack('<fff', v[0], v[1], v[2])
-    vert_chunk = struct.pack('<HI', 0x4110, 6 + len(vert_data)) + vert_data
+def write_3ds(filepath, objects):
+    """Write a .3DS file with multiple mesh objects."""
+    edit_payload = b''
+    total_verts = 0
+    total_faces = 0
+    for obj_name, vertices, faces in objects:
+        vert_data = struct.pack('<H', len(vertices))
+        for v in vertices:
+            vert_data += struct.pack('<fff', v[0], v[1], v[2])
+        vert_chunk = struct.pack('<HI', 0x4110, 6 + len(vert_data)) + vert_data
 
-    face_data = struct.pack('<H', len(faces))
-    for f in faces:
-        face_data += struct.pack('<HHHH', f[0], f[1], f[2], 0x0007)
-    face_chunk = struct.pack('<HI', 0x4120, 6 + len(face_data)) + face_data
+        face_data = struct.pack('<H', len(faces))
+        for f in faces:
+            face_data += struct.pack('<HHHH', f[0], f[1], f[2], 0x0007)
+        face_chunk = struct.pack('<HI', 0x4120, 6 + len(face_data)) + face_data
 
-    uv_data = struct.pack('<H', len(vertices))
-    for _ in vertices:
-        uv_data += struct.pack('<ff', 0.0, 0.0)
-    uv_chunk = struct.pack('<HI', 0x4140, 6 + len(uv_data)) + uv_data
+        uv_data = struct.pack('<H', len(vertices))
+        for _ in vertices:
+            uv_data += struct.pack('<ff', 0.0, 0.0)
+        uv_chunk = struct.pack('<HI', 0x4140, 6 + len(uv_data)) + uv_data
 
-    mesh_payload = vert_chunk + face_chunk + uv_chunk
-    mesh_chunk = struct.pack('<HI', 0x4100, 6 + len(mesh_payload)) + mesh_payload
+        mesh_payload = vert_chunk + face_chunk + uv_chunk
+        mesh_chunk = struct.pack('<HI', 0x4100, 6 + len(mesh_payload)) + mesh_payload
 
-    name_bytes = object_name.encode('ascii') + b'\x00'
-    obj_payload = name_bytes + mesh_chunk
-    obj_chunk = struct.pack('<HI', 0x4000, 6 + len(obj_payload)) + obj_payload
+        name_bytes = obj_name.encode('ascii') + b'\x00'
+        obj_payload = name_bytes + mesh_chunk
+        obj_chunk = struct.pack('<HI', 0x4000, 6 + len(obj_payload)) + obj_payload
+        edit_payload += obj_chunk
+        
+        total_verts += len(vertices)
+        total_faces += len(faces)
 
     ver_chunk = struct.pack('<HI', 0x0002, 10) + struct.pack('<I', 3)
 
-    edit_payload = obj_chunk
     edit_chunk = struct.pack('<HI', 0x3D3D, 6 + len(edit_payload)) + edit_payload
 
     main_payload = ver_chunk + edit_chunk
@@ -148,10 +155,11 @@ def write_3ds(filepath, object_name, vertices, faces):
 
     with open(filepath, 'wb') as f:
         f.write(main_chunk)
-    print(f"Written: {filepath} ({len(vertices)} verts, {len(faces)} faces)")
+    print(f"Written: {filepath} ({len(objects)} objects, {total_verts} verts, {total_faces} faces)")
 
 def build_chest(is_open=False):
     base_parts = []
+    lock_parts = []
     
     # 1. Base Hollow Box
     # Floor
@@ -166,14 +174,15 @@ def build_chest(is_open=False):
     base_parts.append(make_box(-13, -24, -18, 13, -22, 5))
     
     # Iron bands on Base
-    base_parts.append(make_box(-16, 18, -21, 16, 20, 6)) # Left
-    base_parts.append(make_box(-16, -20, -21, 16, -18, 6)) # Right
-    base_parts.append(make_box(-16, -1, -21, 16, 1, 6)) # Center
+    # base_parts.append(make_box(-16, 18, -21, 16, 20, 6)) # Left
+    # base_parts.append(make_box(-16, -20, -21, 16, -18, 6)) # Right
+    # base_parts.append(make_box(-16, -1, -21, 16, 1, 6)) # Center
 
     # Lock base (front)
-    base_parts.append(make_box(-17, -3, 0, -15, 3, 5))
+    lock_parts.append(make_box(-17, -3, 0, -15, 3, 5))
     
     lid_parts = []
+    lock_lid_parts = []
     
     # 2. Lid (Curved Top)
     # We build it at the top (angle 90) and rotate into 6 segments
@@ -214,9 +223,9 @@ def build_chest(is_open=False):
         lid_parts.append((v, f))
         
     # Lock top part (lid side)
-    lid_parts.append(make_box(-17, -2, 5, -15, 2, 8))
+    lock_lid_parts.append(make_box(-17, -2, 5, -15, 2, 8))
     # Lock keyhole
-    lid_parts.append(make_box(-18, -0.5, 2, -17, 0.5, 4))
+    lock_lid_parts.append(make_box(-18, -0.5, 2, -17, 0.5, 4))
     
     if is_open:
         # Rotate lid by -100 degrees around hinge at (X=14, Z=5)
@@ -225,7 +234,16 @@ def build_chest(is_open=False):
             open_lid_parts.append(rotate_mesh(v, f, -100, 14, 0, 5))
         lid_parts = open_lid_parts
         
-    return combine_meshes(base_parts + lid_parts)
+        open_lock_lid_parts = []
+        for v, f in lock_lid_parts:
+            open_lock_lid_parts.append(rotate_mesh(v, f, -100, 14, 0, 5))
+        lock_lid_parts = open_lock_lid_parts
+        
+    chest_verts, chest_faces = combine_meshes(base_parts + lid_parts)
+    lock_verts, lock_faces = combine_meshes(lock_parts + lock_lid_parts)
+    
+    return [("ChestC" if not is_open else "ChestO", chest_verts, chest_faces),
+            ("LockC" if not is_open else "LockO", lock_verts, lock_faces)]
 
 def main():
     closed_path = r'c:\github\DungeonStompDX12UltimateDXR\models\3ds\WoodenBox\cdoorclosedwoodbox.3ds'
@@ -238,11 +256,11 @@ def main():
             shutil.copy2(p, bak)
             print(f"Backed up {p}")
             
-    verts_c, faces_c = build_chest(is_open=False)
-    write_3ds(closed_path, "ChestClosed", verts_c, faces_c)
+    closed_objects = build_chest(is_open=False)
+    write_3ds(closed_path, closed_objects)
     
-    verts_o, faces_o = build_chest(is_open=True)
-    write_3ds(open_path, "ChestOpen", verts_o, faces_o)
+    open_objects = build_chest(is_open=True)
+    write_3ds(open_path, open_objects)
 
 if __name__ == '__main__':
     main()
