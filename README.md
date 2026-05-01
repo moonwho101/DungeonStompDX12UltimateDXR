@@ -5,6 +5,8 @@
 ### A 3D Dungeon Crawler Powered by DirectX 12 Ultimate, DXR Ray Tracing & Physically Based Rendering
 
 [![License](https://img.shields.io/github/license/moonwho101/DungeonStompDX12UltimateDXR?style=flat-square)](LICENSE)
+[![Stars](https://img.shields.io/github/stars/moonwho101/DungeonStompDX12UltimateDXR?style=flat-square&color=yellow)](https://github.com/moonwho101/DungeonStompDX12UltimateDXR/stargazers)
+[![Forks](https://img.shields.io/github/forks/moonwho101/DungeonStompDX12UltimateDXR?style=flat-square)](https://github.com/moonwho101/DungeonStompDX12UltimateDXR/network/members)
 [![Platform](https://img.shields.io/badge/platform-Windows-blue?style=flat-square&logo=windows)](https://github.com/moonwho101/DungeonStompDX12UltimateDXR)
 [![DirectX](https://img.shields.io/badge/DirectX-12%20Ultimate-green?style=flat-square&logo=microsoft)](https://devblogs.microsoft.com/directx/announcing-directx-12-ultimate/)
 [![C++](https://img.shields.io/badge/language-C%2B%2B-orange?style=flat-square&logo=cplusplus)](https://github.com/moonwho101/DungeonStompDX12UltimateDXR)
@@ -12,11 +14,26 @@
 
 ![Dungeon Stomp DX12 DXR](Textures/screenshot33.jpg)
 
-**Explore 15 hand-crafted dungeon levels, battle 25+ enemy types, collect weapons & spells, and experience real-time ray-traced lighting — all in an open-source C++ engine.**
+**A fully playable, open-source C++ game engine demo showcasing DirectX 12 Ultimate's most advanced features — DXR 1.1 inline ray tracing, Variable Rate Shading, PBR, and SSAO — wrapped in a classic dungeon crawler with 15 levels, 25+ monsters, and 30+ weapons.**
+
+> If you find this project useful for learning DX12 or DXR, please consider giving it a ⭐ — it helps more developers discover it!
 
 [Download & Play](#quick-start) · [Screenshots](#screenshots) · [Build from Source](#build-from-source) · [Controls](#controls) · [Related Projects](#related-projects)
 
 </div>
+
+---
+
+## Why This Project?
+
+Most DirectX 12 DXR tutorials stop at a spinning triangle or a Cornell box. **Dungeon Stomp DX12 Ultimate DXR** is a *fully playable game* that puts all of DX12 Ultimate's headline features to work together in a real production-style codebase:
+
+- Inline DXR 1.1 ray tracing integrated into a live game render loop
+- PBR materials with ACES tone mapping driving in-game visuals
+- Variable Rate Shading adapting per-frame to real geometry
+- 40+ C++ source files you can read, modify, and learn from
+
+It's the DX12 learning resource that actually ships a game.
 
 ---
 
@@ -284,7 +301,9 @@ This project is open source. See the [LICENSE](LICENSE) file for details.
 
 **Happy Dungeon Stomping — Breeyark!**
 
-*If you enjoy this project, consider giving it a* ⭐
+*If this project helped you learn DX12 or DXR, or you just think it's cool — drop a* ⭐ *star above. It takes one second and helps other developers find this resource.*
+
+[![Star this repo](https://img.shields.io/github/stars/moonwho101/DungeonStompDX12UltimateDXR?style=social)](https://github.com/moonwho101/DungeonStompDX12UltimateDXR/stargazers)
 
 </div>
 
