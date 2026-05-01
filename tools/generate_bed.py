@@ -509,17 +509,35 @@ def main():
         shutil.copy2(src, bak)
         print(f"Backed up original to {bak}")
 
-    # Build and write - now create multiple named objects
+    # Build parts
     parts = build_bed()
 
-    # Validate each object's indices
+    # Group parts by prefix (text before first underscore) so related
+    # pieces become a single named object. e.g. post_back_left, post_front_right
+    # -> group name 'post'. If a name has no underscore it's kept as-is.
+    from collections import defaultdict
+
+    grouped = defaultdict(list)
     for name, verts, faces in parts:
+        if '_' in name:
+            key = name.split('_', 1)[0]
+        else:
+            key = name
+        grouped[key].append((verts, faces))
+
+    grouped_parts = []
+    for key, mesh_list in grouped.items():
+        verts, faces = combine_meshes(mesh_list)
+        grouped_parts.append((key, verts, faces))
+
+    # Validate each grouped object's indices
+    for name, verts, faces in grouped_parts:
         max_idx = len(verts) - 1
         for i, f in enumerate(faces):
             for vi in f:
                 assert 0 <= vi <= max_idx, f"Object {name}: Face {i} has invalid vertex index {vi} (max {max_idx})"
 
-    write_3ds_multi(src, parts)
+    write_3ds_multi(src, grouped_parts)
 
 
 if __name__ == '__main__':
