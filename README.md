@@ -5,8 +5,6 @@
 ### A 3D Dungeon Crawler Powered by DirectX 12 Ultimate, DXR Ray Tracing & Physically Based Rendering
 
 [![License](https://img.shields.io/github/license/moonwho101/DungeonStompDX12UltimateDXR?style=flat-square)](LICENSE)
-[![Stars](https://img.shields.io/github/stars/moonwho101/DungeonStompDX12UltimateDXR?style=flat-square&color=yellow)](https://github.com/moonwho101/DungeonStompDX12UltimateDXR/stargazers)
-[![Forks](https://img.shields.io/github/forks/moonwho101/DungeonStompDX12UltimateDXR?style=flat-square)](https://github.com/moonwho101/DungeonStompDX12UltimateDXR/network/members)
 [![Platform](https://img.shields.io/badge/platform-Windows-blue?style=flat-square&logo=windows)](https://github.com/moonwho101/DungeonStompDX12UltimateDXR)
 [![DirectX](https://img.shields.io/badge/DirectX-12%20Ultimate-green?style=flat-square&logo=microsoft)](https://devblogs.microsoft.com/directx/announcing-directx-12-ultimate/)
 [![C++](https://img.shields.io/badge/language-C%2B%2B-orange?style=flat-square&logo=cplusplus)](https://github.com/moonwho101/DungeonStompDX12UltimateDXR)
