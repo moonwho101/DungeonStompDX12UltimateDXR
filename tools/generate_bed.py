@@ -334,6 +334,87 @@ def write_3ds(filepath, object_name, vertices, faces):
     print(f"  {len(vertices)} vertices, {len(faces)} faces, {len(main_chunk)} bytes")
 
 
+def write_3ds_multi(filepath, objects):
+    """Write a .3DS file containing multiple named mesh objects.
+    `objects` is a list of tuples: (name, vertices, faces).
+    """
+
+    def _normalize_name(name, max_bytes=10, used=None):
+        """Normalize and truncate `name` to fit within `max_bytes` ASCII bytes.
+        Ensures uniqueness by appending a numeric suffix when necessary.
+        max_bytes is the maximum number of bytes allowed BEFORE the terminating NUL.
+        """
+        if used is None:
+            used = set()
+        # Replace whitespace with underscore and strip non-ascii
+        s = name.replace(' ', '_')
+        s = s.encode('ascii', 'ignore').decode('ascii')
+        # Truncate to max_bytes
+        base = s[:max_bytes]
+        candidate = base
+        i = 1
+        while candidate in used:
+            suffix = f"_{i}"
+            # Reserve space for suffix
+            trunc = base[: max(0, max_bytes - len(suffix))]
+            candidate = trunc + suffix
+            i += 1
+        used.add(candidate)
+        return candidate
+
+    obj_chunks = b''
+    used_names = set()
+    for name, vertices, faces in objects:
+        safe_name = _normalize_name(name, max_bytes=10, used=used_names)
+        # Vertex list chunk (0x4110)
+        vert_data = struct.pack('<H', len(vertices))
+        for v in vertices:
+            vert_data += struct.pack('<fff', v[0], v[1], v[2])
+        vert_chunk = struct.pack('<HI', 0x4110, 6 + len(vert_data)) + vert_data
+
+        # Face list chunk (0x4120)
+        face_data = struct.pack('<H', len(faces))
+        for f in faces:
+            face_data += struct.pack('<HHHH', f[0], f[1], f[2], 0x0007)
+        face_chunk = struct.pack('<HI', 0x4120, 6 + len(face_data)) + face_data
+
+        # UV mapping chunk (0x4140) - default zero UVs
+        uv_data = struct.pack('<H', len(vertices))
+        for _ in vertices:
+            uv_data += struct.pack('<ff', 0.0, 0.0)
+        uv_chunk = struct.pack('<HI', 0x4140, 6 + len(uv_data)) + uv_data
+
+        # Triangle mesh chunk (0x4100)
+        mesh_payload = vert_chunk + face_chunk + uv_chunk
+        mesh_chunk = struct.pack('<HI', 0x4100, 6 + len(mesh_payload)) + mesh_payload
+
+        # Named object chunk (0x4000)
+        name_bytes = safe_name.encode('ascii') + b'\x00'
+        obj_payload = name_bytes + mesh_chunk
+        obj_chunk = struct.pack('<HI', 0x4000, 6 + len(obj_payload)) + obj_payload
+
+        obj_chunks += obj_chunk
+
+    # Version chunk (keep as before)
+    ver_chunk = struct.pack('<HI', 0x0002, 10) + struct.pack('<I', 3)
+
+    # Edit chunk (0x3D3D)
+    edit_payload = obj_chunks
+    edit_chunk = struct.pack('<HI', 0x3D3D, 6 + len(edit_payload)) + edit_payload
+
+    # Main chunk (0x4D4D)
+    main_payload = ver_chunk + edit_chunk
+    main_chunk = struct.pack('<HI', 0x4D4D, 6 + len(main_payload)) + main_payload
+
+    with open(filepath, 'wb') as f:
+        f.write(main_chunk)
+
+    total_verts = sum(len(v) for _, v, _ in objects)
+    total_faces = sum(len(f) for _, _, f in objects)
+    print(f"Written: {filepath}")
+    print(f"  {len(objects)} objects, {total_verts} vertices, {total_faces} faces, {len(main_chunk)} bytes")
+
+
 def build_bed():
     """Build all bed geometry components."""
     parts = []
@@ -348,60 +429,75 @@ def build_bed():
     rail_t = 2.0    # rail thickness
 
     # --- 4 CORNER POSTS ---
-    # Back-left post (headboard side, +X, +Y) - tall
-    parts.append(make_box(38, 20, -20, 42, 24, 8))
-    # Back-right post (headboard side, +X, -Y) - tall
-    parts.append(make_box(38, -24, -20, 42, -20, 8))
-    # Front-left post (footboard side, -X, +Y) - shorter
-    parts.append(make_box(-42, 20, -20, -38, 24, -2))
-    # Front-right post (footboard side, -X, -Y) - shorter
-    parts.append(make_box(-42, -24, -20, -38, -20, -2))
+    v, f = make_box(38, 20, -20, 42, 24, 8)
+    parts.append(("post_back_left", v, f))
+    v, f = make_box(38, -24, -20, 42, -20, 8)
+    parts.append(("post_back_right", v, f))
+    v, f = make_box(-42, 20, -20, -38, 24, -2)
+    parts.append(("post_front_left", v, f))
+    v, f = make_box(-42, -24, -20, -38, -20, -2)
+    parts.append(("post_front_right", v, f))
 
     # --- Post caps (decorative finials on top of each post) ---
     # Back posts - small pyramidal caps
-    parts.append(make_beveled_box(37, 19, 8, 43, 25, 12, 2.0))
-    parts.append(make_beveled_box(37, -25, 8, 43, -19, 12, 2.0))
+    v, f = make_beveled_box(37, 19, 8, 43, 25, 12, 2.0)
+    parts.append(("cap_back_left", v, f))
+    v, f = make_beveled_box(37, -25, 8, 43, -19, 12, 2.0)
+    parts.append(("cap_back_right", v, f))
     # Front posts - smaller caps
-    parts.append(make_beveled_box(- 43, 19, -2, -37, 25, 1, 1.5))
-    parts.append(make_beveled_box(-43, -25, -2, -37, -19, 1, 1.5))
+    v, f = make_beveled_box(-43, 19, -2, -37, 25, 1, 1.5)
+    parts.append(("cap_front_left", v, f))
+    v, f = make_beveled_box(-43, -25, -2, -37, -19, 1, 1.5)
+    parts.append(("cap_front_right", v, f))
 
     # --- HEADBOARD (arched panel between back posts) ---
-    parts.append(make_headboard_arch(
+    v, f = make_headboard_arch(
         x1=38, y1=-20, x2=42, y2=20,
         z_base=-10, z_top=22, thickness=4, segments=10
-    ))
+    )
+    parts.append(("headboard", v, f))
 
     # --- FOOTBOARD (solid panel between front posts) ---
-    parts.append(make_box(-42, -20, -10, -38, 20, -3))
+    v, f = make_box(-42, -20, -10, -38, 20, -3)
+    parts.append(("footboard", v, f))
 
     # --- SIDE RAILS (connecting headboard to footboard) ---
     # Left rail (+Y side)
-    parts.append(make_box(-38, 20, -12, 38, 24, -7))
+    v, f = make_box(-38, 20, -12, 38, 24, -7)
+    parts.append(("side_rail_left", v, f))
     # Right rail (-Y side)
-    parts.append(make_box(-38, -24, -12, 38, -20, -7))
+    v, f = make_box(-38, -24, -12, 38, -20, -7)
+    parts.append(("side_rail_right", v, f))
 
     # --- LOWER SIDE RAILS (decorative, thinner) ---
-    parts.append(make_box(-38, 21, -18, 38, 23, -14))
-    parts.append(make_box(-38, -23, -18, 38, -21, -14))
+    v, f = make_box(-38, 21, -18, 38, 23, -14)
+    parts.append(("lower_rail_left", v, f))
+    v, f = make_box(-38, -23, -18, 38, -21, -14)
+    parts.append(("lower_rail_right", v, f))
 
     # --- BED PLATFORM / SLAT SUPPORT ---
     # Main platform
-    parts.append(make_box(-36, -20, -9, 36, 20, -7))
+    v, f = make_box(-36, -20, -9, 36, 20, -7)
+    parts.append(("platform", v, f))
 
     # Cross slats (3 slats for detail)
-    for sx in [-24, 0, 24]:
-        parts.append(make_box(sx - 1.5, -20, -11, sx + 1.5, 20, -9))
+    for idx, sx in enumerate([-24, 0, 24], start=1):
+        v, f = make_box(sx - 1.5, -20, -11, sx + 1.5, 20, -9)
+        parts.append((f"slat_{idx}", v, f))
 
     # --- MATTRESS (beveled for puffy look) ---
-    parts.append(make_beveled_box(-34, -18, -7, 34, 18, 2, 2.5))
+    v, f = make_beveled_box(-34, -18, -7, 34, 18, 2, 2.5)
+    parts.append(("mattress", v, f))
 
     # --- PILLOW (beveled, near headboard) ---
-    parts.append(make_beveled_box(18, -12, 2, 32, 12, 7, 2.0))
+    v, f = make_beveled_box(18, -12, 2, 32, 12, 7, 2.0)
+    parts.append(("pillow", v, f))
 
     # --- BLANKET FOLD (thin box draped over foot end of mattress) ---
-    parts.append(make_box(-34, -18, 1.5, -20, 18, 3))
+    v, f = make_box(-34, -18, 1.5, -20, 18, 3)
+    parts.append(("blanket_fold", v, f))
 
-    return combine_meshes(parts)
+    return parts
 
 
 def main():
@@ -413,16 +509,17 @@ def main():
         shutil.copy2(src, bak)
         print(f"Backed up original to {bak}")
 
-    # Build and write
-    verts, faces = build_bed()
-    print(f"Bed model: {len(verts)} vertices, {len(faces)} faces")
+    # Build and write - now create multiple named objects
+    parts = build_bed()
 
-    # Validate
-    max_idx = len(verts) - 1
-    for i, f in enumerate(faces):
-        for vi in f:
-            assert 0 <= vi <= max_idx, f"Face {i} has invalid vertex index {vi} (max {max_idx})"
-    write_3ds(src, "Bed", verts, faces)
+    # Validate each object's indices
+    for name, verts, faces in parts:
+        max_idx = len(verts) - 1
+        for i, f in enumerate(faces):
+            for vi in f:
+                assert 0 <= vi <= max_idx, f"Object {name}: Face {i} has invalid vertex index {vi} (max {max_idx})"
+
+    write_3ds_multi(src, parts)
 
 
 if __name__ == '__main__':
