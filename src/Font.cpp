@@ -73,6 +73,7 @@ float gMspf = 0;
 
 extern bool enableVsync;
 extern bool enablePlayerHUD;
+extern bool enableOnscreenDebug;
 
 Font LoadFont(LPCWSTR filename, int windowWidth, int windowHeight) {
 	std::wifstream fs;
@@ -643,6 +644,15 @@ void DungeonStompApp::DisplayHud() {
 		if (count >= scrolllistnum)
 			flag = 0;
 	}
+
+	if (enableOnscreenDebug) {
+		sprintf_s(junk, "cnt %d", cnt);
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(0.0f, 0.5f), XMFLOAT2(0.30f, 0.30f));
+
+		sprintf_s(junk, "eye %f %f %f)", mEyePos.x, mEyePos.y, mEyePos.z);
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(0.0f, 0.525f), XMFLOAT2(0.30f, 0.30f));
+	}
+
 }
 
 void DungeonStompApp::ScanMod(float fElapsedTime) {

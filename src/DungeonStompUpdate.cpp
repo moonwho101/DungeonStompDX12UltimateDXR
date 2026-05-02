@@ -35,6 +35,8 @@ bool enableVRS = false;
 bool enableVRSKey = false;
 bool enablePlayerHUD = true;
 bool enablePlayerHUDKey = false;
+bool enableOnscreenDebug = false;
+bool enableOnscreenDebugKey = false;
 bool enableDXR = false;
 bool enableDXRKey = false;
 
@@ -442,6 +444,21 @@ void DungeonStompApp::OnKeyboardInput(const GameTimer &gt) {
 		enablePlayerHUDKey = true;
 	} else {
 		enablePlayerHUDKey = false;
+	}
+
+	if (GetAsyncKeyState(VK_F8) && !enableOnscreenDebugKey) {
+		enableOnscreenDebug = !enableOnscreenDebug;
+		if (enableOnscreenDebug) {
+			strcpy_s(gActionMessage, "Onscreen Debug Enabled");
+		} else {
+			strcpy_s(gActionMessage, "Onscreen Debug Disabled");
+		}
+		UpdateScrollList(0, 255, 255);
+	}
+	if (GetAsyncKeyState(VK_F8)) {
+		enableOnscreenDebugKey = true;
+	} else {
+		enableOnscreenDebugKey = false;
 	}
 
 	// DXR toggle ('R' key)
