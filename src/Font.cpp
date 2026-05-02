@@ -71,6 +71,8 @@ int FindTextureAlias(char *alias);
 float gFps = 0;
 float gMspf = 0;
 
+extern float currentspeed;
+extern int lastcollide;
 extern bool enableVsync;
 extern bool enablePlayerHUD;
 extern bool enableOnscreenDebug;
@@ -553,11 +555,88 @@ void DungeonStompApp::DisplayHud() {
 	}
 
 	if (enableOnscreenDebug) {
-		sprintf_s(junk, "cnt %d", cnt);
-		RenderText(arialFont, charToWChar(junk), XMFLOAT2(0.0f, 0.5f), XMFLOAT2(0.30f, 0.30f));
+		const float    lx  = 0.65f;
+		const float    vx  = 0.79f;
+		const float    rh  = 0.022f;
+		const XMFLOAT2 sc  = { 0.30f, 0.30f };
+		const XMFLOAT2 pad = { 0.5f, 0.0f };
+		const XMFLOAT4 hdr = { 1.0f, 1.0f, 0.0f, 1.0f };  // yellow  - section headers
+		const XMFLOAT4 lbl = { 0.7f, 0.7f, 0.7f, 1.0f };  // gray    - labels
+		const XMFLOAT4 val = { 0.0f, 1.0f, 1.0f, 1.0f };  // cyan    - values
 
-		sprintf_s(junk, "eye %f %f %f)", mEyePos.x, mEyePos.y, mEyePos.z);
-		RenderText(arialFont, charToWChar(junk), XMFLOAT2(0.0f, 0.525f), XMFLOAT2(0.30f, 0.30f));
+		float y = 0.02f;
+
+		// --- RENDER ---
+		sprintf_s(junk, "[ RENDER ]");
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, hdr); y += rh;
+
+		sprintf_s(junk, "polys");  RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "%d", number_of_polys_per_frame);
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh;
+
+		sprintf_s(junk, "tris");   RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "%d", num_triangles_in_scene);
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh;
+
+		sprintf_s(junk, "verts");  RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "%d", num_verts_in_scene);
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh;
+
+		sprintf_s(junk, "dpcmds"); RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "%d", num_dp_commands_in_scene);
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh * 2;
+
+		// --- SCENE ---
+		sprintf_s(junk, "[ SCENE ]");
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, hdr); y += rh;
+
+		sprintf_s(junk, "monsters"); RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "%d", num_monsters);
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh;
+
+		sprintf_s(junk, "items");  RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "%d", itemlistcount);
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh;
+
+		sprintf_s(junk, "objects"); RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "%d", oblist_length);
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh;
+
+		sprintf_s(junk, "vis cnt"); RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "%d", cnt);
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh * 2;
+
+		// --- CAMERA ---
+		sprintf_s(junk, "[ CAMERA ]");
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, hdr); y += rh;
+
+		sprintf_s(junk, "x");      RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "%.1f", mEyePos.x);
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh;
+
+		sprintf_s(junk, "y");      RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "%.1f", mEyePos.y);
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh;
+
+		sprintf_s(junk, "z");      RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "%.1f", mEyePos.z);
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh;
+
+		sprintf_s(junk, "yaw");    RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "%.1f", (float)angy);
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh;
+
+		sprintf_s(junk, "pitch");  RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "%.1f", (float)look_up_ang);
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh;
+
+		sprintf_s(junk, "speed");  RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "%.1f", currentspeed);
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh;
+
+		sprintf_s(junk, "collide"); RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "%d", lastcollide);
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val);
 	}
 
 }
