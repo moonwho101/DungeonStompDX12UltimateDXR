@@ -83,6 +83,16 @@ extern bool enableVsync;
 extern bool enablePlayerHUD;
 extern bool enableOnscreenDebug;
 
+// GPU info populated once at device creation (d3dApp.cpp → InitDirect3D)
+char   gGpuName[256]               = "Unknown";
+SIZE_T gGpuVramMB                  = 0;
+char   gGpuFeatureLevel[16]        = "?";
+char   gGpuShaderModel[16]         = "?";
+bool   gGpuVRSSupported            = false;
+bool   gGpuMeshShaderSupported     = false;
+bool   gGpuSamplerFeedbackSupported = false;
+bool   gGpuTearingSupported        = false;
+
 Font LoadFont(LPCWSTR filename, int windowWidth, int windowHeight) {
 	std::wifstream fs;
 	fs.open(filename);
@@ -671,7 +681,69 @@ void DungeonStompApp::DisplayHud() {
 
 		sprintf_s(junk, "aliases"); RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
 		sprintf_s(junk, "%d", gDXRAliasCount);
-		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val);
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh * 2;
+
+		// --- PERF ---
+		sprintf_s(junk, "[ PERF ]");
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, hdr); y += rh;
+
+		sprintf_s(junk, "fps");    RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "%d", (int)gFps);
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh;
+
+		sprintf_s(junk, "ms/frm"); RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "%.2f", gMspf);
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh;
+
+		sprintf_s(junk, "res");    RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "%dx%d", gDXROutputWidth, gDXROutputHeight);
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh;
+
+		sprintf_s(junk, "vsync");  RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "%s", enableVsync ? "ON" : "OFF");
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad,
+		           enableVsync ? XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f) : XMFLOAT4(1.0f, 0.6f, 0.0f, 1.0f)); y += rh * 2;
+
+		// --- GPU ---
+		sprintf_s(junk, "[ GPU ]");
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, hdr); y += rh;
+
+		sprintf_s(junk, "name");   RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		// Truncate long GPU names to fit the column
+		char gpuShort[24];
+		strncpy_s(gpuShort, gGpuName, 23);
+		gpuShort[23] = '\0';
+		RenderText(arialFont, charToWChar(gpuShort), XMFLOAT2(vx, y), sc, pad, val); y += rh;
+
+		sprintf_s(junk, "vram");   RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "%zu MB", gGpuVramMB);
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh;
+
+		sprintf_s(junk, "fl");     RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		RenderText(arialFont, charToWChar(gGpuFeatureLevel), XMFLOAT2(vx, y), sc, pad, val); y += rh;
+
+		sprintf_s(junk, "shader m"); RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		RenderText(arialFont, charToWChar(gGpuShaderModel), XMFLOAT2(vx, y), sc, pad, val); y += rh;
+
+		sprintf_s(junk, "vrs");    RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "%s", gGpuVRSSupported ? "YES" : "NO");
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad,
+		           gGpuVRSSupported ? val : XMFLOAT4(1.0f, 0.3f, 0.3f, 1.0f)); y += rh;
+
+		sprintf_s(junk, "mesh sh"); RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "%s", gGpuMeshShaderSupported ? "YES" : "NO");
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad,
+		           gGpuMeshShaderSupported ? val : XMFLOAT4(1.0f, 0.3f, 0.3f, 1.0f)); y += rh;
+
+		sprintf_s(junk, "samp fb"); RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "%s", gGpuSamplerFeedbackSupported ? "YES" : "NO");
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad,
+		           gGpuSamplerFeedbackSupported ? val : XMFLOAT4(1.0f, 0.3f, 0.3f, 1.0f)); y += rh;
+
+		sprintf_s(junk, "tearing"); RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "%s", gGpuTearingSupported ? "YES" : "NO");
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad,
+		           gGpuTearingSupported ? val : XMFLOAT4(1.0f, 0.3f, 0.3f, 1.0f));
 	}
 
 }
