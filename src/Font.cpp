@@ -646,9 +646,9 @@ void DungeonStompApp::DisplayHud() {
 		sprintf_s(junk, "%.1f", (float)look_up_ang);
 		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh;
 
-		sprintf_s(junk, "speed");  RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
-		sprintf_s(junk, "%.1f", currentspeed);
-		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh;
+		//sprintf_s(junk, "speed");  RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		//sprintf_s(junk, "%.1f", currentspeed);
+		//RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh;
 
 		sprintf_s(junk, "collide"); RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
 		sprintf_s(junk, "%d", lastcollide);

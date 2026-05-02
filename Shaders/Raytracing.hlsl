@@ -761,10 +761,16 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
 		if (NdotL > 0.001f)
 		{
 			float shadow = 1.0f;
-			shadow = TraceShadowRay(shadowOrigin, lightDir, 10000.0f);
+			//shadow = TraceShadowRay(shadowOrigin, lightDir, 10000.0f);
 			color += ComputeDirectionalLight(L, albedo, materialFresnelR0, N, V, roughness, metallic) * shadow;
 		}
 	}
+    
+	// D = directional, P = pointlight, M = misslelight, C = sword light, S = spotlight
+	// 012345678901234567890123456
+	// 012345678901234567890123456
+	// DPPPPPPPPPPPMMMMCSSSSSSSSSS
+	// XXXXXXXX        X
     
     // ---- Point lights (torches + missiles) with shadows ----
 	for (uint i = 1; i < min(gNumLights, (uint) MaxLights); ++i)
@@ -780,9 +786,8 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
             
 			if (NdotL > 0.001f)
 			{
-                // Shadow ray for nearby lights (skip distant ones for performance)
 				float shadow = 1.0f;
-				if (i <= MAX_SHADOW_LIGHTS)
+				if ((i >= 1 && i <= 7) || (i == 16) || (i >= 12 && i <= 13))
 				{
 					shadow = TraceShadowRay(shadowOrigin, lightDir, d);
 				}
@@ -798,7 +803,6 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
 			}
 		}
 	}
-    
     // ---- Single-bounce Global Illumination ----
     // Only trace GI ray for primary (camera) rays to avoid runaway recursion.
 	if (!payload.isGIRay)
