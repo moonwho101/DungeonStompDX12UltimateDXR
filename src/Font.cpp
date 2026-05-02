@@ -73,6 +73,12 @@ float gMspf = 0;
 
 extern float currentspeed;
 extern int lastcollide;
+extern bool enableDXR;
+extern int gDXRTriangleCount;
+extern int gDXRAliasCount;
+extern int gDXRVertexCount;
+extern int gDXROutputWidth;
+extern int gDXROutputHeight;
 extern bool enableVsync;
 extern bool enablePlayerHUD;
 extern bool enableOnscreenDebug;
@@ -636,6 +642,35 @@ void DungeonStompApp::DisplayHud() {
 
 		sprintf_s(junk, "collide"); RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
 		sprintf_s(junk, "%d", lastcollide);
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh * 2;
+
+		// --- DXR ---
+		sprintf_s(junk, "[ DXR ]");
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, hdr); y += rh;
+
+		sprintf_s(junk, "status"); RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "%s", enableDXR ? "ON" : "OFF");
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad,
+		           enableDXR ? XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f) : XMFLOAT4(1.0f, 0.3f, 0.3f, 1.0f)); y += rh;
+
+		sprintf_s(junk, "outdoor"); RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "%s", outside ? "YES" : "NO");
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh;
+
+		sprintf_s(junk, "output"); RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "%dx%d", gDXROutputWidth, gDXROutputHeight);
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh;
+
+		sprintf_s(junk, "tris");   RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "%d", gDXRTriangleCount);
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh;
+
+		sprintf_s(junk, "verts");  RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "%d", gDXRVertexCount);
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh;
+
+		sprintf_s(junk, "aliases"); RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "%d", gDXRAliasCount);
 		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val);
 	}
 

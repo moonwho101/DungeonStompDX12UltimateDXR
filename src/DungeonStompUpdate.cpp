@@ -40,6 +40,13 @@ bool enableOnscreenDebugKey = false;
 bool enableDXR = false;
 bool enableDXRKey = false;
 
+// DXR debug stats (updated each frame when DXR is active)
+int gDXRTriangleCount  = 0;
+int gDXRAliasCount     = 0;
+int gDXRVertexCount    = 0;
+int gDXROutputWidth    = 0;
+int gDXROutputHeight   = 0;
+
 extern int trueplayernum;
 extern PLAYER *player_list;
 extern int displayShadowMap;
@@ -771,6 +778,13 @@ void DungeonStompApp::UpdateDungeon(const GameTimer &gt) {
 			if (primitiveTextureIndices[i] == 999)
 				primitiveTextureIndices[i] = 0;
 		}
+		// Update DXR debug stats
+		gDXRTriangleCount = (int)totalTriangles;
+		gDXRAliasCount    = number_of_tex_aliases;
+		gDXRVertexCount   = (int)mDXRHelper->GetVertexCount();
+		gDXROutputWidth   = (int)mDXRHelper->GetOutputWidth();
+		gDXROutputHeight  = (int)mDXRHelper->GetOutputHeight();
+
 		// Upload primitive alias indices to DXR (reusing texture indices buffer)
 		mDXRHelper->UpdatePrimitiveTextureIndices(md3dDevice.Get(), primitiveTextureIndices.data(), totalTriangles);
 
