@@ -35,8 +35,17 @@ bool enableVRS = false;
 bool enableVRSKey = false;
 bool enablePlayerHUD = true;
 bool enablePlayerHUDKey = false;
+bool enableOnscreenDebug = false;
+bool enableOnscreenDebugKey = false;
 bool enableDXR = false;
 bool enableDXRKey = false;
+
+// DXR debug stats (updated each frame when DXR is active)
+int gDXRTriangleCount  = 0;
+int gDXRAliasCount     = 0;
+int gDXRVertexCount    = 0;
+int gDXROutputWidth    = 0;
+int gDXROutputHeight   = 0;
 
 extern int trueplayernum;
 extern PLAYER *player_list;
@@ -444,6 +453,21 @@ void DungeonStompApp::OnKeyboardInput(const GameTimer &gt) {
 		enablePlayerHUDKey = false;
 	}
 
+	if (GetAsyncKeyState(VK_F8) && !enableOnscreenDebugKey) {
+		enableOnscreenDebug = !enableOnscreenDebug;
+		if (enableOnscreenDebug) {
+			strcpy_s(gActionMessage, "Onscreen Debug Enabled");
+		} else {
+			strcpy_s(gActionMessage, "Onscreen Debug Disabled");
+		}
+		UpdateScrollList(0, 255, 255);
+	}
+	if (GetAsyncKeyState(VK_F8)) {
+		enableOnscreenDebugKey = true;
+	} else {
+		enableOnscreenDebugKey = false;
+	}
+
 	// DXR toggle ('R' key)
 	if (GetAsyncKeyState('R') && !enableDXRKey) {
 		enableDXR = !enableDXR;
@@ -754,6 +778,13 @@ void DungeonStompApp::UpdateDungeon(const GameTimer &gt) {
 			if (primitiveTextureIndices[i] == 999)
 				primitiveTextureIndices[i] = 0;
 		}
+		// Update DXR debug stats
+		gDXRTriangleCount = (int)totalTriangles;
+		gDXRAliasCount    = number_of_tex_aliases;
+		gDXRVertexCount   = (int)mDXRHelper->GetVertexCount();
+		gDXROutputWidth   = (int)mDXRHelper->GetOutputWidth();
+		gDXROutputHeight  = (int)mDXRHelper->GetOutputHeight();
+
 		// Upload primitive alias indices to DXR (reusing texture indices buffer)
 		mDXRHelper->UpdatePrimitiveTextureIndices(md3dDevice.Get(), primitiveTextureIndices.data(), totalTriangles);
 

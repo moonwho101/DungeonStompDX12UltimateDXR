@@ -55,6 +55,12 @@ void TriggerLandingDip(float amount) {
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance,
                    PSTR cmdLine, int showCmd) {
+	// Enable per-monitor v2 DPI awareness so all window coordinates and WM_SIZE
+	// messages use physical pixels.  Without this, Windows virtualises the app at
+	// the DPI-scaled logical resolution (e.g. 2560x1440 on a 4K/150% monitor) and
+	// the swap chain never reaches native 3840x2160.
+	SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+
 	// Enable run-time memory check for debug builds.
 #if defined(DEBUG) | defined(_DEBUG)
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);

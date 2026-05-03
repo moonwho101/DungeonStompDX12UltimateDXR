@@ -651,10 +651,11 @@ void DungeonStompApp::DrawDungeon(ID3D12GraphicsCommandList *cmdList, const std:
 }
 
 void DungeonStompApp::ProcessLights11() {
-	// P = pointlight, M = misslelight, C = sword light S = spotlight
-	// 12345678901234567890
-	// 01234567890123456789
-	// PPPPPPPPPPPMMMMCSSSS
+	// D = directional, P = pointlight, M = misslelight, C = sword light, S = spotlight
+	// 012345678901234567890123456
+	// 012345678901234567890123456
+	// DPPPPPPPPPPPMMMMCSSSSSSSSSS
+	// XXXXXXXX    XX  XXXXX
 
 	int sort[200];
 	float dist[200];

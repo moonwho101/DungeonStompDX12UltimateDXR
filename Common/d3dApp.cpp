@@ -189,6 +189,16 @@ void ShutDownSound();
 extern float gFps;
 extern float gMspf;
 
+// GPU info globals (defined in Font.cpp)
+extern char   gGpuName[256];
+extern SIZE_T gGpuVramMB;
+extern char   gGpuFeatureLevel[16];
+extern char   gGpuShaderModel[16];
+extern bool   gGpuVRSSupported;
+extern bool   gGpuMeshShaderSupported;
+extern bool   gGpuSamplerFeedbackSupported;
+extern bool   gGpuTearingSupported;
+
 LRESULT CALLBACK
 MainWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 	// Forward hwnd on because we can get messages (e.g., WM_CREATE)
@@ -416,6 +426,24 @@ LRESULT D3DApp::MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 		}
 		return 0;
 
+	// WM_DPICHANGED is sent when the DPI for a window changes (for example when
+	// the window is moved to a monitor with a different scaling).  Windows passes
+	// a recommended new window rectangle in lParam which should be applied via
+	// SetWindowPos so the window's outer size/position is updated correctly.
+	case WM_DPICHANGED:
+	{
+		if (lParam != 0) {
+			RECT *prcNewWindow = reinterpret_cast<RECT *>(lParam);
+			SetWindowPos(hwnd, nullptr,
+					prcNewWindow->left,
+					prcNewWindow->top,
+					prcNewWindow->right - prcNewWindow->left,
+					prcNewWindow->bottom - prcNewWindow->top,
+					SWP_NOZORDER | SWP_NOACTIVATE);
+		}
+		return 0;
+	}
+
 	// WM_SIZE is sent when the user resizes the window.
 	case WM_SIZE:
 		// Save the new client area dimensions.
@@ -599,6 +627,13 @@ bool D3DApp::InitDirect3D() {
 	if (SelectBestHardwareAdapter(mdxgiFactory.Get(), bestAdapter, baseDevice, mFeatureLevel, bestAdapterName)) {
 		hardwareResult = S_OK;
 		OutputDebugString((L"Using adapter: " + bestAdapterName + L" (FL " + FeatureLevelToString(mFeatureLevel) + L")\n").c_str());
+
+		// Capture adapter name and VRAM for on-screen debug display.
+		DXGI_ADAPTER_DESC1 adapterDesc = {};
+		if (SUCCEEDED(bestAdapter->GetDesc1(&adapterDesc))) {
+			WideCharToMultiByte(CP_UTF8, 0, adapterDesc.Description, -1, gGpuName, 256, nullptr, nullptr);
+			gGpuVramMB = adapterDesc.DedicatedVideoMemory / (1024 * 1024);
+		}
 	}
 
 	// Fallback to WARP device.
@@ -639,6 +674,23 @@ bool D3DApp::InitDirect3D() {
 
 	// Check DX12 Ultimate features (VRS, DXR, Mesh Shaders, etc.)
 	CheckDX12UltimateFeatures();
+
+	// Populate GPU feature globals for the on-screen debug overlay.
+	{
+		const char *flStr = "11_0";
+		switch (mFeatureLevel) {
+		case D3D_FEATURE_LEVEL_12_2: flStr = "12_2"; break;
+		case D3D_FEATURE_LEVEL_12_1: flStr = "12_1"; break;
+		case D3D_FEATURE_LEVEL_12_0: flStr = "12_0"; break;
+		case D3D_FEATURE_LEVEL_11_1: flStr = "11_1"; break;
+		}
+		sprintf_s(gGpuFeatureLevel, "%s", flStr);
+		sprintf_s(gGpuShaderModel,  "%s", ShaderModelToString(mDX12UltimateFeatures.HighestShaderModel));
+		gGpuVRSSupported             = mDX12UltimateFeatures.VariableRateShadingSupported;
+		gGpuMeshShaderSupported      = mDX12UltimateFeatures.MeshShaderSupported;
+		gGpuSamplerFeedbackSupported = mDX12UltimateFeatures.SamplerFeedbackSupported;
+		gGpuTearingSupported         = mTearingSupported;
+	}
 
 #ifdef _DEBUG
 	LogAdapters();
