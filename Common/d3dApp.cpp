@@ -340,6 +340,26 @@ void D3DApp::OnResize() {
 	UINT swapChainFlags = DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT;
 	if (mTearingSupported)
 		swapChainFlags |= DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
+	// If restricted, resolve the closest DXGI-supported mode to 2560x1440 before resizing.
+	if (mRestrictTo2560x1440) {
+		ComPtr<IDXGIAdapter1> adapter;
+		ComPtr<IDXGIOutput> output;
+		if (SUCCEEDED(mdxgiFactory->EnumAdapters1(0, &adapter)) &&
+		    SUCCEEDED(adapter->EnumOutputs(0, &output))) {
+			DXGI_MODE_DESC desired = {};
+			desired.Width  = 2560;
+			desired.Height = 1440;
+			desired.Format = mBackBufferFormat;
+			DXGI_MODE_DESC closest = {};
+			if (SUCCEEDED(output->FindClosestMatchingMode(&desired, &closest, md3dDevice.Get()))) {
+				mClientWidth  = static_cast<int>(closest.Width);
+				mClientHeight = static_cast<int>(closest.Height);
+			} else {
+				mClientWidth  = min(mClientWidth,  2560);
+				mClientHeight = min(mClientHeight, 1440);
+			}
+		}
+	}
 	ThrowIfFailed(mSwapChain->ResizeBuffers(
 	    SwapChainBufferCount,
 	    mClientWidth, mClientHeight,
@@ -871,6 +891,29 @@ void D3DApp::CreateSwapChain() {
 	UINT swapChainFlags = DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT;
 	if (mTearingSupported)
 		swapChainFlags |= DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
+
+	// If restricted, ask DXGI to find the closest supported mode to 2560x1440
+	// and drive both the swap chain and the client dimensions from that result.
+	if (mRestrictTo2560x1440) {
+		ComPtr<IDXGIAdapter1> adapter;
+		ComPtr<IDXGIOutput> output;
+		if (SUCCEEDED(mdxgiFactory->EnumAdapters1(0, &adapter)) &&
+		    SUCCEEDED(adapter->EnumOutputs(0, &output))) {
+			DXGI_MODE_DESC desired = {};
+			desired.Width  = 2560;
+			desired.Height = 1440;
+			desired.Format = mBackBufferFormat;
+			DXGI_MODE_DESC closest = {};
+			if (SUCCEEDED(output->FindClosestMatchingMode(&desired, &closest, md3dDevice.Get()))) {
+				mClientWidth  = static_cast<int>(closest.Width);
+				mClientHeight = static_cast<int>(closest.Height);
+			} else {
+				// Fallback: hard cap if FindClosestMatchingMode is unavailable.
+				mClientWidth  = min(mClientWidth,  2560);
+				mClientHeight = min(mClientHeight, 1440);
+			}
+		}
+	}
 
 	// Use modern CreateSwapChainForHwnd (DXGI 1.2+)
 	DXGI_SWAP_CHAIN_DESC1 sd = {};
