@@ -52,7 +52,7 @@ struct gametext {
 };
 
 extern gametext gtext[200];
-int maxNumTextCharacters = 1024; // the maximum number of characters you can render during a frame. This is just used to make sure
+int maxNumTextCharacters = 2048; // the maximum number of characters you can render during a frame. This is just used to make sure
                                  // there is enough memory allocated for the text vertex buffer each frame
 
 int maxNumRectangleCharacters = 1024;
@@ -322,6 +322,8 @@ void DungeonStompApp::FlushText() {
 	mCommandList->SetGraphicsRootDescriptorTable(3, tex);
 
 	mCommandList->DrawInstanced(4, numCharacters, 0, 0);
+
+	numCharacters = 0;
 }
 
 void DungeonStompApp::RenderText(Font font, std::wstring text, XMFLOAT2 pos, XMFLOAT2 scale, XMFLOAT2 padding, XMFLOAT4 color) {
@@ -696,7 +698,11 @@ void DungeonStompApp::DisplayHud() {
 		sprintf_s(junk, "tearing"); RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
 		sprintf_s(junk, "%s", gGpuTearingSupported ? "YES" : "NO");
 		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad,
-		           gGpuTearingSupported ? val : XMFLOAT4(1.0f, 0.3f, 0.3f, 1.0f));
+		           gGpuTearingSupported ? val : XMFLOAT4(1.0f, 0.3f, 0.3f, 1.0f));y += rh;
+
+		//stop last char flickers
+		sprintf_s(junk, "  ");
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, hdr); y += rh;				   
 	}
 
 }
