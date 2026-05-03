@@ -463,7 +463,7 @@ void RayGen()
 	float3 glare = float3(0.0f, 0.0f, 0.0f);
     // Glare constants now defined as macros above
     
-	for (uint i = 1; i < min(gNumLights, (uint) MaxLights); ++i)
+	for (uint i = 1; i < min(16, (uint) MaxLights); ++i)
 	{
 		Light L = gLights[i];
 		if (distance(L.Position, gCameraPos) > GLARE_MAX_DISTANCE)
@@ -771,7 +771,7 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
 			if (NdotL > 0.001f)
 			{
 				float shadow = 1.0f;
-				if ((i >= 1 && i <= 7) || (i == 16) || (i >= 12 && i <= 13))
+				if ((i >= 17 && i <= 17) || (i == 16) || (i >= 12 && i <= 13))
 				{
 					shadow = TraceShadowRay(shadowOrigin, lightDir, d);
 				}
