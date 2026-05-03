@@ -348,32 +348,31 @@ void DungeonStompApp::RenderRectangle(Font font, int index, int textureid, XMFLO
 	mCommandList->DrawInstanced(4, numCharacters, 0, 0);
 }
 
-void DungeonStompApp::RenderText(Font font, std::wstring text, XMFLOAT2 pos, XMFLOAT2 scale, XMFLOAT2 padding, XMFLOAT4 color) {
-
-	if (drawingShadowMap || drawingSSAO || !enablePlayerHUD)
+void DungeonStompApp::FlushText() {
+	if (numCharacters == 0)
 		return;
-
-	// clear the depth buffer so we can draw over everything
-	// mCommandList->ClearDepthStencilView(mSrvDescriptorHeap->GetCPUDescriptorHandleForHeapStart(), D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
-
-	// mCommandList->ClearDepthStencilView(DepthStencilView(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
 
 	// set the text pipeline state object
 	mCommandList->SetPipelineState(textPSO);
 
 	// this way we only need 4 vertices per quad rather than 6 if we were to use a triangle list topology
 	mCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-	// mCommandList->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 
 	// set the text vertex buffer
 	mCommandList->IASetVertexBuffers(0, 1, &textVertexBufferView);
 
-	// bind the text srv. We will assume the correct descriptor heap and table are currently bound and set
-	// mCommandList->SetGraphicsRootDescriptorTable(3, font.srvHandle);
-
+	// bind the text srv
 	CD3DX12_GPU_DESCRIPTOR_HANDLE tex(mSrvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
 	tex.Offset(103, mCbvSrvDescriptorSize);
 	mCommandList->SetGraphicsRootDescriptorTable(3, tex);
+
+	mCommandList->DrawInstanced(4, numCharacters, 0, 0);
+}
+
+void DungeonStompApp::RenderText(Font font, std::wstring text, XMFLOAT2 pos, XMFLOAT2 scale, XMFLOAT2 padding, XMFLOAT4 color) {
+
+	if (drawingShadowMap || drawingSSAO || !enablePlayerHUD)
+		return;
 
 	float topLeftScreenX = (pos.x * 2.0f) - 1.0f;
 	float topLeftScreenY = ((1.0f - pos.y) * 2.0f) - 1.0f;
@@ -437,9 +436,6 @@ void DungeonStompApp::RenderText(Font font, std::wstring text, XMFLOAT2 pos, XMF
 
 		lastChar = c;
 	}
-
-	// we are going to have 4 vertices per character (trianglestrip to make quad), and each instance is one character
-	mCommandList->DrawInstanced(4, numCharacters, 0, 0);
 }
 
 void DungeonStompApp::DisplayHud() {
