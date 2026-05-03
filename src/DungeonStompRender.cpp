@@ -178,6 +178,8 @@ void DungeonStompApp::Draw(const GameTimer &gt) {
 		}
 
 		ScanMod(gt.DeltaTime());
+		FlushRectangles();
+		FlushText();
 
 		// Reset VRS to full rate after rendering
 		if (enableVRS && mVRSHelper.IsSupported()) {
@@ -480,6 +482,8 @@ void DungeonStompApp::DrawRenderItems(ID3D12GraphicsCommandList *cmdList, const 
 		}
 
 		ScanMod(gt.DeltaTime());
+		FlushRectangles();
+		FlushText();
 	}
 
 	return;
