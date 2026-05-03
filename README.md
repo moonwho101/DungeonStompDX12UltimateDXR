@@ -12,11 +12,26 @@
 
 ![Dungeon Stomp DX12 DXR](Textures/screenshot33.jpg)
 
-**Explore 15 hand-crafted dungeon levels, battle 25+ enemy types, collect weapons & spells, and experience real-time ray-traced lighting — all in an open-source C++ engine.**
+**A fully playable, open-source C++ game engine demo showcasing DirectX 12 Ultimate's most advanced features — DXR 1.1 inline ray tracing, Variable Rate Shading, PBR, and SSAO — wrapped in a classic dungeon crawler with 15 levels, 25+ monsters, and 30+ weapons.**
+
+> If you find this project useful for learning DX12 or DXR, please consider giving it a ⭐ — it helps more developers discover it!
 
 [Download & Play](#quick-start) · [Screenshots](#screenshots) · [Build from Source](#build-from-source) · [Controls](#controls) · [Related Projects](#related-projects)
 
 </div>
+
+---
+
+## Why This Project?
+
+Most DirectX 12 DXR tutorials stop at a spinning triangle or a Cornell box. **Dungeon Stomp DX12 Ultimate DXR** is a *fully playable game* that puts all of DX12 Ultimate's headline features to work together in a real production-style codebase:
+
+- Inline DXR 1.1 ray tracing integrated into a live game render loop
+- PBR materials with ACES tone mapping driving in-game visuals
+- Variable Rate Shading adapting per-frame to real geometry
+- 40+ C++ source files you can read, modify, and learn from
+
+It's the DX12 learning resource that actually ships a game.
 
 ---
 
@@ -32,6 +47,16 @@
 | **Enemies** | 25+ monster types | AI with animated MD2 & 3DS models |
 | **Combat** | 30+ weapons & spells | Melee, ranged, and magic with projectile system |
 | **Audio** | XAudio2 sound engine | Monster voices, ambient loops, music |
+
+---
+
+## Ray Tracing (DXR) Support
+
+Dungeon Stomp DX12 Ultimate DXR features a modern ray tracing implementation using **DirectX 12 DXR**.
+
+*   **Hardware Compatibility:** Fully supports **NVIDIA RTX** and **AMD Ray Tracing (RT)** capable GPUs.
+*   **Inline Ray Tracing (DXR 1.1):** This project leverages the **DirectX 12 Ultimate** feature set, specifically **DXR 1.1 Inline Ray Tracing**.
+*   **Shadow Rays:** The engine implements ray-traced **shadow rays** to calculate light visibility. This provides physically accurate, pixel-perfect dynamic shadows that correctly handle overlapping geometry and provide superior visual fidelity compared to standard shadow mapping.
 
 ---
 
@@ -143,6 +168,7 @@ The compiled binary is output to the `bin/` directory.
 | Fullscreen | **Alt+Enter** or **F11** |
 | Load game | **F5** |
 | Save game | **F6** |
+| Debug screen | **F8** |
 
 ---
 
@@ -274,7 +300,9 @@ This project is open source. See the [LICENSE](LICENSE) file for details.
 
 **Happy Dungeon Stomping — Breeyark!**
 
-*If you enjoy this project, consider giving it a* ⭐
+*If this project helped you learn DX12 or DXR, or you just think it's cool — drop a* ⭐ *star above. It takes one second and helps other developers find this resource.*
+
+[![Star this repo](https://img.shields.io/github/stars/moonwho101/DungeonStompDX12UltimateDXR?style=social)](https://github.com/moonwho101/DungeonStompDX12UltimateDXR/stargazers)
 
 </div>
 

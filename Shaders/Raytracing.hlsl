@@ -9,9 +9,6 @@
 #define MaxLights 32
 #define PI 3.14159265f
 
-// Max point lights that cast shadow rays (performance knob)
-#define MAX_SHADOW_LIGHTS 32
-
 // Fog density for dungeon atmosphere
 #define FOG_DENSITY 0.0025f
 
@@ -165,15 +162,18 @@ bool IsTransparentTexture(uint texIdx)
 	return false;
 }
 
-// Hard-coded player weapon texture range (also treated as transparent for shadow rays to prevent black weapon silhouettes)
-bool IsWeaponTexture(uint texIdx)
+bool IsTextureCastNoShadow(uint texIdx)
 {
 	if (texIdx >= 127 && texIdx <= 137)
 		return true; // player weapons (swords, bows, etc)
+
+	if (texIdx >= 296 && texIdx <= 299)
+		return true; // missile textures (treated as non-shadow-casting to prevent black silhouettes of missiles in flight)
+
+
 	return false;
 }
 
-// Hard-coded player weapon texture range (also treated as transparent for shadow rays to prevent black weapon silhouettes)
 bool IsFlameTexture(uint texIdx)
 {
 	if (texIdx >= 94 && texIdx <= 101)
@@ -381,7 +381,7 @@ float TraceShadowRay(float3 origin, float3 direction, float maxDist)
 			bool triangleCastsShadow = (v0.CastShadow == 1) || (v1.CastShadow == 1) || (v2.CastShadow == 1);
 			uint texIndex = gPrimitiveTextureIndices.Load(primIdx * 4);
 
-			if (triangleCastsShadow && !IsTransparentTexture(texIndex) && !IsWeaponTexture(texIndex))
+			if (triangleCastsShadow && !IsTransparentTexture(texIndex) && !IsTextureCastNoShadow(texIndex))
 			{
 				hitFound = true;
 				q.Abort();
@@ -550,19 +550,6 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
 	Vertex v0 = LoadVertex(vertexIndex);
 	Vertex v1 = LoadVertex(vertexIndex + 1);
 	Vertex v2 = LoadVertex(vertexIndex + 2);
-
-    // Only cast shadow if at least one vertex is marked
-    // bool triangleCastsShadow = (v0.CastShadow == 1) || (v1.CastShadow == 1) || (v2.CastShadow == 1);
-    // [MOVED TO ANYHIT] Only affect shadow rays, not main rendering
-    /*
-    if (payload.isShadowRay != 0) {
-        if (!triangleCastsShadow) {
-            // If triangle does not cast shadow, treat as transparent to shadow rays
-            payload.color = float4(0.0f, 0.0f, 0.0f, 1.0f);
-            return;
-        }
-    }
-    */
     
     // Barycentric coordinates
 	float3 bary = float3(1.0f - attribs.barycentrics.x - attribs.barycentrics.y,
@@ -763,6 +750,12 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
 		}
 	}
     
+	// D = directional, P = pointlight, M = misslelight, C = sword light, S = spotlight
+	// 012345678901234567890123456
+	// 012345678901234567890123456
+	// DPPPPPPPPPPPMMMMCSSSSSSSSSS
+	//  XXXXXXX    XX  X
+    
     // ---- Point lights (torches + missiles) with shadows ----
 	for (uint i = 1; i < min(gNumLights, (uint) MaxLights); ++i)
 	{
@@ -777,9 +770,8 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
             
 			if (NdotL > 0.001f)
 			{
-                // Shadow ray for nearby lights (skip distant ones for performance)
 				float shadow = 1.0f;
-				if (i <= MAX_SHADOW_LIGHTS)
+				//if ((i >= 1 && i <= 7) || (i == 16) || (i >= 12 && i <= 13))
 				{
 					shadow = TraceShadowRay(shadowOrigin, lightDir, d);
 				}
@@ -795,7 +787,6 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
 			}
 		}
 	}
-    
     // ---- Single-bounce Global Illumination ----
     // Only trace GI ray for primary (camera) rays to avoid runaway recursion.
 	if (!payload.isGIRay)

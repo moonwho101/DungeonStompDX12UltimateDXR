@@ -695,7 +695,7 @@ void SmoothNormalsNoHash(int start_cnt) {
 	// - Better management of shared vertex groups.
 
 	const float epsilon = 0.0001f;
-	const float smooth_threshold = 0.2f; // approx 60 degrees. 0.7f is 45 deg. 0.5f is more aggressive.
+	const float smooth_threshold = 0.4f; // approx 60 degrees. 0.7f is 45 deg. 0.5f is more aggressive.
 
 	// 0.707: Smooths up to 45� (Common default for most models).
 	// 0.500: Smooths up to 60�.

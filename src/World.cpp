@@ -1013,6 +1013,7 @@ void DrawIndexedItems(int fakel, int vert_index) {
 			src_v[cnt].nmx = temp_v[j].nmx;
 			src_v[cnt].nmy = temp_v[j].nmy;
 			src_v[cnt].nmz = temp_v[j].nmz;
+			src_v[cnt].CastShadow =1;
 
 			cnt++;
 		}
@@ -1020,10 +1021,11 @@ void DrawIndexedItems(int fakel, int vert_index) {
 	}
 }
 
-wchar_t *charToWChar(const char *text) {
+std::wstring charToWChar(const char *text) {
 	const size_t size = strlen(text) + 1;
-	wchar_t *wText = new wchar_t[size];
+	std::wstring wText(size, L'\0');
 	size_t outSize;
-	mbstowcs_s(&outSize, wText, size, text, size);
+	mbstowcs_s(&outSize, &wText[0], size, text, size);
+	wText.resize(outSize > 0 ? outSize - 1 : 0);
 	return wText;
 }

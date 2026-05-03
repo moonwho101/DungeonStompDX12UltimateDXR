@@ -684,9 +684,25 @@ void DXRHelper::CopyTextureDescriptors(ID3D12Device *device, ID3D12DescriptorHea
 	CD3DX12_CPU_DESCRIPTOR_HANDLE destHandle(mDXRDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
 	destHandle.Offset(mTextureStartOffset, mCbvSrvUavDescriptorSize); // Skip UAV slot
 
+	// The DXR root signature declares a fixed-size static descriptor table for all texture SRVs.
+	// Initialize the whole range to null SRVs first, then overwrite the valid prefix with copied descriptors.
+	D3D12_SHADER_RESOURCE_VIEW_DESC nullSrvDesc = {};
+	nullSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	nullSrvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	nullSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	nullSrvDesc.Texture2D.MostDetailedMip = 0;
+	nullSrvDesc.Texture2D.MipLevels = 1;
+	nullSrvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+
+	CD3DX12_CPU_DESCRIPTOR_HANDLE nullHandle = destHandle;
+	for (UINT i = 0; i < MAX_NUM_TEXTURES; ++i) {
+		device->CreateShaderResourceView(nullptr, &nullSrvDesc, nullHandle);
+		nullHandle.Offset(1, mCbvSrvUavDescriptorSize);
+	}
+
 	CD3DX12_CPU_DESCRIPTOR_HANDLE srcHandle(srcHeap->GetCPUDescriptorHandleForHeapStart());
 
-	// Copy all texture descriptors from source heap to DXR heap
+	// Copy only the initialized alias texture descriptors from the source heap.
 	device->CopyDescriptorsSimple(
 	    textureCount,
 	    destHandle,

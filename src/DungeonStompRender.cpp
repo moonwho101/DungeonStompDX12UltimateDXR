@@ -89,9 +89,20 @@ void DungeonStompApp::Draw(const GameTimer &gt) {
 		// Normal/depth pass.
 		DrawNormalsAndDepth(gt);
 		drawingSSAO = false;
+
+		mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+			mDepthStencilBuffer.Get(),
+			D3D12_RESOURCE_STATE_DEPTH_WRITE,
+			D3D12_RESOURCE_STATE_GENERIC_READ));
+
 		// Compute SSAO.
 		mCommandList->SetGraphicsRootSignature(mSsaoRootSignature.Get());
 		mSsao->ComputeSsao(mCommandList.Get(), mCurrFrameResource, 3);
+
+		mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+			mDepthStencilBuffer.Get(),
+			D3D12_RESOURCE_STATE_GENERIC_READ,
+			D3D12_RESOURCE_STATE_DEPTH_WRITE));
 	}
 
 	// Main rendering pass.
@@ -182,7 +193,13 @@ void DungeonStompApp::Draw(const GameTimer &gt) {
 			mDXRHelper->CopyOutputToBackBuffer(mCommandList.Get(), CurrentBackBuffer());
 		}
 
-		// Begin main render pass. Preserve the raytracing/DLSS output we copied to the back buffer
+		// DispatchRays binds the DXR heap; restore the main SRV heap so subsequent
+		// graphics calls (HUD, text) can use handles from mSrvDescriptorHeap.
+		ID3D12DescriptorHeap *srvHeaps[] = { mSrvDescriptorHeap.Get() };
+		mCommandList->SetDescriptorHeaps(1, srvHeaps);
+		mCommandList->SetGraphicsRootSignature(mRootSignature.Get());
+
+		// Begin main render pass. Preserve the raytracing output we copied to the back buffer
 		// instead of clearing it so HUD can be drawn on top of the DXR result.
 		D3D12_RENDER_PASS_RENDER_TARGET_DESC mainRtDesc = {};
 		mainRtDesc.cpuDescriptor = CurrentBackBufferView();
@@ -211,6 +228,8 @@ void DungeonStompApp::Draw(const GameTimer &gt) {
 		}
 
 		ScanMod(gt.DeltaTime());
+		FlushRectangles();
+		FlushText();
 
 		// Reset VRS to full rate after rendering
 		if (enableVRS && mVRSHelper.IsSupported()) {
@@ -620,6 +639,8 @@ void DungeonStompApp::DrawRenderItems(ID3D12GraphicsCommandList *cmdList, const 
 		}
 
 		ScanMod(gt.DeltaTime());
+		FlushRectangles();
+		FlushText();
 	}
 
 	return;
@@ -742,12 +763,23 @@ void DungeonStompApp::DrawDungeon(ID3D12GraphicsCommandList *cmdList, const std:
 			tex.Offset(texture_number, mCbvSrvDescriptorSize);
 			cmdList->SetGraphicsRootDescriptorTable(3, tex); // Set gDiffuseMap
 
+			CD3DX12_GPU_DESCRIPTOR_HANDLE nullTex(mSrvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+			nullTex.Offset(mNullTexSrvIndex1, mCbvSrvDescriptorSize);
+
 			CD3DX12_GPU_DESCRIPTOR_HANDLE tex3(mSrvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
-			tex3.Offset(number_of_tex_aliases + 1, mCbvSrvDescriptorSize);
+			if (drawingShadowMap || drawingSSAO) {
+				tex3 = nullTex;
+			} else {
+				tex3.Offset(number_of_tex_aliases + 1, mCbvSrvDescriptorSize);
+			}
 			cmdList->SetGraphicsRootDescriptorTable(5, tex3); // Set gShadowMap
 
 			CD3DX12_GPU_DESCRIPTOR_HANDLE tex4(mSrvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
-			tex4.Offset(number_of_tex_aliases + 2, mCbvSrvDescriptorSize);
+			if (drawingShadowMap || drawingSSAO) {
+				tex4 = nullTex;
+			} else {
+				tex4.Offset(number_of_tex_aliases + 2, mCbvSrvDescriptorSize);
+			}
 			cmdList->SetGraphicsRootDescriptorTable(7, tex4); // Set gSsaoMap
 
 			// CHECK THIS
@@ -780,10 +812,11 @@ void DungeonStompApp::DrawDungeon(ID3D12GraphicsCommandList *cmdList, const std:
 }
 
 void DungeonStompApp::ProcessLights11() {
-	// P = pointlight, M = misslelight, C = sword light S = spotlight
-	// 12345678901234567890
-	// 01234567890123456789
-	// PPPPPPPPPPPMMMMCSSSS
+	// D = directional, P = pointlight, M = misslelight, C = sword light, S = spotlight
+	// 012345678901234567890123456
+	// 012345678901234567890123456
+	// DPPPPPPPPPPPMMMMCSSSSSSSSSS
+	// XXXXXXXX    XX  XXXXX
 
 	int sort[200];
 	float dist[200];

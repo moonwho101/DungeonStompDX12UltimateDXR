@@ -36,11 +36,20 @@ bool enableVRS = false;
 bool enableVRSKey = false;
 bool enablePlayerHUD = true;
 bool enablePlayerHUDKey = false;
-bool enableDXR = true;
+bool enableOnscreenDebug = false;
+bool enableOnscreenDebugKey = false;
+bool enableDXR = false;
 bool enableDXRKey = false;
 bool enableDLSS = false;
 bool enableDLSSKey = false;
 bool enableDLSSModeKey = false;
+
+// DXR debug stats (updated each frame when DXR is active)
+int gDXRTriangleCount  = 0;
+int gDXRAliasCount     = 0;
+int gDXRVertexCount    = 0;
+int gDXROutputWidth    = 0;
+int gDXROutputHeight   = 0;
 
 extern int trueplayernum;
 extern PLAYER *player_list;
@@ -138,14 +147,23 @@ void DungeonStompApp::UpdateCamera(const GameTimer &gt) {
 	// Disable for now
 	mLandingDip = 0.0f;
 
-	// Idle sway
+	// Idle sway (smoothed to avoid jitter when target changes)
 	float swayY = 0.0f;
+	float targetSway = 0.0f;
 	if (playercurrentmove == 0 && enableCameraBob) {
 		mIdleSwayTime += dt;
-		swayY = sinf(mIdleSwayTime * 1.25f) * 1.2f; // Subtle breathing
+		targetSway = sinf(mIdleSwayTime * 1.25f) * 1.2f; // Subtle breathing
 	} else {
-		mIdleSwayTime = 0.0f;
+		// Preserve mIdleSwayTime (don't reset) so the sinusoid phase remains continuous
+		// and the sway can smoothly decay to zero. This prevents abrupt jumps.
+		targetSway = 0.0f;
 	}
+
+	// Smooth the sway value to remove jitter caused by sudden target changes.
+	static float s_lastSwayY = 0.0f;
+	float swayLerp = MathHelper::Clamp(dt * 8.0f, 0.0f, 1.0f);
+	swayY = s_lastSwayY + (targetSway - s_lastSwayY) * swayLerp;
+	s_lastSwayY = swayY;
 
 	// Turn leaning
 	float deltaAngy = angy - mLastAngy;
@@ -437,6 +455,21 @@ void DungeonStompApp::OnKeyboardInput(const GameTimer &gt) {
 		enablePlayerHUDKey = true;
 	} else {
 		enablePlayerHUDKey = false;
+	}
+
+	if (GetAsyncKeyState(VK_F8) && !enableOnscreenDebugKey) {
+		enableOnscreenDebug = !enableOnscreenDebug;
+		if (enableOnscreenDebug) {
+			strcpy_s(gActionMessage, "Onscreen Debug Enabled");
+		} else {
+			strcpy_s(gActionMessage, "Onscreen Debug Disabled");
+		}
+		UpdateScrollList(0, 255, 255);
+	}
+	if (GetAsyncKeyState(VK_F8)) {
+		enableOnscreenDebugKey = true;
+	} else {
+		enableOnscreenDebugKey = false;
 	}
 
 	// DXR toggle ('R' key)
@@ -807,6 +840,13 @@ void DungeonStompApp::UpdateDungeon(const GameTimer &gt) {
 			if (primitiveTextureIndices[i] == 999)
 				primitiveTextureIndices[i] = 0;
 		}
+		// Update DXR debug stats
+		gDXRTriangleCount = (int)totalTriangles;
+		gDXRAliasCount    = number_of_tex_aliases;
+		gDXRVertexCount   = (int)mDXRHelper->GetVertexCount();
+		gDXROutputWidth   = (int)mDXRHelper->GetOutputWidth();
+		gDXROutputHeight  = (int)mDXRHelper->GetOutputHeight();
+
 		// Upload primitive alias indices to DXR (reusing texture indices buffer)
 		mDXRHelper->UpdatePrimitiveTextureIndices(md3dDevice.Get(), primitiveTextureIndices.data(), totalTriangles);
 

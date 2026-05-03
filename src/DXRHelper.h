@@ -114,6 +114,12 @@ class DXRHelper {
 		return mDXRDescriptorHeap.Get();
 	}
 
+	// Debug stats
+	UINT GetOutputWidth()    const { return mWidth; }
+	UINT GetOutputHeight()   const { return mHeight; }
+	UINT GetVertexCount()    const { return mCurrentVertexCount; }
+	UINT GetTextureCount()   const { return mTextureCount; }
+
   private:
 	void CreateRaytracingOutputResource(ID3D12Device *device, UINT width, UINT height, DXGI_FORMAT format);
 	void CreateRootSignatures(ID3D12Device5 *device);

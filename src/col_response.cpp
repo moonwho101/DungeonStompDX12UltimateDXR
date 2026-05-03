@@ -9,6 +9,7 @@ using namespace DirectX;
 extern CollisionPacket colPack2;
 CollisionPacket collisionPackage;
 int collisionRecursionDepth = 0;
+static VECTOR firstSlideNormal;
 int lastcollide = 0;
 int collisioncode = 1;
 int objectcollide = 0;
@@ -101,7 +102,7 @@ XMFLOAT3 collideWithWorld(XMFLOAT3 position, XMFLOAT3 velocity) {
 	float veryCloseDistance = 0.005f * unitScale;
 
 	// do we need to worry?
-	if (collisionRecursionDepth > 15) {
+	if (collisionRecursionDepth > 5) {
 		collisionRecursionDepth = 0;
 		return position;
 	}
@@ -211,6 +212,33 @@ XMFLOAT3 collideWithWorld(XMFLOAT3 position, XMFLOAT3 velocity) {
 	// Generate the slide vector, which will become our new
 	// velocity vector for the next iteration
 	VECTOR newVelocityVector = newDestinationPoint - collisionPackage.intersectionPoint;
+
+	// Anti-ping-pong: handle crease between multiple colliders
+	if (collisionRecursionDepth == 0) {
+		firstSlideNormal = slidePlaneNormal;
+	} else {
+		float normalDot = firstSlideNormal.x * slidePlaneNormal.x +
+		                  firstSlideNormal.y * slidePlaneNormal.y +
+		                  firstSlideNormal.z * slidePlaneNormal.z;
+		if (normalDot < 0.99f) {
+			// Two different collision planes - constrain to crease line
+			VECTOR crease = firstSlideNormal.cross(slidePlaneNormal);
+			float creaseLen = crease.length();
+			if (creaseLen < 0.001f) {
+				// Opposing parallel planes - stop movement
+				final.x = newSourcePoint.x;
+				final.y = newSourcePoint.y;
+				final.z = newSourcePoint.z;
+				collisionRecursionDepth = 0;
+				return final;
+			}
+			crease.normalize();
+			float d = newVelocityVector.x * crease.x +
+			          newVelocityVector.y * crease.y +
+			          newVelocityVector.z * crease.z;
+			newVelocityVector = crease * d;
+		}
+	}
 
 	// Recurse:
 	// dont recurse if the new velocity is very small

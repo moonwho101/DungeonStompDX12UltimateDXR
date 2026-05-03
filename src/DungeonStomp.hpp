@@ -107,7 +107,9 @@ class DungeonStompApp : public D3DApp {
 	void DrawRenderItemsFL(ID3D12GraphicsCommandList *cmdList, const std::vector<RenderItem *> &ritems);
 	// void RenderText(Font font, std::wstring text, XMFLOAT2 pos, XMFLOAT2 scale = XMFLOAT2(1.0f, 1.0f), XMFLOAT2 padding = XMFLOAT2(0.5f, 0.0f), XMFLOAT4 color = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f));
 	void RenderText(Font font, std::wstring text, XMFLOAT2 pos, XMFLOAT2 scale = XMFLOAT2(1.0f, 1.0f), XMFLOAT2 padding = XMFLOAT2(0.5f, 0.0f), XMFLOAT4 color = XMFLOAT4(0.0f, 1.0f, 1.0f, 1.0f));
+	void FlushText();
 	void RenderRectangle(Font font, int index, int textureid, XMFLOAT2 pos, XMFLOAT2 scale = XMFLOAT2(1.0f, 1.0f), XMFLOAT2 padding = XMFLOAT2(0.5f, 0.0f), XMFLOAT4 color = XMFLOAT4(0.0f, 1.0f, 1.0f, 1.0f));
+	void FlushRectangles();
 	void display_message3(float x, float y, char text[2048], int r, int g, int b, float fontx, float fonty, int fonttype);
 	void SetDungeonText();
 	void ScanMod(float fElapsedTime);
@@ -135,10 +137,12 @@ class DungeonStompApp : public D3DApp {
 
 	ComPtr<ID3D12RootSignature> mRootSignature = nullptr;
 	ComPtr<ID3D12RootSignature> mSsaoRootSignature = nullptr;
+	ComPtr<ID3D12DescriptorHeap> mSrvCopySourceHeap = nullptr;
 
 	std::unordered_map<std::string, std::unique_ptr<MeshGeometry>> mGeometries;
 	std::unordered_map<std::string, std::unique_ptr<Material>> mMaterials;
 	std::unordered_map<std::string, std::unique_ptr<Texture>> mTextures;
+	std::vector<std::unique_ptr<Texture>> mLoadedWorldTextures;
 	std::unordered_map<std::string, ComPtr<ID3DBlob>> mShaders;
 	std::unordered_map<std::string, ComPtr<ID3D12PipelineState>> mPSOs;
 
@@ -193,6 +197,9 @@ class DungeonStompApp : public D3DApp {
 	ID3D12Resource *rectangleVertexBuffer[MaxRectangle];
 	UINT8 *rectangleVBGPUAddress[MaxRectangle];
 	D3D12_VERTEX_BUFFER_VIEW rectangleVertexBufferView[MaxRectangle]; // a view for our text vertex buffer
+
+	bool  rectangleActive[MaxRectangle]  = {};
+	int   rectangleTexId[MaxRectangle]   = {};
 
 	std::unique_ptr<ShadowMap> mShadowMap;
 	std::unique_ptr<Ssao> mSsao;

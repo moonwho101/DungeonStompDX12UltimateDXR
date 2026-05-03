@@ -40,6 +40,8 @@ CameraBob bobX;
 std::unordered_map<std::string, std::unique_ptr<Texture>> mTextures;
 extern int number_of_tex_aliases;
 
+extern bool enableDXR;
+
 ComPtr<ID3D12DescriptorHeap> mSrvDescriptorHeap = nullptr;
 extern ID3D12PipelineState *textPSO;                    // pso containing a pipeline state
 extern ID3D12PipelineState *rectanglePSO[MaxRectangle]; // pso containing a pipeline state
@@ -53,6 +55,12 @@ void TriggerLandingDip(float amount) {
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance,
                    PSTR cmdLine, int showCmd) {
+	// Enable per-monitor v2 DPI awareness so all window coordinates and WM_SIZE
+	// messages use physical pixels.  Without this, Windows virtualises the app at
+	// the DPI-scaled logical resolution (e.g. 2560x1440 on a 4K/150% monitor) and
+	// the swap chain never reaches native 3840x2160.
+	SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+
 	// Enable run-time memory check for debug builds.
 #if defined(DEBUG) | defined(_DEBUG)
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
@@ -137,6 +145,9 @@ bool DungeonStompApp::Initialize() {
 	} else {
 		OutputDebugStringA("DLSS: Not available (requires NVIDIA RTX GPU with driver 470+).\n");
 	}
+
+	// Enable DXR usage only if initialization succeeded.
+	enableDXR = mDXRInitialized;
 	BuildMaterials();
 	LoadTextures();
 	BuildRootSignature();
@@ -145,7 +156,7 @@ bool DungeonStompApp::Initialize() {
 
 	// Copy texture descriptors to DXR heap for raytracing
 	if (mDXRInitialized && mDXRHelper) {
-		mDXRHelper->CopyTextureDescriptors(md3dDevice.Get(), mSrvDescriptorHeap.Get(), MAX_NUM_TEXTURES);
+		mDXRHelper->CopyTextureDescriptors(md3dDevice.Get(), mSrvCopySourceHeap.Get(), number_of_tex_aliases);
 	}
 
 	BuildShadersAndInputLayout();
@@ -404,7 +415,7 @@ void DungeonStompApp::BuildSsaoRootSignature() {
 	texTable0.NumDescriptors = 2;
 	texTable0.BaseShaderRegister = 0;
 	texTable0.RegisterSpace = 0;
-	texTable0.Flags = D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC;
+	texTable0.Flags = D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE;
 	texTable0.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
 	D3D12_DESCRIPTOR_RANGE1 texTable1 = {};
@@ -412,7 +423,7 @@ void DungeonStompApp::BuildSsaoRootSignature() {
 	texTable1.NumDescriptors = 1;
 	texTable1.BaseShaderRegister = 2;
 	texTable1.RegisterSpace = 0;
-	texTable1.Flags = D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC;
+	texTable1.Flags = D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE;
 	texTable1.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
 	// Root parameters using RS 1.1
@@ -769,6 +780,7 @@ void DungeonStompApp::BuildShadersAndInputLayout() {
 	D3D12_DEPTH_STENCIL_DESC textDepthStencilDesc = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
 	textDepthStencilDesc.DepthEnable = false;
 	textpsoDesc.DepthStencilState = textDepthStencilDesc;
+	textpsoDesc.DSVFormat = mDepthStencilFormat;
 
 	// create the text pso
 	hr = md3dDevice->CreateGraphicsPipelineState(&textpsoDesc, IID_PPV_ARGS(&textPSO));
@@ -826,6 +838,7 @@ void DungeonStompApp::BuildShadersAndInputLayout() {
 		D3D12_DEPTH_STENCIL_DESC rectangleDepthStencilDesc = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
 		rectangleDepthStencilDesc.DepthEnable = false;
 		rectanglepsoDesc.DepthStencilState = rectangleDepthStencilDesc;
+		rectanglepsoDesc.DSVFormat = mDepthStencilFormat;
 
 		// create the rectangle pso
 		hr = md3dDevice->CreateGraphicsPipelineState(&rectanglepsoDesc, IID_PPV_ARGS(&rectanglePSO[i]));
@@ -1383,10 +1396,17 @@ void DungeonStompApp::BuildDescriptorHeaps() {
 	srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	ThrowIfFailed(md3dDevice->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&mSrvDescriptorHeap)));
 
+	D3D12_DESCRIPTOR_HEAP_DESC srvCopyHeapDesc = {};
+	srvCopyHeapDesc.NumDescriptors = MAX_NUM_TEXTURES;
+	srvCopyHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	srvCopyHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+	ThrowIfFailed(md3dDevice->CreateDescriptorHeap(&srvCopyHeapDesc, IID_PPV_ARGS(&mSrvCopySourceHeap)));
+
 	//
 	// Fill out the heap with actual descriptors.
 	//
 	CD3DX12_CPU_DESCRIPTOR_HANDLE hDescriptor(mSrvDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
+	CD3DX12_CPU_DESCRIPTOR_HANDLE hCopyDescriptor(mSrvCopySourceHeap->GetCPUDescriptorHandleForHeapStart());
 
 	auto woodCrateTex = mTextures["woodCrateTex"]->Resource;
 	auto grassTex = mTextures["grassTex"]->Resource;
@@ -1400,11 +1420,14 @@ void DungeonStompApp::BuildDescriptorHeaps() {
 	srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
 
 	md3dDevice->CreateShaderResourceView(woodCrateTex.Get(), &srvDesc, hDescriptor);
+	md3dDevice->CreateShaderResourceView(woodCrateTex.Get(), &srvDesc, hCopyDescriptor);
 
 	hDescriptor.Offset(1, mCbvSrvDescriptorSize);
+	hCopyDescriptor.Offset(1, mCbvSrvDescriptorSize);
 
 	srvDesc.Format = grassTex->GetDesc().Format;
 	md3dDevice->CreateShaderResourceView(grassTex.Get(), &srvDesc, hDescriptor);
+	md3dDevice->CreateShaderResourceView(grassTex.Get(), &srvDesc, hCopyDescriptor);
 
 	LoadRRTextures11("textures.dat");
 
@@ -1542,6 +1565,7 @@ BOOL DungeonStompApp::LoadRRTextures11(char *filename) {
 	}
 
 	CD3DX12_CPU_DESCRIPTOR_HANDLE hDescriptor(mSrvDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
+	CD3DX12_CPU_DESCRIPTOR_HANDLE hCopyDescriptor(mSrvCopySourceHeap->GetCPUDescriptorHandleForHeapStart());
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 
 	int flip = 0;
@@ -1612,13 +1636,13 @@ BOOL DungeonStompApp::LoadRRTextures11(char *filename) {
 
 			srvDesc.Format = currentTex->Resource->GetDesc().Format;
 			md3dDevice->CreateShaderResourceView(currentTex->Resource.Get(), &srvDesc, hDescriptor);
+			md3dDevice->CreateShaderResourceView(currentTex->Resource.Get(), &srvDesc, hCopyDescriptor);
 
-			// auto a = mTextures[currentTex->Name].get();
-
-			mTextures[currentTex->Name] = std::move(currentTex);
+			mLoadedWorldTextures.push_back(std::move(currentTex));
 
 			// next descriptor
 			hDescriptor.Offset(1, mCbvSrvDescriptorSize);
+			hCopyDescriptor.Offset(1, mCbvSrvDescriptorSize);
 
 			fscanf_s(fp, "%s", &p, 256);
 			if (strcmp(p, "AlphaTransparent") == 0)
