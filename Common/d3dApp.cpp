@@ -19,6 +19,11 @@ using Microsoft::WRL::ComPtr;
 using namespace std;
 using namespace DirectX;
 
+// When true, DXGI selects the closest supported mode to the given dimensions.
+bool mRestrictVideoSize = true;
+int mRestrictedWidth = 2560;
+int mRestrictedHeight = 1440;
+
 namespace {
 
 constexpr D3D_FEATURE_LEVEL kFeatureLevels[] = {
@@ -340,23 +345,23 @@ void D3DApp::OnResize() {
 	UINT swapChainFlags = DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT;
 	if (mTearingSupported)
 		swapChainFlags |= DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
-	// If restricted, resolve the closest DXGI-supported mode to 2560x1440 before resizing.
-	if (mRestrictTo2560x1440) {
+	// If restricted, resolve the closest DXGI-supported mode to the target dimensions before resizing.
+	if (mRestrictVideoSize) {
 		ComPtr<IDXGIAdapter1> adapter;
 		ComPtr<IDXGIOutput> output;
 		if (SUCCEEDED(mdxgiFactory->EnumAdapters1(0, &adapter)) &&
 		    SUCCEEDED(adapter->EnumOutputs(0, &output))) {
 			DXGI_MODE_DESC desired = {};
-			desired.Width  = 2560;
-			desired.Height = 1440;
+			desired.Width  = static_cast<UINT>(mRestrictedWidth);
+			desired.Height = static_cast<UINT>(mRestrictedHeight);
 			desired.Format = mBackBufferFormat;
 			DXGI_MODE_DESC closest = {};
 			if (SUCCEEDED(output->FindClosestMatchingMode(&desired, &closest, md3dDevice.Get()))) {
 				mClientWidth  = static_cast<int>(closest.Width);
 				mClientHeight = static_cast<int>(closest.Height);
 			} else {
-				mClientWidth  = min(mClientWidth,  2560);
-				mClientHeight = min(mClientHeight, 1440);
+				mClientWidth  = min(mClientWidth,  mRestrictedWidth);
+				mClientHeight = min(mClientHeight, mRestrictedHeight);
 			}
 		}
 	}
@@ -892,16 +897,16 @@ void D3DApp::CreateSwapChain() {
 	if (mTearingSupported)
 		swapChainFlags |= DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
 
-	// If restricted, ask DXGI to find the closest supported mode to 2560x1440
+	// If restricted, ask DXGI to find the closest supported mode to the target dimensions
 	// and drive both the swap chain and the client dimensions from that result.
-	if (mRestrictTo2560x1440) {
+	if (mRestrictVideoSize) {
 		ComPtr<IDXGIAdapter1> adapter;
 		ComPtr<IDXGIOutput> output;
 		if (SUCCEEDED(mdxgiFactory->EnumAdapters1(0, &adapter)) &&
 		    SUCCEEDED(adapter->EnumOutputs(0, &output))) {
 			DXGI_MODE_DESC desired = {};
-			desired.Width  = 2560;
-			desired.Height = 1440;
+			desired.Width  = static_cast<UINT>(mRestrictedWidth);
+			desired.Height = static_cast<UINT>(mRestrictedHeight);
 			desired.Format = mBackBufferFormat;
 			DXGI_MODE_DESC closest = {};
 			if (SUCCEEDED(output->FindClosestMatchingMode(&desired, &closest, md3dDevice.Get()))) {
@@ -909,8 +914,8 @@ void D3DApp::CreateSwapChain() {
 				mClientHeight = static_cast<int>(closest.Height);
 			} else {
 				// Fallback: hard cap if FindClosestMatchingMode is unavailable.
-				mClientWidth  = min(mClientWidth,  2560);
-				mClientHeight = min(mClientHeight, 1440);
+				mClientWidth  = min(mClientWidth,  mRestrictedWidth);
+				mClientHeight = min(mClientHeight, mRestrictedHeight);
 			}
 		}
 	}

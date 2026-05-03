@@ -152,9 +152,6 @@ class D3DApp {
 	DX12UltimateFeatures mDX12UltimateFeatures;
 	D3D_FEATURE_LEVEL mFeatureLevel = D3D_FEATURE_LEVEL_11_0;
 
-	// When true, DXGI selects the closest supported mode to 2560x1440.
-	bool mRestrictTo2560x1440 = true;
-
 	// Frame latency waitable object for low-latency presentation.
 	HANDLE mFrameLatencyWaitableObject = nullptr;
 };
