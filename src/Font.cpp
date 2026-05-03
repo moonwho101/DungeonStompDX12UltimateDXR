@@ -257,59 +257,28 @@ Font LoadFont(LPCWSTR filename, int windowWidth, int windowHeight) {
 }
 
 void DungeonStompApp::RenderRectangle(Font font, int index, int textureid, XMFLOAT2 pos, XMFLOAT2 scale, XMFLOAT2 padding, XMFLOAT4 color) {
-	std::wstring text = L"A";
+	FontChar *fc = font.GetChar(L'A');
+	if (fc == nullptr)
+		return;
 
-	float topLeftScreenX = (pos.x * 2.0f) - 1.0f;
-	float topLeftScreenY = ((1.0f - pos.y) * 2.0f) - 1.0f;
-
-	float x = topLeftScreenX;
-	float y = topLeftScreenY;
-
-	float horrizontalPadding = (font.leftpadding + font.rightpadding) * padding.x;
-	float verticalPadding = (font.toppadding + font.bottompadding) * padding.y;
+	float screenX = (pos.x * 2.0f) - 1.0f;
+	float screenY = ((1.0f - pos.y) * 2.0f) - 1.0f;
 
 	// Each rectangle has its own buffer — always write to slot [0]
 	TextVertex *vert = (TextVertex *)rectangleVBGPUAddress[index];
 
-	wchar_t lastChar = -1;
-
-	for (int i = 0; i < (int)text.size(); ++i) {
-		wchar_t c = text[i];
-
-		FontChar *fc = font.GetChar(c);
-
-		if (fc == nullptr)
-			continue;
-
-		if (c == L'\0')
-			break;
-
-		if (c == L'\n') {
-			x = topLeftScreenX;
-			y -= (font.lineHeight + verticalPadding) * scale.y;
-			continue;
-		}
-
-		float kerning = 0.0f;
-		if (i > 0)
-			kerning = font.GetKerning(lastChar, c);
-
-		vert[0] = TextVertex(color.x,
-		                     color.y,
-		                     color.z,
-		                     color.w,
-		                     0.0f,
-		                     0.0f,
-		                     1.0f,
-		                     1.0f,
-		                     x + ((fc->xoffset + kerning) * scale.x),
-		                     y - (fc->yoffset * scale.y),
-		                     fc->width * scale.x,
-		                     fc->height * scale.y);
-
-		x += (fc->xadvance - horrizontalPadding) * scale.x;
-		lastChar = c;
-	}
+	vert[0] = TextVertex(color.x,
+	                     color.y,
+	                     color.z,
+	                     color.w,
+	                     0.0f,
+	                     0.0f,
+	                     1.0f,
+	                     1.0f,
+	                     screenX + (fc->xoffset * scale.x),
+	                     screenY - (fc->yoffset * scale.y),
+	                     fc->width * scale.x,
+	                     fc->height * scale.y);
 
 	rectangleActive[index] = true;
 	rectangleTexId[index]  = textureid;
