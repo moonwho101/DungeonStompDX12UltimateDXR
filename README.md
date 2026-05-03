@@ -168,6 +168,7 @@ The compiled binary is output to the `bin/` directory.
 | Fullscreen | **Alt+Enter** or **F11** |
 | Load game | **F5** |
 | Save game | **F6** |
+| Debug screen | **F8** |
 
 ---
 
