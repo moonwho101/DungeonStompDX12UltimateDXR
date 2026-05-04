@@ -54,7 +54,7 @@ It's the DX12 learning resource that actually ships a game.
 
 Dungeon Stomp DX12 Ultimate DXR features a modern ray tracing implementation using **DirectX 12 DXR**.
 
-*   **Hardware Compatibility:** Fully supports **NVIDIA RTX** and **AMD Ray Tracing (RT)** capable GPUs.
+*   **Hardware Compatibility:** Fully supports **NVIDIA RTX**, **AMD Ray Tracing (RT)**, and **Intel Arc** DXR-capable GPUs.
 *   **Inline Ray Tracing (DXR 1.1):** This project leverages the **DirectX 12 Ultimate** feature set, specifically **DXR 1.1 Inline Ray Tracing**.
 *   **Shadow Rays:** The engine implements ray-traced **shadow rays** to calculate light visibility. This provides physically accurate, pixel-perfect dynamic shadows that correctly handle overlapping geometry and provide superior visual fidelity compared to standard shadow mapping.
 
@@ -71,7 +71,7 @@ Dungeon Stomp DX12 Ultimate DXR features a modern ray tracing implementation usi
 2. **Run** `bin/DungeonStomp.exe`
 3. **Stomp some dungeons!** *Breeyark!*
 
-> **Requirements:** Windows 10/11 with a DirectX 12-capable GPU. A DXR-capable GPU (NVIDIA RTX / AMD RX 6000+) is recommended for ray tracing features.
+> **Requirements:** Windows 10/11 with a DirectX 12-capable GPU. A DXR-capable GPU (NVIDIA RTX / AMD RX 6000+ / Intel Arc) is recommended for ray tracing features.
 
 ---
 
