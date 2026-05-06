@@ -280,6 +280,22 @@ def _expand(parts):
 # ---------------------------------------------------------------------------
 
 def write_3ds(filepath, verts, uvs, faces):
+    TEX_NAME = b'bookc.bmp'
+    MAT_NAME = b'SpellbookMat'
+
+    # MATERIAL chunk 0xAFFF  —  name + texture map filename
+    # MAT_NAME 0xA000
+    mat_name_data = MAT_NAME + b'\x00'
+    mat_name_chunk = struct.pack('<HI', 0xA000, 6 + len(mat_name_data)) + mat_name_data
+    # MAP_FILENAME 0xA300
+    map_fname_data = TEX_NAME + b'\x00'
+    map_fname_chunk = struct.pack('<HI', 0xA300, 6 + len(map_fname_data)) + map_fname_data
+    # TEXTURE_MAP 0xA200
+    texmap_chunk = struct.pack('<HI', 0xA200, 6 + len(map_fname_chunk)) + map_fname_chunk
+    # MATERIAL 0xAFFF
+    mat_payload = mat_name_chunk + texmap_chunk
+    mat_chunk = struct.pack('<HI', 0xAFFF, 6 + len(mat_payload)) + mat_payload
+
     # VERT_LIST 0x4110
     vd = struct.pack('<H', len(verts))
     for x, y, z in verts:
@@ -292,11 +308,18 @@ def write_3ds(filepath, verts, uvs, faces):
         ud += struct.pack('<ff', u, v)
     uc = struct.pack('<HI', 0x4140, 6+len(ud)) + ud
 
-    # FACE_LIST 0x4120
+    # MSH_MAT_GROUP 0x4130 — assign all faces to SpellbookMat (inside FACE_LIST)
+    mg_data = MAT_NAME + b'\x00' + struct.pack('<H', len(faces))
+    for i in range(len(faces)):
+        mg_data += struct.pack('<H', i)
+    mg_chunk = struct.pack('<HI', 0x4130, 6 + len(mg_data)) + mg_data
+
+    # FACE_LIST 0x4120  (face data + material group sub-chunk)
     fd = struct.pack('<H', len(faces))
     for a, b, c in faces:
         fd += struct.pack('<HHHH', a, b, c, 0x0007)
-    fc = struct.pack('<HI', 0x4120, 6+len(fd)) + fd
+    fc_payload = fd + mg_chunk
+    fc = struct.pack('<HI', 0x4120, 6 + len(fc_payload)) + fc_payload
 
     # TRI_MESH 0x4100
     mesh_pay = vc + uc + fc
@@ -306,9 +329,9 @@ def write_3ds(filepath, verts, uvs, faces):
     nb = b'Spellbook\x00'
     oc = struct.pack('<HI', 0x4000, 6+len(nb)+len(mc)) + nb + mc
 
-    # EDIT3DS 0x3D3D
+    # EDIT3DS 0x3D3D  (material chunk comes before named object)
     ver3d = struct.pack('<HI', 0x3D3E, 10) + struct.pack('<I', 3)
-    edit  = struct.pack('<HI', 0x3D3D, 6+len(ver3d)+len(oc)) + ver3d + oc
+    edit  = struct.pack('<HI', 0x3D3D, 6+len(ver3d)+len(mat_chunk)+len(oc)) + ver3d + mat_chunk + oc
 
     # MAIN 0x4D4D
     ver   = struct.pack('<HI', 0x0002, 10) + struct.pack('<I', 3)
