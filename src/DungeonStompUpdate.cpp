@@ -801,22 +801,30 @@ void DungeonStompApp::UpdateDungeon(const GameTimer &gt) {
 		mDXRHelper->UpdateAliasData(md3dDevice.Get(), aliasData.data(), (UINT)aliasData.size());
 
 		// Update scene constants for DXR
+		// Use invView (rotation only) instead of invViewProj so the shader can
+		// reconstruct ray directions in numerically-stable view space. At large
+		// world coordinates (~8000) the invViewProj matrix has huge translation
+		// terms that cause float32 precision loss in direction computation.
 		XMMATRIX view = XMLoadFloat4x4(&mView);
-		XMMATRIX proj = XMLoadFloat4x4(&mProj);
-		XMMATRIX viewProj = view * proj;
-		XMMATRIX invViewProj = XMMatrixInverse(nullptr, viewProj);
-		XMFLOAT4X4 invViewProjF;
-		XMStoreFloat4x4(&invViewProjF, XMMatrixTranspose(invViewProj));
+		XMMATRIX invView = XMMatrixInverse(nullptr, view);
+		XMFLOAT4X4 invViewF;
+		XMStoreFloat4x4(&invViewF, XMMatrixTranspose(invView));
+
+		// Projection scale factors for view-space direction reconstruction:
+		// mProj is stored non-transposed, so _11 = proj[0][0], _22 = proj[1][1]
+		float projScaleX = mProj._11; // 1 / (tan(fovY/2) * aspect)
+		float projScaleY = mProj._22; // 1 / tan(fovY/2)
 
 		mDXRHelper->UpdateSceneConstants(
-		    invViewProjF,
+		    invViewF,
 		    mEyePos,
+		    projScaleX,
+		    projScaleY,
 		    mMainPassCB.AmbientLight,
 		    LightContainer,
 		    MaxLights,
 		    gt.TotalTime(),
-		    0.5f,    // Default roughness (deprecated, now per-alias)
-		    0.0f,    // Default metallic (deprecated, now per-alias)
+		    0.0f,    // metallic (deprecated, now per-alias)
 		    0.001f,  // rayConeSpreadAngle
 		    outside);
 	}

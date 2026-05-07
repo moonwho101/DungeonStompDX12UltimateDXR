@@ -24,14 +24,14 @@ struct ShaderRecord {
 
 // DXR constants matching shader cbuffer
 struct DXRSceneConstants {
-	DirectX::XMFLOAT4X4 InvViewProj;
+	DirectX::XMFLOAT4X4 InvView;      // full inverse view matrix; translation is present, but shader code uses only the float3x3 rotation part where needed
 	DirectX::XMFLOAT3 CameraPosition;
-	float Pad0;
+	float ProjScaleX;                 // proj[0][0] = 1/(tan(fovY/2)*aspect)
 	DirectX::XMFLOAT4 AmbientLight;
 	Light Lights[MaxLights];
 	UINT NumLights;
 	float TotalTime;
-	float Roughness;
+	float ProjScaleY;                 // proj[1][1] = 1/tan(fovY/2)
 	float Metallic;
 	// Ray cone spread angle for mip level estimation: 2*tan(fovY/2)/screenHeight
 	float RayConeSpreadAngle;
@@ -71,11 +71,12 @@ class DXRHelper {
 	void DispatchRays(ID3D12GraphicsCommandList5 *cmdList, UINT width, UINT height);
 
 	// Update scene constants (camera, lights, materials)
-	void UpdateSceneConstants(const DirectX::XMFLOAT4X4 &invViewProj,
+	void UpdateSceneConstants(const DirectX::XMFLOAT4X4 &invView,
 	                          const DirectX::XMFLOAT3 &cameraPos,
+	                          float projScaleX, float projScaleY,
 	                          const DirectX::XMFLOAT4 &ambientLight,
 	                          const Light *lights, UINT numLights,
-	                          float totalTime, float roughness, float metallic,
+	                          float totalTime, float metallic,
 	                          float rayConeSpreadAngle = 0.001f, int outside = 0);
 
 	// Copy raytracing output to back buffer
