@@ -24,7 +24,7 @@ struct ShaderRecord {
 
 // DXR constants matching shader cbuffer
 struct DXRSceneConstants {
-	DirectX::XMFLOAT4X4 InvView;      // camera rotation only — no large translation, numerically stable
+	DirectX::XMFLOAT4X4 InvView;      // full inverse view matrix; translation is present, but shader code uses only the float3x3 rotation part where needed
 	DirectX::XMFLOAT3 CameraPosition;
 	float ProjScaleX;                 // proj[0][0] = 1/(tan(fovY/2)*aspect)
 	DirectX::XMFLOAT4 AmbientLight;
