@@ -48,15 +48,15 @@ struct Light
 // Scene constants
 cbuffer SceneConstants : register(b0)
 {
-	float4x4 gInvViewProj;
+	float4x4 gInvView;            // camera rotation-only inverse: no large translation values
 	float3 gCameraPos;
-	float gPad0;
+	float gProjScaleX;            // proj[0][0] = 1/(tan(fovY/2)*aspect)
 	float4 gAmbientLight;
 	Light gLights[MaxLights];
 	uint gNumLights;
 	float gTotalTime;
-	float gRoughness;
-	float gMetallic;
+	float gProjScaleY;            // proj[1][1] = 1/tan(fovY/2)
+	float gMetallic;              // (deprecated, now per-alias)
 	float gRayConeSpreadAngle;
 	uint gOutside;    // 1 = outdoor level, 0 = indoor dungeon
 	float2 gPad1;
@@ -424,23 +424,23 @@ void RayGen()
 	float2 clipXY = uv * 2.0f - 1.0f;
 	clipXY.y = -clipXY.y; // Flip Y for DirectX coordinate system
     
-    // Unproject near and far points to get ray
-	float4 nearPoint = mul(float4(clipXY, 0.0f, 1.0f), gInvViewProj);
-	float4 farPoint = mul(float4(clipXY, 1.0f, 1.0f), gInvViewProj);
-    
-	nearPoint.xyz /= nearPoint.w;
-	farPoint.xyz /= farPoint.w;
-    
-	float3 rayOrigin = nearPoint.xyz;
-	float3 rayDirection = normalize(farPoint.xyz - nearPoint.xyz);
-    
-    // Trace ray
+    // Build ray direction entirely in view space to avoid float32 precision loss
+    // at large world coordinates. At camera position ~8000, gInvViewProj carries
+    // a translation of ~8000 in float32, so unprojecting NDC through it produces
+    // near/far points that differ by only a few ULPs — the subtracted direction
+    // loses significant bits. Instead we reconstruct the direction in view space
+    // (all values bounded by ~[-1,1]) and then rotate to world space using only
+    // the 3x3 rotation part of gInvView, which has no translation at all.
+	float3 viewSpaceDir = float3(clipXY.x / gProjScaleX, clipXY.y / gProjScaleY, 1.0f);
+	float3 rayDirection = normalize(mul(viewSpaceDir, (float3x3)gInvView));
+	float3 rayOrigin = gCameraPos;
+
 	RayDesc ray;
 	ray.Origin = rayOrigin;
 	ray.Direction = rayDirection;
 	ray.TMin = 0.01f;
 	ray.TMax = 100000.0f;
-    
+
 	RayPayload payload;
 	payload.color = float4(0.0f, 0.0f, 0.0f, 1.0f);
 	payload.depth = 0;

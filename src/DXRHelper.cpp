@@ -556,18 +556,20 @@ void DXRHelper::BuildTLAS(ID3D12Device5 *device, ID3D12GraphicsCommandList5 *cmd
 	cmdList->ResourceBarrier(1, &barrier);
 }
 
-void DXRHelper::UpdateSceneConstants(const DirectX::XMFLOAT4X4 &invViewProj,
+void DXRHelper::UpdateSceneConstants(const DirectX::XMFLOAT4X4 &invView,
                                      const DirectX::XMFLOAT3 &cameraPos,
+                                     float projScaleX, float projScaleY,
                                      const DirectX::XMFLOAT4 &ambientLight,
                                      const Light *lights, UINT numLights,
-                                     float totalTime, float roughness, float metallic,
+                                     float totalTime, float metallic,
                                      float rayConeSpreadAngle, int outside) {
-	mSceneConstants.InvViewProj = invViewProj;
+	mSceneConstants.InvView = invView;
 	mSceneConstants.CameraPosition = cameraPos;
+	mSceneConstants.ProjScaleX = projScaleX;
+	mSceneConstants.ProjScaleY = projScaleY;
 	mSceneConstants.AmbientLight = ambientLight;
 	mSceneConstants.NumLights = min(numLights, MaxLights);
 	mSceneConstants.TotalTime = totalTime;
-	mSceneConstants.Roughness = roughness;
 	mSceneConstants.Metallic = metallic;
 	mSceneConstants.RayConeSpreadAngle = rayConeSpreadAngle;
 	mSceneConstants.Outside = outside;
