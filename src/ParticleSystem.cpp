@@ -14,7 +14,6 @@ using namespace DirectX;
 
 // ---- pipeline globals (defined in ProcessModel.cpp / World.cpp) -----------
 extern XMFLOAT3          m_vEyePt;
-extern XMFLOAT3          m_vLookatPt;
 extern D3DVERTEX2       *src_v;
 extern int               cnt;
 extern int               number_of_polys_per_frame;
@@ -22,6 +21,8 @@ extern int              *verts_per_poly;
 extern D3DPRIMITIVETYPE *dp_commands;
 extern BOOL             *dp_command_index_mode;
 extern int              *texture_list_buffer;
+extern float             k;      // pi/180 (degrees -> radians)
+extern D3DVALUE          angy;   // camera yaw in degrees
 
 // random_num(n) returns [0, n-1]  (declared in world.hpp)
 
@@ -60,9 +61,9 @@ void SpawnHitParticles(float x, float y, float z, bool critical) {
     em->critical      = critical;
     em->particleCount = critical ? DS_MAX_PARTICLES : 8;
 
-    const float baseSpeed    = critical ? 170.0f : 110.0f;
+    const float baseSpeed    = critical ? 170.0f : 210.0f;
     const float baseLifetime = critical ? 0.65f  : 0.42f;
-    const float baseSize     = critical ? 110.0f  :  7.0f;
+    const float baseSize     = critical ? 5.0f : 5.0f;
 
     static const float twoPi = 6.28318530f;
 
@@ -125,25 +126,26 @@ void UpdateParticles(float dt) {
 // Each active particle is rendered as a camera-facing billboard quad
 // (two triangles, six vertices) written directly into src_v.
 // All particles share a single ObjectsToDraw entry (texture alias 370).
+//
+// Billboard axes are derived from the camera yaw angle (angy) rather than
+// a cross-product of world-up and view-direction. The cross-product approach
+// reverses camRight when the camera faces certain directions, causing the
+// triangle winding to flip from CW to CCW and get backface-culled.
+// Using angy directly gives consistent CW winding for all camera orientations.
 void DrawParticles() {
     EnsureInit();
 
-    // Compute camera billboard axes.
-    XMVECTOR eye  = XMLoadFloat3(&m_vEyePt);
-    XMVECTOR look = XMLoadFloat3(&m_vLookatPt);
-    XMVECTOR fwd  = XMVector3Normalize(look - eye);
-    XMVECTOR up   = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
-    // Camera-right: perpendicular to world-up and view direction.
-    XMVECTOR rgt  = XMVector3Normalize(XMVector3Cross(up, fwd));
-
-    XMFLOAT3 camRight;
-    XMStoreFloat3(&camRight, rgt);
-
-    XMFLOAT3 norm; // normal toward camera (used for lighting)
-    XMStoreFloat3(&norm, XMVectorNegate(fwd));
+    // Camera yaw → billboard right and normal vectors.
+    // Camera forward (horizontal): (sin(angy), 0, cos(angy))
+    // Camera right   (horizontal): (cos(angy), 0, -sin(angy))
+    // Billboard normal (toward camera): (-sin(angy), 0, -cos(angy))
+    const float cosA  = cosf(angy * k);
+    const float sinA  = sinf(angy * k);
+    const float normX = -sinA;
+    const float normZ = -cosA;
 
     const int startCnt = cnt;
-    int       numVerts  = 0;
+    int       numVerts = 0;
 
     for (int e = 0; e < DS_MAX_EMITTERS; e++) {
         const DSParticleEmitter &em = gEmitters[e];
@@ -160,29 +162,29 @@ void DrawParticles() {
             const float t    = p.life / p.maxLife;
             const float half = p.size * t;
 
-            // Billboard right-axis and world-up axis scaled by half-size.
-            const float rx = camRight.x * half;
-            const float ry = camRight.y * half;
-            const float rz = camRight.z * half;
-            const float uy = half; // world-up: only Y component is non-zero
+            // Right axis offset scaled by half-size:
+            //   right = (cos(angy), 0, -sin(angy)) * half
+            const float rx = cosA * half;
+            const float rz = -sinA * half;
+            // Up axis (world Y) offset:
+            const float uy = half;
 
             const float cx = p.x, cy = p.y, cz = p.z;
 
-            // Quad corners:
-            //   v0 = top-left   (-right + up)
-            //   v1 = top-right  ( right + up)
-            //   v2 = bot-right  ( right - up)
-            //   v3 = bot-left   (-right - up)
+            // Quad corners (clockwise from camera for all yaw angles):
+            //   v0 = top-left   (-right + worldUp)
+            //   v1 = top-right  ( right + worldUp)
+            //   v2 = bot-right  ( right - worldUp)
+            //   v3 = bot-left   (-right - worldUp)
             // Triangle 1: v0, v1, v2
             // Triangle 2: v0, v2, v3
-
             struct { float ox, oy, oz, u, v; } vdata[6] = {
-                { -rx,  +uy, -rz,  0.0f, 0.0f }, // v0
-                { +rx,  +uy, +rz,  1.0f, 0.0f }, // v1
-                { +rx,  -uy, +rz,  1.0f, 1.0f }, // v2
-                { -rx,  +uy, -rz,  0.0f, 0.0f }, // v0
-                { +rx,  -uy, +rz,  1.0f, 1.0f }, // v2
-                { -rx,  -uy, -rz,  0.0f, 1.0f }, // v3
+                { -rx, +uy, -rz, 0.0f, 0.0f }, // v0
+                { +rx, +uy, +rz, 1.0f, 0.0f }, // v1
+                { +rx, -uy, +rz, 1.0f, 1.0f }, // v2
+                { -rx, +uy, -rz, 0.0f, 0.0f }, // v0
+                { +rx, -uy, +rz, 1.0f, 1.0f }, // v2
+                { -rx, -uy, -rz, 0.0f, 1.0f }, // v3
             };
 
             for (int vi = 0; vi < 6; vi++) {
@@ -193,9 +195,9 @@ void DrawParticles() {
                 dv.z  = cz + vdata[vi].oz;
                 dv.tu = vdata[vi].u;
                 dv.tv = vdata[vi].v;
-                dv.nx = norm.x;
-                dv.ny = norm.y;
-                dv.nz = norm.z;
+                dv.nx = normX;
+                dv.ny = 0.0f;
+                dv.nz = normZ;
                 dv.CastShadow = 0;
                 cnt++;
             }
@@ -219,7 +221,7 @@ void DrawParticles() {
     verts_per_poly[slot]        = numVerts;
     dp_commands[slot]           = D3DPT_TRIANGLELIST;
     dp_command_index_mode[slot] = 1; // USE_NON_INDEXED_DP
-    texture_list_buffer[slot]   = 370; // blood / impact texture alias
+    texture_list_buffer[slot]   = 238; //370; // blood / impact texture alias
 
     number_of_polys_per_frame++;
 }
