@@ -186,6 +186,7 @@
     <ClCompile Include="Ssao.cpp" />
     <ClCompile Include="WAVFileReader.cpp" />
     <ClCompile Include="World.cpp" />
+    <ClCompile Include="ParticleSystem.cpp" />
     <ClCompile Include="XAudio2BasicSound.cpp" />
   </ItemGroup>
   <ItemGroup>

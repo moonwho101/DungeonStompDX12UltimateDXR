@@ -6,6 +6,7 @@
 #include "DirectInput.hpp"
 #include "GameLogic.hpp"
 #include "Missle.hpp"
+#include "ParticleSystem.hpp"
 
 int endc = 0;
 extern bool enableDXR;
@@ -507,6 +508,10 @@ void UpdateWorld(float fElapsedTime) {
 	FirePlayerMissle(wx, wy, wz, angy, trueplayernum, 0, em, look_up_ang, fElapsedTime);
 
 	DrawMissle(fElapsedTime);
+
+	// Particle system: advance physics then emit billboard quads.
+	UpdateParticles(fElapsedTime);
+	DrawParticles();
 
 	playerGunObjectStart = number_of_polys_per_frame;
 	DrawPlayerGun(0);

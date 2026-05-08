@@ -10,6 +10,7 @@
 #include <timeapi.h>
 #include <DirectXMath.h>
 #include "CameraBob.hpp"
+#include "ParticleSystem.hpp"
 using namespace DirectX;
 
 #pragma comment(lib, "Winmm.lib")
@@ -2792,6 +2793,9 @@ int DisplayDamage(float x, float y, float z, int owner, int id, bool criticalhit
 	your_missle[misslespot].critical = criticalhit;
 
 	your_missle[misslespot].blood = 1;
+
+	// Spawn hit particles at the impact point.
+	SpawnHitParticles(x, y + monstersize, z, criticalhit);
 
 	return misslespot;
 }
