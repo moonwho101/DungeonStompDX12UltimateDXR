@@ -4,8 +4,8 @@
 // GPUParticles3D but software-simulated and integrated into the existing
 // D3D12 vertex-streaming pipeline.
 
-#define DS_MAX_EMITTERS  16   // simultaneous burst emitters
-#define DS_MAX_PARTICLES 12   // particles per emitter
+#define DS_MAX_EMITTERS  26   // simultaneous burst emitters
+#define DS_MAX_PARTICLES 22   // particles per emitter
 
 // A single simulated particle.
 struct DSParticle {

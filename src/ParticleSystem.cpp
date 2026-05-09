@@ -59,11 +59,11 @@ void SpawnHitParticles(float x, float y, float z, bool critical) {
 
     em->active        = true;
     em->critical      = critical;
-    em->particleCount = critical ? DS_MAX_PARTICLES : 8;
+    em->particleCount = 20;
 
-    const float baseSpeed    = critical ? 170.0f : 210.0f;
-    const float baseLifetime = critical ? 0.65f  : 10.42f;
-    const float baseSize     = critical ? 5.0f : 2.0f;
+    const float baseSpeed    = critical ? 210.0f : 210.0f;
+    const float baseLifetime = critical ? 10.42f  : 10.42f;
+    const float baseSize     = critical ? 3.0f : 2.0f;
 
     static const float twoPi = 6.28318530f;
 
@@ -221,7 +221,11 @@ void DrawParticles() {
     verts_per_poly[slot]        = numVerts;
     dp_commands[slot]           = D3DPT_TRIANGLELIST;
     dp_command_index_mode[slot] = 1; // USE_NON_INDEXED_DP
-    texture_list_buffer[slot]   = 156;//156;//369;//239; //370; // blood / impact texture alias
+
+    int raction = random_num(5);
+
+    //texture_list_buffer[slot]   = 370 + raction;//156;//369;//239; //370; // blood / impact texture alias
+    texture_list_buffer[slot]   = 200;
 
     number_of_polys_per_frame++;
 }
