@@ -10,6 +10,7 @@
 #include <timeapi.h>
 #include <DirectXMath.h>
 #include "CameraBob.hpp"
+#include "ParticleSystem.hpp"
 using namespace DirectX;
 
 #pragma comment(lib, "Winmm.lib")
@@ -2772,26 +2773,29 @@ int DisplayDamage(float x, float y, float z, int owner, int id, bool criticalhit
 			break;
 		}
 	}
-	your_missle[misslespot].model_id = 104;
-	your_missle[misslespot].skin_tex_id = 370;
+	//your_missle[misslespot].model_id = 104;
+	//your_missle[misslespot].skin_tex_id = 370;
 
-	your_missle[misslespot].current_frame = 0;
-	your_missle[misslespot].current_sequence = 0;
-	your_missle[misslespot].x = x;
-	your_missle[misslespot].y = y + monstersize;
-	your_missle[misslespot].z = z;
-	your_missle[misslespot].rot_angle = (float)gun_angle;
-	// your_missle[misslespot].velocity = savevelocity;
-	your_missle[misslespot].active = 2;
-	your_missle[misslespot].owner = (int)owner;
+	//your_missle[misslespot].current_frame = 0;
+	//your_missle[misslespot].current_sequence = 0;
+	//your_missle[misslespot].x = x;
+	//your_missle[misslespot].y = y + monstersize;
+	//your_missle[misslespot].z = z;
+	//your_missle[misslespot].rot_angle = (float)gun_angle;
+	//// your_missle[misslespot].velocity = savevelocity;
+	//your_missle[misslespot].active = 2;
+	//your_missle[misslespot].owner = (int)owner;
 
-	your_missle[misslespot].playernum = (int)owner;
-	your_missle[misslespot].playertype = (int)1;
-	your_missle[misslespot].guntype = current_gun;
+	//your_missle[misslespot].playernum = (int)owner;
+	//your_missle[misslespot].playertype = (int)1;
+	//your_missle[misslespot].guntype = current_gun;
 
-	your_missle[misslespot].critical = criticalhit;
+	//your_missle[misslespot].critical = criticalhit;
 
-	your_missle[misslespot].blood = 1;
+	//your_missle[misslespot].blood = 1;
+
+	// Spawn hit particles at the impact point.
+	SpawnHitParticles(x, y + monstersize, z, criticalhit);
 
 	return misslespot;
 }
