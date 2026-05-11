@@ -213,6 +213,7 @@
     <ClInclude Include="ImportMD2.hpp" />
     <ClInclude Include="LoadWorld.hpp" />
     <ClInclude Include="Missle.hpp" />
+    <ClInclude Include="ParticleSystem.hpp" />
     <ClInclude Include="ProcessModel.hpp" />
     <ClInclude Include="Dungeon.h" />
     <ClInclude Include="resource.h" />

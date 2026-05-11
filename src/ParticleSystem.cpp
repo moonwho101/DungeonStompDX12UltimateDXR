@@ -59,7 +59,7 @@ void SpawnHitParticles(float x, float y, float z, bool critical) {
 
     em->active        = true;
     em->critical      = critical;
-    em->particleCount = 20;
+	em->particleCount = DS_MAX_PARTICLES;
 
     const float baseSpeed    = critical ? 210.0f : 210.0f;
     const float baseLifetime = critical ? 10.42f  : 10.42f;
