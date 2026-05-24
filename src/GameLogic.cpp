@@ -2795,7 +2795,15 @@ int DisplayDamage(float x, float y, float z, int owner, int id, bool criticalhit
 	//your_missle[misslespot].blood = 1;
 
 	// Spawn hit particles at the impact point.
-	SpawnHitParticles(x, y + monstersize, z, criticalhit);
+	//SpawnHitParticles(x, y + monstersize, z, criticalhit);
+
+	//SpawnSparkParticles(x, y + monstersize, z);
+
+	//SpawnMagicParticles(x, y + monstersize, z);
+
+	SpawnFireParticles(x, y + monstersize, z);
+
+
 
 	return misslespot;
 }
