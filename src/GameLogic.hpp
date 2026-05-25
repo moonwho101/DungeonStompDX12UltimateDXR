@@ -4,6 +4,7 @@
 #include <DirectXMath.h>
 using namespace DirectX;
 
+#include "ParticleSystem.hpp"
 typedef struct doors {
 	int doornum;
 	float angle;
@@ -54,7 +55,7 @@ void SetMonsterAnimationSequence(int player_number, int sequence_number);
 int UpdateScrollList(int r, int g, int b);
 void ApplyPlayerDamage(int playerid, int damage);
 int DisplayDialogText(char *text, float yloc);
-int DisplayDamage(float x, float y, float z, int owner, int id, bool criticalhit);
+int DisplayDamage(float x, float y, float z, int owner, int id, bool criticalhit, DSHitType hitType = HIT_SWORD);
 int XpPoints(int hd, int hp);
 int LevelUp(int xp);
 int LevelUpXPNeeded(int xp);

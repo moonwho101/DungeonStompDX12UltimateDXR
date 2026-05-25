@@ -2005,7 +2005,7 @@ void MonsterHit() {
 						UpdateScrollList(0, 255, 255);
 						sprintf_s(gActionMessage, "You hit a  %s for %d damage", monster_list[i].rname, action);
 						UpdateScrollList(0, 255, 255);
-						bloodspot = DisplayDamage(monster_list[i].x, monster_list[i].y - 10.0f, monster_list[i].z, trueplayernum, i, true);
+						bloodspot = DisplayDamage(monster_list[i].x, monster_list[i].y - 10.0f, monster_list[i].z, trueplayernum, i, true, HIT_SWORD);
 						hitmonster = 1;
 					} else {
 
@@ -2013,7 +2013,7 @@ void MonsterHit() {
 						action = action + damagebonus;
 						sprintf_s(gActionMessage, "You hit a %s for %d damage", monster_list[i].rname, action);
 						UpdateScrollList(0, 255, 255);
-						bloodspot = DisplayDamage(monster_list[i].x, monster_list[i].y - 10.0f, monster_list[i].z, trueplayernum, i, false);
+						bloodspot = DisplayDamage(monster_list[i].x, monster_list[i].y - 10.0f, monster_list[i].z, trueplayernum, i, false, HIT_SWORD);
 						hitmonster = 1;
 					}
 
@@ -2741,7 +2741,7 @@ int FreeSlave() {
 	return 0;
 }
 
-int DisplayDamage(float x, float y, float z, int owner, int id, bool criticalhit) {
+int DisplayDamage(float x, float y, float z, int owner, int id, bool criticalhit, DSHitType hitType) {
 
 	D3DVECTOR MissleVelocity;
 	int misslecount = 0;
@@ -2773,9 +2773,10 @@ int DisplayDamage(float x, float y, float z, int owner, int id, bool criticalhit
 			break;
 		}
 	}
+
+	//Spawn blood splatter
 	//your_missle[misslespot].model_id = 104;
 	//your_missle[misslespot].skin_tex_id = 370;
-
 	//your_missle[misslespot].current_frame = 0;
 	//your_missle[misslespot].current_sequence = 0;
 	//your_missle[misslespot].x = x;
@@ -2785,25 +2786,20 @@ int DisplayDamage(float x, float y, float z, int owner, int id, bool criticalhit
 	//// your_missle[misslespot].velocity = savevelocity;
 	//your_missle[misslespot].active = 2;
 	//your_missle[misslespot].owner = (int)owner;
-
 	//your_missle[misslespot].playernum = (int)owner;
 	//your_missle[misslespot].playertype = (int)1;
 	//your_missle[misslespot].guntype = current_gun;
-
 	//your_missle[misslespot].critical = criticalhit;
-
 	//your_missle[misslespot].blood = 1;
 
-	// Spawn hit particles at the impact point.
-	//SpawnHitParticles(x, y + monstersize, z, criticalhit);
 
-	//SpawnSparkParticles(x, y + monstersize, z);
-
-	//SpawnMagicParticles(x, y + monstersize, z);
-
-	SpawnFireParticles(x, y + monstersize, z);
-
-
+	// Spawn particles based on hit type.
+	switch (hitType) {
+		case HIT_MISSILE:   SpawnSparkParticles(x, y + monstersize, z); break;
+		case HIT_FIREBALL:  SpawnFireParticles (x, y + monstersize, z); break;
+		case HIT_LIGHTNING: SpawnMagicParticles(x, y + monstersize, z); break;
+		default:            SpawnHitParticles  (x, y + monstersize, z, criticalhit); break;
+	}
 
 	return misslespot;
 }

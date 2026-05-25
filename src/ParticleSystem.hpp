@@ -36,6 +36,15 @@ struct DSParticleEmitter {
     DSParticle    particles[DS_MAX_PARTICLES];
 };
 
+// ---- Hit type enum -------------------------------------------------------
+// Passed to DisplayDamage() to select the appropriate particle effect.
+enum DSHitType {
+    HIT_SWORD,      // melee weapon — blood burst
+    HIT_MISSILE,    // magic missile / generic projectile — sparks
+    HIT_FIREBALL,   // fire spell — fire cone bloom
+    HIT_LIGHTNING,  // lightning spell — magic ring swirl
+};
+
 // ---- Public API -----------------------------------------------------------
 
 // Spawn a burst of hit particles at world-space (x, y, z).
