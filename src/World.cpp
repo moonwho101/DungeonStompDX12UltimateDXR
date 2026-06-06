@@ -807,10 +807,8 @@ int initDSTimer() {
 }
 
 void ComputeMissles(float fElapsedTime) {
-	fDot2 = 0.0f;
 	weapondrop = 0;
 
-	fDot2 = 0.0f;
 	for (int misslecount = 0; misslecount < MAX_MISSLE; misslecount++) {
 		if (your_missle[misslecount].active == 2) {
 
@@ -878,7 +876,7 @@ void ComputeMissles(float fElapsedTime) {
 			XMVECTOR r4 = XMLoadFloat3(&work1) - XMLoadFloat3(&work2);
 			final = XMVector3Normalize(r4);
 			final2 = XMVector3Normalize(XMLoadFloat3(&normroadold));
-			fDot2 = XMVectorGetX(XMVector3Dot(final, final2));
+			float fDot2 = XMVectorGetX(XMVector3Dot(final, final2));
 
 			fDot2last = fDot2;
 
@@ -900,9 +898,7 @@ void ComputeMissles(float fElapsedTime) {
 			                    0,
 			                    fixangle(fDot, 180),
 			                    tex,
-			                    USE_PLAYERS_SKIN, wx, wy, wz);
-
-			fDot2 = 0.0f;
+			                    USE_PLAYERS_SKIN, wx, wy, wz, -1, fDot2);
 
 			if (maingameloop2) {
 

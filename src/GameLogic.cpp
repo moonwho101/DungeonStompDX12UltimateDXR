@@ -47,7 +47,6 @@ int current_frame = 0;
 int weapondrop = 0;
 XMFLOAT3 GunTruesave;
 int currentmodellist = 0;
-float fDot2 = 0;
 
 int damageinprogress = 0;
 
@@ -2117,32 +2116,33 @@ void DrawPlayerGun(int shadow) {
 			current_frame = player_list[trueplayernum].current_frame;
 			angle = player_list[trueplayernum].gunangle;
 
-			if (perspectiveview == 1) {
-				weapondrop = 1;
-				fDot2 = look_up_ang;
-			} else {
-				weapondrop = 0;
+float fDot2;
+		if (perspectiveview == 1) {
+			weapondrop = 1;
+			fDot2 = look_up_ang;
+		} else {
+			weapondrop = 0;
+			fDot2 = 0.0f;
+		}
+		if (weapondrop == 0) {
+			wx = player_list[trueplayernum].x;
+			wy = player_list[trueplayernum].y;
+			wz = player_list[trueplayernum].z;
+		} else {
+			float adjust = 10.0f;
+
+			if (shadow == 1) {
+				adjust = -15.0f;
 				fDot2 = 0.0f;
 			}
-			if (weapondrop == 0) {
-				wx = player_list[trueplayernum].x;
-				wy = player_list[trueplayernum].y;
-				wz = player_list[trueplayernum].z;
-			} else {
-				float adjust = 10.0f;
 
-				if (shadow == 1) {
-					adjust = -15.0f;
-					fDot2 = 0.0f;
-				}
-
-				wx = GunTruesave.x;
-				wy = GunTruesave.y + adjust; // +bobY.getY();
-				wz = GunTruesave.z;
-				// wx = m_vEyePt.x;
-				// wy = m_vEyePt.y + 50.0f;
-				// wz = m_vEyePt.z;
-			}
+			wx = GunTruesave.x;
+			wy = GunTruesave.y + adjust; // +bobY.getY();
+			wz = GunTruesave.z;
+			// wx = m_vEyePt.x;
+			// wy = m_vEyePt.y + 50.0f;
+			// wz = m_vEyePt.z;
+		}
 
 			int nextFrame = GetNextFramePlayer();
 
@@ -2150,8 +2150,7 @@ void DrawPlayerGun(int shadow) {
 			                    current_frame,
 			                    angle,
 			                    player_list[trueplayernum].guntex,
-			                    USE_DEFAULT_MODEL_TEX, wx, wy, wz, nextFrame);
-			fDot2 = 0.0f;
+			                    USE_DEFAULT_MODEL_TEX, wx, wy, wz, nextFrame, fDot2);
 			weapondrop = 0;
 
 			//				}
@@ -2164,6 +2163,7 @@ void DrawPlayerGun(int shadow) {
 		current_frame = player_list[trueplayernum].current_frame;
 		angle = player_list[trueplayernum].gunangle;
 
+		float fDot2;
 		if (perspectiveview == 1) {
 			weapondrop = 1;
 			fDot2 = look_up_ang;
@@ -2194,7 +2194,7 @@ void DrawPlayerGun(int shadow) {
 			                    current_frame,
 			                    angle,
 			                    FindGunTexture(model_list[getgunid].monsterweapon),
-			                    USE_DEFAULT_MODEL_TEX, wx, wy, wz);
+			                    USE_DEFAULT_MODEL_TEX, wx, wy, wz, -1, fDot2);
 		}
 	}
 }

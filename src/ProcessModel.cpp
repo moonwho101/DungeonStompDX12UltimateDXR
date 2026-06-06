@@ -372,7 +372,7 @@ void DrawBoundingBox() {
 	ConvertQuad(fan_cnt);
 }
 
-void PlayerToD3DVertList(int pmodel_id, int curr_frame, float angle, int texture_alias, int tex_flag, float xt, float yt, float zt, int nextFrame) {
+void PlayerToD3DVertList(int pmodel_id, int curr_frame, float angle, int texture_alias, int tex_flag, float xt, float yt, float zt, int nextFrame, float fDot2) {
 	// Normalize angle (degrees)
 	if (angle >= 360.0f)
 		angle -= 360.0f;
@@ -381,7 +381,7 @@ void PlayerToD3DVertList(int pmodel_id, int curr_frame, float angle, int texture
 
 	// Indexed 3DS models: forward to indexed path with the correct frame
 	if (pmdata[pmodel_id].use_indexed_primitive == TRUE) {
-		PlayerToD3DIndexedVertList(pmodel_id, curr_frame, angle, texture_alias, tex_flag, xt, yt, zt);
+		PlayerToD3DIndexedVertList(pmodel_id, curr_frame, angle, texture_alias, tex_flag, xt, yt, zt, fDot2);
 		return;
 	}
 
@@ -1569,7 +1569,7 @@ void DrawItems(float fElapsedTime) {
 	}
 }
 
-void PlayerToD3DIndexedVertList(int pmodel_id, int curr_frame, float angle, int texture_alias, int tex_flag, float xt, float yt, float zt) {
+void PlayerToD3DIndexedVertList(int pmodel_id, int curr_frame, float angle, int texture_alias, int tex_flag, float xt, float yt, float zt, float fDot2) {
 	float qdist = 0.0f;
 
 	int num_poly;
