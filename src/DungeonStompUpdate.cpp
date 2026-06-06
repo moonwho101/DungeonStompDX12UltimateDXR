@@ -227,18 +227,25 @@ void DungeonStompApp::UpdateCamera(const GameTimer &gt) {
 		// due to the changes in CameraBob::update()
 		r = bx; // bx is bobX.getY() which is updated with damping
 
-		newspot.x = player_list[trueplayernum].x + r * sinf(step_left_angy * k);
+		// Compute sin/cos pairs in one operation each (avoids redundant trig calls)
+		float sinStepLeft, cosStepLeft;
+		XMScalarSinCos(&sinStepLeft, &cosStepLeft, step_left_angy * k);
+
+		newspot.x = player_list[trueplayernum].x + r * sinStepLeft;
 		newspot.y = player_list[trueplayernum].y + by - mLandingDip + swayY;
-		newspot.z = player_list[trueplayernum].z + r * cosf(step_left_angy * k);
+		newspot.z = player_list[trueplayernum].z + r * cosStepLeft;
 
 		float cameradist = 50.0f;
 
-		float newangle = 0;
-		newangle = fixangle(look_up_ang, 90);
+		float newangle = fixangle(look_up_ang, 90);
 
-		newspot2.x = newspot.x + cameradist * sinf(newangle * k) * sinf(angy * k);
-		newspot2.y = newspot.y + cameradist * cosf(newangle * k);
-		newspot2.z = newspot.z + cameradist * sinf(newangle * k) * cosf(angy * k);
+		float sinPitch, cosPitch, sinYaw, cosYaw;
+		XMScalarSinCos(&sinPitch, &cosPitch, newangle * k);
+		XMScalarSinCos(&sinYaw,   &cosYaw,   angy * k);
+
+		newspot2.x = newspot.x + cameradist * sinPitch * sinYaw;
+		newspot2.y = newspot.y + cameradist * cosPitch;
+		newspot2.z = newspot.z + cameradist * sinPitch * cosYaw;
 
 		mEyePos = newspot;
 		GunTruesave = newspot;
