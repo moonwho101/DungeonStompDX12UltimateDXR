@@ -15,7 +15,6 @@
 
 extern int monstercull[1000];
 extern int monstercount;
-extern float fDot2;
 extern int weapondrop;
 extern int obdata_length;
 extern int obdata_length;
@@ -27,7 +26,7 @@ extern int num_verts_in_scene;
 extern int num_dp_commands_in_scene;
 extern int cnt;
 
-void PlayerToD3DIndexedVertList(int pmodel_id, int curr_frame, float angle, int texture_alias, int tex_flag, float xt, float yt, float zt);
+void PlayerToD3DIndexedVertList(int pmodel_id, int curr_frame, float angle, int texture_alias, int tex_flag, float xt, float yt, float zt, float fDot2 = 0.0f);
 int FindModelID(char *p);
 void AddModel(float x, float y, float z, float rot_angle, float monsterid, float monstertexture, float monnum, char modelid[80], char modeltexture[80], int ability);
 int FindGunTexture(char *p);

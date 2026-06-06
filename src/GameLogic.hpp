@@ -47,7 +47,7 @@ void PlayerNonIndexedBox(int pmodel_id, int curr_frame, int angle, float wx, flo
 void PlayerIndexedBox(int pmodel_id, int curr_frame, float angle, float wx, float wy, float wz);
 void MakeBoundingBox();
 int FindGunTexture(char *p);
-void PlayerToD3DVertList(int pmodel_id, int curr_frame, float angle, int texture_alias, int tex_flag, float xt, float yt, float zt, int nextFrame = -1);
+void PlayerToD3DVertList(int pmodel_id, int curr_frame, float angle, int texture_alias, int tex_flag, float xt, float yt, float zt, int nextFrame = -1, float fDot2 = 0.0f);
 int FindModelID(char *p);
 void AddTreasure(float x, float y, float z, int gold);
 void SetMonsterAnimationSequence(int player_number, int sequence_number);
