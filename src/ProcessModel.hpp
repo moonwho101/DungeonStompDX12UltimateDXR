@@ -17,7 +17,6 @@ extern int monstercull[1000];
 extern int monstercount;
 extern int weapondrop;
 extern int obdata_length;
-extern int obdata_length;
 extern int oblist_length;
 extern int *num_vert_per_object;
 extern int num_polys_per_object[500];
