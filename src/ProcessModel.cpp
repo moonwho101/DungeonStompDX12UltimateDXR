@@ -1450,6 +1450,19 @@ void DrawItems(float fElapsedTime) {
 
 	for (int i = 0; i < itemlistcount; i++) {
 		if (item_list[i].bIsPlayerValid == TRUE) {
+			bool pickupFxActive = (item_list[i].attackspeed > 0);
+			if (pickupFxActive) {
+				item_list[i].applydamageonce++;
+				item_list[i].y = item_list[i].y + (5.0f + (float)item_list[i].attackspeed * 0.35f);
+				item_list[i].rot_angle = fixangle(item_list[i].rot_angle, rotateSpeed * 2.5f);
+				item_list[i].attackspeed--;
+
+				if (item_list[i].attackspeed <= 0) {
+					item_list[i].bIsPlayerValid = FALSE;
+					item_list[i].y = (float)item_list[i].firespeed;
+					continue;
+				}
+			}
 
 			float qdist = FastDistance(
 			    m_vEyePt.x - item_list[i].x,
@@ -1467,6 +1480,9 @@ void DrawItems(float fElapsedTime) {
 				}
 
 				if (item_list[i].monsterid == 9999 && item_list[i].bIsPlayerAlive == TRUE)
+					cullflag = 1;
+
+				if (pickupFxActive)
 					cullflag = 1;
 
 				if (cullflag == 1) {

@@ -2773,31 +2773,43 @@ int DisplayDamage(float x, float y, float z, int owner, int id, bool criticalhit
 			break;
 		}
 	}
+
+	//disable blood splatter for now
 	//your_missle[misslespot].model_id = 104;
 	//your_missle[misslespot].skin_tex_id = 370;
-
 	//your_missle[misslespot].current_frame = 0;
 	//your_missle[misslespot].current_sequence = 0;
 	//your_missle[misslespot].x = x;
 	//your_missle[misslespot].y = y + monstersize;
 	//your_missle[misslespot].z = z;
 	//your_missle[misslespot].rot_angle = (float)gun_angle;
-	//// your_missle[misslespot].velocity = savevelocity;
 	//your_missle[misslespot].active = 2;
 	//your_missle[misslespot].owner = (int)owner;
-
 	//your_missle[misslespot].playernum = (int)owner;
 	//your_missle[misslespot].playertype = (int)1;
 	//your_missle[misslespot].guntype = current_gun;
-
 	//your_missle[misslespot].critical = criticalhit;
-
 	//your_missle[misslespot].blood = 1;
 
 	// Spawn hit particles at the impact point.
 	SpawnHitParticles(x, y + monstersize, z, criticalhit);
 
 	return misslespot;
+}
+
+static void StartTreasurePickupFx(int itemIndex, bool burstParticles) {
+	if (item_list[itemIndex].attackspeed > 0)
+		return;
+
+	item_list[itemIndex].bIsPlayerAlive = FALSE;
+	item_list[itemIndex].bIsPlayerValid = TRUE;
+	item_list[itemIndex].applydamageonce = 0;
+	item_list[itemIndex].firespeed = (int)item_list[itemIndex].y;
+	item_list[itemIndex].attackspeed = 16;
+
+	//if (burstParticles) {
+	//	SpawnHitParticles(item_list[itemIndex].x, item_list[itemIndex].y + 16.0f, item_list[itemIndex].z, false);
+	//}
 }
 
 void GetItem() {
@@ -2817,6 +2829,9 @@ void GetItem() {
 	int foundsomething = 0;
 
 	for (i = 0; i < itemlistcount; i++) {
+		if (item_list[i].attackspeed > 0)
+			continue;
+
 		cullflag = 0;
 		for (cullloop = 0; cullloop < monstercount; cullloop++) {
 			if (monstercull[cullloop] == item_list[i].monsterid) {
@@ -2919,7 +2934,7 @@ void GetItem() {
 					UpdateScrollList(0, 255, 255);
 
 					// you got something good! (weapon)
-					item_list[i].bIsPlayerAlive = FALSE;
+					StartTreasurePickupFx(i, true);
 					PlayWavSound(SoundID("potion"), 100);
 					// PlayWaveFile(".\\Sounds\\item.wav");
 					for (int q = 0; q <= num_your_guns; q++) {
@@ -2943,8 +2958,7 @@ void GetItem() {
 				} else if (strcmp(item_list[i].rname, "POTION") == 0) {
 
 					if (player_list[trueplayernum].health < player_list[trueplayernum].hp) {
-						item_list[i].bIsPlayerAlive = FALSE;
-						item_list[i].bIsPlayerValid = FALSE;
+						StartTreasurePickupFx(i, true);
 						int hp = random_num(8) + 1;
 						player_list[trueplayernum].health = player_list[trueplayernum].health + hp;
 
@@ -2960,8 +2974,7 @@ void GetItem() {
 				} else if (strcmp(item_list[i].rname, "cheese1") == 0) {
 
 					if (player_list[trueplayernum].health < player_list[trueplayernum].hp) {
-						item_list[i].bIsPlayerAlive = FALSE;
-						item_list[i].bIsPlayerValid = FALSE;
+						StartTreasurePickupFx(i, true);
 						int hp = random_num(3) + 1;
 						player_list[trueplayernum].health = player_list[trueplayernum].health + hp;
 
@@ -2977,8 +2990,7 @@ void GetItem() {
 				} else if (strcmp(item_list[i].rname, "bread1") == 0) {
 
 					if (player_list[trueplayernum].health < player_list[trueplayernum].hp) {
-						item_list[i].bIsPlayerAlive = FALSE;
-						item_list[i].bIsPlayerValid = FALSE;
+						StartTreasurePickupFx(i, true);
 						int hp = random_num(5) + 1;
 						player_list[trueplayernum].health = player_list[trueplayernum].health + hp;
 
@@ -2992,8 +3004,7 @@ void GetItem() {
 						foundsomething = 1;
 					}
 				} else if (strcmp(item_list[i].rname, "spellbook") == 0) {
-					item_list[i].bIsPlayerAlive = FALSE;
-					item_list[i].bIsPlayerValid = FALSE;
+					StartTreasurePickupFx(i, true);
 
 					PlayWavSound(SoundID("potion"), 100);
 					// StartFlare(3);
@@ -3029,8 +3040,7 @@ void GetItem() {
 					player_list[trueplayernum].xp += item_list[i].gold;
 
 					PlayWavSound(SoundID("coin"), 100);
-					item_list[i].bIsPlayerAlive = FALSE;
-					item_list[i].bIsPlayerValid = FALSE;
+					StartTreasurePickupFx(i, true);
 
 					foundsomething = 1;
 					sprintf_s(gActionMessage, "You found %d coin", item_list[i].gold);
@@ -3044,8 +3054,7 @@ void GetItem() {
 					player_list[trueplayernum].gold += item_list[i].gold;
 					player_list[trueplayernum].xp += item_list[i].gold;
 					PlayWavSound(SoundID("coin"), 100);
-					item_list[i].bIsPlayerAlive = FALSE;
-					item_list[i].bIsPlayerValid = FALSE;
+					StartTreasurePickupFx(i, true);
 
 					foundsomething = 1;
 					sprintf_s(gActionMessage, "You found a goblet worth %d coin", item_list[i].gold);
@@ -3058,8 +3067,7 @@ void GetItem() {
 					player_list[trueplayernum].keys++;
 					player_list[trueplayernum].xp += 10;
 					PlayWavSound(SoundID("potion"), 100);
-					item_list[i].bIsPlayerAlive = FALSE;
-					item_list[i].bIsPlayerValid = FALSE;
+					StartTreasurePickupFx(i, true);
 
 					foundsomething = 1;
 					sprintf_s(gActionMessage, "You found a key");
@@ -3070,8 +3078,7 @@ void GetItem() {
 					player_list[trueplayernum].gold += item_list[i].gold;
 					player_list[trueplayernum].xp += item_list[i].gold;
 					PlayWavSound(SoundID("coin"), 100);
-					item_list[i].bIsPlayerAlive = FALSE;
-					item_list[i].bIsPlayerValid = FALSE;
+					StartTreasurePickupFx(i, true);
 					foundsomething = 1;
 					sprintf_s(gActionMessage, "You found a diamond worth %d coin", item_list[i].gold);
 					UpdateScrollList(0, 255, 0);
@@ -3086,8 +3093,7 @@ void GetItem() {
 					// StartFlare(2);
 					PlayWavSound(SoundID("potion"), 100);
 					PlayWavSound(SoundID("goal4"), 100);
-					item_list[i].bIsPlayerAlive = FALSE;
-					item_list[i].bIsPlayerValid = FALSE;
+					StartTreasurePickupFx(i, true);
 					LevelUp(player_list[trueplayernum].xp);
 				}
 			}
