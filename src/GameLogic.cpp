@@ -2804,8 +2804,7 @@ static void StartTreasurePickupFx(int itemIndex, bool burstParticles) {
 	item_list[itemIndex].bIsPlayerAlive = FALSE;
 	item_list[itemIndex].bIsPlayerValid = TRUE;
 	item_list[itemIndex].applydamageonce = 0;
-	item_list[itemIndex].firespeed = (int)item_list[itemIndex].y;
-	item_list[itemIndex].attackspeed = 16;
+	item_list[itemIndex].attackspeed = 350; // milliseconds remaining for pickup pop FX
 
 	//if (burstParticles) {
 	//	SpawnHitParticles(item_list[itemIndex].x, item_list[itemIndex].y + 16.0f, item_list[itemIndex].z, false);

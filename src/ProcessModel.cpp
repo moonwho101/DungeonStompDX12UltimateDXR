@@ -1436,6 +1436,9 @@ void AddItem(float x, float y, float z, float rot_angle, float monsterid, float 
 
 	item_list[itemlistcount].ability = (int)ability;
 	item_list[itemlistcount].gold = (int)ability;
+	item_list[itemlistcount].firespeed = 0;
+	item_list[itemlistcount].attackspeed = 0;
+	item_list[itemlistcount].applydamageonce = 0;
 	strcpy_s(item_list[itemlistcount].rname, modelid);
 	strcpy_s(item_list[itemlistcount].texturename, modeltexture);
 
@@ -1447,19 +1450,20 @@ void DrawItems(float fElapsedTime) {
 	int cullflag = 0;
 	int monsteron = 0;
 	float rotateSpeed = 100.0f * fElapsedTime;
+	const float pickupRiseSpeed = 260.0f; // world units per second
+	const int pickupDeltaMs = (fElapsedTime > 0.001f) ? (int)(fElapsedTime * 1000.0f) : 1;
 
 	for (int i = 0; i < itemlistcount; i++) {
 		if (item_list[i].bIsPlayerValid == TRUE) {
 			bool pickupFxActive = (item_list[i].attackspeed > 0);
 			if (pickupFxActive) {
-				item_list[i].applydamageonce++;
-				item_list[i].y = item_list[i].y + (5.0f + (float)item_list[i].attackspeed * 0.35f);
+				item_list[i].applydamageonce += pickupDeltaMs;
+				item_list[i].y = item_list[i].y + (pickupRiseSpeed * fElapsedTime);
 				item_list[i].rot_angle = fixangle(item_list[i].rot_angle, rotateSpeed * 2.5f);
-				item_list[i].attackspeed--;
+				item_list[i].attackspeed -= pickupDeltaMs;
 
 				if (item_list[i].attackspeed <= 0) {
 					item_list[i].bIsPlayerValid = FALSE;
-					item_list[i].y = (float)item_list[i].firespeed;
 					continue;
 				}
 			}

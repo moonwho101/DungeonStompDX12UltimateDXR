@@ -331,6 +331,8 @@ void InitDS() {
 		item_list[i].gold = 0;
 		item_list[i].ability = 0;
 		item_list[i].firespeed = 0;
+		item_list[i].attackspeed = 0;
+		item_list[i].applydamageonce = 0;
 		strcpy_s(item_list[i].name, "");
 		strcpy_s(item_list[i].chatstr, "5");
 		strcpy_s(item_list[i].name, "Dungeon Stomp");
