@@ -1450,20 +1450,18 @@ void DrawItems(float fElapsedTime) {
 	int cullflag = 0;
 	int monsteron = 0;
 	float rotateSpeed = 100.0f * fElapsedTime;
-	const float pickupRiseSpeed = 260.0f; // world units per second
-	const int pickupDeltaMs = (fElapsedTime > 0.001f) ? (int)(fElapsedTime * 1000.0f) : 1;
+	const float pickupRiseSpeed = 350.0f; // world units per second
+
 
 	for (int i = 0; i < itemlistcount; i++) {
 		if (item_list[i].bIsPlayerValid == TRUE) {
 			bool pickupFxActive = (item_list[i].attackspeed > 0);
 			if (pickupFxActive) {
-				item_list[i].applydamageonce += pickupDeltaMs;
 				item_list[i].y = item_list[i].y + (pickupRiseSpeed * fElapsedTime);
-				item_list[i].rot_angle = fixangle(item_list[i].rot_angle, rotateSpeed * 2.5f);
-				item_list[i].attackspeed -= pickupDeltaMs;
 
-				if (item_list[i].attackspeed <= 0) {
+				if (item_list[i].y - item_list[i].guny > 150.0f) {
 					item_list[i].bIsPlayerValid = FALSE;
+					item_list[i].attackspeed = 0;
 					continue;
 				}
 			}
