@@ -2803,9 +2803,8 @@ static void StartTreasurePickupFx(int itemIndex, bool burstParticles) {
 
 	item_list[itemIndex].bIsPlayerAlive = FALSE;
 	item_list[itemIndex].bIsPlayerValid = TRUE;
-	item_list[itemIndex].applydamageonce = 0;
-	item_list[itemIndex].firespeed = (int)item_list[itemIndex].y;
-	item_list[itemIndex].attackspeed = 16;
+	item_list[itemIndex].attackspeed = 1; // use attackspeed as a timer for pickup animation
+	item_list[itemIndex].guny = item_list[itemIndex].y; // save original y position for pickup pop animation
 
 	//if (burstParticles) {
 	//	SpawnHitParticles(item_list[itemIndex].x, item_list[itemIndex].y + 16.0f, item_list[itemIndex].z, false);
