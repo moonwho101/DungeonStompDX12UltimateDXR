@@ -43,52 +43,228 @@ static inline float RandRange(float lo, float hi) {
     return lo + t * (hi - lo);
 }
 
+
+
+// ---- SpawnHitParticles ----------------------------------------------------
+void SpawnBurstParticles(float x, float y, float z, bool critical) {
+	EnsureInit();
+
+	// Find a free emitter slot.
+	DSParticleEmitter *em = nullptr;
+	for (int i = 0; i < DS_MAX_EMITTERS; i++) {
+		if (!gEmitters[i].active) {
+			em = &gEmitters[i];
+			break;
+		}
+	}
+	if (!em)
+		return; // all slots busy – silently skip
+
+	em->active = true;
+	em->particleCount = DS_MAX_PARTICLES;
+
+	const float baseSpeed = critical ? 310.0f : 210.0f;
+	const float baseLifetime = critical ? 12.42f : 10.42f;
+	const float baseSize = critical ? 4.0f : 2.0f;
+
+	static const float twoPi = 6.28318530f;
+
+	for (int i = 0; i < em->particleCount; i++) {
+		DSParticle &p = em->particles[i];
+
+		// Scatter spawn position around the hit point.
+		p.x = x + RandRange(-6.0f, 6.0f);
+		p.y = y + RandRange(0.0f, 12.0f);
+		p.z = z + RandRange(-6.0f, 6.0f);
+
+		// Random velocity: azimuth [0, 2π], elevation [15°, 75°].
+		float azimuth = RandRange(0.0f, twoPi);
+		float elevation = RandRange(0.2618f, 1.3090f); // 15° .. 75° in radians
+		float speed = RandRange(baseSpeed * 0.5f, baseSpeed);
+
+		p.vx = cosf(azimuth) * cosf(elevation) * speed;
+		p.vy = sinf(elevation) * speed;
+		p.vz = sinf(azimuth) * cosf(elevation) * speed;
+
+		p.life = baseLifetime * RandRange(0.7f, 1.0f);
+		p.maxLife = p.life;
+		p.size = baseSize * RandRange(0.7f, 1.0f);
+	}
+}
+
+
 // ---- SpawnHitParticles ----------------------------------------------------
 void SpawnHitParticles(float x, float y, float z, bool critical) {
     EnsureInit();
 
-    // Find a free emitter slot.
     DSParticleEmitter *em = nullptr;
     for (int i = 0; i < DS_MAX_EMITTERS; i++) {
-        if (!gEmitters[i].active) {
-            em = &gEmitters[i];
-            break;
-        }
+        if (!gEmitters[i].active) { em = &gEmitters[i]; break; }
     }
-    if (!em) return; // all slots busy – silently skip
+    if (!em) return;
 
     em->active        = true;
-    em->critical      = critical;
-	em->particleCount = DS_MAX_PARTICLES;
+    em->type          = critical ? EMITTER_CRITICAL : EMITTER_HIT;
+    em->particleCount = DS_MAX_PARTICLES;
 
-    const float baseSpeed    = critical ? 310.0f : 210.0f;
-    const float baseLifetime = critical ? 12.42f  : 10.42f;
-    const float baseSize     = critical ? 4.0f : 2.0f;
+    const float baseSpeed    = critical ? 340.0f : 220.0f;
+    const float baseLifetime = critical ? 13.0f  : 10.5f;
+    const float baseSize     = critical ? 5.0f   : 2.5f;
+    const float baseDrag     = critical ? 1.8f   : 2.2f; // friction (fraction/sec)
 
     static const float twoPi = 6.28318530f;
 
     for (int i = 0; i < em->particleCount; i++) {
         DSParticle &p = em->particles[i];
 
-        // Scatter spawn position around the hit point.
         p.x = x + RandRange(-6.0f,  6.0f);
         p.y = y + RandRange( 0.0f, 12.0f);
         p.z = z + RandRange(-6.0f,  6.0f);
 
-        // Random velocity: azimuth [0, 2π], elevation [15°, 75°].
         float azimuth   = RandRange(0.0f, twoPi);
-        float elevation = RandRange(0.2618f, 1.3090f); // 15° .. 75° in radians
+        float elevation = RandRange(0.2618f, 1.3090f); // 15° .. 75°
         float speed     = RandRange(baseSpeed * 0.5f, baseSpeed);
 
         p.vx = cosf(azimuth) * cosf(elevation) * speed;
         p.vy = sinf(elevation) * speed;
         p.vz = sinf(azimuth)  * cosf(elevation) * speed;
 
-        p.life    = baseLifetime * RandRange(0.7f, 1.0f);
-        p.maxLife = p.life;
-        p.size    = baseSize     * RandRange(0.7f, 1.0f);
+        p.life     = baseLifetime * RandRange(0.6f, 1.0f);
+        p.maxLife  = p.life;
+        p.size     = baseSize * RandRange(0.6f, 1.0f);
+        p.drag     = baseDrag * RandRange(0.7f, 1.3f);
+
+        // Spin: hit particles tumble moderately; critical ones spin faster.
+        p.spin     = RandRange(0.0f, twoPi);
+        p.spinRate = RandRange(-4.0f, 4.0f) * (critical ? 2.0f : 1.0f);
     }
 }
+
+// ---- SpawnFireParticles ---------------------------------------------------
+void SpawnFireParticles(float x, float y, float z) {
+    EnsureInit();
+
+    DSParticleEmitter *em = nullptr;
+    for (int i = 0; i < DS_MAX_EMITTERS; i++) {
+        if (!gEmitters[i].active) { em = &gEmitters[i]; break; }
+    }
+    if (!em) return;
+
+    em->active        = true;
+    em->type          = EMITTER_FIRE;
+    em->particleCount = DS_MAX_PARTICLES;
+
+    static const float twoPi = 6.28318530f;
+
+    for (int i = 0; i < em->particleCount; i++) {
+        DSParticle &p = em->particles[i];
+
+        // Tight spawn cluster at origin
+        p.x = x + RandRange(-6.0f, 6.0f);
+        p.y = y + RandRange( 0.0f, 8.0f);
+        p.z = z + RandRange(-6.0f, 6.0f);
+
+        // Upward-biased narrow cone
+        float azimuth   = RandRange(0.0f, twoPi);
+        float elevation = RandRange(1.1f, 1.5708f); // 63° .. 90° (nearly straight up)
+        float speed     = RandRange(100.0f, 300.0f);
+
+        p.vx = cosf(azimuth) * cosf(elevation) * speed;
+        p.vy = sinf(elevation) * speed;
+        p.vz = sinf(azimuth)  * cosf(elevation) * speed;
+
+        p.life    = RandRange(4.0f, 8.0f);
+        p.maxLife = p.life;
+        p.size    = RandRange(2.0f, 2.5f);
+        p.drag    = RandRange(2.5f, 4.0f); // strong air resistance — fire slows quickly
+        p.spin    = RandRange(0.0f, twoPi);
+        p.spinRate= RandRange(-2.0f, 2.0f); // gentle rotation
+    }
+}
+
+// ---- SpawnSparkParticles --------------------------------------------------
+void SpawnSparkParticles(float x, float y, float z) {
+    EnsureInit();
+
+    DSParticleEmitter *em = nullptr;
+    for (int i = 0; i < DS_MAX_EMITTERS; i++) {
+        if (!gEmitters[i].active) { em = &gEmitters[i]; break; }
+    }
+    if (!em) return;
+
+    em->active        = true;
+    em->type          = EMITTER_SPARKS;
+    em->particleCount = DS_MAX_PARTICLES;
+
+    static const float twoPi = 6.28318530f;
+
+    for (int i = 0; i < em->particleCount; i++) {
+        DSParticle &p = em->particles[i];
+
+        p.x = x + RandRange(-2.0f, 2.0f);
+        p.y = y + RandRange( 0.0f, 4.0f);
+        p.z = z + RandRange(-2.0f, 2.0f);
+
+        // Full hemisphere burst — high speed, shallow-to-steep launch angles
+        float azimuth   = RandRange(0.0f, twoPi);
+        float elevation = RandRange(0.1f, 1.5708f);
+        float speed     = RandRange(200.0f, 450.0f); // fast sparks
+
+        p.vx = cosf(azimuth) * cosf(elevation) * speed;
+        p.vy = sinf(elevation) * speed;
+        p.vz = sinf(azimuth)  * cosf(elevation) * speed;
+
+        p.life    = RandRange(3.0f, 7.0f);
+        p.maxLife = p.life;
+        p.size    = RandRange(0.8f, 1.8f); // tiny, sharp sparks
+        p.drag    = RandRange(0.4f, 0.9f); // low drag — sparks fly far
+        p.spin    = RandRange(0.0f, twoPi);
+        p.spinRate= RandRange(-8.0f, 8.0f); // fast spin for shimmer
+    }
+}
+
+// ---- SpawnMagicParticles --------------------------------------------------
+void SpawnMagicParticles(float x, float y, float z) {
+    EnsureInit();
+
+    DSParticleEmitter *em = nullptr;
+    for (int i = 0; i < DS_MAX_EMITTERS; i++) {
+        if (!gEmitters[i].active) { em = &gEmitters[i]; break; }
+    }
+    if (!em) return;
+
+    em->active        = true;
+    em->type          = EMITTER_MAGIC;
+    em->particleCount = DS_MAX_PARTICLES;
+
+    static const float twoPi = 6.28318530f;
+
+    for (int i = 0; i < em->particleCount; i++) {
+        DSParticle &p = em->particles[i];
+
+        // Spawn in a ring around the impact point
+        float angle = twoPi * static_cast<float>(i) / static_cast<float>(em->particleCount);
+        float radius = RandRange(4.0f, 10.0f);
+
+        p.x = x + cosf(angle) * radius;
+        p.y = y + RandRange(2.0f, 8.0f);
+        p.z = z + sinf(angle) * radius;
+
+        // Outward + upward drift
+        float speed = RandRange(40.0f, 120.0f);
+        p.vx = cosf(angle) * speed;
+        p.vy = RandRange(20.0f, 80.0f); // gentle lift
+        p.vz = sinf(angle) * speed;
+
+        p.life    = RandRange(8.0f, 14.0f);
+        p.maxLife = p.life;
+        p.size    = RandRange(1.0f, 2.0f);
+        p.drag    = RandRange(1.5f, 2.5f);
+        p.spin    = angle; // offset spin per particle for visual spread
+        p.spinRate= RandRange(-3.0f, 3.0f);
+    }
+}
+
 
 // ---- UpdateParticles ------------------------------------------------------
 void UpdateParticles(float dt) {
@@ -108,11 +284,24 @@ void UpdateParticles(float dt) {
             p.life -= dt;
             if (p.life <= 0.0f) continue;
 
-            // Simple Euler integration with gravity.
+            // Air drag: exponential decay approximated by (1 - drag*dt).
+            // Clamp so drag can never reverse velocity direction.
+            float lateralDamp = 1.0f - p.drag * dt;
+            if (lateralDamp < 0.0f) lateralDamp = 0.0f;
+            p.vx *= lateralDamp;
+            p.vz *= lateralDamp;
+            // Vertical drag is reduced (gravity wins on the way down).
+            float vertDamp = 1.0f - p.drag * 0.4f * dt;
+            if (vertDamp < 0.0f) vertDamp = 0.0f;
             p.vy += gravity * dt;
-            p.x  += p.vx * dt;
-            p.y  += p.vy * dt;
-            p.z  += p.vz * dt;
+            p.vy *= vertDamp;
+
+            p.x += p.vx * dt;
+            p.y += p.vy * dt;
+            p.z += p.vz * dt;
+
+            // Billboard spin.
+            p.spin += p.spinRate * dt;
 
             anyAlive = true;
         }
@@ -125,66 +314,92 @@ void UpdateParticles(float dt) {
 // ---- DrawParticles --------------------------------------------------------
 // Each active particle is rendered as a camera-facing billboard quad
 // (two triangles, six vertices) written directly into src_v.
-// All particles share a single ObjectsToDraw entry (texture alias 370).
 //
 // Billboard axes are derived from the camera yaw angle (angy) rather than
-// a cross-product of world-up and view-direction. The cross-product approach
-// reverses camRight when the camera faces certain directions, causing the
-// triangle winding to flip from CW to CCW and get backface-culled.
-// Using angy directly gives consistent CW winding for all camera orientations.
+// a cross-product of world-up and view-direction, giving consistent CW
+// winding for all camera orientations.
+//
+// Per-particle spin is achieved by rotating the right and up axes around
+// the billboard normal before building the quad:
+//   new_right = camRight * cos(spin) + worldUp * sin(spin)
+//   new_up    = -camRight * sin(spin) + worldUp * cos(spin)
+//
+// One draw call is issued per active emitter so that each type can bind
+// a different texture.
 void DrawParticles() {
     EnsureInit();
 
-    // Camera yaw → billboard right and normal vectors.
-    // Camera forward (horizontal): (sin(angy), 0, cos(angy))
-    // Camera right   (horizontal): (cos(angy), 0, -sin(angy))
-    // Billboard normal (toward camera): (-sin(angy), 0, -cos(angy))
     const float cosA  = cosf(angy * k);
     const float sinA  = sinf(angy * k);
     const float normX = -sinA;
     const float normZ = -cosA;
 
-    const int startCnt = cnt;
-    int       numVerts = 0;
-
     for (int e = 0; e < DS_MAX_EMITTERS; e++) {
         const DSParticleEmitter &em = gEmitters[e];
         if (!em.active) continue;
 
+        const int startCnt = cnt;
+        int       numVerts = 0;
+
         for (int i = 0; i < em.particleCount; i++) {
             const DSParticle &p = em.particles[i];
             if (p.life <= 0.0f) continue;
+            if (cnt + 6 >= MAX_NUM_QUADS) break;
 
-            // Ensure we don't overflow the vertex buffer.
-            if (cnt + 6 >= MAX_NUM_QUADS) continue;
+            // Normalised age: 1 at birth → 0 at death.
+            const float t = p.life / p.maxLife;
 
-            // Billboard shrinks as the particle ages (t: 1 → 0).
-            const float t    = p.life / p.maxLife;
-            const float half = p.size * t;
+            // Per-type size curve.
+            float half;
+            switch (em.type) {
+                case EMITTER_FIRE:
+                    // Bloom: tiny at birth, peaks at midlife, tiny at death.
+                    half = p.size * sinf((1.0f - t) * 3.14159f);
+                    break;
+                case EMITTER_CRITICAL:
+                    // Stay larger for longer (t^0.67 falloff).
+                    half = p.size * powf(t, 0.67f);
+                    break;
+                case EMITTER_MAGIC:
+                    // Linger big, drop off quickly near end (sqrt).
+                    half = p.size * sqrtf(t);
+                    break;
+                default: // EMITTER_HIT, EMITTER_SPARKS
+                    half = p.size * t;
+                    break;
+            }
+            if (half < 0.01f) continue;
 
-            // Right axis offset scaled by half-size:
-            //   right = (cos(angy), 0, -sin(angy)) * half
-            const float rx = cosA * half;
-            const float rz = -sinA * half;
-            // Up axis (world Y) offset:
-            const float uy = half;
+            // Spin-rotated billboard axes (rotate right/up in billboard plane).
+            const float cs = cosf(p.spin);
+            const float sn = sinf(p.spin);
+
+            // new_right = camRight * cs + worldUp * sn
+            //   camRight = (cosA, 0, -sinA),  worldUp = (0, 1, 0)
+            const float rrx = cosA * cs * half;
+            const float rry = sn        * half;
+            const float rrz = -sinA * cs * half;
+
+            // new_up = -camRight * sn + worldUp * cs
+            const float rux = -cosA * sn * half;
+            const float ruy = cs         * half;
+            const float ruz =  sinA * sn * half;
 
             const float cx = p.x, cy = p.y, cz = p.z;
 
-            // Quad corners (clockwise from camera for all yaw angles):
-            //   v0 = top-left   (-right + worldUp)
-            //   v1 = top-right  ( right + worldUp)
-            //   v2 = bot-right  ( right - worldUp)
-            //   v3 = bot-left   (-right - worldUp)
-            // Triangle 1: v0, v1, v2
-            // Triangle 2: v0, v2, v3
+            // Quad corners — CW from camera for all yaw angles and spin values:
+            //   v0 = top-left  = -right + up
+            //   v1 = top-right =  right + up
+            //   v2 = bot-right =  right - up
+            //   v3 = bot-left  = -right - up
+            // Triangle 1: v0, v1, v2   Triangle 2: v0, v2, v3
             struct { float ox, oy, oz, u, v; } vdata[6] = {
-                { -rx, +uy, -rz, 0.0f, 0.0f }, // v0
-                { +rx, +uy, +rz, 1.0f, 0.0f }, // v1
-                { +rx, -uy, +rz, 1.0f, 1.0f }, // v2
-                { -rx, +uy, -rz, 0.0f, 0.0f }, // v0
-                { +rx, -uy, +rz, 1.0f, 1.0f }, // v2
-                { -rx, -uy, -rz, 0.0f, 1.0f }, // v3
+                { -rrx + rux, -rry + ruy, -rrz + ruz, 0.0f, 0.0f }, // v0
+                {  rrx + rux,  rry + ruy,  rrz + ruz, 1.0f, 0.0f }, // v1
+                {  rrx - rux,  rry - ruy,  rrz - ruz, 1.0f, 1.0f }, // v2
+                { -rrx + rux, -rry + ruy, -rrz + ruz, 0.0f, 0.0f }, // v0
+                {  rrx - rux,  rry - ruy,  rrz - ruz, 1.0f, 1.0f }, // v2
+                { -rrx - rux, -rry - ruy, -rrz - ruz, 0.0f, 1.0f }, // v3
             };
 
             for (int vi = 0; vi < 6; vi++) {
@@ -203,29 +418,44 @@ void DrawParticles() {
             }
             numVerts += 6;
         }
+
+        if (numVerts == 0) continue;
+
+        // One draw call per emitter (allows per-type texture binding).
+        const int slot = number_of_polys_per_frame;
+
+        ObjectsToDraw[slot].vert_index   = slot;
+        ObjectsToDraw[slot].srcstart     = startCnt;
+        ObjectsToDraw[slot].srcfstart    = 0;
+        ObjectsToDraw[slot].objectId     = -1;
+        ObjectsToDraw[slot].castshaddow  = 0;
+        ObjectsToDraw[slot].vertsperpoly = numVerts;
+        ObjectsToDraw[slot].facesperpoly = numVerts / 3;
+
+        verts_per_poly[slot]        = numVerts;
+        dp_commands[slot]           = D3DPT_TRIANGLELIST;
+        dp_command_index_mode[slot] = 1; // USE_NON_INDEXED_DP
+
+        // Per-type texture selection.
+        switch (em.type) {
+            case EMITTER_CRITICAL:
+                texture_list_buffer[slot] = 370 + random_num(5);
+                break;
+            case EMITTER_FIRE:
+                texture_list_buffer[slot] = 200;
+                break;
+            case EMITTER_SPARKS:
+                texture_list_buffer[slot] = 239;
+                break;
+            case EMITTER_MAGIC:
+                texture_list_buffer[slot] = 157-1;
+                break;
+            default: // EMITTER_HIT
+                texture_list_buffer[slot] = 200;
+                break;
+        }
+
+        number_of_polys_per_frame++;
     }
-
-    if (numVerts == 0) return;
-
-    // Register a single non-indexed draw call for all particle quads.
-    const int slot = number_of_polys_per_frame;
-
-    ObjectsToDraw[slot].vert_index   = slot;
-    ObjectsToDraw[slot].srcstart     = startCnt;
-    ObjectsToDraw[slot].srcfstart    = 0;
-    ObjectsToDraw[slot].objectId     = -1;
-    ObjectsToDraw[slot].castshaddow  = 0; // particles cast no shadow
-    ObjectsToDraw[slot].vertsperpoly = numVerts;
-    ObjectsToDraw[slot].facesperpoly = numVerts / 3;
-
-    verts_per_poly[slot]        = numVerts;
-    dp_commands[slot]           = D3DPT_TRIANGLELIST;
-    dp_command_index_mode[slot] = 1; // USE_NON_INDEXED_DP
-
-    int raction = random_num(5);
-
-    //texture_list_buffer[slot]   = 370 + raction;//156;//369;//239; //370; // blood / impact texture alias
-    texture_list_buffer[slot]   = 200;
-
-    number_of_polys_per_frame++;
 }
+
