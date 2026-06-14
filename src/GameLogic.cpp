@@ -2794,10 +2794,10 @@ int DisplayDamage(float x, float y, float z, int owner, int id, bool criticalhit
 
 	// Spawn particles based on hit type.
 	switch (hitType) {
-		case HIT_MISSILE:   SpawnSparkParticles(x, y + monstersize, z); break;
+		case HIT_MISSILE:   SpawnMagicParticles(x, y + monstersize, z); break;
 		case HIT_FIREBALL:  SpawnFireParticles (x, y + monstersize, z); break;
-		case HIT_LIGHTNING: SpawnMagicParticles(x, y + monstersize, z); break;
-		default:            SpawnHitParticles  (x, y + monstersize, z, criticalhit); break;
+		case HIT_LIGHTNING: SpawnSparkParticles(x, y + monstersize, z); break;
+		default:            SpawnBurstParticles  (x, y + monstersize, z, criticalhit); break;
 	}
 
 	return misslespot;

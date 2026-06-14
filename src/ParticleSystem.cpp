@@ -43,6 +43,56 @@ static inline float RandRange(float lo, float hi) {
     return lo + t * (hi - lo);
 }
 
+
+
+// ---- SpawnHitParticles ----------------------------------------------------
+void SpawnBurstParticles(float x, float y, float z, bool critical) {
+	EnsureInit();
+
+	// Find a free emitter slot.
+	DSParticleEmitter *em = nullptr;
+	for (int i = 0; i < DS_MAX_EMITTERS; i++) {
+		if (!gEmitters[i].active) {
+			em = &gEmitters[i];
+			break;
+		}
+	}
+	if (!em)
+		return; // all slots busy – silently skip
+
+	em->active = true;
+	em->particleCount = DS_MAX_PARTICLES;
+
+	const float baseSpeed = critical ? 310.0f : 210.0f;
+	const float baseLifetime = critical ? 12.42f : 10.42f;
+	const float baseSize = critical ? 4.0f : 2.0f;
+
+	static const float twoPi = 6.28318530f;
+
+	for (int i = 0; i < em->particleCount; i++) {
+		DSParticle &p = em->particles[i];
+
+		// Scatter spawn position around the hit point.
+		p.x = x + RandRange(-6.0f, 6.0f);
+		p.y = y + RandRange(0.0f, 12.0f);
+		p.z = z + RandRange(-6.0f, 6.0f);
+
+		// Random velocity: azimuth [0, 2π], elevation [15°, 75°].
+		float azimuth = RandRange(0.0f, twoPi);
+		float elevation = RandRange(0.2618f, 1.3090f); // 15° .. 75° in radians
+		float speed = RandRange(baseSpeed * 0.5f, baseSpeed);
+
+		p.vx = cosf(azimuth) * cosf(elevation) * speed;
+		p.vy = sinf(elevation) * speed;
+		p.vz = sinf(azimuth) * cosf(elevation) * speed;
+
+		p.life = baseLifetime * RandRange(0.7f, 1.0f);
+		p.maxLife = p.life;
+		p.size = baseSize * RandRange(0.7f, 1.0f);
+	}
+}
+
+
 // ---- SpawnHitParticles ----------------------------------------------------
 void SpawnHitParticles(float x, float y, float z, bool critical) {
     EnsureInit();
@@ -110,14 +160,14 @@ void SpawnFireParticles(float x, float y, float z) {
         DSParticle &p = em->particles[i];
 
         // Tight spawn cluster at origin
-        p.x = x + RandRange(-3.0f, 3.0f);
-        p.y = y + RandRange( 0.0f, 4.0f);
-        p.z = z + RandRange(-3.0f, 3.0f);
+        p.x = x + RandRange(-6.0f, 6.0f);
+        p.y = y + RandRange( 0.0f, 8.0f);
+        p.z = z + RandRange(-6.0f, 6.0f);
 
         // Upward-biased narrow cone
         float azimuth   = RandRange(0.0f, twoPi);
         float elevation = RandRange(1.1f, 1.5708f); // 63° .. 90° (nearly straight up)
-        float speed     = RandRange(60.0f, 180.0f);
+        float speed     = RandRange(100.0f, 300.0f);
 
         p.vx = cosf(azimuth) * cosf(elevation) * speed;
         p.vy = sinf(elevation) * speed;
@@ -125,7 +175,7 @@ void SpawnFireParticles(float x, float y, float z) {
 
         p.life    = RandRange(4.0f, 8.0f);
         p.maxLife = p.life;
-        p.size    = RandRange(3.0f, 6.0f);
+        p.size    = RandRange(2.0f, 2.5f);
         p.drag    = RandRange(2.5f, 4.0f); // strong air resistance — fire slows quickly
         p.spin    = RandRange(0.0f, twoPi);
         p.spinRate= RandRange(-2.0f, 2.0f); // gentle rotation
@@ -158,7 +208,7 @@ void SpawnSparkParticles(float x, float y, float z) {
         // Full hemisphere burst — high speed, shallow-to-steep launch angles
         float azimuth   = RandRange(0.0f, twoPi);
         float elevation = RandRange(0.1f, 1.5708f);
-        float speed     = RandRange(200.0f, 550.0f); // fast sparks
+        float speed     = RandRange(200.0f, 450.0f); // fast sparks
 
         p.vx = cosf(azimuth) * cosf(elevation) * speed;
         p.vy = sinf(elevation) * speed;
@@ -208,7 +258,7 @@ void SpawnMagicParticles(float x, float y, float z) {
 
         p.life    = RandRange(8.0f, 14.0f);
         p.maxLife = p.life;
-        p.size    = RandRange(3.0f, 6.0f);
+        p.size    = RandRange(1.0f, 2.0f);
         p.drag    = RandRange(1.5f, 2.5f);
         p.spin    = angle; // offset spin per particle for visual spread
         p.spinRate= RandRange(-3.0f, 3.0f);
@@ -392,13 +442,13 @@ void DrawParticles() {
                 texture_list_buffer[slot] = 370 + random_num(5);
                 break;
             case EMITTER_FIRE:
-                texture_list_buffer[slot] = 156;
+                texture_list_buffer[slot] = 200;
                 break;
             case EMITTER_SPARKS:
                 texture_list_buffer[slot] = 239;
                 break;
             case EMITTER_MAGIC:
-                texture_list_buffer[slot] = 369;
+                texture_list_buffer[slot] = 157-1;
                 break;
             default: // EMITTER_HIT
                 texture_list_buffer[slot] = 200;
