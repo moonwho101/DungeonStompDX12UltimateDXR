@@ -47,7 +47,6 @@ int current_frame = 0;
 int weapondrop = 0;
 XMFLOAT3 GunTruesave;
 int currentmodellist = 0;
-float fDot2 = 0;
 
 int damageinprogress = 0;
 
@@ -2117,32 +2116,33 @@ void DrawPlayerGun(int shadow) {
 			current_frame = player_list[trueplayernum].current_frame;
 			angle = player_list[trueplayernum].gunangle;
 
-			if (perspectiveview == 1) {
-				weapondrop = 1;
-				fDot2 = look_up_ang;
-			} else {
-				weapondrop = 0;
+float fDot2;
+		if (perspectiveview == 1) {
+			weapondrop = 1;
+			fDot2 = look_up_ang;
+		} else {
+			weapondrop = 0;
+			fDot2 = 0.0f;
+		}
+		if (weapondrop == 0) {
+			wx = player_list[trueplayernum].x;
+			wy = player_list[trueplayernum].y;
+			wz = player_list[trueplayernum].z;
+		} else {
+			float adjust = 10.0f;
+
+			if (shadow == 1) {
+				adjust = -15.0f;
 				fDot2 = 0.0f;
 			}
-			if (weapondrop == 0) {
-				wx = player_list[trueplayernum].x;
-				wy = player_list[trueplayernum].y;
-				wz = player_list[trueplayernum].z;
-			} else {
-				float adjust = 10.0f;
 
-				if (shadow == 1) {
-					adjust = -15.0f;
-					fDot2 = 0.0f;
-				}
-
-				wx = GunTruesave.x;
-				wy = GunTruesave.y + adjust; // +bobY.getY();
-				wz = GunTruesave.z;
-				// wx = m_vEyePt.x;
-				// wy = m_vEyePt.y + 50.0f;
-				// wz = m_vEyePt.z;
-			}
+			wx = GunTruesave.x;
+			wy = GunTruesave.y + adjust; // +bobY.getY();
+			wz = GunTruesave.z;
+			// wx = m_vEyePt.x;
+			// wy = m_vEyePt.y + 50.0f;
+			// wz = m_vEyePt.z;
+		}
 
 			int nextFrame = GetNextFramePlayer();
 
@@ -2150,8 +2150,7 @@ void DrawPlayerGun(int shadow) {
 			                    current_frame,
 			                    angle,
 			                    player_list[trueplayernum].guntex,
-			                    USE_DEFAULT_MODEL_TEX, wx, wy, wz, nextFrame);
-			fDot2 = 0.0f;
+			                    USE_DEFAULT_MODEL_TEX, wx, wy, wz, nextFrame, fDot2);
 			weapondrop = 0;
 
 			//				}
@@ -2164,6 +2163,7 @@ void DrawPlayerGun(int shadow) {
 		current_frame = player_list[trueplayernum].current_frame;
 		angle = player_list[trueplayernum].gunangle;
 
+		float fDot2;
 		if (perspectiveview == 1) {
 			weapondrop = 1;
 			fDot2 = look_up_ang;
@@ -2194,7 +2194,7 @@ void DrawPlayerGun(int shadow) {
 			                    current_frame,
 			                    angle,
 			                    FindGunTexture(model_list[getgunid].monsterweapon),
-			                    USE_DEFAULT_MODEL_TEX, wx, wy, wz);
+			                    USE_DEFAULT_MODEL_TEX, wx, wy, wz, -1, fDot2);
 		}
 	}
 }
@@ -2783,7 +2783,6 @@ int DisplayDamage(float x, float y, float z, int owner, int id, bool criticalhit
 	//your_missle[misslespot].y = y + monstersize;
 	//your_missle[misslespot].z = z;
 	//your_missle[misslespot].rot_angle = (float)gun_angle;
-	//// your_missle[misslespot].velocity = savevelocity;
 	//your_missle[misslespot].active = 2;
 	//your_missle[misslespot].owner = (int)owner;
 	//your_missle[misslespot].playernum = (int)owner;
@@ -2804,6 +2803,20 @@ int DisplayDamage(float x, float y, float z, int owner, int id, bool criticalhit
 	return misslespot;
 }
 
+static void StartTreasurePickupFx(int itemIndex, bool burstParticles) {
+	if (item_list[itemIndex].attackspeed > 0)
+		return;
+
+	item_list[itemIndex].bIsPlayerAlive = FALSE;
+	item_list[itemIndex].bIsPlayerValid = TRUE;
+	item_list[itemIndex].attackspeed = 1; // use attackspeed as a timer for pickup animation
+	item_list[itemIndex].guny = item_list[itemIndex].y; // save original y position for pickup pop animation
+
+	//if (burstParticles) {
+	//	SpawnHitParticles(item_list[itemIndex].x, item_list[itemIndex].y + 16.0f, item_list[itemIndex].z, false);
+	//}
+}
+
 void GetItem() {
 
 	//  normal cyan 0, 255, 255
@@ -2821,6 +2834,9 @@ void GetItem() {
 	int foundsomething = 0;
 
 	for (i = 0; i < itemlistcount; i++) {
+		if (item_list[i].attackspeed > 0)
+			continue;
+
 		cullflag = 0;
 		for (cullloop = 0; cullloop < monstercount; cullloop++) {
 			if (monstercull[cullloop] == item_list[i].monsterid) {
@@ -2923,7 +2939,7 @@ void GetItem() {
 					UpdateScrollList(0, 255, 255);
 
 					// you got something good! (weapon)
-					item_list[i].bIsPlayerAlive = FALSE;
+					StartTreasurePickupFx(i, true);
 					PlayWavSound(SoundID("potion"), 100);
 					// PlayWaveFile(".\\Sounds\\item.wav");
 					for (int q = 0; q <= num_your_guns; q++) {
@@ -2947,8 +2963,7 @@ void GetItem() {
 				} else if (strcmp(item_list[i].rname, "POTION") == 0) {
 
 					if (player_list[trueplayernum].health < player_list[trueplayernum].hp) {
-						item_list[i].bIsPlayerAlive = FALSE;
-						item_list[i].bIsPlayerValid = FALSE;
+						StartTreasurePickupFx(i, true);
 						int hp = random_num(8) + 1;
 						player_list[trueplayernum].health = player_list[trueplayernum].health + hp;
 
@@ -2964,8 +2979,7 @@ void GetItem() {
 				} else if (strcmp(item_list[i].rname, "cheese1") == 0) {
 
 					if (player_list[trueplayernum].health < player_list[trueplayernum].hp) {
-						item_list[i].bIsPlayerAlive = FALSE;
-						item_list[i].bIsPlayerValid = FALSE;
+						StartTreasurePickupFx(i, true);
 						int hp = random_num(3) + 1;
 						player_list[trueplayernum].health = player_list[trueplayernum].health + hp;
 
@@ -2981,8 +2995,7 @@ void GetItem() {
 				} else if (strcmp(item_list[i].rname, "bread1") == 0) {
 
 					if (player_list[trueplayernum].health < player_list[trueplayernum].hp) {
-						item_list[i].bIsPlayerAlive = FALSE;
-						item_list[i].bIsPlayerValid = FALSE;
+						StartTreasurePickupFx(i, true);
 						int hp = random_num(5) + 1;
 						player_list[trueplayernum].health = player_list[trueplayernum].health + hp;
 
@@ -2996,8 +3009,7 @@ void GetItem() {
 						foundsomething = 1;
 					}
 				} else if (strcmp(item_list[i].rname, "spellbook") == 0) {
-					item_list[i].bIsPlayerAlive = FALSE;
-					item_list[i].bIsPlayerValid = FALSE;
+					StartTreasurePickupFx(i, true);
 
 					PlayWavSound(SoundID("potion"), 100);
 					// StartFlare(3);
@@ -3033,8 +3045,7 @@ void GetItem() {
 					player_list[trueplayernum].xp += item_list[i].gold;
 
 					PlayWavSound(SoundID("coin"), 100);
-					item_list[i].bIsPlayerAlive = FALSE;
-					item_list[i].bIsPlayerValid = FALSE;
+					StartTreasurePickupFx(i, true);
 
 					foundsomething = 1;
 					sprintf_s(gActionMessage, "You found %d coin", item_list[i].gold);
@@ -3048,8 +3059,7 @@ void GetItem() {
 					player_list[trueplayernum].gold += item_list[i].gold;
 					player_list[trueplayernum].xp += item_list[i].gold;
 					PlayWavSound(SoundID("coin"), 100);
-					item_list[i].bIsPlayerAlive = FALSE;
-					item_list[i].bIsPlayerValid = FALSE;
+					StartTreasurePickupFx(i, true);
 
 					foundsomething = 1;
 					sprintf_s(gActionMessage, "You found a goblet worth %d coin", item_list[i].gold);
@@ -3062,8 +3072,7 @@ void GetItem() {
 					player_list[trueplayernum].keys++;
 					player_list[trueplayernum].xp += 10;
 					PlayWavSound(SoundID("potion"), 100);
-					item_list[i].bIsPlayerAlive = FALSE;
-					item_list[i].bIsPlayerValid = FALSE;
+					StartTreasurePickupFx(i, true);
 
 					foundsomething = 1;
 					sprintf_s(gActionMessage, "You found a key");
@@ -3074,8 +3083,7 @@ void GetItem() {
 					player_list[trueplayernum].gold += item_list[i].gold;
 					player_list[trueplayernum].xp += item_list[i].gold;
 					PlayWavSound(SoundID("coin"), 100);
-					item_list[i].bIsPlayerAlive = FALSE;
-					item_list[i].bIsPlayerValid = FALSE;
+					StartTreasurePickupFx(i, true);
 					foundsomething = 1;
 					sprintf_s(gActionMessage, "You found a diamond worth %d coin", item_list[i].gold);
 					UpdateScrollList(0, 255, 0);
@@ -3090,8 +3098,7 @@ void GetItem() {
 					// StartFlare(2);
 					PlayWavSound(SoundID("potion"), 100);
 					PlayWavSound(SoundID("goal4"), 100);
-					item_list[i].bIsPlayerAlive = FALSE;
-					item_list[i].bIsPlayerValid = FALSE;
+					StartTreasurePickupFx(i, true);
 					LevelUp(player_list[trueplayernum].xp);
 				}
 			}

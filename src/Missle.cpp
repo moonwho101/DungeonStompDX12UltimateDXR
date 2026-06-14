@@ -377,15 +377,11 @@ void DrawMissle(float fElapsedTime) {
 
 			your_missle[misslecount].rot_angle = fixangle(your_missle[misslecount].rot_angle, rotateSpeed);
 
-			fDot2 = your_missle[misslecount].rot_angle;
-
 			PlayerToD3DVertList(ob_type,
 			                    current_frame,
 			                    your_missle[misslecount].rot_angle,
 			                    your_missle[misslecount].skin_tex_id,
-			                    USE_DEFAULT_MODEL_TEX, wx, wy, wz);
-
-			fDot2 = 0.0f;
+			                    USE_DEFAULT_MODEL_TEX, wx, wy, wz, -1, your_missle[misslecount].rot_angle);
 		}
 	}
 }

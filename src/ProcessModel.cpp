@@ -372,7 +372,7 @@ void DrawBoundingBox() {
 	ConvertQuad(fan_cnt);
 }
 
-void PlayerToD3DVertList(int pmodel_id, int curr_frame, float angle, int texture_alias, int tex_flag, float xt, float yt, float zt, int nextFrame) {
+void PlayerToD3DVertList(int pmodel_id, int curr_frame, float angle, int texture_alias, int tex_flag, float xt, float yt, float zt, int nextFrame, float fDot2) {
 	// Normalize angle (degrees)
 	if (angle >= 360.0f)
 		angle -= 360.0f;
@@ -381,7 +381,7 @@ void PlayerToD3DVertList(int pmodel_id, int curr_frame, float angle, int texture
 
 	// Indexed 3DS models: forward to indexed path with the correct frame
 	if (pmdata[pmodel_id].use_indexed_primitive == TRUE) {
-		PlayerToD3DIndexedVertList(pmodel_id, curr_frame, angle, texture_alias, tex_flag, xt, yt, zt);
+		PlayerToD3DIndexedVertList(pmodel_id, curr_frame, angle, texture_alias, tex_flag, xt, yt, zt, fDot2);
 		return;
 	}
 
@@ -1436,6 +1436,9 @@ void AddItem(float x, float y, float z, float rot_angle, float monsterid, float 
 
 	item_list[itemlistcount].ability = (int)ability;
 	item_list[itemlistcount].gold = (int)ability;
+	item_list[itemlistcount].firespeed = 0;
+	item_list[itemlistcount].attackspeed = 0;
+	item_list[itemlistcount].applydamageonce = 0;
 	strcpy_s(item_list[itemlistcount].rname, modelid);
 	strcpy_s(item_list[itemlistcount].texturename, modeltexture);
 
@@ -1447,9 +1450,21 @@ void DrawItems(float fElapsedTime) {
 	int cullflag = 0;
 	int monsteron = 0;
 	float rotateSpeed = 100.0f * fElapsedTime;
+	const float pickupRiseSpeed = 350.0f; // world units per second
+
 
 	for (int i = 0; i < itemlistcount; i++) {
 		if (item_list[i].bIsPlayerValid == TRUE) {
+			bool pickupFxActive = (item_list[i].attackspeed > 0);
+			if (pickupFxActive) {
+				item_list[i].y = item_list[i].y + (pickupRiseSpeed * fElapsedTime);
+
+				if (item_list[i].y - item_list[i].guny > 150.0f) {
+					item_list[i].bIsPlayerValid = FALSE;
+					item_list[i].attackspeed = 0;
+					continue;
+				}
+			}
 
 			float qdist = FastDistance(
 			    m_vEyePt.x - item_list[i].x,
@@ -1467,6 +1482,9 @@ void DrawItems(float fElapsedTime) {
 				}
 
 				if (item_list[i].monsterid == 9999 && item_list[i].bIsPlayerAlive == TRUE)
+					cullflag = 1;
+
+				if (pickupFxActive)
 					cullflag = 1;
 
 				if (cullflag == 1) {
@@ -1569,7 +1587,7 @@ void DrawItems(float fElapsedTime) {
 	}
 }
 
-void PlayerToD3DIndexedVertList(int pmodel_id, int curr_frame, float angle, int texture_alias, int tex_flag, float xt, float yt, float zt) {
+void PlayerToD3DIndexedVertList(int pmodel_id, int curr_frame, float angle, int texture_alias, int tex_flag, float xt, float yt, float zt, float fDot2) {
 	float qdist = 0.0f;
 
 	int num_poly;

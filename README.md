@@ -10,7 +10,7 @@
 [![C++](https://img.shields.io/badge/language-C%2B%2B-orange?style=flat-square&logo=cplusplus)](https://github.com/moonwho101/DungeonStompDX12UltimateDXR)
 [![Visual Studio](https://img.shields.io/badge/VS-2022-purple?style=flat-square&logo=visualstudio)](https://visualstudio.microsoft.com/)
 
-![Dungeon Stomp DX12 DXR](Textures/screenshot33.jpg)
+![Dungeon Stomp DX12 DXR](Textures/screenshot36.jpg)
 
 **A fully playable, open-source C++ game engine demo showcasing DirectX 12 Ultimate's most advanced features — DXR 1.1 inline ray tracing, Variable Rate Shading, PBR, and SSAO — wrapped in a classic dungeon crawler with 15 levels, 25+ monsters, and 30+ weapons.**
 
@@ -217,11 +217,13 @@ The compiled binary is output to the `bin/` directory.
 
 | File | Purpose |
 |---|---|
-| `src/DungeonStompApp.cpp` | Application entry & D3D12 initialization |
+| `src/DungeonStomp.cpp` | Application entry (`WinMain`) & D3D12 initialization |
 | `src/DungeonStompRender.cpp` | Main rendering pipeline |
 | `src/DungeonStompUpdate.cpp` | Per-frame game update loop |
 | `src/GameLogic.cpp` | Monster AI, damage, combat logic |
 | `src/LoadWorld.cpp` | Level loading & world initialization |
+| `src/ParticleSystem.cpp` | CPU particle emitter system |
+| `src/VRSHelper.cpp` | Variable Rate Shading setup & tier detection |
 | `src/ImportMD2.cpp` | Animated MD2 model importer |
 | `src/Import3DS.cpp` | 3DS model importer |
 | `src/DXRHelper.cpp` | DXR acceleration structures & ray tracing setup |
