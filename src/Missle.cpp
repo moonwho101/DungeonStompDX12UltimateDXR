@@ -631,6 +631,17 @@ void ApplyMissleDamage(int playernum) {
 							UpdateScrollList(255, 0, 0);
 						}
 						ApplyPlayerDamage(trueplayernum, raction);
+
+							DSHitType spellHit = HIT_MISSILE;
+						// if      (strstr(your_missle[misslecount].gunname, "FIREBALL")  != NULL) spellHit = HIT_FIREBALL;
+						// else if (strstr(your_missle[misslecount].gunname, "LIGHTNING") != NULL) spellHit = HIT_LIGHTNING;
+
+						if (your_missle[misslecount].guntype == 20)
+							spellHit = HIT_LIGHTNING;
+						else if (your_missle[misslecount].guntype == 19)
+							spellHit = HIT_FIREBALL;
+
+						DisplayDamage(your_missle[misslecount].x - 2.0f, your_missle[misslecount].y - 20.0f, your_missle[misslecount].z, 1, i, 0, spellHit);
 					}
 				}
 			}
@@ -785,14 +796,17 @@ void FireMonsterMissle(int monsterid, int type) {
 	if (type == 1) {
 		your_missle[misslespot].model_id = 103;
 		your_missle[misslespot].skin_tex_id = 205;
+		your_missle[misslespot].guntype = 20;
 		your_missle[misslespot].smove = DSound_Replicate_Sound(SoundID("spell1"));
 	} else if (type == 2) {
 		your_missle[misslespot].model_id = 104;
 		your_missle[misslespot].skin_tex_id = 288;
+		your_missle[misslespot].guntype = 19;
 		your_missle[misslespot].smove = DSound_Replicate_Sound(SoundID("spell2"));
 	} else if (type == 3) {
 		your_missle[misslespot].model_id = 105;
 		your_missle[misslespot].skin_tex_id = 278;
+		your_missle[misslespot].guntype = 18;
 		your_missle[misslespot].smove = DSound_Replicate_Sound(SoundID("spell3"));
 	} else if (type == 4) {
 		your_missle[misslespot].model_id = 105;
