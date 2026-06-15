@@ -47,9 +47,6 @@ enum DSHitType {
 
 // ---- Public API -----------------------------------------------------------
 
-
-void SpawnBurstParticles(float x, float y, float z, bool critical);
-
 // Spawn a burst of hit particles at world-space (x, y, z).
 // Pass critical = true for a larger / longer-lived burst (critical hit).
 void SpawnHitParticles(float x, float y, float z, bool critical);
