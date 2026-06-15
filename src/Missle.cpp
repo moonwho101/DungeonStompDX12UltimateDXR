@@ -796,7 +796,7 @@ void FireMonsterMissle(int monsterid, int type) {
 	if (type == 1) {
 		your_missle[misslespot].model_id = 103;
 		your_missle[misslespot].skin_tex_id = 205;
-		your_missle[misslespot].guntype = 20;
+		your_missle[misslespot].guntype = 18;
 		your_missle[misslespot].smove = DSound_Replicate_Sound(SoundID("spell1"));
 	} else if (type == 2) {
 		your_missle[misslespot].model_id = 104;
@@ -806,7 +806,7 @@ void FireMonsterMissle(int monsterid, int type) {
 	} else if (type == 3) {
 		your_missle[misslespot].model_id = 105;
 		your_missle[misslespot].skin_tex_id = 278;
-		your_missle[misslespot].guntype = 18;
+		your_missle[misslespot].guntype = 20;
 		your_missle[misslespot].smove = DSound_Replicate_Sound(SoundID("spell3"));
 	} else if (type == 4) {
 		your_missle[misslespot].model_id = 105;
