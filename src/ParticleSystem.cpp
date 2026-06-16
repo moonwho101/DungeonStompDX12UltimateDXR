@@ -218,7 +218,7 @@ void SpawnMagicParticles(float x, float y, float z) {
 
     em->active        = true;
     em->type          = EMITTER_MAGIC;
-    em->particleCount = DS_MAX_PARTICLES;
+    em->particleCount = DS_MAX_PARTICLES/3;
 
     static const float twoPi = 6.28318530f;
 
@@ -242,7 +242,7 @@ void SpawnMagicParticles(float x, float y, float z) {
         p.life    = RandRange(8.0f, 14.0f);
         p.maxLife = p.life;
         p.size    = RandRange(1.0f, 2.0f);
-        p.drag    = RandRange(1.5f, 2.5f);
+        p.drag    = RandRange(1.5f, 1.5f);
         p.spin    = angle; // offset spin per particle for visual spread
         p.spinRate= RandRange(-3.0f, 3.0f);
     }
