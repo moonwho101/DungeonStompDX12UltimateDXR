@@ -1,7 +1,6 @@
 #include "d3dUtil.h"
 #include <comdef.h>
 #include <fstream>
-#include <atlbase.h> // For CComPtr
 
 using Microsoft::WRL::ComPtr;
 
@@ -121,18 +120,18 @@ ComPtr<ID3DBlob> d3dUtil::CompileShaderDXC(
     const std::string &target) {
 
 	// Create DXC compiler instance
-	CComPtr<IDxcUtils> pUtils;
-	CComPtr<IDxcCompiler3> pCompiler;
-	ThrowIfFailed(DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&pUtils)));
-	ThrowIfFailed(DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&pCompiler)));
+	ComPtr<IDxcUtils> pUtils;
+	ComPtr<IDxcCompiler3> pCompiler;
+	ThrowIfFailed(DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(pUtils.GetAddressOf())));
+	ThrowIfFailed(DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(pCompiler.GetAddressOf())));
 
 	// Create default include handler
-	CComPtr<IDxcIncludeHandler> pIncludeHandler;
-	ThrowIfFailed(pUtils->CreateDefaultIncludeHandler(&pIncludeHandler));
+	ComPtr<IDxcIncludeHandler> pIncludeHandler;
+	ThrowIfFailed(pUtils->CreateDefaultIncludeHandler(pIncludeHandler.GetAddressOf()));
 
 	// Load the source file
-	CComPtr<IDxcBlobEncoding> pSource;
-	ThrowIfFailed(pUtils->LoadFile(filename.c_str(), nullptr, &pSource));
+	ComPtr<IDxcBlobEncoding> pSource;
+	ThrowIfFailed(pUtils->LoadFile(filename.c_str(), nullptr, pSource.GetAddressOf()));
 
 	DxcBuffer sourceBuffer;
 	sourceBuffer.Ptr = pSource->GetBufferPointer();
@@ -171,17 +170,17 @@ ComPtr<ID3DBlob> d3dUtil::CompileShaderDXC(
 	}
 
 	// Compile
-	CComPtr<IDxcResult> pResults;
+	ComPtr<IDxcResult> pResults;
 	ThrowIfFailed(pCompiler->Compile(
 	    &sourceBuffer,
 	    arguments.data(),
 	    (UINT32)arguments.size(),
-	    pIncludeHandler,
-	    IID_PPV_ARGS(&pResults)));
+	    pIncludeHandler.Get(),
+	    IID_PPV_ARGS(pResults.GetAddressOf())));
 
 	// Check for errors
-	CComPtr<IDxcBlobUtf8> pErrors;
-	pResults->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&pErrors), nullptr);
+	ComPtr<IDxcBlobUtf8> pErrors;
+	pResults->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(pErrors.GetAddressOf()), nullptr);
 	if (pErrors && pErrors->GetStringLength() > 0) {
 		OutputDebugStringA((char *)pErrors->GetStringPointer());
 	}
@@ -191,8 +190,8 @@ ComPtr<ID3DBlob> d3dUtil::CompileShaderDXC(
 	ThrowIfFailed(hrStatus);
 
 	// Get compiled shader
-	CComPtr<IDxcBlob> pShader;
-	ThrowIfFailed(pResults->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&pShader), nullptr));
+	ComPtr<IDxcBlob> pShader;
+	ThrowIfFailed(pResults->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(pShader.GetAddressOf()), nullptr));
 
 	// Copy to ID3DBlob for compatibility
 	ComPtr<ID3DBlob> byteCode;
