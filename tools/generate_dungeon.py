@@ -62,12 +62,14 @@ def rotate_dir(dx, dz, angle):
     return rotate(dx, dz, angle)
 
 def generate():
+    print("Starting dungeon generation...")
     placed = []
     entities = []
     failed_exits = []
     entity_id_idx = 100
     
     # Start with a single room at some coordinate base
+    print("Placing initial starting ROOM2...")
     placed.append({
         'name': 'ROOM2',
         'x': 2000,
@@ -154,20 +156,26 @@ def generate():
                                 'rot': ang
                             })
                             placed_new = True
+                            print(f"Placed {cand_name} at ({Ox:.1f}, {Oz:.1f}) [Rot: {ang}]")
                             
                             if cand_name == 'ROOM2':
                                 r = random.random()
+                                ent_type = None
                                 if r < 0.15:
+                                    ent_type = 'POTION'
                                     entities.append({'type': 'POTION', 'name': '-1', 'x': Ox, 'y': -22.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
-                                    entity_id_idx += 1
                                 elif r < 0.30:
+                                    ent_type = 'COIN'
                                     entities.append({'type': 'COIN', 'name': '-1', 'x': Ox, 'y': -185.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
-                                    entity_id_idx += 1
                                 elif r < 0.45:
+                                    ent_type = 'GOBLIN'
                                     entities.append({'type': 'GOBLIN', 'name': 'goblin', 'x': Ox, 'y': 10.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
-                                    entity_id_idx += 1
                                 elif r < 0.55:
+                                    ent_type = 'OGRE'
                                     entities.append({'type': 'OGRE', 'name': 'ogre', 'x': Ox, 'y': 10.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
+                                
+                                if ent_type:
+                                    print(f"  -> Spawned {ent_type} in ROOM2")
                                     entity_id_idx += 1
                             
                             # Add its newly made exits
@@ -190,8 +198,32 @@ def generate():
     
     open_exits.extend(failed_exits)
     
-    # Cap any leftover exits that couldn't be connected with a dead-end wall
-    for open_ex in open_exits:
+    # Build the set of exit positions that are already connected between two placed pieces.
+    # This can happen when two different pieces generate exits at the same world position;
+    # the first gets connected successfully, but the second fails (collision) and would 
+    # otherwise be incorrectly walled.
+    all_piece_exits = []
+    for p in placed:
+        for ext in OBJECTS[p['name']]:
+            rp = rotate(ext['pos'][0], ext['pos'][1], p['rot'])
+            rd = rotate_dir(ext['out'][0], ext['out'][1], p['rot'])
+            all_piece_exits.append((round(p['x'] + rp[0]), round(p['z'] + rp[1]), rd[0], rd[1]))
+
+    connected_positions = set()
+    for (ex, ez, edx, edz) in all_piece_exits:
+        for (ex2, ez2, edx2, edz2) in all_piece_exits:
+            if ex == ex2 and ez == ez2 and edx == -edx2 and edz == -edz2:
+                connected_positions.add((ex, ez))
+
+    dead_end_exits = [o for o in open_exits if (round(o['wx']), round(o['wz'])) not in connected_positions]
+    skipped = len(open_exits) - len(dead_end_exits)
+    if skipped:
+        print(f"  Skipping {skipped} exits that are already connected to placed pieces.")
+
+    print(f"Generation loop completed. {len(placed)} tiles placed. Sealing {len(dead_end_exits)} open exits with dead-end walls...")
+    
+    # Cap only truly unconnected exits with a dead-end wall
+    for open_ex in dead_end_exits:
         wx, wz = open_ex['wx'], open_ex['wz']
         wdx, wdz = open_ex['wdx'], open_ex['wdz']
         
@@ -247,6 +279,9 @@ def generate():
             
         f.write("END_FILE\n")
 
+    num_walls = sum(1 for e in entities if e['type'] == 'wall')
+    num_mobs = len(entities) - num_walls
+    print(f"Successfully saved to bin/level1.map! ({len(placed)} tiles, {num_mobs} entities, {num_walls} walls)")
+
 if __name__ == '__main__':
     generate()
-    print("Dungeon generated at bin/level1.map.")
