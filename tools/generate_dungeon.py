@@ -183,6 +183,33 @@ def generate():
                                 })
                         break 
     
+    # Cap any leftover exits that couldn't be connected with a dead-end wall
+    for open_ex in open_exits:
+        wx, wz = open_ex['wx'], open_ex['wz']
+        wdx, wdz = open_ex['wdx'], open_ex['wdz']
+        
+        # We need the normal of the wall to face into the tunnel opposing the exit direction.
+        # It's an east-west piece naturally. We apply an additional 180deg flip so the 
+        # textured face points inwards instead of outwards.
+        ndx, ndz = -wdx, -wdz
+        wall_rot = 0
+        if ndx == 0 and ndz == -1: wall_rot = 270
+        elif ndx == 1 and ndz == 0: wall_rot = 0
+        elif ndx == 0 and ndz == 1: wall_rot = 90
+        elif ndx == -1 and ndz == 0: wall_rot = 180
+        
+        entities.append({
+            'type': 'wall',
+            'name': 'cobblestone4',
+            'x': wx,
+            'y': 0.0,
+            'z': wz,
+            'rot': wall_rot,
+            'id': entity_id_idx,
+            'state': 0
+        })
+        entity_id_idx += 1
+
     out_file = os.path.join(os.path.dirname(__file__), '..', 'bin', 'level1.map')
     # Save safely
     with open(out_file, 'w') as f:
@@ -197,9 +224,14 @@ def generate():
             f.write(f"ROT_ANGLE {p['rot']}\n")
             
         for e in entities:
-            f.write(f"OBJECT !monster1\n")
-            f.write(f"CO_ORDINATES {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}\n")
-            f.write(f"ROT_ANGLE {e['rot']} {e['type']} {e['name']} {e['id']} {e['state']}\n")
+            if e['type'] == 'wall':
+                f.write(f"OBJECT !wall0-240-160\n")
+                f.write(f"CO_ORDINATES {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}\n")
+                f.write(f"ROT_ANGLE {e['rot']} 0 {e['name']} {e['id']} 0\n")
+            else:
+                f.write(f"OBJECT !monster1\n")
+                f.write(f"CO_ORDINATES {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}\n")
+                f.write(f"ROT_ANGLE {e['rot']} {e['type']} {e['name']} {e['id']} {e['state']}\n")
             
         f.write("END_FILE\n")
 
