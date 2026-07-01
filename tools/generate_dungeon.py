@@ -29,6 +29,26 @@ OBJECTS = {
     ]
 }
 
+BOUNDING_BOXES = {
+    'ROOM2': (-78, -158, 78, 158),
+    'crossroads': (-38, 2, 198, 238),
+    't_junction': (-38, 2, 198, 238),
+    'left_corner': (-38, 2, 158, 198)
+}
+
+def get_world_bounds(name, ox, oz, rot):
+    min_x, min_z, max_x, max_z = BOUNDING_BOXES[name]
+    corners = [
+        (min_x, min_z),
+        (max_x, min_z),
+        (min_x, max_z),
+        (max_x, max_z)
+    ]
+    rotated = [rotate(cx, cz, rot) for cx, cz in corners]
+    wx = [c[0] + ox for c in rotated]
+    wz = [c[1] + oz for c in rotated]
+    return min(wx), min(wz), max(wx), max(wz)
+
 def rotate(x, z, angle):
     # Depending on coordinate handedness, DX12 matches CCW or CW.
     # We found that 90 degrees CCW maps cleanly for our derived offsets.
@@ -61,21 +81,20 @@ def generate():
         wz = 1000 + rp[1]
         open_exits.append({
             'wx': wx, 'wz': wz,
-            'wdx': rd[0], 'wdz': rd[1]
+            'wdx': rd[0], 'wdz': rd[1],
+            'source_name': 'ROOM2'
         })
         
-    num_objects_to_place = 50
+    num_objects_to_place = 350
     
-    # A rough collision detection using simple center thresholds
-    def check_collision(nx, nz, n_name):
+    # AABB collision detection to prevent overlapping
+    def check_collision(nx, nz, n_name, n_rot):
+        n_minx, n_minz, n_maxx, n_maxz = get_world_bounds(n_name, nx, nz, n_rot)
         for p in placed:
-            dx = p['x'] - nx
-            dz = p['z'] - nz
-            dist = math.sqrt(dx*dx + dz*dz)
-            # Threshold distance. Since we are grid snapping tunnels, 
-            # objects sharing exits don't map centers exactly linearly,
-            # but they should be at least ~140 units apart.
-            if dist < 140:
+            p_minx, p_minz, p_maxx, p_maxz = get_world_bounds(p['name'], p['x'], p['z'], p['rot'])
+            # Check for rectangle overlap
+            if (n_minx < p_maxx and n_maxx > p_minx and
+                n_minz < p_maxz and n_maxz > p_minz):
                 return True
         return False
 
@@ -88,10 +107,16 @@ def generate():
         O = open_exits.pop(exit_idx)
         wx, wz = O['wx'], O['wz']
         wdx, wdz = O['wdx'], O['wdz']
+        source_name = O.get('source_name', 'ROOM2')
         
         placed_new = False
         
-        types = list(OBJECTS.keys())
+        if source_name != 'ROOM2':
+            # Intersections and corners can only attach to ROOM2
+            types = ['ROOM2']
+        else:
+            # ROOM2 can attach to anything
+            types = list(OBJECTS.keys())
         random.shuffle(types)
         
         for cand_name in types:
@@ -117,8 +142,8 @@ def generate():
                         Ox = wx - rp[0]
                         Oz = wz - rp[1]
                         
-                        # Apply rough circle collision distance
-                        if not check_collision(Ox, Oz, cand_name):
+                        # Apply AABB collision check
+                        if not check_collision(Ox, Oz, cand_name, ang):
                             placed.append({
                                 'name': cand_name,
                                 'x': Ox,
@@ -136,7 +161,8 @@ def generate():
                                     'wx': Ox + op[0],
                                     'wz': Oz + op[1],
                                     'wdx': od[0],
-                                    'wdz': od[1]
+                                    'wdz': od[1],
+                                    'source_name': cand_name
                                 })
                         break 
     
