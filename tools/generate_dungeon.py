@@ -63,6 +63,8 @@ def rotate_dir(dx, dz, angle):
 
 def generate():
     placed = []
+    entities = []
+    entity_id_idx = 100
     
     # Start with a single room at some coordinate base
     placed.append({
@@ -85,7 +87,7 @@ def generate():
             'source_name': 'ROOM2'
         })
         
-    num_objects_to_place = 350
+    num_objects_to_place = 25
     
     # AABB collision detection to prevent overlapping
     def check_collision(nx, nz, n_name, n_rot):
@@ -152,6 +154,21 @@ def generate():
                             })
                             placed_new = True
                             
+                            if cand_name == 'ROOM2':
+                                r = random.random()
+                                if r < 0.15:
+                                    entities.append({'type': 'POTION', 'name': '-1', 'x': Ox, 'y': -22.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
+                                    entity_id_idx += 1
+                                elif r < 0.30:
+                                    entities.append({'type': 'COIN', 'name': '-1', 'x': Ox, 'y': -185.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
+                                    entity_id_idx += 1
+                                elif r < 0.45:
+                                    entities.append({'type': 'GOBLIN', 'name': 'goblin', 'x': Ox, 'y': 10.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
+                                    entity_id_idx += 1
+                                elif r < 0.55:
+                                    entities.append({'type': 'OGRE', 'name': 'ogre', 'x': Ox, 'y': 10.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
+                                    entity_id_idx += 1
+                            
                             # Add its newly made exits
                             for i, other_ext in enumerate(cand_exits):
                                 if i == ext_idx: continue
@@ -178,6 +195,11 @@ def generate():
             f.write(f"OBJECT {p['name']}\n")
             f.write(f"CO_ORDINATES {p['x']:.6f} 0.000000 {p['z']:.6f}\n")
             f.write(f"ROT_ANGLE {p['rot']}\n")
+            
+        for e in entities:
+            f.write(f"OBJECT !monster1\n")
+            f.write(f"CO_ORDINATES {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}\n")
+            f.write(f"ROT_ANGLE {e['rot']} {e['type']} {e['name']} {e['id']} {e['state']}\n")
             
         f.write("END_FILE\n")
 
