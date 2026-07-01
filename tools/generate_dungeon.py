@@ -64,6 +64,7 @@ def rotate_dir(dx, dz, angle):
 def generate():
     placed = []
     entities = []
+    failed_exits = []
     entity_id_idx = 100
     
     # Start with a single room at some coordinate base
@@ -87,7 +88,7 @@ def generate():
             'source_name': 'ROOM2'
         })
         
-    num_objects_to_place = 25
+    num_objects_to_place = 125
     
     # AABB collision detection to prevent overlapping
     def check_collision(nx, nz, n_name, n_rot):
@@ -182,6 +183,12 @@ def generate():
                                     'source_name': cand_name
                                 })
                         break 
+        
+        if not placed_new:
+            # We couldn't place anything here due to collisions. Keep it to cap it later!
+            failed_exits.append(O)
+    
+    open_exits.extend(failed_exits)
     
     # Cap any leftover exits that couldn't be connected with a dead-end wall
     for open_ex in open_exits:
