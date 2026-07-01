@@ -198,6 +198,11 @@ def generate():
         elif ndx == 0 and ndz == 1: wall_rot = 90
         elif ndx == -1 and ndz == 0: wall_rot = 180
         
+        # If the wall is originally generated shifting halfway to its right,
+        # We shift its local center 80 units to the 'right' relative to its facing normal.
+        wx += ndz * 80
+        wz += -ndx * 80
+        
         entities.append({
             'type': 'wall',
             'name': 'cobblestone4',
