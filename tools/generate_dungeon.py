@@ -26,6 +26,9 @@ OBJECTS = {
     'left_corner': [
         {'pos': (80, 0), 'out': DIR_S},
         {'pos': (-40, 120), 'out': DIR_W}
+    ],
+    'ROOM_SQUARE': [
+        {'pos': (240, 0), 'out': DIR_E}
     ]
 }
 
@@ -33,7 +36,8 @@ BOUNDING_BOXES = {
     'ROOM2': (-78, -158, 78, 158),
     'crossroads': (-38, 2, 198, 238),
     't_junction': (-38, 2, 198, 238),
-    'left_corner': (-38, 2, 158, 198)
+    'left_corner': (-38, 2, 158, 198),
+    'ROOM_SQUARE': (-238, -238, 238, 238)
 }
 
 def get_world_bounds(name, ox, oz, rot):
@@ -90,7 +94,7 @@ def generate():
             'source_name': 'ROOM2'
         })
         
-    num_objects_to_place = 125
+    num_objects_to_place = 155
     
     # AABB collision detection to prevent overlapping
     def check_collision(nx, nz, n_name, n_rot):
