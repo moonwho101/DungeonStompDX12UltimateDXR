@@ -65,7 +65,7 @@ def rotate(x, z, angle):
 def rotate_dir(dx, dz, angle):
     return rotate(dx, dz, angle)
 
-def generate():
+def generate(start_x=2000, start_z=2000):
     print("Starting dungeon generation...")
     placed = []
     entities = []
@@ -76,8 +76,8 @@ def generate():
     print("Placing initial starting ROOM2...")
     placed.append({
         'name': 'ROOM2',
-        'x': 2000,
-        'z': 1000,
+        'x': start_x,
+        'z': start_z,
         'rot': 0
     })
     
@@ -86,8 +86,8 @@ def generate():
     for ext in OBJECTS['ROOM2']:
         rp = rotate(ext['pos'][0], ext['pos'][1], 0)
         rd = rotate_dir(ext['out'][0], ext['out'][1], 0)
-        wx = 2000 + rp[0]
-        wz = 1000 + rp[1]
+        wx = start_x + rp[0]
+        wz = start_z + rp[1]
         open_exits.append({
             'wx': wx, 'wz': wz,
             'wdx': rd[0], 'wdz': rd[1],
@@ -263,7 +263,7 @@ def generate():
     with open(out_file, 'w') as f:
         # Include start position 
         f.write("OBJECT startpos\n")
-        f.write("CO_ORDINATES 2000.000000 0.000000 1000.000000\n")
+        f.write(f"CO_ORDINATES {start_x:.6f} 0.000000 {start_z:.6f}\n")
         f.write("ROT_ANGLE 0\n")
         
         for p in placed:
