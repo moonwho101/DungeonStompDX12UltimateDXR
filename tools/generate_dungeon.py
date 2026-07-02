@@ -32,6 +32,10 @@ OBJECTS = {
     'ROOM_SQUARE': [
         {'pos': (240, 0), 'out': DIR_E}
     ],
+    'ROOMEDIUM': [
+        {'pos': (-160, 0), 'out': DIR_W},
+        {'pos': (160, 0), 'out': DIR_E}
+    ],
     'slope_stairs': [
         {'pos': (0, -160), 'out': DIR_S, 'y': 80},
         {'pos': (0,  160), 'out': DIR_N, 'y': -60}
@@ -44,6 +48,7 @@ BOUNDING_BOXES = {
     't_junction':   (-38,    2, 198, 238),
     'left_corner':  (-38,    2, 158, 198),
     'ROOM_SQUARE': (-238, -238, 238, 238),
+    'ROOMEDIUM': (-158, -238, 158, 238),
     'slope_stairs': (-78, -158,  78, 158)
 }
 
