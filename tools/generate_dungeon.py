@@ -162,7 +162,7 @@ def generate():
                             placed_new = True
                             print(f"Placed {cand_name} at ({Ox:.1f}, {Oz:.1f}) [Rot: {ang}]")
                             
-                            if cand_name == 'ROOM2':
+                            if cand_name == 'ROOM2' or cand_name == 'ROOM_SQUARE':
                                 r = random.random()
                                 ent_type = None
                                 if r < 0.15:
@@ -170,7 +170,7 @@ def generate():
                                     entities.append({'type': 'POTION', 'name': '-1', 'x': Ox, 'y': -22.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
                                 elif r < 0.30:
                                     ent_type = 'COIN'
-                                    entities.append({'type': 'COIN', 'name': '-1', 'x': Ox, 'y': -185.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
+                                    entities.append({'type': 'COIN', 'name': '-1', 'x': Ox, 'y': -22.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
                                 elif r < 0.45:
                                     ent_type = 'GOBLIN'
                                     entities.append({'type': 'GOBLIN', 'name': 'goblin', 'x': Ox, 'y': 10.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
