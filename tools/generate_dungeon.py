@@ -162,6 +162,29 @@ def generate(start_x=2000, start_z=2000):
                             placed_new = True
                             print(f"Placed {cand_name} at ({Ox:.1f}, {Oz:.1f}) [Rot: {ang}]")
                             
+                            if cand_name == 'ROOM2':
+                                if random.random() < 0.4:  # 40% chance to have a torch light
+                                    is_left = random.random() < 0.5
+                                    z_offset = random.uniform(-100, 100)
+                                    if is_left:
+                                        lx, lz = -80, z_offset
+                                        fx, fz = -60, z_offset
+                                        trot = 270
+                                    else:
+                                        lx, lz = 80, z_offset
+                                        fx, fz = 60, z_offset
+                                        trot = 90
+                                        
+                                    wlx, wlz = rotate(lx, lz, ang)
+                                    wfx, wfz = rotate(fx, fz, ang)
+                                    t_rot = (trot + ang) % 360
+                                        
+                                    entities.append({'type': 'torch', 'x': Ox + wlx, 'y': 60.0, 'z': Oz + wlz, 'rot': t_rot, 'id': entity_id_idx, 'state': 0})
+                                    entities.append({'type': '!flamesnohit', 'name': 'flame@1', 'x': Ox + wfx, 'y': 60.0, 'z': Oz + wfz, 'rot': 0, 'id': entity_id_idx, 'state': 4})
+                                    entities.append({'type': 'lamp_post', 'x': Ox + wfx, 'y': 80.0, 'z': Oz + wfz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
+                                    entities.append({'type': 'LIGHT_SOURCE', 'name': 'flicker', 'x': Ox + wfx, 'y': 0.0, 'z': Oz + wfz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
+                                    print(f"  -> Spawned torch light in ROOM2")
+
                             if cand_name == 'ROOM2' or cand_name == 'ROOM_SQUARE':
                                 r = random.random()
                                 ent_type = None
@@ -276,6 +299,20 @@ def generate(start_x=2000, start_z=2000):
                 f.write(f"OBJECT !wall0-240-160\n")
                 f.write(f"CO_ORDINATES {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}\n")
                 f.write(f"ROT_ANGLE {e['rot']} 0 {e['name']} {e['id']} 0\n")
+            elif e['type'] == 'torch':
+                f.write(f"OBJECT torch\n")
+                f.write(f"CO_ORDINATES {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}\n")
+                f.write(f"ROT_ANGLE {e['rot']}\n")
+            elif e['type'] == '!flamesnohit':
+                f.write(f"OBJECT !flamesnohit\n")
+                f.write(f"CO_ORDINATES {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}\n")
+                f.write(f"ROT_ANGLE {e['rot']} 0 {e['name']} {e['state']} 0\n")
+            elif e['type'] == 'lamp_post':
+                f.write(f"OBJECT lamp_post\n")
+                f.write(f"CO_ORDINATES {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}\n")
+                f.write(f"ROT_ANGLE {e['rot']}\n")
+            elif e['type'] == 'LIGHT_SOURCE':
+                f.write(f"LIGHT_SOURCE {e['name']} POS {e['x']:.6f} {e['y']:.6f} {e['z']:.6f} DIR 0.000000 -1.000000 0.000000 COLOUR 0.200000 0.200000 0.200000\n")
             else:
                 f.write(f"OBJECT !monster1\n")
                 f.write(f"CO_ORDINATES {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}\n")
