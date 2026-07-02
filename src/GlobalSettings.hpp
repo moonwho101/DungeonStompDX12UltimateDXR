@@ -18,7 +18,7 @@
 #define MAX_NUM_3DS 150
 #define MAX_NUM_MONSTERS 260
 #define MAX_NUM_GUNS 30
-#define MAX_OBJECTLIST 1000
+#define MAX_OBJECTLIST 5000
 #define MAX_OBJECTDATA 190
 
 #define MaxLights 32
