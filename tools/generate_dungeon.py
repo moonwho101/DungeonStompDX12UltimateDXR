@@ -185,6 +185,26 @@ def generate(start_x=2000, start_z=2000):
                                     entities.append({'type': 'LIGHT_SOURCE', 'name': 'flicker', 'x': Ox + wfx, 'y': 0.0, 'z': Oz + wfz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
                                     print(f"  -> Spawned torch light in ROOM2")
 
+                            if cand_name == 'ROOM_SQUARE':
+                                if random.random() < 0.5:  # 50% chance for a door
+                                    door_type = f"door{random.randint(1, 21)}"
+                                    
+                                    if wdx == 0 and wdz == 1:
+                                        d_rot = 0
+                                    elif wdx == -1 and wdz == 0:
+                                        d_rot = 90
+                                    elif wdx == 0 and wdz == -1:
+                                        d_rot = 180
+                                    else:
+                                        d_rot = 270
+                                        
+                                    door_lx, door_lz = -40, 0
+                                    door_wx, door_wz = rotate(door_lx, door_lz, d_rot)
+                                    
+                                    entities.append({'type': 'dframe', 'x': wx, 'y': 0.0, 'z': wz, 'rot': d_rot, 'id': entity_id_idx, 'state': 0})
+                                    entities.append({'type': door_type, 'x': wx + door_wx, 'y': 0.0, 'z': wz + door_wz, 'rot': d_rot, 'id': entity_id_idx, 'state': 0})
+                                    print(f"  -> Spawned door ({door_type}) at ROOM_SQUARE entrance")
+
                             if cand_name == 'ROOM2' or cand_name == 'ROOM_SQUARE':
                                 r = random.random()
                                 ent_type = None
@@ -313,6 +333,14 @@ def generate(start_x=2000, start_z=2000):
                 f.write(f"ROT_ANGLE {e['rot']}\n")
             elif e['type'] == 'LIGHT_SOURCE':
                 f.write(f"LIGHT_SOURCE {e['name']} POS {e['x']:.6f} {e['y']:.6f} {e['z']:.6f} DIR 0.000000 -1.000000 0.000000 COLOUR 0.200000 0.200000 0.200000\n")
+            elif e['type'] == 'dframe':
+                f.write(f"OBJECT dframe\n")
+                f.write(f"CO_ORDINATES {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}\n")
+                f.write(f"ROT_ANGLE {e['rot']}\n")
+            elif e['type'].startswith('door'):
+                f.write(f"OBJECT {e['type']}\n")
+                f.write(f"CO_ORDINATES {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}\n")
+                f.write(f"ROT_ANGLE {e['rot']} 0\n")
             else:
                 f.write(f"OBJECT !monster1\n")
                 f.write(f"CO_ORDINATES {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}\n")
