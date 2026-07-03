@@ -208,6 +208,9 @@ def generate(start_x=2000, start_z=2000):
                                 elif r < 0.65:
                                     ent_type = 'OGRE'
                                     entities.append({'type': 'OGRE',   'name': 'ogre',  'x': Ox, 'y': Oy+10.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
+                                elif r < 0.75:
+                                    ent_type = 'TENTACLE'
+                                    entities.append({'type': 'TENTACLE',   'name': 'tentacle',  'x': Ox, 'y': Oy+10.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
                                 if ent_type:
                                     print(f"  -> Spawned {ent_type}")
                                     entity_id_idx += 1
