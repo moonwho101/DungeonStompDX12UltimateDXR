@@ -200,8 +200,8 @@ def generate(start_x=2000, start_z=2000):
                                     entities.append({'type': 'COIN',   'name': '-1',    'x': Ox, 'y': Oy-22.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
                                 elif r < 0.40:
                                     ent_type = 'CHEST'
-                                    # Closed dungeon chest
-                                    entities.append({'type': 'cdoorclosedwoodbox', 'name': '0', 'x': Ox, 'y': Oy-22.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
+                                    # Closed dungeon chest matched to piece rotation
+                                    entities.append({'type': 'cdoorclosedwoodbox', 'name': '0', 'x': Ox, 'y': Oy-22.0, 'z': Oz, 'rot': ang, 'id': entity_id_idx, 'state': 0})
                                 elif r < 0.55:
                                     ent_type = 'GOBLIN'
                                     entities.append({'type': 'GOBLIN', 'name': 'goblin','x': Ox, 'y': Oy+10.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
