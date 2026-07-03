@@ -189,7 +189,7 @@ def generate(start_x=2000, start_z=2000):
                                 print(f"  -> Spawned door ({door_type}) at {cand_name} entrance")
 
                             # --- Monsters / loot in room/stair pieces ---
-                            if cand_name in ('ROOM2', 'ROOM_SQUARE', 'slope_stairs'):
+                            if cand_name in ('ROOM2', 'ROOM_SQUARE', 'ROOMEDIUM'):
                                 r = random.random()
                                 ent_type = None
                                 if r < 0.15:
@@ -198,10 +198,14 @@ def generate(start_x=2000, start_z=2000):
                                 elif r < 0.30:
                                     ent_type = 'COIN'
                                     entities.append({'type': 'COIN',   'name': '-1',    'x': Ox, 'y': Oy-22.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
-                                elif r < 0.45:
+                                elif r < 0.40:
+                                    ent_type = 'CHEST'
+                                    # Closed dungeon chest
+                                    entities.append({'type': 'cdoorclosedwoodbox', 'name': '0', 'x': Ox, 'y': Oy-22.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
+                                elif r < 0.55:
                                     ent_type = 'GOBLIN'
                                     entities.append({'type': 'GOBLIN', 'name': 'goblin','x': Ox, 'y': Oy+10.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
-                                elif r < 0.55:
+                                elif r < 0.65:
                                     ent_type = 'OGRE'
                                     entities.append({'type': 'OGRE',   'name': 'ogre',  'x': Ox, 'y': Oy+10.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
                                 if ent_type:
