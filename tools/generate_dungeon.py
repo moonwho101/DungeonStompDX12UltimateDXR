@@ -94,7 +94,7 @@ def generate(start_x=2000, start_z=2000):
             'source_name': 'ROOM2'
         })
 
-    num_objects_to_place = 800
+    num_objects_to_place = 900
 
     def check_collision(nx, nz, n_name, n_rot):
         n_minx, n_minz, n_maxx, n_maxz = get_world_bounds(n_name, nx, nz, n_rot)
@@ -195,9 +195,13 @@ def generate(start_x=2000, start_z=2000):
                                 if r < 0.15:
                                     ent_type = 'POTION'
                                     entities.append({'type': 'POTION', 'name': '-1',    'x': Ox, 'y': Oy-22.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
-                                elif r < 0.30:
+                                elif r < 0.25:
                                     ent_type = 'COIN'
                                     entities.append({'type': 'COIN',   'name': '-1',    'x': Ox, 'y': Oy-22.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
+                                elif r < 0.32:
+                                    scroll_type = random.choice(['SCROLL-HEALING-', 'SCROLL-MAGICMISSLE-', 'SCROLL-FIREBALL-','SCROLL-LIGHTNING-'])
+                                    ent_type = scroll_type
+                                    entities.append({'type': scroll_type, 'name': '-1', 'x': Ox, 'y': Oy-22.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
                                 elif r < 0.40:
                                     ent_type = 'CHEST'
                                     # Closed dungeon chest matched to piece rotation
