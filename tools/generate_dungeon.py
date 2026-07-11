@@ -193,8 +193,8 @@ def generate(start_x=2000, start_z=2000):
                                 r = random.random()
                                 ent_type = None
                                 if r < 0.15:
-                                    ent_type = 'POTION'
-                                    entities.append({'type': 'POTION', 'name': '-1',    'x': Ox, 'y': Oy-22.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
+                                    ent_type = random.choice(['POTION', 'cheese1'])
+                                    entities.append({'type': ent_type, 'name': '-1',    'x': Ox, 'y': Oy-22.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
                                 elif r < 0.25:
                                     ent_type = 'COIN'
                                     entities.append({'type': 'COIN',   'name': '-1',    'x': Ox, 'y': Oy-22.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
@@ -219,8 +219,9 @@ def generate(start_x=2000, start_z=2000):
                                     entities.append({'type': weapon_type, 'name': '-1', 'x': Ox, 'y': Oy+22.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
                                 elif r < 0.45:
                                     ent_type = 'CHEST'
-                                    # Closed dungeon chest matched to piece rotation
-                                    entities.append({'type': 'cdoorclosedwoodbox', 'name': '0', 'x': Ox, 'y': Oy-22.0, 'z': Oz, 'rot': ang, 'id': entity_id_idx, 'state': 0})
+                                    # Closed dungeon chest matched to piece rotation (wooden chest or barrel)
+                                    chest_choice = random.choice(['cdoorclosedwoodbox', 'cdoorclosedbarrel', 'cdoorclosedmetalbox'])
+                                    entities.append({'type': chest_choice, 'name': '0', 'x': Ox, 'y': Oy-22.0, 'z': Oz, 'rot': ang, 'id': entity_id_idx, 'state': 0})
                                 elif r < 0.75: # 30% chance for monsters
                                     # Depth-based monster spawning
                                     depth = abs(Oy)
