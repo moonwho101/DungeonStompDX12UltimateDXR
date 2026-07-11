@@ -206,7 +206,14 @@ def generate(start_x=2000, start_z=2000):
                                     ent_type = scroll_type
                                     entities.append({'type': scroll_type, 'name': '-1', 'x': Ox, 'y': Oy-22.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
                                 elif r < 0.37:
-                                    weapon_types = ['FLAMESWORD', 'BASTARDSWORD', 'BATTLEAXE', 'ICESWORD', 'LIGHTNINGSWORD', 'MORNINGSTAR', 'SPIKEDFLAIL', 'SPLITSWORD', 'SUPERFLAMESWORD']
+                                    depth = abs(Oy)
+                                    if depth < 140 * 2:
+                                        weapon_types = ['BASTARDSWORD', 'FLAMESWORD', 'BATTLEAXE']
+                                    elif depth < 140 * 4:
+                                        weapon_types = ['ICESWORD', 'LIGHTNINGSWORD', 'MORNINGSTAR']
+                                    else:
+                                        weapon_types = ['SPLITSWORD', 'SPIKEDFLAIL', 'SUPERFLAMESWORD']
+                                    
                                     weapon_type = random.choice(weapon_types)
                                     ent_type = weapon_type
                                     entities.append({'type': weapon_type, 'name': '-1', 'x': Ox, 'y': Oy+22.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
