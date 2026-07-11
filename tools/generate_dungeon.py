@@ -153,6 +153,16 @@ def generate(start_x=2000, start_z=2000):
                             placed_new = True
                             print(f"Placed {cand_name} at ({Ox:.1f}, {Oy:.1f}, {Oz:.1f}) [Rot: {ang}]")
 
+                            # --- Spotlight overhead ---
+                            if random.random() < 0.25: # 25% chance per piece
+                                s_y = Oy + random.choice([200.0, 300.0, 400.0])
+                                r_col = random.choice([0.2, 0.3, 0.4])
+                                g_col = random.choice([0.2, 0.3, 0.4])
+                                b_col = random.choice([0.3, 0.4, 0.5])
+                                entities.append({'type': 'lamp_post', 'x': Ox, 'y': s_y, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0, 'name': ''})
+                                entities.append({'type': 'LIGHT_SOURCE', 'name': 'Spotlight', 'x': Ox, 'y': s_y, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0, 'color': (r_col, g_col, b_col)})
+                                print(f"  -> Spawned Spotlight overhead")
+
                             # --- Torch light in ROOM2 ---
                             if cand_name == 'ROOM2':
                                 if random.random() < 0.4:
@@ -336,8 +346,9 @@ def generate(start_x=2000, start_z=2000):
                 f.write(f"CO_ORDINATES {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}\n")
                 f.write(f"ROT_ANGLE {e['rot']}\n")
             elif t == 'LIGHT_SOURCE':
+                color = e.get('color', (0.2, 0.2, 0.2))
                 f.write(f"LIGHT_SOURCE {e['name']} POS {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}"
-                        f" DIR 0.000000 -1.000000 0.000000 COLOUR 0.200000 0.200000 0.200000\n")
+                        f" DIR 0.000000 -1.000000 0.000000 COLOUR {color[0]:.6f} {color[1]:.6f} {color[2]:.6f}\n")
             elif t == 'dframe':
                 f.write(f"OBJECT dframe\n")
                 f.write(f"CO_ORDINATES {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}\n")
