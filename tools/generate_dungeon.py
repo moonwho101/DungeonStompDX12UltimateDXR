@@ -94,7 +94,7 @@ def generate(start_x=2000, start_z=2000):
             'source_name': 'ROOM2'
         })
 
-    num_objects_to_place = 900
+    num_objects_to_place = 500
 
     def check_collision(nx, nz, n_name, n_rot):
         n_minx, n_minz, n_maxx, n_maxz = get_world_bounds(n_name, nx, nz, n_rot)
@@ -214,15 +214,23 @@ def generate(start_x=2000, start_z=2000):
                                     ent_type = 'CHEST'
                                     # Closed dungeon chest matched to piece rotation
                                     entities.append({'type': 'cdoorclosedwoodbox', 'name': '0', 'x': Ox, 'y': Oy-22.0, 'z': Oz, 'rot': ang, 'id': entity_id_idx, 'state': 0})
-                                elif r < 0.55:
-                                    ent_type = 'GOBLIN'
-                                    entities.append({'type': 'GOBLIN', 'name': 'goblin','x': Ox, 'y': Oy+10.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
-                                elif r < 0.65:
-                                    ent_type = 'OGRE'
-                                    entities.append({'type': 'OGRE',   'name': 'ogre',  'x': Ox, 'y': Oy+10.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
-                                elif r < 0.75:
-                                    ent_type = 'TENTACLE'
-                                    entities.append({'type': 'TENTACLE',   'name': 'tentacle',  'x': Ox, 'y': Oy+10.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
+                                elif r < 0.75: # 30% chance for monsters
+                                    # Depth-based monster spawning
+                                    depth = abs(Oy)
+                                    top_level = 140 * 2
+                                    mid_level = 140 * 4
+                                    
+                                    if depth < top_level:
+                                        possible_mobs = ['GOBLIN', 'TENTACLE']
+                                    elif depth < mid_level:
+                                        possible_mobs = ['GOBLIN', 'OGRE', 'CORPSE', 'MUMMY']
+                                    else:
+                                        possible_mobs = ['OGRE', 'MUMMY', 'PHANTOM']
+
+                                    ent_type = random.choice(possible_mobs)
+                                    name_val = ent_type.lower()
+                                    entities.append({'type': ent_type, 'name': name_val, 'x': Ox, 'y': Oy+10.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
+
                                 if ent_type:
                                     print(f"  -> Spawned {ent_type}")
                                     entity_id_idx += 1
