@@ -198,6 +198,9 @@ def generate(start_x=2000, start_z=2000):
                                 elif r < 0.25:
                                     ent_type = 'COIN'
                                     entities.append({'type': 'COIN',   'name': '-1',    'x': Ox, 'y': Oy-22.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
+                                elif r < 0.28:
+                                    ent_type = 'SPELLBOOK'
+                                    entities.append({'type': 'spellbook',   'name': '-1',    'x': Ox, 'y': Oy-22.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})                                    
                                 elif r < 0.32:
                                     scroll_type = random.choice(['SCROLL-HEALING-', 'SCROLL-MAGICMISSLE-', 'SCROLL-FIREBALL-', 'SCROLL-LIGHTNING-'])
                                     ent_type = scroll_type
