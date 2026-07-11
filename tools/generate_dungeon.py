@@ -217,8 +217,8 @@ def generate(start_x=2000, start_z=2000):
                                 elif r < 0.75: # 30% chance for monsters
                                     # Depth-based monster spawning
                                     depth = abs(Oy)
-                                    top_level = 140 * 2
-                                    mid_level = 140 * 4
+                                    top_level = 140 * 1
+                                    mid_level = 140 * 2
                                     
                                     if depth < top_level:
                                         possible_mobs = ['GOBLIN', 'TENTACLE']
