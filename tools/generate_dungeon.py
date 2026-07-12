@@ -198,6 +198,26 @@ def generate(start_x=2000, start_z=2000):
                                 entities.append({'type': door_type,  'x': wx+dwx,  'y': wy, 'z': wz+dwz,  'rot': d_rot, 'id': entity_id_idx, 'state': 0, 'name': ''})
                                 print(f"  -> Spawned door ({door_type}) at {cand_name} entrance")
 
+                            # --- Dungeon dressings in ROOM_SQUARE and ROOMEDIUM ---
+                            if cand_name in ('ROOM_SQUARE', 'ROOMEDIUM'):
+                                num_dressings = random.randint(2, 6)
+                                for _ in range(num_dressings):
+                                    dressing_type = random.choice(['TABLE', 'stool', 'BED', 'TROUGH', 'LOGS'])
+                                    d_rot = random.choice([0, 90, 180, 270])
+                                    
+                                    minx, minz, maxx, maxz = BOUNDING_BOXES[cand_name]
+                                    margin = 40
+                                    lx = random.uniform(minx + margin, maxx - margin)
+                                    lz = random.uniform(minz + margin, maxz - margin)
+                                    
+                                    rp = rotate(lx, lz, ang)
+                                    dx = Ox + rp[0]
+                                    dz = Oz + rp[1]
+                                    
+                                    entities.append({'type': dressing_type, 'name': '0', 'x': dx, 'y': Oy-25.0, 'z': dz, 'rot': d_rot, 'id': entity_id_idx, 'state': 0})
+                                    entity_id_idx += 1
+                                print(f"  -> Spawned {num_dressings} dungeon dressings")
+
                             # --- Monsters / loot in room/stair pieces ---
                             if cand_name in ('ROOM2', 'ROOM_SQUARE', 'ROOMEDIUM'):
                                 r = random.random()
