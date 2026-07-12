@@ -39,6 +39,14 @@ OBJECTS = {
     'slope_stairs': [
         {'pos': (0, -160), 'out': DIR_S, 'y': 80},
         {'pos': (0,  160), 'out': DIR_N, 'y': -60}
+    ],
+    'left_curve': [
+        {'pos': (100, -100), 'out': DIR_S},
+        {'pos': (-100, 100), 'out': DIR_W}
+    ],
+    'right_curve': [
+        {'pos': (-140, -140), 'out': DIR_S},
+        {'pos': (140, 140), 'out': DIR_E}
     ]
 }
 
@@ -49,7 +57,9 @@ BOUNDING_BOXES = {
     'left_corner':  (-38,    2, 158, 198),
     'ROOM_SQUARE': (-238, -238, 238, 238),
     'ROOMEDIUM': (-158, -238, 158, 238),
-    'slope_stairs': (-78, -158,  78, 158)
+    'slope_stairs': (-78, -158,  78, 158),
+    'left_curve':   (-70, -120, 120, 120),
+    'right_curve':  (-240, -160, 70, 230)
 }
 
 def get_world_bounds(name, ox, oz, rot):
@@ -152,6 +162,36 @@ def generate(start_x=2000, start_z=2000):
                             placed.append({'name': cand_name, 'x': Ox, 'y': Oy, 'z': Oz, 'rot': ang})
                             placed_new = True
                             print(f"Placed {cand_name} at ({Ox:.1f}, {Oy:.1f}, {Oz:.1f}) [Rot: {ang}]")
+
+                            # --- Compound Curve spawner ---
+                            if cand_name == 'left_curve':
+                                lc_pieces = [
+                                    (100.00, -100.00, 0),
+                                    (93.19, -48.24, 15),
+                                    (73.21, -0.01, 30),
+                                    (41.42, 41.41, 45),
+                                    (0.01, 73.19, 60),
+                                    (-48.23, 93.17, 75)
+                                ]
+                                for dx, dz, dr in lc_pieces:
+                                    rx, rz = rotate(dx, dz, ang)
+                                    tr = int((dr + ang) % 360)
+                                    entities.append({'type': 'left_curve_road', 'name': '', 'x': Ox+rx, 'y': Oy, 'z': Oz+rz, 'rot': tr, 'id': 0, 'state': 0})
+                                print(f"  -> Spawned left_curve_road segments")
+                            elif cand_name == 'right_curve':
+                                rc_pieces = [
+                                    (-220.00, -140.00, 0),
+                                    (-207.73, -46.83, 345),
+                                    (-171.77, 39.98, 330),
+                                    (-114.56, 114.54, 315),
+                                    (-40.00, 171.74, 300),
+                                    (46.82, 207.70, 285)
+                                ]
+                                for dx, dz, dr in rc_pieces:
+                                    rx, rz = rotate(dx, dz, ang)
+                                    tr = int((dr + ang) % 360)
+                                    entities.append({'type': 'right_curve_road', 'name': '', 'x': Ox+rx, 'y': Oy, 'z': Oz+rz, 'rot': tr, 'id': 0, 'state': 0})
+                                print(f"  -> Spawned right_curve_road segments")
 
                             # --- Spotlight overhead ---
                             if random.random() < 0.25: # 25% chance per piece
@@ -343,6 +383,8 @@ def generate(start_x=2000, start_z=2000):
         f.write("ROT_ANGLE 0\n")
 
         for p in placed:
+            if p['name'] in ('left_curve', 'right_curve'):
+                continue
             f.write(f"OBJECT {p['name']}\n")
             f.write(f"CO_ORDINATES {p['x']:.6f} {p.get('y', 0.0):.6f} {p['z']:.6f}\n")
             f.write(f"ROT_ANGLE {p['rot']}\n")
@@ -379,6 +421,10 @@ def generate(start_x=2000, start_z=2000):
                 f.write(f"ROT_ANGLE {e['rot']} 0\n")
             elif t == 'slope_stairs':
                 f.write(f"OBJECT slope_stairs\n")
+                f.write(f"CO_ORDINATES {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}\n")
+                f.write(f"ROT_ANGLE {e['rot']}\n")
+            elif t in ('left_curve_road', 'right_curve_road'):
+                f.write(f"OBJECT {t}\n")
                 f.write(f"CO_ORDINATES {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}\n")
                 f.write(f"ROT_ANGLE {e['rot']}\n")
             else:
