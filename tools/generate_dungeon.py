@@ -75,7 +75,7 @@ def rotate(x, z, angle):
 def rotate_dir(dx, dz, angle):
     return rotate(dx, dz, angle)
 
-def generate(start_x=2000, start_z=2000):
+def generate(start_x=5200, start_z=2600):
     print("Starting dungeon generation...")
     placed = []
     entities = []
@@ -99,7 +99,7 @@ def generate(start_x=2000, start_z=2000):
             'source_name': 'ROOM2'
         })
 
-    num_objects_to_place = 500
+    num_objects_to_place = 300
 
     def check_collision(nx, nz, n_name, n_rot):
         n_minx, n_minz, n_maxx, n_maxz = get_world_bounds(n_name, nx, nz, n_rot)
@@ -221,7 +221,7 @@ def generate(start_x=2000, start_z=2000):
 
                             # --- Dungeon dressings in ROOM_SQUARE and ROOMEDIUM ---
                             if cand_name in ('ROOM_SQUARE', 'ROOMEDIUM'):
-                                num_dressings = random.randint(2, 6)
+                                num_dressings = random.randint(1, 2)
                                 for _ in range(num_dressings):
                                     dressing_type = random.choice(['TABLE', 'stool', 'BED', 'TROUGH', 'LOGS'])
                                     d_rot = random.choice([0, 90, 180, 270])
