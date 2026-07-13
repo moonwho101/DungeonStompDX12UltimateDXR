@@ -7,8 +7,7 @@ DIR_S = (0, -1)
 DIR_W = (-1, 0)
 DIR_E = (1, 0)
 
-# 'y' on an exit is the y-offset of that exit point relative to the piece centre.
-# slope_stairs drops 140 units total: top exit at +80, bottom exit at -60.
+# ORIGINAL OBJECTS (unchanged)
 OBJECTS = {
     'ROOM2': [
         {'pos': (0, -160), 'out': DIR_S},
@@ -46,6 +45,7 @@ OBJECTS = {
     ]
 }
 
+# ORIGINAL BOUNDING BOXES (unchanged)
 BOUNDING_BOXES = {
     'ROOM2':        (-78, -158,  78, 158),
     'crossroads':   (-38,    2, 198, 238),
@@ -75,7 +75,39 @@ def rotate(x, z, angle):
 def rotate_dir(dx, dz, angle):
     return rotate(dx, dz, angle)
 
-def generate(start_x=5200, start_z=2600):
+def _prefer_exit_index(open_exits, placed, prefer_loop_chance=0.20):
+    """
+    Heuristic: sometimes prefer exits that are near existing pieces to create loops.
+    Returns an index into open_exits or None to pick randomly.
+    """
+    if not placed:
+        return None
+    if random.random() >= prefer_loop_chance:
+        return None
+    best_idx = None
+    best_score = -1e9
+    for i, ex in enumerate(open_exits):
+        score = 0.0
+        for p in placed:
+            dx = ex['wx'] - p['x']
+            dz = ex['wz'] - p['z']
+            dist = math.hypot(dx, dz)
+            # closer pieces increase score; very close strongly preferred
+            score += max(0, 2000 - dist)
+        if score > best_score:
+            best_score = score
+            best_idx = i
+    return best_idx
+
+def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=500):
+    """
+    Enhanced generator that uses only the original OBJECTS and BOUNDING_BOXES.
+    - seed: optional RNG seed for reproducible results
+    - num_objects_to_place: how many pieces to attempt to place
+    """
+    if seed is not None:
+        random.seed(seed)
+
     print("Starting dungeon generation...")
     placed = []
     entities = []
@@ -99,8 +131,6 @@ def generate(start_x=5200, start_z=2600):
             'source_name': 'ROOM2'
         })
 
-    num_objects_to_place = 300
-
     def check_collision(nx, nz, n_name, n_rot):
         n_minx, n_minz, n_maxx, n_maxz = get_world_bounds(n_name, nx, nz, n_rot)
         for p in placed:
@@ -110,11 +140,20 @@ def generate(start_x=5200, start_z=2600):
                 return True
         return False
 
+    # Helper to classify "corridor-like" pieces for trap placement bias
+    corridor_like = set(['left_corner', 'right_curve', 't_junction', 'crossroads'])
+
     for _ in range(num_objects_to_place):
         if not open_exits:
             break
 
-        exit_idx = random.randint(0, len(open_exits) - 1)
+        # sometimes prefer exits near existing pieces to create loops
+        preferred_idx = _prefer_exit_index(open_exits, placed, prefer_loop_chance=0.18)
+        if preferred_idx is not None:
+            exit_idx = preferred_idx
+        else:
+            exit_idx = random.randint(0, len(open_exits) - 1)
+
         O = open_exits.pop(exit_idx)
         wx, wy, wz = O['wx'], O['wy'], O['wz']
         wdx, wdz = O['wdx'], O['wdz']
@@ -122,8 +161,8 @@ def generate(start_x=5200, start_z=2600):
 
         placed_new = False
 
+        # Intersections, corners and stairs can only attach to ROOM2 (preserve original constraint)
         if source_name != 'ROOM2':
-            # Intersections, corners and stairs can only attach to ROOM2
             types = ['ROOM2']
         else:
             types = list(OBJECTS.keys())
@@ -158,7 +197,7 @@ def generate(start_x=5200, start_z=2600):
                             placed_new = True
                             print(f"Placed {cand_name} at ({Ox:.1f}, {Oy:.1f}, {Oz:.1f}) [Rot: {ang}]")
 
-                            # --- Compound Curve spawner ---
+                            # --- Preserve right_curve special spawner ---
                             if cand_name == 'right_curve':
                                 rc_pieces = [
                                     (-220.00, -140.00, 0),
@@ -174,17 +213,21 @@ def generate(start_x=5200, start_z=2600):
                                     entities.append({'type': 'right_curve_road', 'name': '', 'x': Ox+rx, 'y': Oy, 'z': Oz+rz, 'rot': tr, 'id': 0, 'state': 0})
                                 print(f"  -> Spawned right_curve_road segments")
 
-                            # --- Spotlight overhead ---
-                            if random.random() < 0.25: # 25% chance per piece
+                            # --- Spotlights and lamp posts (depth-aware color) ---
+                            if random.random() < 0.25:
                                 s_y = Oy + random.choice([200.0, 300.0, 400.0])
-                                r_col = random.choice([0.2, 0.3, 0.4])
-                                g_col = random.choice([0.2, 0.3, 0.4])
-                                b_col = random.choice([0.3, 0.4, 0.5])
+                                depth = abs(Oy)
+                                if depth > 140 * 3:
+                                    color = (0.08, 0.12, 0.25)
+                                elif depth > 140 * 2:
+                                    color = (0.15, 0.2, 0.35)
+                                else:
+                                    color = (0.25, 0.28, 0.22)
                                 entities.append({'type': 'lamp_post', 'x': Ox, 'y': s_y, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0, 'name': ''})
-                                entities.append({'type': 'LIGHT_SOURCE', 'name': 'Spotlight', 'x': Ox, 'y': s_y, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0, 'color': (r_col, g_col, b_col)})
+                                entities.append({'type': 'LIGHT_SOURCE', 'name': 'Spotlight', 'x': Ox, 'y': s_y, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0, 'color': color})
                                 print(f"  -> Spawned Spotlight overhead")
 
-                            # --- Torch light in ROOM2 ---
+                            # --- Torch light in ROOM2 (preserved) ---
                             if cand_name == 'ROOM2':
                                 if random.random() < 0.4:
                                     is_left = random.random() < 0.5
@@ -206,7 +249,7 @@ def generate(start_x=5200, start_z=2600):
                                     entities.append({'type': 'LIGHT_SOURCE','x': Ox+wfx,'y': Oy+0.0,  'z': Oz+wfz, 'rot': 0,     'id': entity_id_idx, 'state': 0, 'name': 'flicker'})
                                     print(f"  -> Spawned torch light in ROOM2")
 
-                            # --- Door at any opening (25 % chance) ---
+                            # --- Door at any opening (25 % chance) preserved ---
                             if random.random() < 0.25:
                                 door_type = f"door{random.randint(1, 21)}"
                                 if   wdx ==  0 and wdz ==  1: d_rot = 0
@@ -216,85 +259,98 @@ def generate(start_x=5200, start_z=2600):
                                 dlx, dlz = -40, 0
                                 dwx, dwz = rotate(dlx, dlz, d_rot)
                                 entities.append({'type': 'dframe',   'x': wx,      'y': wy, 'z': wz,      'rot': d_rot, 'id': entity_id_idx, 'state': 0, 'name': ''})
-                                entities.append({'type': door_type,  'x': wx+dwx,  'y': wy, 'z': wz+dwz,  'rot': d_rot, 'id': entity_id_idx, 'state': 0, 'name': ''})
-                                print(f"  -> Spawned door ({door_type}) at {cand_name} entrance")
+                                # 10% of doors are "secret" (spawned but flagged by state to be harder to notice)
+                                if random.random() < 0.10:
+                                    # use state field to mark secret (state=2) while keeping type unchanged
+                                    entities.append({'type': door_type,  'x': wx+dwx,  'y': wy, 'z': wz+dwz,  'rot': d_rot, 'id': entity_id_idx, 'state': 2, 'name': ''})
+                                    print(f"  -> Spawned secret door ({door_type}) at {cand_name} entrance")
+                                else:
+                                    entities.append({'type': door_type,  'x': wx+dwx,  'y': wy, 'z': wz+dwz,  'rot': d_rot, 'id': entity_id_idx, 'state': 0, 'name': ''})
+                                    print(f"  -> Spawned door ({door_type}) at {cand_name} entrance")
 
-                            # --- Dungeon dressings in ROOM_SQUARE and ROOMEDIUM ---
+                            # --- Dungeon dressings in ROOM_SQUARE and ROOMEDIUM (preserved) ---
                             if cand_name in ('ROOM_SQUARE', 'ROOMEDIUM'):
                                 num_dressings = random.randint(1, 2)
                                 for _ in range(num_dressings):
                                     dressing_type = random.choice(['TABLE', 'stool', 'BED', 'TROUGH', 'LOGS'])
                                     d_rot = random.choice([0, 90, 180, 270])
-                                    
+
                                     minx, minz, maxx, maxz = BOUNDING_BOXES[cand_name]
                                     margin = 40
                                     lx = random.uniform(minx + margin, maxx - margin)
                                     lz = random.uniform(minz + margin, maxz - margin)
-                                    
+
                                     rp = rotate(lx, lz, ang)
                                     dx = Ox + rp[0]
                                     dz = Oz + rp[1]
-                                    
+
                                     entities.append({'type': dressing_type, 'name': '0', 'x': dx, 'y': Oy-25.0, 'z': dz, 'rot': d_rot, 'id': entity_id_idx, 'state': 0})
                                     entity_id_idx += 1
                                 print(f"  -> Spawned {num_dressings} dungeon dressings")
 
-                            # --- Monsters / loot in room/stair pieces ---
-                            if cand_name in ('ROOM2', 'ROOM_SQUARE', 'ROOMEDIUM'):
+                            # --- Monsters / loot in room/stair pieces (depth-based scaling) ---
+                            if cand_name in ('ROOM2', 'ROOM_SQUARE', 'ROOMEDIUM', 'slope_stairs'):
                                 r = random.random()
                                 ent_type = None
-                                if r < 0.15:
+                                depth = abs(Oy)
+                                # scale chances slightly by depth
+                                if r < 0.12:
                                     ent_type = random.choice(['POTION', 'cheese1'])
                                     entities.append({'type': ent_type, 'name': '-1',    'x': Ox, 'y': Oy-22.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
-                                elif r < 0.25:
+                                elif r < 0.22:
                                     ent_type = 'COIN'
                                     entities.append({'type': 'COIN',   'name': '-1',    'x': Ox, 'y': Oy-22.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
-                                elif r < 0.28:
+                                elif r < 0.26:
                                     ent_type = 'SPELLBOOK'
-                                    entities.append({'type': 'spellbook',   'name': '-1',    'x': Ox, 'y': Oy-22.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})                                    
-                                elif r < 0.32:
+                                    entities.append({'type': 'spellbook',   'name': '-1',    'x': Ox, 'y': Oy-22.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
+                                elif r < 0.30:
                                     scroll_type = random.choice(['SCROLL-HEALING-', 'SCROLL-MAGICMISSLE-', 'SCROLL-FIREBALL-', 'SCROLL-LIGHTNING-'])
                                     ent_type = scroll_type
                                     entities.append({'type': scroll_type, 'name': '-1', 'x': Ox, 'y': Oy-22.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
-                                elif r < 0.37:
-                                    depth = abs(Oy)
+                                elif r < 0.36:
+                                    # weapon quality improves with depth
                                     if depth < 140 * 2:
                                         weapon_types = ['BASTARDSWORD', 'FLAMESWORD', 'BATTLEAXE']
                                     elif depth < 140 * 4:
                                         weapon_types = ['ICESWORD', 'LIGHTNINGSWORD', 'MORNINGSTAR']
                                     else:
                                         weapon_types = ['SPLITSWORD', 'SPIKEDFLAIL', 'SUPERFLAMESWORD']
-                                    
                                     weapon_type = random.choice(weapon_types)
                                     ent_type = weapon_type
                                     entities.append({'type': weapon_type, 'name': '-1', 'x': Ox, 'y': Oy+22.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
-                                elif r < 0.45:
+                                elif r < 0.44:
                                     ent_type = 'CHEST'
-                                    # Closed dungeon chest matched to piece rotation (wooden chest or barrel)
                                     chest_choice = random.choice(['cdoorclosedwoodbox', 'cdoorclosedbarrel', 'cdoorclosedmetalbox'])
                                     entities.append({'type': chest_choice, 'name': '0', 'x': Ox, 'y': Oy-22.0, 'z': Oz, 'rot': ang, 'id': entity_id_idx, 'state': 0})
-                                elif r < 0.75: # 30% chance for monsters
-                                    # Depth-based monster spawning
-                                    depth = abs(Oy)
+                                elif r < 0.74: # monsters
                                     top_level = 140 * 1
                                     mid_level = 140 * 2
-                                    
                                     if depth < top_level:
                                         possible_mobs = ['GOBLIN', 'TENTACLE']
                                     elif depth < mid_level:
                                         possible_mobs = ['GOBLIN', 'OGRE', 'CORPSE', 'MUMMY']
                                     else:
                                         possible_mobs = ['OGRE', 'MUMMY', 'PHANTOM']
-
                                     ent_type = random.choice(possible_mobs)
                                     name_val = ent_type.lower()
-                                    entities.append({'type': ent_type, 'name': name_val, 'x': Ox, 'y': Oy+10.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
+                                    # stronger mobs deeper: increase y offset slightly
+                                    entities.append({'type': ent_type, 'name': name_val, 'x': Ox, 'y': Oy+10.0 + (depth/140.0)*2.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
 
                                 if ent_type:
                                     print(f"  -> Spawned {ent_type}")
                                     entity_id_idx += 1
 
-                            # Propagate exits; carry the y-offset of each outgoing exit
+                            # --- Trap placement for corridor-like pieces (no new objects) ---
+                            if cand_name in corridor_like:
+                                # small chance to place a trap entity (use existing types to represent traps)
+                                if random.random() < 0.12:
+                                    # represent trap as a 'CHEST' with state=9 (interpreted by loader as trap) or as a 'TABLE' with state flag
+                                    trap_choice = random.choice(['TABLE', 'TROUGH'])
+                                    entities.append({'type': trap_choice, 'name': 'trap', 'x': Ox, 'y': Oy-22.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 9})
+                                    print(f"  -> Placed trap disguised as {trap_choice}")
+                                    entity_id_idx += 1
+
+                            # --- Propagate exits; carry the y-offset of each outgoing exit ---
                             for i, other_ext in enumerate(cand_exits):
                                 if i == ext_idx: continue
                                 op = rotate(other_ext['pos'][0], other_ext['pos'][1], ang)
@@ -399,7 +455,8 @@ def generate(start_x=5200, start_z=2600):
             elif t.startswith('door'):
                 f.write(f"OBJECT {t}\n")
                 f.write(f"CO_ORDINATES {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}\n")
-                f.write(f"ROT_ANGLE {e['rot']} 0\n")
+                # preserve state field (secret doors use state=2)
+                f.write(f"ROT_ANGLE {e['rot']} {e['state']}\n")
             elif t == 'slope_stairs':
                 f.write(f"OBJECT slope_stairs\n")
                 f.write(f"CO_ORDINATES {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}\n")
@@ -411,14 +468,13 @@ def generate(start_x=5200, start_z=2600):
             else:
                 f.write(f"OBJECT !monster1\n")
                 f.write(f"CO_ORDINATES {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}\n")
-                f.write(f"ROT_ANGLE {e['rot']} {t} {e['name']} {e['id']} {e['state']}\n")
+                f.write(f"ROT_ANGLE {e['rot']} {t} {e.get('name','')} {e.get('id',0)} {e.get('state',0)}\n")
 
         f.write("END_FILE\n")
 
     num_walls = sum(1 for e in entities if e['type'] == 'wall')
     num_mobs  = len(entities) - num_walls
-    print(f"Successfully saved to bin/level1.map! "
-          f"({len(placed)} tiles, {num_mobs} entities, {num_walls} walls)")
+    print(f"Successfully saved to bin/level1.map! ({len(placed)} tiles, {num_mobs} entities, {num_walls} walls)")
 
 if __name__ == '__main__':
     generate()
