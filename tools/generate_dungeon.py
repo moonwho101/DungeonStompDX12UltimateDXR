@@ -99,7 +99,7 @@ def _prefer_exit_index(open_exits, placed, prefer_loop_chance=0.20):
             best_idx = i
     return best_idx
 
-def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=500):
+def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=50):
     """
     Enhanced generator that uses only the original OBJECTS and BOUNDING_BOXES.
     - seed: optional RNG seed for reproducible results
@@ -412,6 +412,50 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=500):
             'rot': wall_rot, 'id': entity_id_idx, 'state': 0
         })
         entity_id_idx += 1
+
+    # --- Add a single teleport exit at the deepest dungeon location ---
+    if placed:
+        deepest_piece = max(placed, key=lambda p: abs(p['y']))
+        tx = deepest_piece['x']
+        ty = deepest_piece['y']
+        tz = deepest_piece['z']
+
+        # Teleport base circle (slightly below ground)
+        entities.append({
+            'type': 'circle',
+            'x': tx, 'y': ty - 41.0, 'z': tz,
+            'rot': 0,
+            'name': '0',
+            'id': entity_id_idx,
+            'state': 2
+        })
+        entity_id_idx += 1
+
+        # Teleport spiral
+        entities.append({
+            'type': 'spiral',
+            'x': tx, 'y': ty, 'z': tz,
+            'rot': 0,
+            'name': '-1',
+            'id': entity_id_idx,
+            'state': 3
+        })
+        entity_id_idx += 1
+
+        # Teleport flare burst
+        #entities.append({
+        #    'type': '!flarenohit',
+        #    'x': tx, 'y': ty, 'z': tz,
+        #    'rot': 0,
+        #    'name': 'flare@1',
+        #    'id': entity_id_idx,
+        #    'state': 2
+        #})
+
+        entity_id_idx += 1
+
+        print(f"  -> Teleport exit added at deepest dungeon location ({tx:.1f}, {ty:.1f}, {tz:.1f})")
+
 
     out_file = os.path.join(os.path.dirname(__file__), '..', 'bin', 'level1.map')
     with open(out_file, 'w') as f:
