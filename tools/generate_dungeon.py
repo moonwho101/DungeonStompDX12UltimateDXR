@@ -99,7 +99,7 @@ def _prefer_exit_index(open_exits, placed, prefer_loop_chance=0.20):
             best_idx = i
     return best_idx
 
-def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=50):
+def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
     """
     Enhanced generator that uses only the original OBJECTS and BOUNDING_BOXES.
     - seed: optional RNG seed for reproducible results
@@ -216,13 +216,18 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=50):
                             # --- Spotlights and lamp posts (depth-aware color) ---
                             if random.random() < 0.25:
                                 s_y = Oy + random.choice([200.0, 300.0, 400.0])
-                                depth = abs(Oy)
-                                if depth > 140 * 3:
-                                    color = (0.08, 0.12, 0.25)
-                                elif depth > 140 * 2:
-                                    color = (0.15, 0.2, 0.35)
-                                else:
-                                    color = (0.25, 0.28, 0.22)
+
+                                # More dramatic fantasy lighting
+                                hue = random.random()
+                                sat = random.uniform(0.4, 1.0)
+                                val = random.uniform(0.3, 0.9)
+
+                                # Convert HSV → RGB
+                                import colorsys
+                                r, g, b = colorsys.hsv_to_rgb(hue, sat, val)
+
+                                color = (r, g, b)
+
                                 entities.append({'type': 'lamp_post', 'x': Ox, 'y': s_y, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0, 'name': ''})
                                 entities.append({'type': 'LIGHT_SOURCE', 'name': 'Spotlight', 'x': Ox, 'y': s_y, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0, 'color': color})
                                 print(f"  -> Spawned Spotlight overhead")
@@ -262,7 +267,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=50):
                                 # 10% of doors are "secret" (spawned but flagged by state to be harder to notice)
                                 if random.random() < 0.10:
                                     # use state field to mark secret (state=2) while keeping type unchanged
-                                    entities.append({'type': door_type,  'x': wx+dwx,  'y': wy, 'z': wz+dwz,  'rot': d_rot, 'id': entity_id_idx, 'state': 2, 'name': ''})
+                                    entities.append({'type': door_type,  'x': wx+dwx,  'y': wy, 'z': wz+dwz,  'rot': d_rot, 'id': entity_id_idx, 'state': 0, 'name': ''})
                                     print(f"  -> Spawned secret door ({door_type}) at {cand_name} entrance")
                                 else:
                                     entities.append({'type': door_type,  'x': wx+dwx,  'y': wy, 'z': wz+dwz,  'rot': d_rot, 'id': entity_id_idx, 'state': 0, 'name': ''})
@@ -489,9 +494,24 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=50):
                 f.write(f"CO_ORDINATES {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}\n")
                 f.write(f"ROT_ANGLE {e['rot']}\n")
             elif t == 'LIGHT_SOURCE':
-                color = e.get('color', (0.2, 0.2, 0.2))
-                f.write(f"LIGHT_SOURCE {e['name']} POS {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}"
-                        f" DIR 0.000000 -1.000000 0.000000 COLOUR {color[0]:.6f} {color[1]:.6f} {color[2]:.6f}\n")
+
+                # Random downward‑tilted direction
+                dx = random.uniform(-0.4, 0.4)
+                dz = random.uniform(-0.4, 0.4)
+                dy = -1.0  # always downward
+
+                # Normalize the vector
+                length = math.sqrt(dx*dx + dy*dy + dz*dz)
+                dx /= length
+                dy /= length
+                dz /= length
+
+                light_color = e.get('color', (1.0, 1.0, 1.0))
+                f.write(
+                    f"LIGHT_SOURCE {e['name']} POS {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}"
+                    f" DIR {dx:.6f} {dy:.6f} {dz:.6f} "
+                    f"COLOUR {light_color[0]:.6f} {light_color[1]:.6f} {light_color[2]:.6f}\n"
+                )
             elif t == 'dframe':
                 f.write(f"OBJECT dframe\n")
                 f.write(f"CO_ORDINATES {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}\n")
