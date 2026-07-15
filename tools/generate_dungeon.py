@@ -448,14 +448,14 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
         entity_id_idx += 1
 
         # Teleport flare burst
-        #entities.append({
-        #    'type': '!flarenohit',
-        #    'x': tx, 'y': ty, 'z': tz,
-        #    'rot': 0,
-        #    'name': 'flare@1',
-        #    'id': entity_id_idx,
-        #    'state': 2
-        #})
+        entities.append({
+            'type': '!flarenohit',
+            'x': tx, 'y': ty, 'z': tz,
+            'rot': 0,
+            'name': 'flare@1',
+            'id': entity_id_idx,
+            'state': 2
+        })
 
         entity_id_idx += 1
 
@@ -529,6 +529,10 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                 f.write(f"OBJECT {t}\n")
                 f.write(f"CO_ORDINATES {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}\n")
                 f.write(f"ROT_ANGLE {e['rot']}\n")
+            elif t in ('!flarenohit'):                
+                f.write(f"OBJECT {t}\n")
+                f.write(f"CO_ORDINATES {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}\n")
+                f.write(f"ROT_ANGLE {e['rot']} 3 {e.get('name','')} {e.get('id',0)} {e.get('state',0)}\n")
             else:
                 f.write(f"OBJECT !monster1\n")
                 f.write(f"CO_ORDINATES {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}\n")
