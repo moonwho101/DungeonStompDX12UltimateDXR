@@ -314,9 +314,9 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                     entities.append({'type': scroll_type, 'name': '-1', 'x': Ox, 'y': Oy-22.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
                                 elif r < 0.36:
                                     # weapon quality improves with depth
-                                    if depth < 140 * 2:
+                                    if depth < 140 * 1:
                                         weapon_types = ['BASTARDSWORD', 'FLAMESWORD', 'BATTLEAXE']
-                                    elif depth < 140 * 4:
+                                    elif depth < 140 * 2:
                                         weapon_types = ['ICESWORD', 'LIGHTNINGSWORD', 'MORNINGSTAR']
                                     else:
                                         weapon_types = ['SPLITSWORD', 'SPIKEDFLAIL', 'SUPERFLAMESWORD']
@@ -335,7 +335,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                     elif depth < mid_level:
                                         possible_mobs = ['GOBLIN', 'OGRE', 'CORPSE', 'MUMMY']
                                     else:
-                                        possible_mobs = ['OGRE', 'MUMMY', 'PHANTOM']
+                                        possible_mobs = ['OGRE', 'MUMMY', 'WRAITH',"PHANTOM"]
                                     ent_type = random.choice(possible_mobs)
                                     name_val = ent_type.lower()
                                     # stronger mobs deeper: increase y offset slightly
@@ -343,16 +343,6 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
 
                                 if ent_type:
                                     print(f"  -> Spawned {ent_type}")
-                                    entity_id_idx += 1
-
-                            # --- Trap placement for corridor-like pieces (no new objects) ---
-                            if cand_name in corridor_like:
-                                # small chance to place a trap entity (use existing types to represent traps)
-                                if random.random() < 0.12:
-                                    # represent trap as a 'CHEST' with state=9 (interpreted by loader as trap) or as a 'TABLE' with state flag
-                                    trap_choice = random.choice(['TABLE', 'TROUGH'])
-                                    entities.append({'type': trap_choice, 'name': 'trap', 'x': Ox, 'y': Oy-22.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 9})
-                                    print(f"  -> Placed trap disguised as {trap_choice}")
                                     entity_id_idx += 1
 
                             # --- Propagate exits; carry the y-offset of each outgoing exit ---
