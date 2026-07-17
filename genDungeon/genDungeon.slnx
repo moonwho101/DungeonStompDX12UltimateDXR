@@ -1,0 +1,7 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="genDungeon.vcxproj" Id="a5b24bf0-9fb8-4e87-80b5-77c136cbd93e" />
+</Solution>
