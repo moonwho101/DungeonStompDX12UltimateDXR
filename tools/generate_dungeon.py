@@ -333,9 +333,9 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                     if depth < top_level:
                                         possible_mobs = ['GOBLIN', 'TENTACLE']
                                     elif depth < mid_level:
-                                        possible_mobs = ['GOBLIN', 'OGRE', 'CORPSE', 'MUMMY']
+                                        possible_mobs = ['OGRE', 'CORPSE', 'MUMMY']
                                     else:
-                                        possible_mobs = ['OGRE', 'MUMMY', 'WRAITH',"PHANTOM"]
+                                        possible_mobs = ['NECROMANCER','SORCERER', 'WRAITH',"PHANTOM"]
                                     ent_type = random.choice(possible_mobs)
                                     name_val = ent_type.lower()
                                     # stronger mobs deeper: increase y offset slightly
