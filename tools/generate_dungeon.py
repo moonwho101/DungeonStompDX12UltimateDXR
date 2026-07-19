@@ -54,7 +54,7 @@ BOUNDING_BOXES = {
     'ROOM_SQUARE': (-238, -238, 238, 238),
     'ROOMEDIUM': (-158, -238, 158, 238),
     'slope_stairs': (-78, -158,  78, 158),
-    'right_curve':  (-120, -50, 50, 110)
+    'right_curve':  (-218, -138, 138, 218)
 }
 
 def get_world_bounds(name, ox, oz, rot):

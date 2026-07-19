@@ -87,7 +87,7 @@ static std::map<std::string, Bounds> BOUNDING_BOXES = {
 	{ "ROOM_SQUARE", Bounds(-238, -238, 238, 238) },
 	{ "ROOMEDIUM", Bounds(-158, -238, 158, 238) },
 	{ "slope_stairs", Bounds(-78, -158, 78, 158) },
-	{ "right_curve", Bounds(-120, -50, 50, 110) }
+	{ "right_curve", Bounds(-218, -138, 138, 218) }
 };
 
 Vec2 rotate(float x, float z, int angle) {
