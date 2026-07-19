@@ -99,7 +99,7 @@ def _prefer_exit_index(open_exits, placed, prefer_loop_chance=0.20):
             best_idx = i
     return best_idx
 
-def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
+def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=3350):
     """
     Enhanced generator that uses only the original OBJECTS and BOUNDING_BOXES.
     - seed: optional RNG seed for reproducible results
@@ -256,7 +256,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
 
                             # --- Door at any opening (25 % chance) preserved ---
                             if random.random() < 0.25:
-                                door_type = f"door{random.randint(1, 21)}"
+                                door_type = f"door{random.choice([i for i in range(1, 22) if i != 2])}"
                                 if   wdx ==  0 and wdz ==  1: d_rot = 0
                                 elif wdx == -1 and wdz ==  0: d_rot = 90
                                 elif wdx ==  0 and wdz == -1: d_rot = 180
@@ -264,12 +264,8 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                 dlx, dlz = -40, 0
                                 dwx, dwz = rotate(dlx, dlz, d_rot)
                                 entities.append({'type': 'dframe',   'x': wx,      'y': wy, 'z': wz,      'rot': d_rot, 'id': entity_id_idx, 'state': 0, 'name': ''})
-                                # 10% of doors are "secret" (spawned but flagged by state to be harder to notice)
-                                if random.random() < 0.10:
-                                    # use state field to mark secret (state=2) while keeping type unchanged
-                                    entities.append({'type': door_type,  'x': wx+dwx,  'y': wy, 'z': wz+dwz,  'rot': d_rot, 'id': entity_id_idx, 'state': 0, 'name': ''})
-                                    print(f"  -> Spawned secret door ({door_type}) at {cand_name} entrance")
-                                else:
+
+                                if random.random() < 0.50:
                                     entities.append({'type': door_type,  'x': wx+dwx,  'y': wy, 'z': wz+dwz,  'rot': d_rot, 'id': entity_id_idx, 'state': 0, 'name': ''})
                                     print(f"  -> Spawned door ({door_type}) at {cand_name} entrance")
 
