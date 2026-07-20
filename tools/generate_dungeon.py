@@ -551,15 +551,15 @@ def find_best_seed(start_x=5200, start_z=2600, trials=200):
     return best_seed
 
 
-
+'''
 if __name__ == '__main__':
     # Try many seeds to find the largest dungeon
     best = find_best_seed(trials=200)
 
     print(f"Running final generation using best seed {best}")
     generate(seed=best)
-    print(f"Running final generation using best seed {best} complete.")
+    print(f"Running final generation using best seed {best}")
 '''
+
 if __name__ == '__main__':
     generate()
-'''
