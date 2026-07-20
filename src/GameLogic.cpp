@@ -28,7 +28,7 @@ int trueplayernum = 0;
 int numberofsquares = 14;
 float monsterdist = 150.0f;
 D3DVERTEX2 showview[10];
-DOORS door[200];
+DOORS door[MAX_OBJECTDOORS];
 int pressopendoor;
 // Door
 int listendoor = 0;

@@ -177,8 +177,8 @@ int SoundInit() {
 	}
 #endif // MASTERING_LIMITER
 
-	sound_buffer = new SOUNDBUFFER[250];
-	sound_list = new SOUNDLIST[1250];
+	sound_buffer = new SOUNDBUFFER[MAX_OBJECTSOUNDS];
+	sound_list = new SOUNDLIST[MAX_OBJECTSOUNDS];
 	LoadSoundFiles("sounds.dat");
 
 	return 1;

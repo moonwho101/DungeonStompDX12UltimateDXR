@@ -118,7 +118,7 @@ void InitDS() {
 	dp_command_index_mode = new BOOL[MAX_NUM_QUADS];
 	num_vert_per_object = new int[MAX_NUM_QUADS];
 	faces_per_poly = new int[MAX_NUM_QUADS];
-	src_f = new int[MAX_NUM_FACE_INDICES];
+	src_f = new int[MAX_NUM_QUADS];
 	texture_list_buffer = new int[MAX_NUM_QUADS];
 	pmdata = new PLAYERMODELDATA[MAX_NUM_PMMODELS];
 	your_gun = new GUNLIST[MAX_NUM_GUNS];

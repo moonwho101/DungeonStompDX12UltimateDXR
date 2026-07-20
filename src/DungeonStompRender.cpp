@@ -661,9 +661,9 @@ void DungeonStompApp::ProcessLights11() {
 	// DPPPPPPPPPPPMMMMCSSSSSSSSSS
 	// XXXXXXXX    XX  XXXXX
 
-	int sort[200];
-	float dist[200];
-	int obj[200];
+	int sort[MAX_OBJECTLIGHTS];
+	float dist[MAX_OBJECTLIGHTS];
+	int obj[MAX_OBJECTLIGHTS];
 	int temp;
 
 	for (int i = 0; i < MaxLights; i++) {

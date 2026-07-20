@@ -33,7 +33,7 @@ typedef struct scrolllisting {
 extern int maingameloop;
 extern int maingameloop2;
 extern int doorcounter;
-extern DOORS door[200];
+extern DOORS door[MAX_OBJECTDOORS];
 
 extern SCROLLLISTING scrolllist1[50];
 extern int slistcounter;
