@@ -531,7 +531,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
     print(f"Successfully saved to bin/level1.map! ({len(placed)} tiles, {num_mobs} entities, {num_walls} walls)")
     return len(placed)
 
-'''
+
 def find_best_seed(start_x=5200, start_z=2600, trials=200):
     best_seed = None
     best_size = -1
@@ -539,7 +539,7 @@ def find_best_seed(start_x=5200, start_z=2600, trials=200):
     print(f"Searching for best seed over {trials} trials...")
 
     for s in range(trials):
-        size = generate(start_x=start_x, start_z=start_z, seed=s, num_objects_to_place=350)
+        size = generate(start_x=start_x, start_z=start_z, seed=s, num_objects_to_place=5350)
         print(f"Seed {s} produced {size} tiles")
 
         if size > best_size:
@@ -558,7 +558,8 @@ if __name__ == '__main__':
 
     print(f"Running final generation using best seed {best}")
     generate(seed=best)
+    print(f"Running final generation using best seed {best} complete.")
 '''
-
 if __name__ == '__main__':
     generate()
+'''
