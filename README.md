@@ -230,6 +230,15 @@ The compiled binary is output to the `bin/` directory.
 | `Shaders/Raytracing.hlsl` | DXR shader with PBR & global illumination |
 
 ---
+## Generating Random Dungeons using Python
+
+Run this script in the tools directory to generate a random playable dungeon.
+
+```sh
+python generate_dungeon.py
+```
+
+---
 
 ## Related Projects
 
