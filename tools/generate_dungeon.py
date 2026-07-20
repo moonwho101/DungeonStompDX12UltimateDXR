@@ -99,7 +99,7 @@ def _prefer_exit_index(open_exits, placed, prefer_loop_chance=0.20):
             best_idx = i
     return best_idx
 
-def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=3350):
+def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
     """
     Enhanced generator that uses only the original OBJECTS and BOUNDING_BOXES.
     - seed: optional RNG seed for reproducible results
@@ -529,6 +529,36 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=3350):
     num_walls = sum(1 for e in entities if e['type'] == 'wall')
     num_mobs  = len(entities) - num_walls
     print(f"Successfully saved to bin/level1.map! ({len(placed)} tiles, {num_mobs} entities, {num_walls} walls)")
+    return len(placed)
+
+'''
+def find_best_seed(start_x=5200, start_z=2600, trials=200):
+    best_seed = None
+    best_size = -1
+
+    print(f"Searching for best seed over {trials} trials...")
+
+    for s in range(trials):
+        size = generate(start_x=start_x, start_z=start_z, seed=s, num_objects_to_place=350)
+        print(f"Seed {s} produced {size} tiles")
+
+        if size > best_size:
+            best_size = size
+            best_seed = s
+            print(f"  -> New best seed {best_seed} with {best_size} tiles")
+
+    print(f"Best seed found: {best_seed} ({best_size} tiles)")
+    return best_seed
+
+
+
+if __name__ == '__main__':
+    # Try many seeds to find the largest dungeon
+    best = find_best_seed(trials=200)
+
+    print(f"Running final generation using best seed {best}")
+    generate(seed=best)
+'''
 
 if __name__ == '__main__':
     generate()
