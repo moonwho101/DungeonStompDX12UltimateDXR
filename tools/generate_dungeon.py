@@ -1,6 +1,7 @@
 import os
 import random
 import math
+import argparse
 
 DIR_N = (0, 1)
 DIR_S = (0, -1)
@@ -530,35 +531,12 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
     print(f"Successfully saved to bin/level1.map! ({len(placed)} tiles, {num_mobs} entities, {num_walls} walls)")
     return len(placed)
 
-
-def find_best_seed(start_x=5200, start_z=2600, trials=200):
-    best_seed = None
-    best_size = -1
-
-    print(f"Searching for best seed over {trials} trials...")
-
-    for s in range(trials):
-        size = generate(start_x=start_x, start_z=start_z, seed=s, num_objects_to_place=350)
-        print(f"Seed {s} produced {size} tiles")
-
-        if size > best_size:
-            best_size = size
-            best_seed = s
-            print(f"  -> New best seed {best_seed} with {best_size} tiles")
-
-    print(f"Best seed found: {best_seed} ({best_size} tiles)")
-    return best_seed
-
-
-'''
 if __name__ == '__main__':
-    # Try many seeds to find the largest dungeon
-    best = find_best_seed(trials=200)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--seed", type=int, default=None, help="Seed for deterministic dungeon generation")
+    parser.add_argument("--x", type=int, default=5200)
+    parser.add_argument("--z", type=int, default=2600)
+    parser.add_argument("--count", type=int, default=350)
+    args = parser.parse_args()
 
-    print(f"Running final generation using best seed {best}")
-    generate(seed=best)
-    print(f"Running final generation using best seed {best}")
-'''
-
-if __name__ == '__main__':
-    generate()
+    generate(start_x=args.x, start_z=args.z, seed=args.seed, num_objects_to_place=args.count)
