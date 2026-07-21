@@ -217,19 +217,26 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                             if random.random() < 0.25:
                                 s_y = Oy + random.choice([200.0, 300.0, 400.0])
 
-                                # More dramatic fantasy lighting
                                 hue = random.random()
                                 sat = random.uniform(0.4, 1.0)
                                 val = random.uniform(0.3, 0.9)
 
-                                # Convert HSV → RGB
                                 import colorsys
                                 r, g, b = colorsys.hsv_to_rgb(hue, sat, val)
-
                                 color = (r, g, b)
 
                                 entities.append({'type': 'lamp_post', 'x': Ox, 'y': s_y, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0, 'name': ''})
-                                entities.append({'type': 'LIGHT_SOURCE', 'name': 'Spotlight', 'x': Ox, 'y': s_y, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0, 'color': color})
+
+                                # Compute and store deterministic light direction now (not at write time)
+                                dx = random.uniform(-0.4, 0.4)
+                                dz = random.uniform(-0.4, 0.4)
+                                dy = -1.0
+                                length = math.sqrt(dx*dx + dy*dy + dz*dz)
+                                dx /= length
+                                dy /= length
+                                dz /= length
+
+                                entities.append({'type': 'LIGHT_SOURCE','name': 'Spotlight','x': Ox,'y': s_y,'z': Oz,'rot': 0,'id': entity_id_idx,'state': 0,'color': color,'dir': (dx, dy, dz)})
                                 print(f"  -> Spawned Spotlight overhead")
 
                             # --- Torch light in ROOM2 (preserved) ---
@@ -479,18 +486,10 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                 f.write(f"OBJECT lamp_post\n")
                 f.write(f"CO_ORDINATES {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}\n")
                 f.write(f"ROT_ANGLE {e['rot']}\n")
+
             elif t == 'LIGHT_SOURCE':
-
-                # Random downward‑tilted direction
-                dx = random.uniform(-0.4, 0.4)
-                dz = random.uniform(-0.4, 0.4)
-                dy = -1.0  # always downward
-
-                # Normalize the vector
-                length = math.sqrt(dx*dx + dy*dy + dz*dz)
-                dx /= length
-                dy /= length
-                dz /= length
+                # Use the direction stored at spawn time for determinism
+                dx, dy, dz = e.get('dir', (0.0, -1.0, 0.0))
 
                 light_color = e.get('color', (1.0, 1.0, 1.0))
                 f.write(
@@ -539,7 +538,7 @@ def find_best_seed(start_x=5200, start_z=2600, trials=200):
     print(f"Searching for best seed over {trials} trials...")
 
     for s in range(trials):
-        size = generate(start_x=start_x, start_z=start_z, seed=s, num_objects_to_place=5350)
+        size = generate(start_x=start_x, start_z=start_z, seed=s, num_objects_to_place=350)
         print(f"Seed {s} produced {size} tiles")
 
         if size > best_size:
