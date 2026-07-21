@@ -230,7 +230,9 @@ The compiled binary is output to the `bin/` directory.
 | `Shaders/Raytracing.hlsl` | DXR shader with PBR & global illumination |
 
 ---
-## Generating Random Dungeons using Python
+## Generating Deterministic Dungeons using Python
+
+A deterministic dungeon generator uses a specific starting seed or mathematical formula to create reproducible dungeon layouts. Entering the same seed always produces the exact same rooms, corridors, and item locations every single time.
 
 Run this script in the tools directory to generate a random playable dungeon.
 
