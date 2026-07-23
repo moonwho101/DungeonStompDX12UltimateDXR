@@ -334,16 +334,21 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                 elif r < 0.74: # monsters
                                     top_level = 140 * 1
                                     mid_level = 140 * 2
+                                    bottom_level = 140 * 3
                                     if depth < top_level:
-                                        possible_mobs = ['GOBLIN', 'TENTACLE']
+                                        possible_mobs = ['GOBLIN', 'TENTACLE',"SLAVE"]
                                     elif depth < mid_level:
-                                        possible_mobs = ['OGRE', 'CORPSE', 'MUMMY']
+                                        possible_mobs = ['OGRE', 'CORPSE', 'MUMMY', "WOLF","COBRA","OGRO","SLAVE"]
+                                    elif depth < bottom_level:
+                                        possible_mobs = ['NECROMANCER','SORCERER', 'WRAITH',"PHANTOM","KNIGHT","SLAVE"]
                                     else:
-                                        possible_mobs = ['NECROMANCER','SORCERER', 'WRAITH',"PHANTOM"]
+                                        possible_mobs = ['FAERIE','BAUUL', 'DEMONESS',"DRAGON","SLAVE"]
                                     ent_type = random.choice(possible_mobs)
                                     name_val = ent_type.lower()
                                     # stronger mobs deeper: increase y offset slightly
-                                    entities.append({'type': ent_type, 'name': name_val, 'x': Ox, 'y': Oy+10.0 + (depth/140.0)*2.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
+
+                                    st = random.choice([0,2]);
+                                    entities.append({'type': ent_type, 'name': name_val, 'x': Ox, 'y': Oy+10.0 + (depth/140.0)*2.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': st})
 
                                 if ent_type:
                                     print(f"  -> Spawned {ent_type}")
