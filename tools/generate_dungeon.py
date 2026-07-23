@@ -330,7 +330,13 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                 elif r < 0.44:
                                     ent_type = 'CHEST'
                                     chest_choice = random.choice(['cdoorclosedwoodbox', 'cdoorclosedbarrel', 'cdoorclosedmetalbox'])
-                                    entities.append({'type': chest_choice, 'name': '0', 'x': Ox, 'y': Oy-22.0, 'z': Oz, 'rot': ang, 'id': entity_id_idx, 'state': 0})
+
+                                    if depth < 140 * 2:
+                                        st = random.choice([0,1]);
+                                    else:
+                                        st = random.choice([0,1,2]);
+
+                                    entities.append({'type': chest_choice, 'name': '0', 'x': Ox, 'y': Oy-22.0, 'z': Oz, 'rot': ang, 'id': entity_id_idx, 'state': st})
                                 elif r < 0.74: # monsters
                                     top_level = 140 * 1
                                     mid_level = 140 * 2
