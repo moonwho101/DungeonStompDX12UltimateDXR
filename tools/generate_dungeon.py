@@ -301,7 +301,13 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                             if cand_name in ('ROOM2', 'ROOM_SQUARE', 'ROOMEDIUM', 'slope_stairs'):
                                 r = random.random()
                                 ent_type = None
-                                depth = abs(Oy)
+
+                                # Depth increases as Y goes negative
+                                depth = max(0.0, -Oy)
+
+                                # Convert depth into monster level tiers
+                                level = min(3, int(depth // 140))
+
                                 # scale chances slightly by depth
                                 if r < 0.12:
                                     ent_type = random.choice(['POTION', 'cheese1'])
@@ -318,9 +324,9 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                     entities.append({'type': scroll_type, 'name': '-1', 'x': Ox, 'y': Oy-22.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
                                 elif r < 0.36:
                                     # weapon quality improves with depth
-                                    if depth < 140 * 1:
+                                    if level == 0:
                                         weapon_types = ['BASTARDSWORD', 'FLAMESWORD', 'BATTLEAXE']
-                                    elif depth < 140 * 2:
+                                    elif level == 1:
                                         weapon_types = ['ICESWORD', 'LIGHTNINGSWORD', 'MORNINGSTAR']
                                     else:
                                         weapon_types = ['SPLITSWORD', 'SPIKEDFLAIL', 'SUPERFLAMESWORD']
@@ -331,29 +337,23 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                     ent_type = 'CHEST'
                                     chest_choice = random.choice(['cdoorclosedwoodbox', 'cdoorclosedbarrel', 'cdoorclosedmetalbox'])
 
-                                    if depth < 140 * 2:
-                                        st = random.choice([0,1]);
-                                    else:
-                                        st = random.choice([0,1,2]);
+                                    st = random.choice([0, 1]) if level < 2 else random.choice([0, 1, 2])
 
                                     entities.append({'type': chest_choice, 'name': '0', 'x': Ox, 'y': Oy-22.0, 'z': Oz, 'rot': ang, 'id': entity_id_idx, 'state': st})
                                 elif r < 0.74: # monsters
-                                    top_level = 140 * 1
-                                    mid_level = 140 * 2
-                                    bottom_level = 140 * 3
-                                    if depth < top_level:
-                                        possible_mobs = ['GOBLIN', 'TENTACLE',"SLAVE"]
-                                    elif depth < mid_level:
-                                        possible_mobs = ['OGRE', 'CORPSE', 'MUMMY', "WOLF","COBRA","OGRO","SLAVE"]
-                                    elif depth < bottom_level:
+                                    if level == 0:
+                                        possible_mobs = ['GOBLIN', 'TENTACLE']
+                                    elif level == 1:
+                                        possible_mobs = ['OGRE', 'CORPSE', 'MUMMY', "WOLF","COBRA","OGRO"]
+                                    elif level == 2:
                                         possible_mobs = ['NECROMANCER','SORCERER', 'WRAITH',"PHANTOM","KNIGHT","SLAVE"]
                                     else:
-                                        possible_mobs = ['FAERIE','BAUUL', 'DEMONESS',"DRAGON","SLAVE"]
+                                        possible_mobs = ['FAERIE','BAUUL', 'DEMONESS',"DRAGON"]
                                     ent_type = random.choice(possible_mobs)
                                     name_val = ent_type.lower()
                                     # stronger mobs deeper: increase y offset slightly
 
-                                    st = random.choice([0,2]);
+                                    st = random.choice([0, 2])
                                     entities.append({'type': ent_type, 'name': name_val, 'x': Ox, 'y': Oy+10.0 + (depth/140.0)*2.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': st})
 
                                 if ent_type:
@@ -425,7 +425,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
 
     # --- Add a single teleport exit at the deepest dungeon location ---
     if placed:
-        deepest_piece = max(placed, key=lambda p: abs(p['y']))
+        deepest_piece = min(placed, key=lambda p: p.get('y', 0.0))
         tx = deepest_piece['x']
         ty = deepest_piece['y']
         tz = deepest_piece['z']
