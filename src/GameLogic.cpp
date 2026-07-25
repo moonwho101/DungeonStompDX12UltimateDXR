@@ -342,7 +342,7 @@ void MoveMonsters(float fElapsedTime) {
 					if (monster_list[i].current_sequence != 5 && monsteron && monster_list[i].dist <= 200.0f) {
 
 						int action = random_num(20) + 1;
-						if (action >= monster_list[i].thaco - player_list[trueplayernum].ac) {
+						if (action >= monster_list[i].thaco - player_list[trueplayernum].ac || action == 20) {
 							if (monster_list[i].applydamageonce == 0) {
 
 								action = random_num(monster_list[i].damage2) + 1;
