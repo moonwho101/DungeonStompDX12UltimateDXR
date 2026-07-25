@@ -311,17 +311,20 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                 # scale chances slightly by depth
                                 if r < 0.12:
                                     ent_type = random.choice(['POTION', 'cheese1'])
-                                    entities.append({'type': ent_type, 'name': '-1',    'x': Ox, 'y': Oy-22.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
+                                    entities.append({'type': ent_type, 'name': '-1',    'x': Ox, 'y': Oy-12.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
+                                elif r < 0.15:
+                                    ent_type = 'armour'
+                                    entities.append({'type': ent_type, 'name': '-1',    'x': Ox, 'y': Oy+30.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
                                 elif r < 0.22:
                                     ent_type = 'COIN'
-                                    entities.append({'type': 'COIN',   'name': '-1',    'x': Ox, 'y': Oy-22.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
+                                    entities.append({'type': 'COIN',   'name': '-1',    'x': Ox, 'y': Oy-12.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
                                 elif r < 0.26:
                                     ent_type = 'SPELLBOOK'
-                                    entities.append({'type': 'spellbook',   'name': '-1',    'x': Ox, 'y': Oy-22.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
+                                    entities.append({'type': 'spellbook',   'name': '-1',    'x': Ox, 'y': Oy-12.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
                                 elif r < 0.30:
                                     scroll_type = random.choice(['SCROLL-HEALING-', 'SCROLL-MAGICMISSLE-', 'SCROLL-FIREBALL-', 'SCROLL-LIGHTNING-'])
                                     ent_type = scroll_type
-                                    entities.append({'type': scroll_type, 'name': '-1', 'x': Ox, 'y': Oy-22.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
+                                    entities.append({'type': scroll_type, 'name': '-1', 'x': Ox, 'y': Oy-12.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
                                 elif r < 0.36:
                                     # weapon quality improves with depth
                                     if level == 0:
