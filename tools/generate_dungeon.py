@@ -318,7 +318,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                             if cand_name in ('ROOM_SQUARE', 'ROOMEDIUM'):
                                 num_dressings = random.randint(1, 2)
                                 for _ in range(num_dressings):
-                                    dressing_type = random.choice(['TABLE', 'stool', 'BED', 'TROUGH', 'LOGS'])
+                                    dressing_type = random.choice(['TABLE', 'stool', 'BED', 'TROUGH', 'LOGS', 'BUCKET'])
                                     d_rot = random.choice([0, 90, 180, 270])
 
                                     minx, minz, maxx, maxz = BOUNDING_BOXES[cand_name]
