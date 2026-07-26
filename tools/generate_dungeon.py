@@ -58,6 +58,28 @@ BOUNDING_BOXES = {
     'right_curve':  (-218, -138, 138, 218)
 }
 
+# PRE-DEFINED FLOOR SLOTS FOR ROOM ITEMS (to avoid collisions)
+FLOOR_SLOTS = {
+    'ROOM2': [
+        (0.0, 0.0),
+        (-35.0, -50.0), (35.0, -50.0),
+        (-35.0, 0.0), (35.0, 0.0),
+        (-35.0, 50.0), (35.0, 50.0)
+    ],
+    'ROOM_SQUARE': [
+        (0.0, 0.0),
+        (-120.0, -120.0), (120.0, -120.0), (-120.0, 120.0), (120.0, 120.0),
+        (-160.0, 0.0), (160.0, 0.0), (0.0, -160.0), (0.0, 160.0)
+    ],
+    'ROOMEDIUM': [
+        (0.0, 0.0),
+        (0.0, -120.0), (0.0, 120.0),
+        (-80.0, -120.0), (80.0, -120.0), (-80.0, 120.0), (80.0, 120.0),
+        (0.0, -160.0), (0.0, 160.0)
+    ]
+}
+
+
 def get_world_bounds(name, ox, oz, rot):
     min_x, min_z, max_x, max_z = BOUNDING_BOXES[name]
     corners = [(min_x, min_z), (max_x, min_z), (min_x, max_z), (max_x, max_z)]
@@ -198,6 +220,11 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                             placed_new = True
                             print(f"Placed {cand_name} at ({Ox:.1f}, {Oy:.1f}, {Oz:.1f}) [Rot: {ang}]")
 
+                            # Initialize floor slots for this room
+                            room_slots = list(FLOOR_SLOTS[cand_name]) if cand_name in FLOOR_SLOTS else []
+                            random.shuffle(room_slots)
+
+
                             # --- Preserve right_curve special spawner ---
                             if cand_name == 'right_curve':
                                 rc_pieces = [
@@ -244,7 +271,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                             if cand_name == 'ROOM2':
                                 if random.random() < 0.4:
                                     is_left = random.random() < 0.5
-                                    z_offset = random.uniform(-100, 100)
+                                    z_offset = random.choice([-100.0, 100.0])
                                     if is_left:
                                         tlx, tlz = -80, z_offset
                                         tfx, tfz = -60, z_offset
@@ -321,10 +348,13 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                     dressing_type = random.choice(['TABLE', 'stool', 'BED', 'TROUGH', 'LOGS', 'BUCKET'])
                                     d_rot = random.choice([0, 90, 180, 270])
 
-                                    minx, minz, maxx, maxz = BOUNDING_BOXES[cand_name]
-                                    margin = 40
-                                    lx = random.uniform(minx + margin, maxx - margin)
-                                    lz = random.uniform(minz + margin, maxz - margin)
+                                    if room_slots:
+                                        lx, lz = room_slots.pop()
+                                    else:
+                                        minx, minz, maxx, maxz = BOUNDING_BOXES[cand_name]
+                                        margin = 40
+                                        lx = random.uniform(minx + margin, maxx - margin)
+                                        lz = random.uniform(minz + margin, maxz - margin)
 
                                     rp = rotate(lx, lz, ang)
                                     dx = Ox + rp[0]
@@ -346,54 +376,63 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                 level = min(3, int(depth // 140))
 
                                 # scale chances slightly by depth
-                                if r < 0.12:
-                                    ent_type = random.choice(['POTION', 'cheese1'])
-                                    entities.append({'type': ent_type, 'name': '-1',    'x': Ox, 'y': Oy-12.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
-                                elif r < 0.15:
-                                    ent_type = 'armour'
-                                    entities.append({'type': ent_type, 'name': '-1',    'x': Ox, 'y': Oy+30.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
-                                elif r < 0.22:
-                                    ent_type = 'COIN'
-                                    entities.append({'type': 'COIN',   'name': '-1',    'x': Ox, 'y': Oy-12.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
-                                elif r < 0.26:
-                                    ent_type = 'SPELLBOOK'
-                                    entities.append({'type': 'spellbook',   'name': '-1',    'x': Ox, 'y': Oy-12.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
-                                elif r < 0.30:
-                                    scroll_type = random.choice(['SCROLL-HEALING-', 'SCROLL-MAGICMISSLE-', 'SCROLL-FIREBALL-', 'SCROLL-LIGHTNING-'])
-                                    ent_type = scroll_type
-                                    entities.append({'type': scroll_type, 'name': '-1', 'x': Ox, 'y': Oy-12.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
-                                elif r < 0.36:
-                                    # weapon quality improves with depth
-                                    if level == 0:
-                                        weapon_types = ['BASTARDSWORD', 'FLAMESWORD', 'BATTLEAXE']
-                                    elif level == 1:
-                                        weapon_types = ['ICESWORD', 'LIGHTNINGSWORD', 'MORNINGSTAR']
+                                if r < 0.74:
+                                    if room_slots:
+                                        lx, lz = room_slots.pop()
                                     else:
-                                        weapon_types = ['SPLITSWORD', 'SPIKEDFLAIL', 'SUPERFLAMESWORD']
-                                    weapon_type = random.choice(weapon_types)
-                                    ent_type = weapon_type
-                                    entities.append({'type': weapon_type, 'name': '-1', 'x': Ox, 'y': Oy+22.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
-                                elif r < 0.44:
-                                    if cand_name != 'slope_stairs':
-                                        ent_type = 'CHEST'
-                                        chest_choice = random.choice(['cdoorclosedwoodbox', 'cdoorclosedbarrel', 'cdoorclosedmetalbox'])
-                                        st = random.choice([0, 1]) if level < 2 else random.choice([0, 1, 2])
-                                        entities.append({'type': chest_choice, 'name': '0', 'x': Ox, 'y': Oy-22.0, 'z': Oz, 'rot': ang, 'id': entity_id_idx, 'state': st})
-                                elif r < 0.74: # monsters
-                                    if level == 0:
-                                        possible_mobs = ['GOBLIN', 'TENTACLE']
-                                    elif level == 1:
-                                        possible_mobs = ['OGRE', 'CORPSE', 'MUMMY', "WOLF","COBRA","OGRO"]
-                                    elif level == 2:
-                                        possible_mobs = ['NECROMANCER','SORCERER', 'WRAITH',"PHANTOM","KNIGHT","SLAVE"]
-                                    else:
-                                        possible_mobs = ['FAERIE','BAUUL', 'DEMONESS',"DRAGON"]
-                                    ent_type = random.choice(possible_mobs)
-                                    name_val = ent_type.lower()
-                                    # stronger mobs deeper: increase y offset slightly
+                                        lx, lz = 0.0, 0.0
+                                    rp = rotate(lx, lz, ang)
+                                    wx = Ox + rp[0]
+                                    wz = Oz + rp[1]
 
-                                    st = random.choice([0, 2])
-                                    entities.append({'type': ent_type, 'name': name_val, 'x': Ox, 'y': Oy+10.0 + (depth/140.0)*2.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': st})
+                                    if r < 0.12:
+                                        ent_type = random.choice(['POTION', 'cheese1'])
+                                        entities.append({'type': ent_type, 'name': '-1',    'x': wx, 'y': Oy-12.0, 'z': wz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
+                                    elif r < 0.15:
+                                        ent_type = 'armour'
+                                        entities.append({'type': ent_type, 'name': '-1',    'x': wx, 'y': Oy+30.0, 'z': wz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
+                                    elif r < 0.22:
+                                        ent_type = 'COIN'
+                                        entities.append({'type': 'COIN',   'name': '-1',    'x': wx, 'y': Oy-12.0, 'z': wz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
+                                    elif r < 0.26:
+                                        ent_type = 'SPELLBOOK'
+                                        entities.append({'type': 'spellbook',   'name': '-1',    'x': wx, 'y': Oy-12.0, 'z': wz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
+                                    elif r < 0.30:
+                                        scroll_type = random.choice(['SCROLL-HEALING-', 'SCROLL-MAGICMISSLE-', 'SCROLL-FIREBALL-', 'SCROLL-LIGHTNING-'])
+                                        ent_type = scroll_type
+                                        entities.append({'type': scroll_type, 'name': '-1', 'x': wx, 'y': Oy-12.0, 'z': wz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
+                                    elif r < 0.36:
+                                        # weapon quality improves with depth
+                                        if level == 0:
+                                            weapon_types = ['BASTARDSWORD', 'FLAMESWORD', 'BATTLEAXE']
+                                        elif level == 1:
+                                            weapon_types = ['ICESWORD', 'LIGHTNINGSWORD', 'MORNINGSTAR']
+                                        else:
+                                            weapon_types = ['SPLITSWORD', 'SPIKEDFLAIL', 'SUPERFLAMESWORD']
+                                        weapon_type = random.choice(weapon_types)
+                                        ent_type = weapon_type
+                                        entities.append({'type': weapon_type, 'name': '-1', 'x': wx, 'y': Oy+22.0, 'z': wz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
+                                    elif r < 0.44:
+                                        if cand_name != 'slope_stairs':
+                                            ent_type = 'CHEST'
+                                            chest_choice = random.choice(['cdoorclosedwoodbox', 'cdoorclosedbarrel', 'cdoorclosedmetalbox'])
+                                            st = random.choice([0, 1]) if level < 2 else random.choice([0, 1, 2])
+                                            entities.append({'type': chest_choice, 'name': '0', 'x': wx, 'y': Oy-22.0, 'z': wz, 'rot': ang, 'id': entity_id_idx, 'state': st})
+                                    else: # monsters
+                                        if level == 0:
+                                            possible_mobs = ['GOBLIN', 'TENTACLE']
+                                        elif level == 1:
+                                            possible_mobs = ['OGRE', 'CORPSE', 'MUMMY', "WOLF","COBRA","OGRO"]
+                                        elif level == 2:
+                                            possible_mobs = ['NECROMANCER','SORCERER', 'WRAITH',"PHANTOM","KNIGHT","SLAVE"]
+                                        else:
+                                            possible_mobs = ['FAERIE','BAUUL', 'DEMONESS',"DRAGON"]
+                                        ent_type = random.choice(possible_mobs)
+                                        name_val = ent_type.lower()
+                                        # stronger mobs deeper: increase y offset slightly
+
+                                        st = random.choice([0, 2])
+                                        entities.append({'type': ent_type, 'name': name_val, 'x': wx, 'y': Oy+10.0 + (depth/140.0)*2.0, 'z': wz, 'rot': 0, 'id': entity_id_idx, 'state': st})
 
                                 if ent_type:
                                     print(f"  -> Spawned {ent_type}")
@@ -468,6 +507,34 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
         tx = deepest_piece['x']
         ty = deepest_piece['y']
         tz = deepest_piece['z']
+        deepest_name = deepest_piece['name']
+        deepest_rot = deepest_piece['rot']
+
+        # To avoid collisions with the teleporter, move any entities in the deepest piece
+        # away from the center (0,0) to another free floor slot if possible.
+        if deepest_name in FLOOR_SLOTS:
+            used_local_slots = set()
+            for e in entities:
+                dx = e['x'] - tx
+                dz = e['z'] - tz
+                lx, lz = rotate(dx, dz, (360 - deepest_rot) % 360)
+                used_local_slots.add((round(lx), round(lz)))
+            
+            # Find an unused floor slot
+            free_slots = [slot for slot in FLOOR_SLOTS[deepest_name] if slot != (0.0, 0.0) and (round(slot[0]), round(slot[1])) not in used_local_slots]
+            if free_slots:
+                target_slot = random.choice(free_slots)
+                rx, rz = rotate(target_slot[0], target_slot[1], deepest_rot)
+                new_wx = tx + rx
+                new_wz = tz + rz
+                
+                # Relocate any entity that was at (tx, tz) to the new slot
+                for e in entities:
+                    if abs(e['x'] - tx) < 1.0 and abs(e['z'] - tz) < 1.0 and e['type'] not in ('circle', 'spiral', '!flarenohit', 'lamp_post', 'LIGHT_SOURCE'):
+                        e['x'] = new_wx
+                        e['z'] = new_wz
+                        print(f"  -> Relocating entity {e['type']} in deepest room from center to slot {target_slot}")
+
 
         # Teleport base circle (slightly below ground)
         entities.append({
