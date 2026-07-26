@@ -299,11 +299,19 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                 else:                          d_rot = 270
                                 dlx, dlz = -40, 0
                                 dwx, dwz = rotate(dlx, dlz, d_rot)
-                                entities.append({'type': 'dframe',   'x': wx,      'y': wy, 'z': wz,      'rot': d_rot, 'id': entity_id_idx, 'state': 0, 'name': ''})
 
-                                if random.random() < 0.50:
+                                frame_type = random.choice(['dframe', 'curve'])
+
+                                if (frame_type == 'curve'):
+                                   wy += 110;
+
+                                entities.append({'type': frame_type,   'x': wx,      'y': wy, 'z': wz,      'rot': d_rot, 'id': entity_id_idx, 'state': 0, 'name': ''})
+
+                                if frame_type == 'dframe' and random.random() < 0.50:
                                     entities.append({'type': door_type,  'x': wx+dwx,  'y': wy, 'z': wz+dwz,  'rot': d_rot, 'id': entity_id_idx, 'state': 0, 'name': ''})
                                     print(f"  -> Spawned door ({door_type}) at {cand_name} entrance")
+                                elif frame_type == 'curve':
+                                    print(f"  -> Spawned curved arch (no door) at {cand_name} entrance")
 
                             # --- Torch light in ROOM_SQUARE and ROOMEDIUM ---
                             if cand_name in ('ROOM_SQUARE', 'ROOMEDIUM'):
@@ -616,8 +624,8 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                     f" DIR {dx:.6f} {dy:.6f} {dz:.6f} "
                     f"COLOUR {light_color[0]:.6f} {light_color[1]:.6f} {light_color[2]:.6f}\n"
                 )
-            elif t == 'dframe':
-                f.write(f"OBJECT dframe\n")
+            elif t in ('dframe', 'curve'):
+                f.write(f"OBJECT {t}\n")
                 f.write(f"CO_ORDINATES {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}\n")
                 f.write(f"ROT_ANGLE {e['rot']}\n")
             elif t.startswith('door'):
