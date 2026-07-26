@@ -61,10 +61,11 @@ BOUNDING_BOXES = {
 # PRE-DEFINED FLOOR SLOTS FOR ROOM ITEMS (to avoid collisions)
 FLOOR_SLOTS = {
     'ROOM2': [
+        (0.0, -100.0),
+        (0.0, -50.0),
         (0.0, 0.0),
-        (-35.0, -50.0), (35.0, -50.0),
-        (-35.0, 0.0), (35.0, 0.0),
-        (-35.0, 50.0), (35.0, 50.0)
+        (0.0, 50.0),
+        (0.0, 100.0)
     ],
     'ROOM_SQUARE': [
         (0.0, 0.0),
