@@ -372,8 +372,25 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                     entities.append({'type': dressing_type, 'name': '0', 'x': dx, 'y': Oy-25.0, 'z': dz, 'rot': d_rot, 'id': entity_id_idx, 'state': 0})
                                     entity_id_idx += 1
 
+                                    # --- 50% chance to spawn a blanket on a BED ---
+                                    if dressing_type == 'BED' and random.random() < 0.5:
+                                        entities.append({
+                                            'type': 'BLANKET',
+                                            'name': '0',
+                                            'x': dx,
+                                            'y': Oy - 28,      # sits directly on the bed surface
+                                            'z': dz,
+                                            'rot': d_rot,
+                                            'id': entity_id_idx,
+                                            'state': 0
+                                        })
+
+                                        print("  -> Spawned blanket on bed")
+                                        entity_id_idx += 1
+
+
                                     # --- 50% chance to spawn a mug on a TABLE ---
-                                    if dressing_type == 'TABLE' and random.random() < 0.99:
+                                    if dressing_type == 'TABLE' and random.random() < 0.60:
                                         cup_type = random.choice(['MUG', 'GOBLET'])
                                         adjust = 15 if cup_type == 'MUG' else 20
 
