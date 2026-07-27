@@ -371,6 +371,24 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
 
                                     entities.append({'type': dressing_type, 'name': '0', 'x': dx, 'y': Oy-25.0, 'z': dz, 'rot': d_rot, 'id': entity_id_idx, 'state': 0})
                                     entity_id_idx += 1
+
+                                    # --- 50% chance to spawn a mug on a TABLE ---
+                                    if dressing_type == 'TABLE' and random.random() < 0.99:
+                                        cup_type = random.choice(['MUG', 'GOBLET'])
+                                        adjust = 15 if cup_type == 'MUG' else 20
+
+                                        entities.append({
+                                            'type': cup_type,
+                                            'name': '-1',
+                                            'x': dx,
+                                            'y': Oy+adjust,   # slightly above table surface
+                                            'z': dz,
+                                            'rot': 0,
+                                            'id': entity_id_idx,
+                                            'state': 2
+                                        })
+                                        print("  -> Spawned mug on table")
+                                        entity_id_idx += 1
                                 print(f"  -> Spawned {num_dressings} dungeon dressings")
 
                             # --- Monsters / loot in room/stair pieces (depth-based scaling) ---
