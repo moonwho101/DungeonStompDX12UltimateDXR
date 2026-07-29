@@ -186,10 +186,12 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
         placed_new = False
 
         # Intersections, corners and stairs can only attach to ROOM2 (preserve original constraint)
-        if source_name != 'ROOM2':
-            types = ['ROOM2']
-        else:
-            types = list(OBJECTS.keys())
+        #if source_name != 'ROOM2':
+        #    types = ['ROOM2']
+        #else:
+        #    types = list(OBJECTS.keys())
+        
+        types = list(OBJECTS.keys())
         random.shuffle(types)
 
         for cand_name in types:
@@ -355,7 +357,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                 num_dressings = random.randint(1, 2)
                                 for _ in range(num_dressings):
                                     dressing_type = random.choice(['TABLE', 'stool', 'BED', 'TROUGH', 'LOGS', 'BUCKET'])
-                                    d_rot = random.choice([0, 90, 180, 270])
+                                    d_rot = random.choice([0, 45, 90, 135, 180, 225, 270, 315])
 
                                     if room_slots:
                                         lx, lz = room_slots.pop()
@@ -400,7 +402,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                             'x': dx,
                                             'y': Oy+adjust,   # slightly above table surface
                                             'z': dz,
-                                            'rot': 0,
+                                            'rot': d_rot,
                                             'id': entity_id_idx,
                                             'state': 2
                                         })
@@ -418,7 +420,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
 
                                 # Convert depth into monster level tiers
                                 level = min(3, int(depth // 140))
-
+                                d_rot = random.choice([0, 45, 90, 135, 180, 225, 270, 315])
                                 # scale chances slightly by depth
                                 if r < 0.74:
                                     if room_slots:
@@ -431,20 +433,20 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
 
                                     if r < 0.12:
                                         ent_type = random.choice(['POTION', 'cheese1','GOBLET'])
-                                        entities.append({'type': ent_type, 'name': '-1',    'x': wx, 'y': Oy-12.0, 'z': wz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
+                                        entities.append({'type': ent_type, 'name': '-1',    'x': wx, 'y': Oy-12.0, 'z': wz, 'rot': d_rot, 'id': entity_id_idx, 'state': 0})
                                     elif r < 0.15:
                                         ent_type = 'armour'
-                                        entities.append({'type': ent_type, 'name': '-1',    'x': wx, 'y': Oy+30.0, 'z': wz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
+                                        entities.append({'type': ent_type, 'name': '-1',    'x': wx, 'y': Oy+30.0, 'z': wz, 'rot': d_rot, 'id': entity_id_idx, 'state': 0})
                                     elif r < 0.22:
                                         ent_type = 'COIN'
-                                        entities.append({'type': 'COIN',   'name': '-1',    'x': wx, 'y': Oy-12.0, 'z': wz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
+                                        entities.append({'type': 'COIN',   'name': '-1',    'x': wx, 'y': Oy-12.0, 'z': wz, 'rot': d_rot, 'id': entity_id_idx, 'state': 0})
                                     elif r < 0.26:
                                         ent_type = 'SPELLBOOK'
-                                        entities.append({'type': 'spellbook',   'name': '-1',    'x': wx, 'y': Oy-12.0, 'z': wz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
+                                        entities.append({'type': 'spellbook',   'name': '-1',    'x': wx, 'y': Oy-12.0, 'z': wz, 'rot': d_rot, 'id': entity_id_idx, 'state': 0})
                                     elif r < 0.30:
                                         scroll_type = random.choice(['SCROLL-HEALING-', 'SCROLL-MAGICMISSLE-', 'SCROLL-FIREBALL-', 'SCROLL-LIGHTNING-'])
                                         ent_type = scroll_type
-                                        entities.append({'type': scroll_type, 'name': '-1', 'x': wx, 'y': Oy-12.0, 'z': wz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
+                                        entities.append({'type': scroll_type, 'name': '-1', 'x': wx, 'y': Oy-12.0, 'z': wz, 'rot': d_rot, 'id': entity_id_idx, 'state': 0})
                                     elif r < 0.36:
                                         # weapon quality improves with depth
                                         if level == 0:
@@ -455,13 +457,13 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                             weapon_types = ['SPLITSWORD', 'SPIKEDFLAIL', 'SUPERFLAMESWORD']
                                         weapon_type = random.choice(weapon_types)
                                         ent_type = weapon_type
-                                        entities.append({'type': weapon_type, 'name': '-1', 'x': wx, 'y': Oy+22.0, 'z': wz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
+                                        entities.append({'type': weapon_type, 'name': '-1', 'x': wx, 'y': Oy+22.0, 'z': wz, 'rot': d_rot, 'id': entity_id_idx, 'state': 0})
                                     elif r < 0.44:
                                         if cand_name != 'slope_stairs':
                                             ent_type = 'CHEST'
                                             chest_choice = random.choice(['cdoorclosedwoodbox', 'cdoorclosedbarrel', 'cdoorclosedmetalbox'])
                                             st = random.choice([0, 1]) if level < 2 else random.choice([0, 1, 2])
-                                            entities.append({'type': chest_choice, 'name': '0', 'x': wx, 'y': Oy-22.0, 'z': wz, 'rot': ang, 'id': entity_id_idx, 'state': st})
+                                            entities.append({'type': chest_choice, 'name': '0', 'x': wx, 'y': Oy-22.0, 'z': wz, 'rot': d_rot, 'id': entity_id_idx, 'state': st})
                                     else: # monsters
                                         if level == 0:
                                             possible_mobs = ['GOBLIN', 'TENTACLE']
@@ -476,7 +478,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                         # stronger mobs deeper: increase y offset slightly
 
                                         st = random.choice([0, 2])
-                                        entities.append({'type': ent_type, 'name': name_val, 'x': wx, 'y': Oy+10.0 + (depth/140.0)*2.0, 'z': wz, 'rot': 0, 'id': entity_id_idx, 'state': st})
+                                        entities.append({'type': ent_type, 'name': name_val, 'x': wx, 'y': Oy+10.0 + (depth/140.0)*2.0, 'z': wz, 'rot': d_rot, 'id': entity_id_idx, 'state': st})
 
                                 if ent_type:
                                     print(f"  -> Spawned {ent_type}")
