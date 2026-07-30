@@ -393,11 +393,6 @@ float4 PS(VertexOut pin) : SV_Target
 		color += rimSpecular;
 	}
 
-    // Fog
-#ifdef FOG
-    float fogAmount = saturate((distToEye - gFogStart) / gFogRange);
-    color = lerp(color, gFogColor.rgb, fogAmount);
-#endif
 
 	return float4(color, diffuseAlbedo.a);
 }

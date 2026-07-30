@@ -603,7 +603,7 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
     
     // Normal mapping: sample and apply if this primitive has a normal map
 	int normalMapIndex = ad.normalMapIndex;
-	if (normalMapIndex >= 0 && normalMapIndex < 550)
+	if (normalMapIndex >= 0 && normalMapIndex < 1550)
 	{
 		uint texW, texH;
 		gTextures[NonUniformResourceIndex((uint) normalMapIndex)].GetDimensions(texW, texH);
@@ -616,7 +616,7 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
     
 	float4 texSample = float4(0.5f, 0.5f, 0.5f, 1.0f);
     
-	if (texIndex < 550)
+	if (texIndex < 1550)
 	{
 		uint texW, texH;
 		gTextures[NonUniformResourceIndex(texIndex)].GetDimensions(texW, texH);
@@ -629,7 +629,7 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
     // Skip old alpha test block - merged into IsTransparentTexture handling below
     
 	float3 albedo;
-	if (texIndex < 550)
+	if (texIndex < 1550)
 	{
 		albedo = texSample.rgb * materialDiffuseAlbedo.rgb;
 	}

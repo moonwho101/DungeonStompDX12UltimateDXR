@@ -11,7 +11,7 @@
 
 using namespace DirectX;
 
-#define MAX_NUM_TEXTURES 550
+
 #define SPOT_LIGHT_SOURCE 1
 #define DIRECTIONAL_LIGHT_SOURCE 2
 #define POINT_LIGHT_SOURCE 3

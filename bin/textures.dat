@@ -1588,6 +1588,82 @@ Alias  527  houset_nm           OPAQUE  WHOLE  wood
 AddTexture  ..\textures\BRIKS_nm.dds
 Alias  530   BRIKS_nm           OPAQUE  WHOLE  brick
 
+AddTexture  ..\Textures\Dungeon02\corridor01.dds
+Alias  531   corridor01           OPAQUE  WHOLE  stonemain
+
+AddTexture  ..\Textures\Dungeon02\corridor02.dds
+Alias  532   corridor02           OPAQUE  WHOLE  stonemain
+
+AddTexture  ..\Textures\Dungeon02\corridor03.dds
+Alias  533   corridor03           OPAQUE  WHOLE  stonemain
+
+
+AddTexture  ..\Textures\Dungeon02\corridor04.dds
+Alias  534   corridor04           OPAQUE  WHOLE  stonemain
+
+AddTexture  ..\Textures\Dungeon02\corridor05.dds
+Alias  535   corridor05           OPAQUE  WHOLE  stonemain
+
+AddTexture  ..\Textures\Dungeon02\corridor06.dds
+Alias  536   corridor06           OPAQUE  WHOLE  stonemain
+
+
+AddTexture  ..\Textures\Dungeon02\corridor07.dds
+Alias  537   corridor07           OPAQUE  WHOLE  stonemain
+
+
+AddTexture  ..\Textures\Dungeon02\corridor08.dds
+Alias  538   corridor08           OPAQUE  WHOLE  stonemain
+
+AddTexture  ..\Textures\Dungeon02\corridor09.dds
+Alias  539   corridor09           OPAQUE  WHOLE  stonemain
+
+
+AddTexture  ..\Textures\Dungeon02\concrete.dds
+Alias  540   concrete           OPAQUE  WHOLE  stonemain
+
+AddTexture  ..\Textures\Dungeon02\entrance_uni1.dds
+Alias  541  entrance_uni1           OPAQUE  WHOLE  stonemain
+
+AddTexture  ..\Textures\Dungeon02\entrance_uni2.dds
+Alias  542  entrance_uni2           OPAQUE  WHOLE  stonemain
+
+AddTexture  ..\Textures\Dungeon02\entrance01.dds
+Alias  543  entrance01           OPAQUE  WHOLE  stonemain
+
+AddTexture  ..\Textures\Dungeon02\entrance02.dds
+Alias  544  entrance02           OPAQUE  WHOLE  stonemain
+
+AddTexture  ..\Textures\Dungeon02\entrance03.dds
+Alias  545  entrance03           OPAQUE  WHOLE  stonemain
+
+AddTexture  ..\Textures\Dungeon02\entrance04.dds
+Alias  546  entrance04           OPAQUE  WHOLE  stonemain
+
+AddTexture  ..\Textures\Dungeon02\entrance05.dds
+Alias  547  entrance05           OPAQUE  WHOLE  stonemain
+
+AddTexture  ..\Textures\Dungeon02\entrance06.dds
+Alias  548  entrance06           OPAQUE  WHOLE  stonemain
+
+AddTexture  ..\Textures\Dungeon02\entrance07.dds
+Alias  549  entrance07           OPAQUE  WHOLE  stonemain
+
+AddTexture  ..\Textures\Dungeon02\entrance08.dds
+Alias  550  entrance08           OPAQUE  WHOLE  stonemain
+
+AddTexture  ..\Textures\Dungeon02\entrance09.dds
+Alias  551  entrance09           OPAQUE  WHOLE  stonemain
+
+AddTexture  ..\Textures\Dungeon02\grid.dds
+Alias  552  grid           OPAQUE  WHOLE  stonemain
+
+AddTexture  ..\Textures\Dungeon02\walls.dds
+Alias  553  walls           OPAQUE  WHOLE  stonemain
+
+
+
+
 END_FILE
 
 ** EVERYTHING BELOW "END_FILE" IS IGNORED **

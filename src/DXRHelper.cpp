@@ -82,7 +82,7 @@ void DXRHelper::CreateDescriptorHeap(ID3D12Device5 *device) {
 	// Layout: 0 = Output UAV, 1-550 = Texture SRVs (copied from main heap)
 	// Total: 1 + MAX_NUM_TEXTURES (550) descriptors
 	D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
-	heapDesc.NumDescriptors = 1 + 550; // UAV + textures
+	heapDesc.NumDescriptors = 1 + MAX_NUM_TEXTURES; // UAV + textures
 	heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	ThrowIfFailed(device->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&mDXRDescriptorHeap)));
@@ -166,7 +166,7 @@ void DXRHelper::CreateRootSignatures(ID3D12Device5 *device) {
 
 	// Texture range - 550 textures at t2 (space0)
 	CD3DX12_DESCRIPTOR_RANGE1 textureRange;
-	textureRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 550, 2); // t2-t551, space0
+	textureRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, MAX_NUM_TEXTURES, 2); // t2-t551, space0
 
 	// Skycube range - 1 texture at t0 (space2)
 	CD3DX12_DESCRIPTOR_RANGE1 skyRange;
@@ -782,7 +782,7 @@ void DXRHelper::UpdateAliasData(ID3D12Device *device, const DXRMaterialData *mat
 		mAliasDataBuffer[fi].Reset();
 
 		// Create new buffer with some headroom
-		mMaxAliases[fi] = max(aliasCount, 550u); // MAX_NUM_TEXTURES = 550
+		mMaxAliases[fi] = max(650u, 650u); // MAX_NUM_TEXTURES = 550
 
 		UINT bufferSize = mMaxAliases[fi] * sizeof(DXRMaterialData);
 

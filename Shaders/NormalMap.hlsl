@@ -411,10 +411,6 @@ float4 PS(VertexOut pin) : SV_Target
 	}
 
     // Fog
-#ifdef FOG
-    float fogAmount = saturate((distToEye - gFogStart) / gFogRange);
-    color = lerp(color, gFogColor.rgb, fogAmount);
-#endif
 
     // Volumetric Fog Glow (Glare) around Point Lights
 	float3 glare = float3(0.0f, 0.0f, 0.0f);
