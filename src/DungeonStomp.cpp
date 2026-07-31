@@ -142,7 +142,7 @@ bool DungeonStompApp::Initialize() {
 
 	// Copy texture descriptors to DXR heap for raytracing
 	if (mDXRInitialized && mDXRHelper) {
-		mDXRHelper->CopyTextureDescriptors(md3dDevice.Get(), mSrvCopySourceHeap.Get(), number_of_tex_aliases);
+		mDXRHelper->CopyTextureDescriptors(md3dDevice.Get(), mSrvCopySourceHeap.Get(), number_of_tex_aliases, mSkyTexHeapIndex);
 	}
 
 	BuildShadersAndInputLayout();
@@ -1365,13 +1365,13 @@ void DungeonStompApp::BuildDescriptorHeaps() {
 	// Create the SRV heap.
 	//
 	D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
-	srvHeapDesc.NumDescriptors = MAX_NUM_TEXTURES;
+	srvHeapDesc.NumDescriptors = MAX_NUM_TEXTURES + 50;
 	srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	ThrowIfFailed(md3dDevice->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&mSrvDescriptorHeap)));
 
 	D3D12_DESCRIPTOR_HEAP_DESC srvCopyHeapDesc = {};
-	srvCopyHeapDesc.NumDescriptors = MAX_NUM_TEXTURES;
+	srvCopyHeapDesc.NumDescriptors = MAX_NUM_TEXTURES + 50;
 	srvCopyHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	srvCopyHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
 	ThrowIfFailed(md3dDevice->CreateDescriptorHeap(&srvCopyHeapDesc, IID_PPV_ARGS(&mSrvCopySourceHeap)));
@@ -1438,7 +1438,7 @@ void DungeonStompApp::BuildDescriptorHeaps() {
 		hr = rectangleVertexBuffer[i]->Map(0, &readRange2, reinterpret_cast<void **>(&rectangleVBGPUAddress[i]));
 	}
 
-	mSkyTexHeapIndex = 485; // sunsetcube1024 is 486th alias -> index 485
+	// mSkyTexHeapIndex is dynamically set in LoadRRTextures11
 	mShadowMapHeapIndex = (UINT)number_of_tex_aliases + 1;
 
 	mSsaoHeapIndexStart = mShadowMapHeapIndex + 1;
@@ -1599,6 +1599,7 @@ BOOL DungeonStompApp::LoadRRTextures11(char *filename) {
 			srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
 
 			if (strcmp(p, "sunsetcube1024") == 0) {
+				mSkyTexHeapIndex = tex_alias_counter;
 
 				srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
 				srvDesc.TextureCube.MostDetailedMip = 0;

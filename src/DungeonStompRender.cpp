@@ -357,7 +357,7 @@ void DungeonStompApp::DrawRenderItemsFL(ID3D12GraphicsCommandList *cmdList, cons
 	auto matCB = mCurrFrameResource->MaterialCB->Resource();
 
 	CD3DX12_GPU_DESCRIPTOR_HANDLE tex3(mSrvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
-	tex3.Offset(484, mCbvSrvDescriptorSize);
+	tex3.Offset(TexMap[mSkyTexHeapIndex].texture, mCbvSrvDescriptorSize);
 	cmdList->SetGraphicsRootDescriptorTable(6, tex3); // Set the gCubeMap
 
 	// auto ri = ritems[1];
