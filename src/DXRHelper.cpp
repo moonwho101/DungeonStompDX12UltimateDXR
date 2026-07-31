@@ -79,10 +79,10 @@ bool DXRHelper::Initialize(ID3D12Device5 *device, ID3D12GraphicsCommandList5 *cm
 
 void DXRHelper::CreateDescriptorHeap(ID3D12Device5 *device) {
 	// Create descriptor heap for DXR resources
-	// Layout: 0 = Output UAV, 1-550 = Texture SRVs (copied from main heap)
-	// Total: 1 + MAX_NUM_TEXTURES (550) descriptors
+	// Layout: 0 = Output UAV, 1-650 = Texture SRVs (copied from main heap)
+	// Total: 1 + MAX_NUM_TEXTURES descriptors
 	D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
-	heapDesc.NumDescriptors = 1 + 550; // UAV + textures
+	heapDesc.NumDescriptors = 1 + MAX_NUM_TEXTURES; // UAV + textures
 	heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	ThrowIfFailed(device->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&mDXRDescriptorHeap)));
@@ -157,16 +157,16 @@ void DXRHelper::CreateRootSignatures(ID3D12Device5 *device) {
 	// Slot 1: Acceleration Structure SRV (t0) - inline
 	// Slot 2: Scene CBV (b0) - inline
 	// Slot 3: Vertex Buffer SRV (t1) - inline
-	// Slot 4: Texture Array SRV (t2-t551) - descriptor table
+	// Slot 4: Texture Array SRV (t2-t651) - descriptor table
 	// Slot 5: Primitive Alias Indices (t0, space1) - inline
 	// Slot 6: SkyCube (t0, space2) - descriptor table
 	// Slot 7: Alias Data (t1, space1) - inline
 	CD3DX12_DESCRIPTOR_RANGE1 uavRange;
 	uavRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0); // u0
 
-	// Texture range - 550 textures at t2 (space0)
+	// Texture range - MAX_NUM_TEXTURES textures at t2 (space0)
 	CD3DX12_DESCRIPTOR_RANGE1 textureRange;
-	textureRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 550, 2); // t2-t551, space0
+	textureRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, MAX_NUM_TEXTURES, 2); // t2-t651, space0
 
 	// Skycube range - 1 texture at t0 (space2)
 	CD3DX12_DESCRIPTOR_RANGE1 skyRange;
@@ -782,7 +782,7 @@ void DXRHelper::UpdateAliasData(ID3D12Device *device, const DXRMaterialData *mat
 		mAliasDataBuffer[fi].Reset();
 
 		// Create new buffer with some headroom
-		mMaxAliases[fi] = max(aliasCount, 550u); // MAX_NUM_TEXTURES = 550
+		mMaxAliases[fi] = max(aliasCount, (UINT)MAX_NUM_TEXTURES); // MAX_NUM_TEXTURES
 
 		UINT bufferSize = mMaxAliases[fi] * sizeof(DXRMaterialData);
 
