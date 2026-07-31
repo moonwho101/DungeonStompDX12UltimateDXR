@@ -1589,7 +1589,7 @@ AddTexture  ..\textures\BRIKS_nm.dds
 Alias  530   BRIKS_nm           OPAQUE  WHOLE  brick
 
 AddTexture  ..\Textures\Dungeon02\corridor01.dds
-Alias  531   corridor01           OPAQUE  WHOLE  tile
+Alias  531   corridor01           OPAQUE  WHOLE  stonemain
 
 AddTexture  ..\Textures\Dungeon02\corridor02.dds
 Alias  532   corridor02           OPAQUE  WHOLE  stonemain
