@@ -89,18 +89,18 @@ void DungeonStompApp::Draw(const GameTimer &gt) {
 		drawingSSAO = false;
 
 		mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-			mDepthStencilBuffer.Get(),
-			D3D12_RESOURCE_STATE_DEPTH_WRITE,
-			D3D12_RESOURCE_STATE_GENERIC_READ));
+		                                     mDepthStencilBuffer.Get(),
+		                                     D3D12_RESOURCE_STATE_DEPTH_WRITE,
+		                                     D3D12_RESOURCE_STATE_GENERIC_READ));
 
 		// Compute SSAO.
 		mCommandList->SetGraphicsRootSignature(mSsaoRootSignature.Get());
 		mSsao->ComputeSsao(mCommandList.Get(), mCurrFrameResource, 3);
 
 		mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-			mDepthStencilBuffer.Get(),
-			D3D12_RESOURCE_STATE_GENERIC_READ,
-			D3D12_RESOURCE_STATE_DEPTH_WRITE));
+		                                     mDepthStencilBuffer.Get(),
+		                                     D3D12_RESOURCE_STATE_GENERIC_READ,
+		                                     D3D12_RESOURCE_STATE_DEPTH_WRITE));
 	}
 
 	// Main rendering pass.
@@ -357,7 +357,7 @@ void DungeonStompApp::DrawRenderItemsFL(ID3D12GraphicsCommandList *cmdList, cons
 	auto matCB = mCurrFrameResource->MaterialCB->Resource();
 
 	CD3DX12_GPU_DESCRIPTOR_HANDLE tex3(mSrvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
-	tex3.Offset(484, mCbvSrvDescriptorSize);
+	tex3.Offset(mSkyTexHeapIndex, mCbvSrvDescriptorSize);
 	cmdList->SetGraphicsRootDescriptorTable(6, tex3); // Set the gCubeMap
 
 	// auto ri = ritems[1];
