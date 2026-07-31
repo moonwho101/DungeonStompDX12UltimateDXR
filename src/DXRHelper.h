@@ -87,7 +87,7 @@ class DXRHelper {
 	void OnResize(ID3D12Device *device, UINT width, UINT height);
 
 	// Copy texture descriptors from main app's SRV heap to DXR heap
-	void CopyTextureDescriptors(ID3D12Device *device, ID3D12DescriptorHeap *srcHeap, UINT textureCount);
+	void CopyTextureDescriptors(ID3D12Device *device, ID3D12DescriptorHeap *srcHeap, UINT textureCount, UINT skyTexHeapIndex);
 
 	// Update per-primitive texture indices
 	void UpdatePrimitiveTextureIndices(ID3D12Device *device, const UINT *textureIndices, UINT primitiveCount);
@@ -183,6 +183,7 @@ class DXRHelper {
 	// Texture support
 	UINT mTextureStartOffset = 1; // Offset in DXR heap where textures start (after UAV)
 	UINT mTextureCount = 0;
+	UINT mSkyTexHeapIndex = 485;
 
 	// Per-primitive texture index buffer (per-frame to avoid CPU/GPU race)
 	ComPtr<ID3D12Resource> mPrimitiveTextureBuffer[kNumFrameResources];

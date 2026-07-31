@@ -604,10 +604,9 @@ void DXRHelper::DispatchRays(ID3D12GraphicsCommandList5 *cmdList, UINT width, UI
 		texHandle.Offset(mTextureStartOffset, mCbvSrvUavDescriptorSize);
 		cmdList->SetComputeRootDescriptorTable(4, texHandle);
 
-		// Set skycube descriptor table (slot 6) - specifically texture at index 484
-		// (index 484 in texture array = alias 485 sunsetcube1024)
+		// Set skycube descriptor table (slot 6) - specifically texture at index mSkyTexHeapIndex
 		CD3DX12_GPU_DESCRIPTOR_HANDLE skyHandle(mDXRDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
-		skyHandle.Offset(mTextureStartOffset + 485, mCbvSrvUavDescriptorSize);
+		skyHandle.Offset(mTextureStartOffset + mSkyTexHeapIndex, mCbvSrvUavDescriptorSize);
 		cmdList->SetComputeRootDescriptorTable(6, skyHandle);
 	}
 
@@ -676,11 +675,12 @@ void DXRHelper::OnResize(ID3D12Device *device, UINT width, UINT height) {
 	OutputDebugStringA(buf);
 }
 
-void DXRHelper::CopyTextureDescriptors(ID3D12Device *device, ID3D12DescriptorHeap *srcHeap, UINT textureCount) {
+void DXRHelper::CopyTextureDescriptors(ID3D12Device *device, ID3D12DescriptorHeap *srcHeap, UINT textureCount, UINT skyTexHeapIndex) {
 	if (!srcHeap || textureCount == 0)
 		return;
 
 	mTextureCount = textureCount;
+	mSkyTexHeapIndex = skyTexHeapIndex;
 
 	// Get descriptor handles
 	CD3DX12_CPU_DESCRIPTOR_HANDLE destHandle(mDXRDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
