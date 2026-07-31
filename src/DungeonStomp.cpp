@@ -1458,7 +1458,15 @@ void DungeonStompApp::BuildDescriptorHeaps() {
 	auto nullSrv = CD3DX12_CPU_DESCRIPTOR_HANDLE(srvCpuStart, mNullCubeSrvIndex, mCbvSrvUavDescriptorSize);
 	mNullSrv = CD3DX12_GPU_DESCRIPTOR_HANDLE(srvGpuStart, mNullCubeSrvIndex, mCbvSrvUavDescriptorSize);
 
-	md3dDevice->CreateShaderResourceView(nullptr, &srvDesc, nullSrv);
+	D3D12_SHADER_RESOURCE_VIEW_DESC nullCubeDesc = {};
+	nullCubeDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	nullCubeDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	nullCubeDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
+	nullCubeDesc.TextureCube.MostDetailedMip = 0;
+	nullCubeDesc.TextureCube.MipLevels = 1;
+	nullCubeDesc.TextureCube.ResourceMinLODClamp = 0.0f;
+
+	md3dDevice->CreateShaderResourceView(nullptr, &nullCubeDesc, nullSrv);
 	nullSrv.Offset(1, mCbvSrvUavDescriptorSize);
 
 	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
@@ -1514,6 +1522,34 @@ CD3DX12_CPU_DESCRIPTOR_HANDLE DungeonStompApp::GetRtv(int index) const {
 	return rtv;
 }
 
+std::string ResolvePath(const std::string &path) {
+	FILE *f = nullptr;
+	if (fopen_s(&f, path.c_str(), "rb") == 0) {
+		if (f)
+			fclose(f);
+		return path;
+	}
+
+	if (path.rfind("..\\", 0) == 0) {
+		std::string resolved = path.substr(3);
+		if (fopen_s(&f, resolved.c_str(), "rb") == 0) {
+			if (f)
+				fclose(f);
+			return resolved;
+		}
+	}
+	if (path.rfind("../", 0) == 0) {
+		std::string resolved = path.substr(3);
+		if (fopen_s(&f, resolved.c_str(), "rb") == 0) {
+			if (f)
+				fclose(f);
+			return resolved;
+		}
+	}
+
+	return path;
+}
+
 BOOL DungeonStompApp::LoadRRTextures11(char *filename) {
 	FILE *fp;
 	char s[256];
@@ -1562,22 +1598,11 @@ BOOL DungeonStompApp::LoadRRTextures11(char *filename) {
 
 			TexMap[tex_alias_counter].texture = tex_counter - 1;
 
-			bool exists = true;
-			FILE *fp4 = NULL;
-			fopen_s(&fp4, f, "rb");
-			if (fp4 == NULL) {
-				exists = false;
-			}
+			std::string resolvedPath = ResolvePath(f);
 
 			auto currentTex = std::make_unique<Texture>();
 			currentTex->Name = p;
-
-			if (exists) {
-				// currentTex->Filename = charToWChar("../Textures/ruin1.dds");
-				currentTex->Filename = charToWChar(f);
-			} else {
-				currentTex->Filename = charToWChar("../Textures/WoodCrate01.dds");
-			}
+			currentTex->Filename = charToWChar(resolvedPath.c_str());
 
 			DirectX::CreateDDSTextureFromFile12(md3dDevice.Get(),
 			                                    mCommandList.Get(), currentTex->Filename.c_str(),
@@ -1585,32 +1610,37 @@ BOOL DungeonStompApp::LoadRRTextures11(char *filename) {
 
 			// Default to woodcrate if the texture will not load
 			if (currentTex->Resource == NULL) {
-				currentTex->Filename = charToWChar("../Textures/WoodCrate01.dds");
+				std::string fallbackPath = ResolvePath("../Textures/WoodCrate01.dds");
+				currentTex->Filename = charToWChar(fallbackPath.c_str());
 				DirectX::CreateDDSTextureFromFile12(md3dDevice.Get(),
 				                                    mCommandList.Get(), currentTex->Filename.c_str(),
 				                                    currentTex->Resource, currentTex->UploadHeap);
 			}
 
-			srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-			srvDesc.Format = currentTex->Resource->GetDesc().Format;
-			srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D; // Reset to 2D for each loop
-			srvDesc.Texture2D.MostDetailedMip = 0;
-			srvDesc.Texture2D.MipLevels = currentTex->Resource->GetDesc().MipLevels;
-			srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
-
-			if (strcmp(p, "sunsetcube1024") == 0) {
-
-				srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
-				srvDesc.TextureCube.MostDetailedMip = 0;
-				srvDesc.TextureCube.MipLevels = currentTex->Resource->GetDesc().MipLevels;
-				srvDesc.TextureCube.ResourceMinLODClamp = 0.0f;
+			if (currentTex->Resource != NULL) {
+				srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 				srvDesc.Format = currentTex->Resource->GetDesc().Format;
-			} else {
-			}
+				srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D; // Reset to 2D for each loop
+				srvDesc.Texture2D.MostDetailedMip = 0;
+				srvDesc.Texture2D.MipLevels = currentTex->Resource->GetDesc().MipLevels;
+				srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
 
-			srvDesc.Format = currentTex->Resource->GetDesc().Format;
-			md3dDevice->CreateShaderResourceView(currentTex->Resource.Get(), &srvDesc, hDescriptor);
-			md3dDevice->CreateShaderResourceView(currentTex->Resource.Get(), &srvDesc, hCopyDescriptor);
+				if (strcmp(p, "sunsetcube1024") == 0) {
+					if (currentTex->Resource->GetDesc().DepthOrArraySize >= 6) {
+						srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
+						srvDesc.TextureCube.MostDetailedMip = 0;
+						srvDesc.TextureCube.MipLevels = currentTex->Resource->GetDesc().MipLevels;
+						srvDesc.TextureCube.ResourceMinLODClamp = 0.0f;
+						srvDesc.Format = currentTex->Resource->GetDesc().Format;
+					} else {
+						OutputDebugStringA("Warning: sunsetcube1024 was not loaded as a cubemap! Falling back to 2D SRV.\n");
+					}
+				}
+
+				srvDesc.Format = currentTex->Resource->GetDesc().Format;
+				md3dDevice->CreateShaderResourceView(currentTex->Resource.Get(), &srvDesc, hDescriptor);
+				md3dDevice->CreateShaderResourceView(currentTex->Resource.Get(), &srvDesc, hCopyDescriptor);
+			}
 
 			mLoadedWorldTextures.push_back(std::move(currentTex));
 
