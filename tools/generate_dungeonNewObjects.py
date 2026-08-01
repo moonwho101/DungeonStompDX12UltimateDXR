@@ -151,6 +151,23 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                     n_minz < p_maxz and n_maxz > p_minz):
                 return True
         return False
+    
+    def check_spacing(nx, nz, n_name, min_distance=800):
+        """
+        Check if the new piece maintains minimum distance from existing pieces.
+        Enforces spacing to create a less cramped dungeon layout.
+        """
+        for p in placed:
+            # Calculate center-to-center distance
+            dx = nx - p['x']
+            dz = nz - p['z']
+            dist = math.sqrt(dx*dx + dz*dz)
+            
+            # If too close to an existing piece, reject placement
+            # Exception: allow pieces within 750 units (directly adjacent/connected)
+            if 750 < dist < min_distance:
+                return False
+        return True
 
     for _ in range(num_objects_to_place):
         if not open_exits:
@@ -205,6 +222,10 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                         Oz = wz - rp[1]
 
                         if not check_collision(Ox, Oz, cand_name, ang):
+                            # Apply spacing check to maintain distance between pieces
+                            if not check_spacing(Ox, Oz, cand_name, min_distance=800):
+                                continue  # Skip this placement if too close to other pieces
+                            
                             placed.append({'name': cand_name, 'x': Ox, 'y': Oy, 'z': Oz, 'rot': ang})
                             placed_new = True
                             print(f"Placed {cand_name} at ({Ox:.1f}, {Oy:.1f}, {Oz:.1f}) [Rot: {ang}]")
