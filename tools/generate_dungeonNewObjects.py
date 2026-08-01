@@ -253,10 +253,6 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                             placed_new = True
                             print(f"Placed {cand_name} at ({Ox:.1f}, {Oy:.1f}, {Oz:.1f}) [Rot: {ang}]")
 
-                            # Initialize floor slots for this room
-                            room_slots = list(FLOOR_SLOTS[cand_name]) if cand_name in FLOOR_SLOTS else []
-                            random.shuffle(room_slots)
-
                             # --- Spotlights and lamp posts (depth-aware color) ---
                             if random.random() < 0.25:
                                 s_y = Oy + random.choice([200.0, 300.0, 400.0])
@@ -270,6 +266,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                 color = (r, g, b)
 
                                 entities.append({'type': 'lamp_post', 'x': Ox, 'y': s_y, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0, 'name': ''})
+                                entity_id_idx += 1
 
                                 # Compute and store deterministic light direction now (not at write time)
                                 dx = random.uniform(-0.4, 0.4)
@@ -281,7 +278,74 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                 dz /= length
 
                                 entities.append({'type': 'LIGHT_SOURCE','name': 'Spotlight','x': Ox,'y': s_y,'z': Oz,'rot': 0,'id': entity_id_idx,'state': 0,'color': color,'dir': (dx, dy, dz)})
+                                entity_id_idx += 1
                                 print(f"  -> Spawned Spotlight overhead")
+
+                            # --- Treasure and Monsters (depth-based scaling) ---
+                            r = random.random()
+                            ent_type = None
+                            
+                            # Depth increases as Y goes negative
+                            depth = max(0.0, -Oy)
+                            
+                            # Convert depth into monster level tiers
+                            level = min(3, int(depth // 140))
+                            d_rot = random.choice([0, 45, 90, 135, 180, 225, 270, 315])
+                            
+                            if r < 0.74:
+                                # Place at object center
+                                wx_item = Ox
+                                wz_item = Oz
+                                
+                                if r < 0.12:
+                                    ent_type = random.choice(['POTION', 'cheese1', 'GOBLET'])
+                                    entities.append({'type': ent_type, 'name': '-1', 'x': wx_item, 'y': Oy+12.0, 'z': wz_item, 'rot': d_rot, 'id': entity_id_idx, 'state': 0})
+                                elif r < 0.15:
+                                    ent_type = 'armour'
+                                    entities.append({'type': ent_type, 'name': '-1', 'x': wx_item, 'y': Oy+30.0, 'z': wz_item, 'rot': d_rot, 'id': entity_id_idx, 'state': 0})
+                                elif r < 0.22:
+                                    ent_type = 'COIN'
+                                    entities.append({'type': 'COIN', 'name': '-1', 'x': wx_item, 'y': Oy+12.0, 'z': wz_item, 'rot': d_rot, 'id': entity_id_idx, 'state': 0})
+                                elif r < 0.26:
+                                    ent_type = 'SPELLBOOK'
+                                    entities.append({'type': 'spellbook', 'name': '-1', 'x': wx_item, 'y': Oy+12.0, 'z': wz_item, 'rot': d_rot, 'id': entity_id_idx, 'state': 0})
+                                elif r < 0.30:
+                                    scroll_type = random.choice(['SCROLL-HEALING-', 'SCROLL-MAGICMISSLE-', 'SCROLL-FIREBALL-', 'SCROLL-LIGHTNING-'])
+                                    ent_type = scroll_type
+                                    entities.append({'type': scroll_type, 'name': '-1', 'x': wx_item, 'y': Oy+12.0, 'z': wz_item, 'rot': d_rot, 'id': entity_id_idx, 'state': 0})
+                                elif r < 0.36:
+                                    # weapon quality improves with depth
+                                    if level == 0:
+                                        weapon_types = ['BASTARDSWORD', 'FLAMESWORD', 'BATTLEAXE']
+                                    elif level == 1:
+                                        weapon_types = ['ICESWORD', 'LIGHTNINGSWORD', 'MORNINGSTAR']
+                                    else:
+                                        weapon_types = ['SPLITSWORD', 'SPIKEDFLAIL', 'SUPERFLAMESWORD']
+                                    weapon_type = random.choice(weapon_types)
+                                    ent_type = weapon_type
+                                    entities.append({'type': weapon_type, 'name': '-1', 'x': wx_item, 'y': Oy+22.0, 'z': wz_item, 'rot': d_rot, 'id': entity_id_idx, 'state': 0})
+                                elif r < 0.44:
+                                    ent_type = 'CHEST'
+                                    chest_choice = random.choice(['cdoorclosedwoodbox', 'cdoorclosedbarrel', 'cdoorclosedmetalbox'])
+                                    st = random.choice([0, 1]) if level < 2 else random.choice([0, 1, 2])
+                                    #entities.append({'type': chest_choice, 'name': '0', 'x': wx_item, 'y': Oy-22.0, 'z': wz_item, 'rot': d_rot, 'id': entity_id_idx, 'state': st})
+                                else:  # monsters
+                                    if level == 0:
+                                        possible_mobs = ['GOBLIN', 'TENTACLE']
+                                    elif level == 1:
+                                        possible_mobs = ['OGRE', 'CORPSE', 'MUMMY', 'WOLF', 'COBRA', 'OGRO']
+                                    elif level == 2:
+                                        possible_mobs = ['NECROMANCER', 'SORCERER', 'WRAITH', 'PHANTOM', 'KNIGHT', 'SLAVE']
+                                    else:
+                                        possible_mobs = ['FAERIE', 'BAUUL', 'DEMONESS', 'DRAGON']
+                                    ent_type = random.choice(possible_mobs)
+                                    name_val = ent_type.lower()
+                                    st = random.choice([0, 2])
+                                    entities.append({'type': ent_type, 'name': name_val, 'x': wx_item, 'y': Oy+100.0 + (depth/140.0)*2.0, 'z': wz_item, 'rot': d_rot, 'id': entity_id_idx, 'state': st})
+                                
+                                if ent_type:
+                                    print(f"  -> Spawned {ent_type}")
+                                    entity_id_idx += 1
 
                             # --- Propagate exits; carry the y-offset of each outgoing exit ---
                             for i, other_ext in enumerate(cand_exits):
@@ -481,7 +545,13 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                 f.write(f"OBJECT {t}\n")
                 f.write(f"CO_ORDINATES {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}\n")
                 f.write(f"ROT_ANGLE {e['rot']} 3 {e.get('name','')} {e.get('id',0)} {e.get('state',0)}\n")
+            elif t in ('cdoorclosedwoodbox', 'cdoorclosedbarrel', 'cdoorclosedmetalbox'):
+                # Treasure chests
+                f.write(f"OBJECT {t}\n")
+                f.write(f"CO_ORDINATES {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}\n")
+                f.write(f"ROT_ANGLE {e['rot']} 0 {e.get('name','')} {e.get('id',0)} {e.get('state',0)}\n")
             else:
+                # Default handler for treasures, monsters, and misc items
                 f.write(f"OBJECT !monster1\n")
                 f.write(f"CO_ORDINATES {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}\n")
                 f.write(f"ROT_ANGLE {e['rot']} {t} {e.get('name','')} {e.get('id',0)} {e.get('state',0)}\n")
@@ -489,8 +559,8 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
         f.write("END_FILE\n")
 
     num_walls = sum(1 for e in entities if e['type'] == 'wall')
-    num_mobs  = len(entities) - num_walls
-    print(f"Successfully saved to bin/level1.map! ({len(placed)} tiles, {num_mobs} entities, {num_walls} walls)")
+    num_entities = len(entities) - num_walls
+    print(f"Successfully saved to bin/level1.map! ({len(placed)} tiles, {num_entities} entities, {num_walls} walls)")
     return len(placed)
 
 if __name__ == '__main__':
