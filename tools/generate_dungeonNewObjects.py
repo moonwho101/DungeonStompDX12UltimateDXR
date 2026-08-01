@@ -8,11 +8,15 @@ DIR_S = (0, -1)
 DIR_W = (-1, 0)
 DIR_E = (1, 0)
 
-# NEW OBJECTS - CORRIDOR01, CORRIDOR03, CROSSING01, CROSSING02, and CROSSING03
+# NEW OBJECTS - CORRIDOR01, CORRIDOR02, CORRIDOR03, CROSSING01, CROSSING02, and CROSSING03
 OBJECTS = {
     'CORRIDOR01': [
         {'pos': (-360, 0), 'out': DIR_W},
         {'pos': (360, 0), 'out': DIR_E}
+    ],
+    'CORRIDOR02': [
+        {'pos': (-340, 0), 'out': DIR_W, 'y': 56},
+        {'pos': (300, 0), 'out': DIR_E, 'y': 390}
     ],
     'CORRIDOR03': [
         {'pos': (-180, 0), 'out': DIR_W},
@@ -39,6 +43,7 @@ OBJECTS = {
 # Corridors run east-west, so they're wide in X and narrow in Z
 BOUNDING_BOXES = {
     'CORRIDOR01':   (-360, -200, 360, 200),
+    'CORRIDOR02':   (-340, -200, 300, 200),
     'CORRIDOR03':   (-180, -200, 180, 200),
     'CROSSING01':   (-100, -360, 360, 100),
     'CROSSING02':   (-360, -360, 360, 360),
@@ -54,6 +59,13 @@ FLOOR_SLOTS = {
         (0.0, 0.0),
         (0.0, 100.0),
         (0.0, 200.0)
+    ],
+    'CORRIDOR02': [
+        (-20.0, -200.0),
+        (-20.0, -100.0),
+        (-20.0, 0.0),
+        (-20.0, 100.0),
+        (-20.0, 200.0)
     ],
     'CORRIDOR03': [
         (0.0, -100.0),
@@ -198,9 +210,9 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
 
         placed_new = False
 
-        # All crossing types can only attach to corridor pieces (CORRIDOR01 or CORRIDOR03)
+        # All crossing types can only attach to corridor pieces (01, 02, or 03)
         if source_name in ('CROSSING01', 'CROSSING02', 'CROSSING03'):
-            types = ['CORRIDOR01', 'CORRIDOR03']
+            types = ['CORRIDOR01', 'CORRIDOR02', 'CORRIDOR03']
         else:
             types = list(OBJECTS.keys())
         
