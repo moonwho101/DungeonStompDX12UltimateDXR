@@ -8,7 +8,7 @@ DIR_S = (0, -1)
 DIR_W = (-1, 0)
 DIR_E = (1, 0)
 
-# NEW OBJECTS - CORRIDOR01, CROSSING01, and CROSSING02
+# NEW OBJECTS - CORRIDOR01, CROSSING01, CROSSING02, and CROSSING03
 OBJECTS = {
     'CORRIDOR01': [
         {'pos': (-360, 0), 'out': DIR_W},
@@ -23,6 +23,11 @@ OBJECTS = {
         {'pos': (0, -360), 'out': DIR_S, 'y': 30},
         {'pos': (-360, 0), 'out': DIR_W, 'y': 30},
         {'pos': (360, 0), 'out': DIR_E, 'y': 30}
+    ],
+    'CROSSING03': [
+        {'pos': (0, -360), 'out': DIR_S, 'y': 26},
+        {'pos': (-360, 0), 'out': DIR_W, 'y': 26},
+        {'pos': (360, 0), 'out': DIR_E, 'y': 26}
     ]
 }
 
@@ -30,7 +35,8 @@ OBJECTS = {
 BOUNDING_BOXES = {
     'CORRIDOR01':   (-100, -360, 100, 360),
     'CROSSING01':   (-100, -360, 360, 100),
-    'CROSSING02':   (-360, -360, 360, 360)
+    'CROSSING02':   (-360, -360, 360, 360),
+    'CROSSING03':   (-360, -360, 360, 100)
 }
 
 # PRE-DEFINED FLOOR SLOTS FOR ROOM ITEMS (to avoid collisions)
@@ -54,6 +60,11 @@ FLOOR_SLOTS = {
         (0.0, 0.0),
         (-100.0, -100.0), (100.0, -100.0),
         (-100.0, 100.0), (100.0, 100.0)
+    ],
+    'CROSSING03': [
+        (0.0, 0.0),
+        (-100.0, -100.0), (100.0, -100.0),
+        (-100.0, -200.0), (100.0, -200.0)
     ]
 }
 
@@ -160,7 +171,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
         placed_new = False
 
         # All crossing types can only attach to CORRIDOR01
-        if source_name in ('CROSSING01', 'CROSSING02'):
+        if source_name in ('CROSSING01', 'CROSSING02', 'CROSSING03'):
             types = ['CORRIDOR01']
         else:
             types = list(OBJECTS.keys())
