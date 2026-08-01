@@ -240,8 +240,6 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                         Ox = wx - rp[0]
                         # Piece centre y: exit world-y minus the local y-offset of this exit
                         Oy = wy - loc_ext.get('y', 0)
-                        # Clamp to max y=0 (no levels above ground)
-                        Oy = min(0, Oy)
                         Oz = wz - rp[1]
 
                         if not check_collision(Ox, Oz, cand_name, ang):
