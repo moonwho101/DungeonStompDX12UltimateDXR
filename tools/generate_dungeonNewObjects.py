@@ -15,8 +15,8 @@ OBJECTS = {
         {'pos': (360, 0), 'out': DIR_E}
     ],
     'CROSSING01': [
-        {'pos': (0, -360), 'out': DIR_S, 'y': 30},
-        {'pos': (360, 0), 'out': DIR_E, 'y': 30}
+        {'pos': (-60, -340), 'out': DIR_S, 'y': 30},
+        {'pos': (360, 80), 'out': DIR_E, 'y': 30}
     ]
 }
 
