@@ -15,8 +15,8 @@ OBJECTS = {
         {'pos': (360, 0), 'out': DIR_E}
     ],
     'CORRIDOR02': [
-        {'pos': (-340, 0), 'out': DIR_W, 'y': 56},
-        {'pos': (300, 0), 'out': DIR_E, 'y': 390}
+        {'pos': (-284, 0), 'out': DIR_W, 'y': 72},
+        {'pos': (295, 0), 'out': DIR_E, 'y': 414}
     ],
     'CORRIDOR03': [
         {'pos': (-180, 0), 'out': DIR_W},
@@ -43,7 +43,7 @@ OBJECTS = {
 # Corridors run east-west, so they're wide in X and narrow in Z
 BOUNDING_BOXES = {
     'CORRIDOR01':   (-360, -200, 360, 200),
-    'CORRIDOR02':   (-340, -200, 300, 200),
+    'CORRIDOR02':   (-284, -200, 295, 200),
     'CORRIDOR03':   (-180, -200, 180, 200),
     'CROSSING01':   (-100, -360, 360, 100),
     'CROSSING02':   (-360, -360, 360, 360),
@@ -253,6 +253,14 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                             placed_new = True
                             print(f"Placed {cand_name} at ({Ox:.1f}, {Oy:.1f}, {Oz:.1f}) [Rot: {ang}]")
 
+                            # --- Point light at center of each object (110 units above) ---
+                            light_y = Oy + 170.0
+                            entities.append({'type': 'lamp_post', 'x': Ox, 'y': light_y, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0, 'name': ''})
+                            entity_id_idx += 1
+
+                            entities.append({'type': 'LIGHT_SOURCE','name': 'flicker','x': Ox,'y': light_y,'z': Oz,'rot': 0,'id': entity_id_idx,'state': 0,'color': (0.2, 0.2, 0.2),'dir': (0.0, -1.0, 0.0)})
+                            entity_id_idx += 1
+
                             # --- Spotlights and lamp posts (depth-aware color) ---
                             if random.random() < 0.25:
                                 s_y = Oy + random.choice([200.0, 300.0, 400.0])
@@ -340,8 +348,8 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                         possible_mobs = ['FAERIE', 'BAUUL', 'DEMONESS', 'DRAGON']
                                     ent_type = random.choice(possible_mobs)
                                     name_val = ent_type.lower()
-                                    st = random.choice([0, 2])
-                                    entities.append({'type': ent_type, 'name': name_val, 'x': wx_item, 'y': Oy+100.0 + (depth/140.0)*2.0, 'z': wz_item, 'rot': d_rot, 'id': entity_id_idx, 'state': st})
+                                    st = random.choice([0])
+                                    entities.append({'type': ent_type, 'name': name_val, 'x': wx_item, 'y': Oy+80.0 + (depth/140.0)*2.0, 'z': wz_item, 'rot': d_rot, 'id': entity_id_idx, 'state': st})
                                 
                                 if ent_type:
                                     print(f"  -> Spawned {ent_type}")
@@ -404,7 +412,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
         wx += ndz * 80
         wz += -ndx * 80
         entities.append({
-            'type': 'wall', 'name': 'cobblestone4',
+            'type': 'wall', 'name': 'corridor10',
             'x': wx, 'y': wy, 'z': wz,
             'rot': wall_rot, 'id': entity_id_idx, 'state': 0
         })
@@ -486,7 +494,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
     with open(out_file, 'w') as f:
         f.write("OBJECT startpos\n")
         f.write(f"CO_ORDINATES {start_x:.6f} 0.000000 {start_z:.6f}\n")
-        f.write("ROT_ANGLE 0\n")
+        f.write("ROT_ANGLE 90\n")
 
         for p in placed:
             if p['name'] in ('left_curve', 'right_curve'):
@@ -556,6 +564,9 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                 f.write(f"CO_ORDINATES {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}\n")
                 f.write(f"ROT_ANGLE {e['rot']} {t} {e.get('name','')} {e.get('id',0)} {e.get('state',0)}\n")
 
+        #f.write("OBJECT text\n")
+        #f.write("CO_ORDINATES 2020.000000 0.000000 1020.000000\n")
+        #f.write("ROT_ANGLE 0 outside\n")
         f.write("END_FILE\n")
 
     num_walls = sum(1 for e in entities if e['type'] == 'wall')

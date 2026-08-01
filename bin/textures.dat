@@ -1661,6 +1661,8 @@ Alias  552  grid           OPAQUE  WHOLE  stonemain
 AddTexture  ..\Textures\Dungeon02\walls.dds
 Alias  553  walls           OPAQUE  WHOLE  stonemain
 
+AddTexture  ..\Textures\Dungeon02\corridor10.dds
+Alias  554   corridor10           OPAQUE  WHOLE  stonemain
 
 
 
