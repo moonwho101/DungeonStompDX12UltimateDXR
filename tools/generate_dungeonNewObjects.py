@@ -256,8 +256,13 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                             entities.append({'type': 'lamp_post', 'x': Ox, 'y': light_y, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0, 'name': ''})
                             entity_id_idx += 1
 
+                            #+10x  down
+                            #-10x  up
+                            #+10z  left
+                            #-10z  right
+
                             entities.append({'type': 'LIGHT_SOURCE','name': 'flicker','x': Ox,'y': light_y,'z': Oz,'rot': 0,'id': entity_id_idx,'state': 0,'color': (0.2, 0.2, 0.2),'dir': (0.0, -1.0, 0.0)})
-                            entities.append({'type': 'torch1', 'name': '0', 'x': Ox, 'y': Oy+140.0, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0})
+                            entities.append({'type': 'torch1', 'name': '0', 'x': Ox + 10.0, 'y': Oy+140.0, 'z': Oz + 0.0, 'rot': 0, 'id': entity_id_idx, 'state': 0})
 
                             entity_id_idx += 1
 
