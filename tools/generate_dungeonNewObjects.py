@@ -255,14 +255,18 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                             if cand_name == 'CORRIDOR01':
                                 # CORRIDOR01 has walls at local Z = ±200
                                 # Place torches 20 units away from walls at intervals
-                                torch_positions = [
-                                    (-200, -160),  # Left wall, back
-                                    (0, -160),     # Left wall, center
-                                    (200, -160),   # Left wall, front
-                                    (-200, 160),   # Right wall, back
-                                    (0, 160),      # Right wall, center
-                                    (200, 160)     # Right wall, front
+                                all_torch_positions = [
+                                    (-200, -155),  # Left wall, back
+                                    (0, -155),     # Left wall, center
+                                    (200, -155),   # Left wall, front
+                                    (-200, 155),   # Right wall, back
+                                    (0, 155),      # Right wall, center
+                                    (200, 155)     # Right wall, front
                                 ]
+                                
+                                # Randomly select 0-3 torches
+                                num_torches = random.randint(0, 3)
+                                torch_positions = random.sample(all_torch_positions, num_torches) if num_torches > 0 else []
                                 
                                 for torch_x, torch_z in torch_positions:
                                     # Rotate the local position by the corridor angle
