@@ -307,6 +307,23 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                     entity_id_idx += 1
                                     
                                     # Light source at y + 60 (same as lamp post)
+                                    # Pick a random base color and multiply by 9.0
+                                    base_colors = [
+                                        (1.0, 1.0, 1.0),    # White
+                                        (1.0, 0.0, 0.0),    # Red
+                                        (0.0, 1.0, 0.0),    # Green
+                                        (0.0, 0.0, 1.0),    # Blue
+                                        (1.0, 1.0, 0.0),    # Yellow
+                                        (0.0, 1.0, 1.0),    # Cyan
+                                        (1.0, 0.0, 1.0),    # Magenta
+                                        (1.0, 0.5, 0.0),    # Orange
+                                        (0.5, 0.0, 1.0),    # Purple
+                                        (1.0, 0.75, 0.8)    # Pink
+                                    ]
+                                    base_color = random.choice(base_colors)
+                                    torch_r = round(base_color[0] * random.uniform(9.0, 13.0), 1)
+                                    torch_g = round(base_color[1] * random.uniform(9.0, 13.0), 1)
+                                    torch_b = round(base_color[2] * random.uniform(9.0, 13.0), 1)
                                     entities.append({
                                         'type': 'LIGHT_SOURCE',
                                         'name': 'flicker',
@@ -316,7 +333,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                         'rot': 0,
                                         'id': entity_id_idx,
                                         'state': 0,
-                                        'color': (0.2, 0.2, 0.2),
+                                        'color': (torch_r, torch_g, torch_b),
                                         'dir': (0.0, -1.0, 0.0)
                                     })
                                     entity_id_idx += 1
@@ -333,7 +350,12 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                             #+10z  left
                             #-10z  right
 
-                            entities.append({'type': 'LIGHT_SOURCE','name': 'flicker','x': Ox,'y': light_y,'z': Oz,'rot': 0,'id': entity_id_idx,'state': 0,'color': (0.2, 0.2, 0.2),'dir': (0.0, -1.0, 0.0)})
+                            # Random RGB values between 9.0 and 14.0
+                            center_r = round(random.uniform(9.0, 14.0), 1)
+                            center_g = round(random.uniform(9.0, 14.0), 1)
+                            center_b = round(random.uniform(9.0, 14.0), 1)
+
+                            entities.append({'type': 'LIGHT_SOURCE','name': 'flicker','x': Ox,'y': light_y,'z': Oz,'rot': 0,'id': entity_id_idx,'state': 0,'color': (center_r, center_g, center_b),'dir': (0.0, -1.0, 0.0)})
                             entities.append({'type': 'torch1', 'name': '0', 'x': Ox + 10.0, 'y': Oy+140.0, 'z': Oz + 0.0, 'rot': 0, 'id': entity_id_idx, 'state': 0})
 
                             entity_id_idx += 1
