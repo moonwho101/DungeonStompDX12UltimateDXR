@@ -303,26 +303,26 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                 wx_item = Ox
                                 wz_item = Oz
                                 
-                                if r < 0.12:
+                                if r < 0.10:
                                     ent_type = random.choice(['POTION', 'cheese1', 'GOBLET'])
                                     entities.append({'type': ent_type, 'name': '-1', 'x': wx_item, 'y': Oy+40.0, 'z': wz_item, 'rot': d_rot, 'id': entity_id_idx, 'state': 0})
-                                elif r < 0.16:
-                                    ent_type = random.choice(['pot1', 'pot2', 'pot3','mushroom'])
+                                elif r < 0.28:
+                                    ent_type = random.choice(['pot1', 'pot2', 'pot3','mushroom','rock1','rock2','skull'])
                                     entities.append({'type': ent_type, 'name': '0', 'x': wx_item, 'y': Oy+40.0, 'z': wz_item, 'rot': d_rot, 'id': entity_id_idx, 'state': 0})
-                                elif r < 0.18:
+                                elif r < 0.29:
                                     ent_type = 'armour'
                                     entities.append({'type': ent_type, 'name': '-1', 'x': wx_item, 'y': Oy+60.0, 'z': wz_item, 'rot': d_rot, 'id': entity_id_idx, 'state': 0})
-                                elif r < 0.22:
+                                elif r < 0.30:
                                     ent_type = 'COIN'
                                     entities.append({'type': 'COIN', 'name': '-1', 'x': wx_item, 'y': Oy+60.0, 'z': wz_item, 'rot': d_rot, 'id': entity_id_idx, 'state': 0})
-                                elif r < 0.26:
+                                elif r < 0.35:
                                     ent_type = 'SPELLBOOK'
                                     entities.append({'type': 'spellbook', 'name': '-1', 'x': wx_item, 'y': Oy+40.0, 'z': wz_item, 'rot': d_rot, 'id': entity_id_idx, 'state': 0})
-                                elif r < 0.30:
+                                elif r < 0.40:
                                     scroll_type = random.choice(['SCROLL-HEALING-', 'SCROLL-MAGICMISSLE-', 'SCROLL-FIREBALL-', 'SCROLL-LIGHTNING-'])
                                     ent_type = scroll_type
                                     entities.append({'type': scroll_type, 'name': '-1', 'x': wx_item, 'y': Oy+40.0, 'z': wz_item, 'rot': d_rot, 'id': entity_id_idx, 'state': 0})
-                                elif r < 0.36:
+                                elif r < 0.45:
                                     # weapon quality improves with depth
                                     if level == 0:
                                         weapon_types = ['BASTARDSWORD', 'FLAMESWORD', 'BATTLEAXE']
@@ -333,7 +333,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                     weapon_type = random.choice(weapon_types)
                                     ent_type = weapon_type
                                     entities.append({'type': weapon_type, 'name': '-1', 'x': wx_item, 'y': Oy+80.0, 'z': wz_item, 'rot': d_rot, 'id': entity_id_idx, 'state': 0})
-                                elif r < 0.44:
+                                elif r < 0.54:
                                     ent_type = 'CHEST'
                                     chest_choice = random.choice(['cdoorclosedwoodbox', 'cdoorclosedbarrel', 'cdoorclosedmetalbox'])
                                     st = random.choice([0, 1]) if level < 2 else random.choice([0, 1, 2])
