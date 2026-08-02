@@ -340,53 +340,54 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                 
                                 print(f"  -> Added {len(torch_positions)} wall torches with lights to CORRIDOR01")
 
-                            # --- Point light at center of each object (110 units above) ---
-                            light_y = Oy + 170.0
-                            entities.append({'type': 'lamp_post', 'x': Ox, 'y': light_y, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0, 'name': ''})
-                            entity_id_idx += 1
-
-                            #+10x  down
-                            #-10x  up
-                            #+10z  left
-                            #-10z  right
-
-                            # Random RGB values between 9.0 and 14.0
-                            center_r = round(random.uniform(9.0, 14.0), 1)
-                            center_g = round(random.uniform(9.0, 14.0), 1)
-                            center_b = round(random.uniform(9.0, 14.0), 1)
-
-                            entities.append({'type': 'LIGHT_SOURCE','name': 'flicker','x': Ox,'y': light_y,'z': Oz,'rot': 0,'id': entity_id_idx,'state': 0,'color': (center_r, center_g, center_b),'dir': (0.0, -1.0, 0.0)})
-                            entities.append({'type': 'torch1', 'name': '0', 'x': Ox + 10.0, 'y': Oy+140.0, 'z': Oz + 0.0, 'rot': 0, 'id': entity_id_idx, 'state': 0})
-
-                            entity_id_idx += 1
-
-                            # --- Spotlights and lamp posts (depth-aware color) ---
-                            if random.random() < 0.55:
-                                s_y = Oy + random.choice([200.0, 300.0, 400.0])
-
-                                hue = random.random()
-                                sat = random.uniform(0.4, 1.0)
-                                val = random.uniform(0.3, 0.9)
-
-                                import colorsys
-                                r, g, b = colorsys.hsv_to_rgb(hue, sat, val)
-                                color = (r, g, b)
-
-                                entities.append({'type': 'lamp_post', 'x': Ox, 'y': s_y, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0, 'name': ''})
+                            if cand_name != 'CORRIDOR02':
+                                # --- Point light at center of each object (110 units above) ---
+                                light_y = Oy + 170.0
+                                entities.append({'type': 'lamp_post', 'x': Ox, 'y': light_y, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0, 'name': ''})
                                 entity_id_idx += 1
 
-                                # Compute and store deterministic light direction now (not at write time)
-                                dx = random.uniform(-0.4, 0.4)
-                                dz = random.uniform(-0.4, 0.4)
-                                dy = -1.0
-                                length = math.sqrt(dx*dx + dy*dy + dz*dz)
-                                dx /= length
-                                dy /= length
-                                dz /= length
+                                #+10x  down
+                                #-10x  up
+                                #+10z  left
+                                #-10z  right
 
-                                entities.append({'type': 'LIGHT_SOURCE','name': 'Spotlight','x': Ox,'y': s_y,'z': Oz,'rot': 0,'id': entity_id_idx,'state': 0,'color': color,'dir': (dx, dy, dz)})
+                                # Random RGB values between 9.0 and 14.0
+                                center_r = round(random.uniform(9.0, 14.0), 1)
+                                center_g = round(random.uniform(9.0, 14.0), 1)
+                                center_b = round(random.uniform(9.0, 14.0), 1)
+
+                                entities.append({'type': 'LIGHT_SOURCE','name': 'flicker','x': Ox,'y': light_y,'z': Oz,'rot': 0,'id': entity_id_idx,'state': 0,'color': (center_r, center_g, center_b),'dir': (0.0, -1.0, 0.0)})
+                                entities.append({'type': 'torch1', 'name': '0', 'x': Ox + 10.0, 'y': Oy+140.0, 'z': Oz + 0.0, 'rot': 0, 'id': entity_id_idx, 'state': 0})
+
                                 entity_id_idx += 1
-                                print(f"  -> Spawned Spotlight overhead")
+
+                                # --- Spotlights and lamp posts (depth-aware color) ---
+                                if random.random() < 0.55:
+                                    s_y = Oy + random.choice([200.0, 300.0, 400.0])
+
+                                    hue = random.random()
+                                    sat = random.uniform(0.4, 1.0)
+                                    val = random.uniform(0.3, 0.9)
+
+                                    import colorsys
+                                    r, g, b = colorsys.hsv_to_rgb(hue, sat, val)
+                                    color = (r, g, b)
+
+                                    entities.append({'type': 'lamp_post', 'x': Ox, 'y': s_y, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0, 'name': ''})
+                                    entity_id_idx += 1
+
+                                    # Compute and store deterministic light direction now (not at write time)
+                                    dx = random.uniform(-0.4, 0.4)
+                                    dz = random.uniform(-0.4, 0.4)
+                                    dy = -1.0
+                                    length = math.sqrt(dx*dx + dy*dy + dz*dz)
+                                    dx /= length
+                                    dy /= length
+                                    dz /= length
+
+                                    entities.append({'type': 'LIGHT_SOURCE','name': 'Spotlight','x': Ox,'y': s_y,'z': Oz,'rot': 0,'id': entity_id_idx,'state': 0,'color': color,'dir': (dx, dy, dz)})
+                                    entity_id_idx += 1
+                                    print(f"  -> Spawned Spotlight overhead")
 
                             # --- Treasure and Monsters (depth-based scaling) ---
                             r = random.random()
@@ -399,7 +400,9 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                             level = min(3, int(depth // 140))
                             d_rot = random.choice([0, 45, 90, 135, 180, 225, 270, 315])
                             
-                            if r < 0.74:
+                            # Skip loot/monster spawning entirely for CORRIDOR02
+                            if cand_name != 'CORRIDOR02' and r < 0.74:
+
                                 # Place at object center
                                 wx_item = Ox
                                 wz_item = Oz
