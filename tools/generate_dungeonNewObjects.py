@@ -306,10 +306,10 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                 if r < 0.10:
                                     ent_type = random.choice(['POTION', 'cheese1', 'GOBLET'])
                                     entities.append({'type': ent_type, 'name': '-1', 'x': wx_item, 'y': Oy+40.0, 'z': wz_item, 'rot': d_rot, 'id': entity_id_idx, 'state': 0})
-                                elif r < 0.28:
+                                elif r < 0.25:
                                     ent_type = random.choice(['pot1', 'pot2', 'pot3','mushroom','rock1','rock2','skull'])
                                     entities.append({'type': ent_type, 'name': '0', 'x': wx_item, 'y': Oy+40.0, 'z': wz_item, 'rot': d_rot, 'id': entity_id_idx, 'state': 0})
-                                elif r < 0.29:
+                                elif r < 0.28:
                                     ent_type = 'armour'
                                     entities.append({'type': ent_type, 'name': '-1', 'x': wx_item, 'y': Oy+60.0, 'z': wz_item, 'rot': d_rot, 'id': entity_id_idx, 'state': 0})
                                 elif r < 0.30:
