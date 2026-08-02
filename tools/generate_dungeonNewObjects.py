@@ -251,6 +251,74 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                             placed_new = True
                             print(f"Placed {cand_name} at ({Ox:.1f}, {Oy:.1f}, {Oz:.1f}) [Rot: {ang}]")
 
+                            # --- Add wall torches for CORRIDOR01 ---
+                            if cand_name == 'CORRIDOR01':
+                                # CORRIDOR01 has walls at local Z = ±200
+                                # Place torches 20 units away from walls at intervals
+                                torch_positions = [
+                                    (-200, -160),  # Left wall, back
+                                    (0, -160),     # Left wall, center
+                                    (200, -160),   # Left wall, front
+                                    (-200, 160),   # Right wall, back
+                                    (0, 160),      # Right wall, center
+                                    (200, 160)     # Right wall, front
+                                ]
+                                
+                                for torch_x, torch_z in torch_positions:
+                                    # Rotate the local position by the corridor angle
+                                    rotated_pos = rotate(torch_x, torch_z, ang)
+                                    world_x = Ox + rotated_pos[0]
+                                    world_z = Oz + rotated_pos[1]
+                                    
+                                    # Torch model at base y level + 50
+                                    torch_y = Oy + 100.0
+                                    # Right wall torches (Z > 0) need 180 degree rotation
+                                    torch_rot = (ang - 90) % 360
+                                    if torch_z > 0:  # Right wall
+                                        torch_rot = (torch_rot + 180) % 360
+                                    entities.append({
+                                        'type': '!monster1', 
+                                        'name': '0',
+                                        'x': world_x, 
+                                        'y': torch_y, 
+                                        'z': world_z, 
+                                        'rot': torch_rot, 
+                                        'id': entity_id_idx, 
+                                        'state': 2
+                                    })
+                                    entity_id_idx += 1
+                                    
+                                    # Lamp post at y + 60 (10 units above torch)
+                                    lamp_y = Oy + 120.0
+                                    entities.append({
+                                        'type': 'lamp_post', 
+                                        'x': world_x, 
+                                        'y': lamp_y, 
+                                        'z': world_z, 
+                                        'rot': 0, 
+                                        'id': entity_id_idx, 
+                                        'state': 0, 
+                                        'name': ''
+                                    })
+                                    entity_id_idx += 1
+                                    
+                                    # Light source at y + 60 (same as lamp post)
+                                    entities.append({
+                                        'type': 'LIGHT_SOURCE',
+                                        'name': 'flicker',
+                                        'x': world_x,
+                                        'y': lamp_y,
+                                        'z': world_z,
+                                        'rot': 0,
+                                        'id': entity_id_idx,
+                                        'state': 0,
+                                        'color': (0.2, 0.2, 0.2),
+                                        'dir': (0.0, -1.0, 0.0)
+                                    })
+                                    entity_id_idx += 1
+                                
+                                print(f"  -> Added {len(torch_positions)} wall torches with lights to CORRIDOR01")
+
                             # --- Point light at center of each object (110 units above) ---
                             light_y = Oy + 170.0
                             entities.append({'type': 'lamp_post', 'x': Ox, 'y': light_y, 'z': Oz, 'rot': 0, 'id': entity_id_idx, 'state': 0, 'name': ''})
@@ -566,6 +634,11 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                 f.write(f"OBJECT {t}\n")
                 f.write(f"CO_ORDINATES {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}\n")
                 f.write(f"ROT_ANGLE {e['rot']} 0 {e.get('name','')} {e.get('id',0)} {e.get('state',0)}\n")
+            elif t == '!monster1':
+                # Wall torches - use torch2 as object type in ROT_ANGLE line
+                f.write(f"OBJECT !monster1\n")
+                f.write(f"CO_ORDINATES {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}\n")
+                f.write(f"ROT_ANGLE {e['rot']} torch2 {e.get('name','0')} {e.get('state',0)} 0\n")
             else:
                 # Default handler for treasures, monsters, and misc items
                 f.write(f"OBJECT !monster1\n")
