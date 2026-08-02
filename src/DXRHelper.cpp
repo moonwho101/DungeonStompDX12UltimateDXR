@@ -782,7 +782,7 @@ void DXRHelper::UpdateAliasData(ID3D12Device *device, const DXRMaterialData *mat
 		mAliasDataBuffer[fi].Reset();
 
 		// Create new buffer with some headroom
-		mMaxAliases[fi] = max(650u, 650u); // MAX_NUM_TEXTURES = 550
+		mMaxAliases[fi] = max(aliasCount, (UINT)MAX_NUM_TEXTURES); // MAX_NUM_TEXTURES = 650s
 
 		UINT bufferSize = mMaxAliases[fi] * sizeof(DXRMaterialData);
 
