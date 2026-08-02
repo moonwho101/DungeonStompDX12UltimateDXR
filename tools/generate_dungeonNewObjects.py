@@ -260,7 +260,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                             entity_id_idx += 1
 
                             # --- Spotlights and lamp posts (depth-aware color) ---
-                            if random.random() < 0.25:
+                            if random.random() < 0.55:
                                 s_y = Oy + random.choice([200.0, 300.0, 400.0])
 
                                 hue = random.random()
@@ -307,7 +307,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                     ent_type = random.choice(['POTION', 'cheese1', 'GOBLET'])
                                     entities.append({'type': ent_type, 'name': '-1', 'x': wx_item, 'y': Oy+40.0, 'z': wz_item, 'rot': d_rot, 'id': entity_id_idx, 'state': 0})
                                 elif r < 0.16:
-                                    ent_type = random.choice(['pot1', 'pot2', 'pot3'])
+                                    ent_type = random.choice(['pot1', 'pot2', 'pot3','mushroom'])
                                     entities.append({'type': ent_type, 'name': '0', 'x': wx_item, 'y': Oy+40.0, 'z': wz_item, 'rot': d_rot, 'id': entity_id_idx, 'state': 0})
                                 elif r < 0.18:
                                     ent_type = 'armour'
