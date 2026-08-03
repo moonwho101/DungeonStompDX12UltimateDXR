@@ -357,7 +357,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                 center_b = round(random.uniform(9.0, 14.0), 1)
 
                                 entities.append({'type': 'LIGHT_SOURCE','name': 'flicker','x': Ox,'y': light_y,'z': Oz,'rot': 0,'id': entity_id_idx,'state': 0,'color': (center_r, center_g, center_b),'dir': (0.0, -1.0, 0.0)})
-                                entities.append({'type': 'torch1', 'name': '0', 'x': Ox + 10.0, 'y': Oy+140.0, 'z': Oz + 0.0, 'rot': 0, 'id': entity_id_idx, 'state': 0})
+                                entities.append({'type': 'torch1', 'name': '0', 'x': Ox + 0.0, 'y': Oy+140.0, 'z': Oz + 0.0, 'rot': 0, 'id': entity_id_idx, 'state': 0})
 
                                 entity_id_idx += 1
 

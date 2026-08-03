@@ -655,7 +655,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                 # Use the direction stored at spawn time for determinism
                 dx, dy, dz = e.get('dir', (0.0, -1.0, 0.0))
 
-                light_color = e.get('color', (1.0, 1.0, 1.0))
+                light_color = e.get('color', (9.0, 9.0, 9.0))
                 f.write(
                     f"LIGHT_SOURCE {e['name']} POS {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}"
                     f" DIR {dx:.6f} {dy:.6f} {dz:.6f} "
