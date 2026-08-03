@@ -15,8 +15,8 @@ OBJECTS = {
         {'pos': (360, 0), 'out': DIR_E}
     ],
     'CORRIDOR02': [
-        {'pos': (-284, 0), 'out': DIR_W, 'y': 72},
-        {'pos': (295, 0), 'out': DIR_E, 'y': 414}
+        {'pos': (-284, 0), 'out': DIR_W, 'y': 72-20},
+        {'pos': (295, 0), 'out': DIR_E, 'y': 414-20}
     ],
     'CORRIDOR03': [
         {'pos': (-180, 0), 'out': DIR_W, 'y': -5},
