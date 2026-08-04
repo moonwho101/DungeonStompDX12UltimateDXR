@@ -15,27 +15,27 @@ OBJECTS = {
         {'pos': (360, 0), 'out': DIR_E}
     ],
     'CORRIDOR02': [
-        {'pos': (-284, 0), 'out': DIR_W, 'y': 72-20},
-        {'pos': (295, 0), 'out': DIR_E, 'y': 414-20}
+        {'pos': (-284, 0), 'out': DIR_W, 'y': 72-80},
+        {'pos': (295, 0), 'out': DIR_E, 'y': 414-80}
     ],
     'CORRIDOR03': [
-        {'pos': (-180, 0), 'out': DIR_W, 'y': -5},
-        {'pos': (180, 0), 'out': DIR_E, 'y': -5}
+        {'pos': (-180, 0), 'out': DIR_W, 'y': 0},
+        {'pos': (180, 0), 'out': DIR_E, 'y': 0}
     ],
     'CROSSING01': [
-        {'pos': (-60, -340), 'out': DIR_S, 'y': 30},
-        {'pos': (360, 80), 'out': DIR_E, 'y': 30}
+        {'pos': (-60, -340), 'out': DIR_S, 'y': 0},
+        {'pos': (360, 80), 'out': DIR_E, 'y': 0}
     ],
     'CROSSING02': [
-        {'pos': (0, 360), 'out': DIR_N, 'y': 30},
-        {'pos': (0, -360), 'out': DIR_S, 'y': 30},
-        {'pos': (-360, 0), 'out': DIR_W, 'y': 30},
-        {'pos': (360, 0), 'out': DIR_E, 'y': 30}
+        {'pos': (0, 360), 'out': DIR_N, 'y': 0},
+        {'pos': (0, -360), 'out': DIR_S, 'y': 0},
+        {'pos': (-360, 0), 'out': DIR_W, 'y': 0},
+        {'pos': (360, 0), 'out': DIR_E, 'y': 0}
     ],
     'CROSSING03': [
-        {'pos': (0, -360), 'out': DIR_S, 'y': 30},
-        {'pos': (-360, 0), 'out': DIR_W, 'y': 30},
-        {'pos': (360, 0), 'out': DIR_E, 'y': 30}
+        {'pos': (0, -360), 'out': DIR_S, 'y': 0},
+        {'pos': (-360, 0), 'out': DIR_W, 'y': 0},
+        {'pos': (360, 0), 'out': DIR_E, 'y': 0}
     ]
 }
 
@@ -210,11 +210,8 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
 
         placed_new = False
 
-        # All crossing types can only attach to corridor pieces (01, 02, or 03)
-        if source_name in ('CROSSING01', 'CROSSING02', 'CROSSING03'):
-            types = ['CORRIDOR01', 'CORRIDOR02', 'CORRIDOR03']
-        else:
-            types = list(OBJECTS.keys())
+
+        types = list(OBJECTS.keys())
         
         random.shuffle(types)
 
@@ -408,10 +405,10 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                 wz_item = Oz
                                 
                                 if r < 0.10:
-                                    ent_type = random.choice(['POTION', 'cheese1', 'GOBLET'])
+                                    ent_type = random.choice(['POTION', 'cheese1', 'GOBLET','pot1', 'pot2', 'pot3','mushroom'])
                                     entities.append({'type': ent_type, 'name': '-1', 'x': wx_item, 'y': Oy+40.0, 'z': wz_item, 'rot': d_rot, 'id': entity_id_idx, 'state': 0})
                                 elif r < 0.25:
-                                    ent_type = random.choice(['pot1', 'pot2', 'pot3','mushroom','rock1','rock2','skull'])
+                                    ent_type = random.choice(['rock1','rock2','skull'])
                                     entities.append({'type': ent_type, 'name': '0', 'x': wx_item, 'y': Oy+40.0, 'z': wz_item, 'rot': d_rot, 'id': entity_id_idx, 'state': 0})
                                 elif r < 0.28:
                                     ent_type = 'armour'
