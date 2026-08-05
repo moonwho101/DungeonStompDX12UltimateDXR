@@ -371,40 +371,83 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
 
                             # --- Torch light in ROOM_SQUARE and ROOMEDIUM ---
                             if cand_name in ('ROOM_SQUARE', 'ROOMEDIUM'):
-                                if cand_name == 'ROOM_SQUARE':
-                                    slots = [
-                                        (-240, -120, -220, -120, 270), # Left wall, south half
-                                        (-240,  120, -220,  120, 270), # Left wall, north half
-                                        ( 240, -120,  220, -120,  90), # Right wall, south half
-                                        ( 240,  120,  220,  120,  90), # Right wall, north half
-                                        (-120, -240, -120, -220,   0), # Bottom wall, west half
-                                        ( 120, -240,  120, -220,   0), # Bottom wall, east half
-                                        (-120,  240, -120,  220, 180), # Top wall, west half
-                                        ( 120,  240,  120,  220, 180)  # Top wall, east half
-                                    ]
+                                torch_type = random.choice(['torch', 'torch1'])
+
+                                if (torch_type == 'torch'):
+
+                                    if cand_name == 'ROOM_SQUARE':
+                                        slots = [
+                                            (-240, -120, -220, -120, 270), # Left wall, south half
+                                            (-240,  120, -220,  120, 270), # Left wall, north half
+                                            ( 240, -120,  220, -120,  90), # Right wall, south half
+                                            ( 240,  120,  220,  120,  90), # Right wall, north half
+                                            (-120, -240, -120, -220,   0), # Bottom wall, west half
+                                            ( 120, -240,  120, -220,   0), # Bottom wall, east half
+                                            (-120,  240, -120,  220, 180), # Top wall, west half
+                                            ( 120,  240,  120,  220, 180)  # Top wall, east half
+                                        ]
+                                    else:
+                                        slots = [
+                                            (-160, -120, -140, -120, 270), # Left wall, south half
+                                            (-160,  120, -140,  120, 270), # Left wall, north half
+                                            ( 160, -120,  140, -120,  90), # Right wall, south half
+                                            ( 160,  120,  140,  120,  90), # Right wall, north half
+                                            (-80, -240, -80, -220,   0),   # Bottom wall, west half
+                                            ( 80, -240,  80, -220,   0),   # Bottom wall, east half
+                                            (-80,  240, -80,  220, 180),   # Top wall, west half
+                                            ( 80,  240,  80,  220, 180)    # Top wall, east half
+                                        ]
+                                    num_torches = random.randint(2, 4)
+                                    chosen_slots = random.sample(slots, num_torches)
+                                    for tlx, tlz, tfx, tfz, trot in chosen_slots:
+                                        wlx, wlz = rotate(tlx, tlz, ang)
+                                        wfx, wfz = rotate(tfx, tfz, ang)
+                                        t_rot = (trot + ang) % 360
+                                        entities.append({'type': 'torch',      'x': Ox+wlx, 'y': Oy+60.0, 'z': Oz+wlz, 'rot': t_rot, 'id': entity_id_idx, 'state': 0, 'name': ''})
+                                        entities.append({'type': '!flamesnohit','x': Ox+wfx, 'y': Oy+60.0, 'z': Oz+wfz, 'rot': 0,     'id': entity_id_idx, 'state': 4, 'name': 'flame@1'})
+                                        entities.append({'type': 'lamp_post',  'x': Ox+wfx, 'y': Oy+80.0, 'z': Oz+wfz, 'rot': 0,     'id': entity_id_idx, 'state': 0, 'name': ''})
+                                        entities.append({'type': 'LIGHT_SOURCE','x': Ox+wfx,'y': Oy+0.0,  'z': Oz+wfz, 'rot': 0,     'id': entity_id_idx, 'state': 0, 'name': 'flicker'})
+                                        entity_id_idx += 1
+                                    print(f"  -> Spawned {num_torches} torches in {cand_name}")
                                 else:
-                                    slots = [
-                                        (-160, -120, -140, -120, 270), # Left wall, south half
-                                        (-160,  120, -140,  120, 270), # Left wall, north half
-                                        ( 160, -120,  140, -120,  90), # Right wall, south half
-                                        ( 160,  120,  140,  120,  90), # Right wall, north half
-                                        (-80, -240, -80, -220,   0),   # Bottom wall, west half
-                                        ( 80, -240,  80, -220,   0),   # Bottom wall, east half
-                                        (-80,  240, -80,  220, 180),   # Top wall, west half
-                                        ( 80,  240,  80,  220, 180)    # Top wall, east half
-                                    ]
-                                num_torches = random.randint(2, 4)
-                                chosen_slots = random.sample(slots, num_torches)
-                                for tlx, tlz, tfx, tfz, trot in chosen_slots:
-                                    wlx, wlz = rotate(tlx, tlz, ang)
-                                    wfx, wfz = rotate(tfx, tfz, ang)
-                                    t_rot = (trot + ang) % 360
-                                    entities.append({'type': 'torch',      'x': Ox+wlx, 'y': Oy+60.0, 'z': Oz+wlz, 'rot': t_rot, 'id': entity_id_idx, 'state': 0, 'name': ''})
-                                    entities.append({'type': '!flamesnohit','x': Ox+wfx, 'y': Oy+60.0, 'z': Oz+wfz, 'rot': 0,     'id': entity_id_idx, 'state': 4, 'name': 'flame@1'})
-                                    entities.append({'type': 'lamp_post',  'x': Ox+wfx, 'y': Oy+80.0, 'z': Oz+wfz, 'rot': 0,     'id': entity_id_idx, 'state': 0, 'name': ''})
-                                    entities.append({'type': 'LIGHT_SOURCE','x': Ox+wfx,'y': Oy+0.0,  'z': Oz+wfz, 'rot': 0,     'id': entity_id_idx, 'state': 0, 'name': 'flicker'})
-                                    entity_id_idx += 1
-                                print(f"  -> Spawned {num_torches} torches in {cand_name}")
+                                    if cand_name == 'ROOM_SQUARE':
+                                        slots = [
+                                                (-220, -120, -200, -120, 270), # Left wall, south half
+                                                (-220,  120, -200,  120, 270), # Left wall, north half
+                                                ( 220, -120,  200, -120,  90), # Right wall, south half
+                                                ( 220,  120,  200,  120,  90), # Right wall, north half
+                                                (-120, -220, -120, -200,   0), # Bottom wall, west half
+                                                ( 120, -220,  120, -200,   0), # Bottom wall, east half
+                                                (-120,  220, -120,  200, 180), # Top wall, west half
+                                                ( 120,  220,  120,  200, 180)  # Top wall, east half
+                                            ]
+                                    else:
+                                            slots = [
+                                                (-140, -120, -120, -120, 270), # Left wall, south half
+                                                (-140,  120, -120,  120, 270), # Left wall, north half
+                                                ( 140, -120,  120, -120,  90), # Right wall, south half
+                                                ( 140,  120,  120,  120,  90), # Right wall, north half
+                                                (-80, -220, -80, -200,   0),   # Bottom wall, west half
+                                                ( 80, -220,  80, -200,   0),   # Bottom wall, east half
+                                                (-80,  220, -80,  200, 180),   # Top wall, west half
+                                                ( 80,  220,  80,  200, 180)    # Top wall, east half
+                                            ]
+
+                                    num_torches = random.randint(2, 4)
+                                    chosen_slots = random.sample(slots, num_torches)
+                                    for tlx, tlz, tfx, tfz, trot in chosen_slots:
+                                        wlx, wlz = rotate(tlx, tlz, ang)
+                                        wfx, wfz = rotate(tfx, tfz, ang)
+                                        t_rot = (trot + ang-90) % 360
+                                        entities.append({'type': 'torch2',      'x': Ox+wlx, 'y': Oy+60.0, 'z': Oz+wlz, 'rot': t_rot, 'id': entity_id_idx, 'state': 0, 'name': ''})
+                                        entities.append({'type': '!flamesnohit','x': Ox+wfx, 'y': Oy+60.0, 'z': Oz+wfz, 'rot': 0,     'id': entity_id_idx, 'state': 4, 'name': 'flame@1'})
+                                        entities.append({'type': 'lamp_post',  'x': Ox+wlx, 'y': Oy+80.0, 'z': Oz+wlz, 'rot': 0,     'id': entity_id_idx, 'state': 0, 'name': ''})
+                                        entities.append({'type': 'LIGHT_SOURCE','x': Ox+wfx,'y': Oy+0.0,  'z': Oz+wfz, 'rot': 0,     'id': entity_id_idx, 'state': 0, 'name': 'flicker'})
+                                        entity_id_idx += 1
+                                    print(f"  -> Spawned {num_torches} torches in {cand_name}")
+
+
+                                    
 
                             # --- Dungeon dressings in ROOM_SQUARE and ROOMEDIUM (preserved) ---
                             if cand_name in ('ROOM_SQUARE', 'ROOMEDIUM'):
