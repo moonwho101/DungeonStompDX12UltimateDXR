@@ -294,7 +294,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
 
                                 # --- Random hanging center torch in ROOM2 ---
                                 if random.random() < 0.45:   # adjust probability as desired
-                                    light_y = Oy + 150.0
+                                    light_y = Oy + 140.0
 
                                     # Hanging lamp post anchor
                                     entities.append({
