@@ -43,12 +43,13 @@ OBJECTS = {
 # Corridors run east-west, so they're wide in X and narrow in Z
 BOUNDING_BOXES = {
     'CORRIDOR01':   (-360, -200, 360, 200),
-    'CORRIDOR02':   (-284, -200, 295, 200),
+    'CORRIDOR02':   (-284, -210, 295, 211),
     'CORRIDOR03':   (-180, -200, 180, 200),
     'CROSSING01':   (-447, -340, 365, 414), #'CROSSING01':   (-100, -360, 360, 100),
     'CROSSING02':   (-360, -360, 360, 360),
     'CROSSING03':   (-360, -360, 360, 100)
 }
+
 
 # PRE-DEFINED FLOOR SLOTS FOR ROOM ITEMS (to avoid collisions)
 # FLOOR SLOTS for new objects
