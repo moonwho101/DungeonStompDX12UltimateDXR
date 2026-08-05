@@ -435,18 +435,36 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
 
                                     num_torches = random.randint(2, 4)
                                     chosen_slots = random.sample(slots, num_torches)
+
+                                    # Light source at y + 60 (same as lamp post)
+                                    # Pick a random base color and multiply by 9.0
+                                    base_colors = [
+                                        (1.0, 1.0, 1.0),    # White
+                                        (1.0, 0.0, 0.0),    # Red
+                                        (0.0, 1.0, 0.0),    # Green
+                                        (0.0, 0.0, 1.0),    # Blue
+                                        (1.0, 1.0, 0.0),    # Yellow
+                                        (0.0, 1.0, 1.0),    # Cyan
+                                        (1.0, 0.0, 1.0),    # Magenta
+                                        (1.0, 0.5, 0.0),    # Orange
+                                        (0.5, 0.0, 1.0),    # Purple
+                                        (1.0, 0.75, 0.8)    # Pink
+                                    ]
+                                    base_color = random.choice(base_colors)
+                                    torch_r = round(base_color[0] * random.uniform(9.0, 13.0), 1)
+                                    torch_g = round(base_color[1] * random.uniform(9.0, 13.0), 1)
+                                    torch_b = round(base_color[2] * random.uniform(9.0, 13.0), 1)
+
                                     for tlx, tlz, tfx, tfz, trot in chosen_slots:
                                         wlx, wlz = rotate(tlx, tlz, ang)
                                         wfx, wfz = rotate(tfx, tfz, ang)
                                         t_rot = (trot + ang-90) % 360
-                                        entities.append({'type': 'torch2',      'x': Ox+wlx, 'y': Oy+60.0, 'z': Oz+wlz, 'rot': t_rot, 'id': entity_id_idx, 'state': 0, 'name': ''})
-                                        entities.append({'type': '!flamesnohit','x': Ox+wfx, 'y': Oy+60.0, 'z': Oz+wfz, 'rot': 0,     'id': entity_id_idx, 'state': 4, 'name': 'flame@1'})
-                                        entities.append({'type': 'lamp_post',  'x': Ox+wlx, 'y': Oy+80.0, 'z': Oz+wlz, 'rot': 0,     'id': entity_id_idx, 'state': 0, 'name': ''})
-                                        entities.append({'type': 'LIGHT_SOURCE','x': Ox+wfx,'y': Oy+0.0,  'z': Oz+wfz, 'rot': 0,     'id': entity_id_idx, 'state': 0, 'name': 'flicker'})
+                                        
+                                        entities.append({'type': 'torch2', 'x': Ox+wlx, 'y': Oy+60.0, 'z': Oz+wlz, 'rot': t_rot, 'id': entity_id_idx, 'state': 0, 'name': '0'})
+                                        entities.append({'type': 'lamp_post',  'x': Ox+wlx, 'y': Oy+80.0, 'z': Oz+wlz, 'rot': 0, 'id': entity_id_idx, 'state': 0, 'name': ''})
+                                        entities.append({'type': 'LIGHT_SOURCE','x': Ox+wfx,'y': Oy+0.0,  'z': Oz+wfz, 'rot': 0, 'id': entity_id_idx, 'state': 0, 'color': (torch_r, torch_g, torch_b), 'dir': (0.0, -1.0, 0.0), 'name': 'flicker'})
                                         entity_id_idx += 1
                                     print(f"  -> Spawned {num_torches} torches in {cand_name}")
-
-
                                     
 
                             # --- Dungeon dressings in ROOM_SQUARE and ROOMEDIUM (preserved) ---

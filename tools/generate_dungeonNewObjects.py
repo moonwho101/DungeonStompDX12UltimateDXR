@@ -265,6 +265,25 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                 # Randomly select 0-3 torches
                                 num_torches = random.randint(0, 3)
                                 torch_positions = random.sample(all_torch_positions, num_torches) if num_torches > 0 else []
+
+                                # Light source at y + 60 (same as lamp post)
+                                # Pick a random base color and multiply by 9.0
+                                base_colors = [
+                                    (1.0, 1.0, 1.0),    # White
+                                    (1.0, 0.0, 0.0),    # Red
+                                    (0.0, 1.0, 0.0),    # Green
+                                    (0.0, 0.0, 1.0),    # Blue
+                                    (1.0, 1.0, 0.0),    # Yellow
+                                    (0.0, 1.0, 1.0),    # Cyan
+                                    (1.0, 0.0, 1.0),    # Magenta
+                                    (1.0, 0.5, 0.0),    # Orange
+                                    (0.5, 0.0, 1.0),    # Purple
+                                    (1.0, 0.75, 0.8)    # Pink
+                                ]
+                                base_color = random.choice(base_colors)
+                                torch_r = round(base_color[0] * random.uniform(9.0, 13.0), 1)
+                                torch_g = round(base_color[1] * random.uniform(9.0, 13.0), 1)
+                                torch_b = round(base_color[2] * random.uniform(9.0, 13.0), 1)
                                 
                                 for torch_x, torch_z in torch_positions:
                                     # Rotate the local position by the corridor angle
@@ -303,25 +322,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                         'name': ''
                                     })
                                     entity_id_idx += 1
-                                    
-                                    # Light source at y + 60 (same as lamp post)
-                                    # Pick a random base color and multiply by 9.0
-                                    base_colors = [
-                                        (1.0, 1.0, 1.0),    # White
-                                        (1.0, 0.0, 0.0),    # Red
-                                        (0.0, 1.0, 0.0),    # Green
-                                        (0.0, 0.0, 1.0),    # Blue
-                                        (1.0, 1.0, 0.0),    # Yellow
-                                        (0.0, 1.0, 1.0),    # Cyan
-                                        (1.0, 0.0, 1.0),    # Magenta
-                                        (1.0, 0.5, 0.0),    # Orange
-                                        (0.5, 0.0, 1.0),    # Purple
-                                        (1.0, 0.75, 0.8)    # Pink
-                                    ]
-                                    base_color = random.choice(base_colors)
-                                    torch_r = round(base_color[0] * random.uniform(9.0, 13.0), 1)
-                                    torch_g = round(base_color[1] * random.uniform(9.0, 13.0), 1)
-                                    torch_b = round(base_color[2] * random.uniform(9.0, 13.0), 1)
+
                                     entities.append({
                                         'type': 'LIGHT_SOURCE',
                                         'name': 'flicker',
