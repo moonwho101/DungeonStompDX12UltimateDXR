@@ -292,6 +292,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                     entities.append({'type': 'LIGHT_SOURCE','x': Ox+wfx,'y': Oy+0.0,  'z': Oz+wfz, 'rot': 0,     'id': entity_id_idx, 'state': 0, 'name': 'flicker'})
                                     print(f"  -> Spawned torch light in ROOM2")
 
+                            if cand_name in ('ROOM2', 'ROOM_SQUARE', 'ROOMEDIUM', 'slope_stairs'):
                                 # --- Random hanging center torch in ROOM2 ---
                                 if random.random() < 0.45:   # adjust probability as desired
                                     light_y = Oy + 140.0
