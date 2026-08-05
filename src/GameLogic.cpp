@@ -2976,6 +2976,67 @@ void GetItem() {
 						UpdateScrollList(255, 255, 255);
 						foundsomething = 1;
 					}
+				} else if (strcmp(item_list[i].rname, "pot1") == 0) {
+
+					if (player_list[trueplayernum].health < player_list[trueplayernum].hp) {
+						StartTreasurePickupFx(i, true);
+						int hp = 5;
+						player_list[trueplayernum].health = player_list[trueplayernum].health + hp;
+
+						if (player_list[trueplayernum].health > player_list[trueplayernum].hp)
+							player_list[trueplayernum].health = player_list[trueplayernum].hp;
+
+						PlayWavSound(SoundID("potion"), 100);
+						// StartFlare(3);
+						sprintf_s(gActionMessage, "You found a small elixir worth %d health", hp);
+						UpdateScrollList(255, 255, 255);
+						foundsomething = 1;
+					}
+				} else if (strcmp(item_list[i].rname, "pot2") == 0) {
+
+					if (player_list[trueplayernum].health < player_list[trueplayernum].hp) {
+						StartTreasurePickupFx(i, true);
+						int hp = 10;
+						player_list[trueplayernum].health = player_list[trueplayernum].health + hp;
+
+						if (player_list[trueplayernum].health > player_list[trueplayernum].hp)
+							player_list[trueplayernum].health = player_list[trueplayernum].hp;
+
+						PlayWavSound(SoundID("potion"), 100);
+						// StartFlare(3);
+						sprintf_s(gActionMessage, "You found a medium elixir worth %d health", hp);
+						UpdateScrollList(255, 255, 255);
+						foundsomething = 1;
+					}
+				} else if (strcmp(item_list[i].rname, "pot3") == 0) {
+
+					if (player_list[trueplayernum].health < player_list[trueplayernum].hp) {
+						StartTreasurePickupFx(i, true);
+						int hp = 20;
+						player_list[trueplayernum].health = player_list[trueplayernum].health + hp;
+
+						if (player_list[trueplayernum].health > player_list[trueplayernum].hp)
+							player_list[trueplayernum].health = player_list[trueplayernum].hp;
+
+						PlayWavSound(SoundID("potion"), 100);
+						// StartFlare(3);
+						sprintf_s(gActionMessage, "You found a large elixir worth %d health", hp);
+						UpdateScrollList(255, 255, 255);
+						foundsomething = 1;
+					}
+				} else if (strcmp(item_list[i].rname, "mushroom") == 0) {
+
+					if (player_list[trueplayernum].health < player_list[trueplayernum].hp) {
+						StartTreasurePickupFx(i, true);
+
+						player_list[trueplayernum].health = player_list[trueplayernum].hp;
+
+						PlayWavSound(SoundID("potion"), 100);
+						// StartFlare(3);
+						sprintf_s(gActionMessage, "You found a mushroom - full health!");
+						UpdateScrollList(255, 255, 255);
+						foundsomething = 1;
+					}
 				} else if (strcmp(item_list[i].rname, "cheese1") == 0) {
 
 					if (player_list[trueplayernum].health < player_list[trueplayernum].hp) {
