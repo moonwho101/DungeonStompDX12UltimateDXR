@@ -670,7 +670,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                 # Wall torches - use torch2 as object type in ROT_ANGLE line
                 f.write(f"OBJECT !monster1\n")
                 f.write(f"CO_ORDINATES {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}\n")
-                f.write(f"ROT_ANGLE {e['rot']} torch2 {e.get('name','0')} {e.get('state',0)} 0\n")
+                f.write(f"ROT_ANGLE {e['rot']} torch2 {e.get('name','0')} {e.get('id',0)} 0\n")
             else:
                 # Default handler for treasures, monsters, and misc items
                 f.write(f"OBJECT !monster1\n")
