@@ -39,7 +39,14 @@ OBJECTS = {
     ],
     'ROOM02': [
         {'pos': (0, -173), 'out': DIR_S, 'y': 0}
+    ],
+    #'ROOM05': [
+    #    {'pos': (251, 276), 'out': DIR_E, 'y': 0}
+    #],
+    'ROOM06': [
+        {'pos': (0, -311), 'out': DIR_S, 'y': 0}
     ]
+
 }
 
 # NEW BOUNDING BOXES based on TRITEX floor dimensions
@@ -51,9 +58,10 @@ BOUNDING_BOXES = {
     'CROSSING01':   (-447, -340, 365, 414), #'CROSSING01':   (-100, -360, 360, 100),
     'CROSSING02':   (-360, -360, 360, 360),
     'CROSSING03':   (-360, -360, 360, 100),
-    'ROOM02':       (-255, -173, 249, 165)
+    'ROOM02':       (-255, -173, 249, 165),
+    'ROOM06':       (-254, -311, 251, 296),
+    #'ROOM05':       (-374, -831, 455, 695)
 }
-
 
 # PRE-DEFINED FLOOR SLOTS FOR ROOM ITEMS (to avoid collisions)
 # FLOOR SLOTS for new objects
