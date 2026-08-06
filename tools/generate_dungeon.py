@@ -471,7 +471,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                             if cand_name in ('ROOM_SQUARE', 'ROOMEDIUM'):
                                 num_dressings = random.randint(1, 2)
                                 for _ in range(num_dressings):
-                                    dressing_type = random.choice(['TABLE', 'stool', 'BED', 'TROUGH', 'LOGS', 'BUCKET'])
+                                    dressing_type = random.choice(['TABLE', 'stool', 'BED', 'TROUGH', 'LOGS', 'BUCKET', 'QUARTZ'])
                                     d_rot = random.choice([0, 45, 90, 135, 180, 225, 270, 315])
 
                                     if room_slots:
@@ -547,7 +547,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                     wz = Oz + rp[1]
 
                                     if r < 0.12:
-                                        ent_type = random.choice(['POTION', 'cheese1','GOBLET'])
+                                        ent_type = random.choice(['POTION', 'cheese1','GOBLET','pot1','pot2','pot3','mushroom'])
                                         entities.append({'type': ent_type, 'name': '-1',    'x': wx, 'y': Oy-12.0, 'z': wz, 'rot': d_rot, 'id': entity_id_idx, 'state': 0})
                                     elif r < 0.15:
                                         ent_type = 'armour'
