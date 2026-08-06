@@ -471,7 +471,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                             if cand_name in ('ROOM_SQUARE', 'ROOMEDIUM'):
                                 num_dressings = random.randint(1, 2)
                                 for _ in range(num_dressings):
-                                    dressing_type = random.choice(['TABLE', 'stool', 'BED', 'TROUGH', 'LOGS', 'BUCKET', 'QUARTZ'])
+                                    dressing_type = random.choice(['TABLE', 'stool', 'BED', 'TROUGH', 'LOGS', 'BUCKET', 'QUARTZ','rock2'])
                                     d_rot = random.choice([0, 45, 90, 135, 180, 225, 270, 315])
 
                                     if room_slots:
