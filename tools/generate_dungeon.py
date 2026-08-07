@@ -195,6 +195,9 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
         random.shuffle(types)
 
         for cand_name in types:
+            if cand_name in ("ROOM_SQUARE"):
+                if random.random() > 0.30:
+                    continue
             if placed_new: break
             cand_exits = OBJECTS[cand_name]
 

@@ -40,9 +40,9 @@ OBJECTS = {
     'ROOM02': [
         {'pos': (0, -173), 'out': DIR_S, 'y': 0}
     ],
-    #'ROOM05': [
-    #    {'pos': (251, 276), 'out': DIR_E, 'y': 0}
-    #],
+    'ROOM05': [
+        {'pos': (320, -305), 'out': DIR_E, 'y': 0}
+    ],
     'ROOM06': [
         {'pos': (0, -311), 'out': DIR_S, 'y': 0}
     ]
@@ -60,7 +60,7 @@ BOUNDING_BOXES = {
     'CROSSING03':   (-360, -360, 360, 100),
     'ROOM02':       (-255, -173, 249, 165),
     'ROOM06':       (-254, -311, 251, 296),
-    #'ROOM05':       (-374, -831, 455, 695)
+    'ROOM05':       (-374/2, -831/2, 455/2, 695/2)
 }
 
 # PRE-DEFINED FLOOR SLOTS FOR ROOM ITEMS (to avoid collisions)
@@ -229,6 +229,14 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
         random.shuffle(types)
 
         for cand_name in types:
+             # --- NEW: ROOM05 and ROOM06 only allowed 30% of the time ---
+            if cand_name in ("ROOM05", "ROOM06", "ROOM02"):
+                if random.random() > 0.10:
+                    continue
+            # --- RULE: ROOM05 must attach only to corridors ---
+            if cand_name in ("ROOM05","CROSSING01","CROSSING02","CROSSING03"):
+                if not source_name.startswith("CORRIDOR"):
+                    continue
             if placed_new: break
             cand_exits = OBJECTS[cand_name]
 
@@ -254,8 +262,8 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
 
                         if not check_collision(Ox, Oz, cand_name, ang):
                             # Apply spacing check to maintain distance between pieces
-                            if not check_spacing(Ox, Oz, cand_name, min_distance=800):
-                                continue  # Skip this placement if too close to other pieces
+                            #if not check_spacing(Ox, Oz, cand_name, min_distance=800):
+                            #    continue  # Skip this placement if too close to other pieces
                             
                             placed.append({'name': cand_name, 'x': Ox, 'y': Oy, 'z': Oz, 'rot': ang})
                             placed_new = True
