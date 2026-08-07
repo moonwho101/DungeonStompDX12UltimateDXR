@@ -101,6 +101,31 @@ FLOOR_SLOTS = {
         (0.0, 0.0),
         (-100.0, -100.0), (100.0, -100.0),
         (-100.0, -200.0), (100.0, -200.0)
+    ],
+     'ROOM02': [
+        (0.0, 0.0),          # center
+        (-120.0, -60.0),
+        (120.0, -60.0),
+        (-120.0, 60.0),
+        (120.0, 60.0)
+    ],
+    'ROOM06': [
+        (0.0, 0.0),          # center
+        (-140.0, -120.0),
+        (140.0, -120.0),
+        (-140.0, 120.0),
+        (140.0, 120.0),
+        (0.0, -200.0),
+        (0.0, 200.0)
+    ],
+    'ROOM05': [
+        (0.0, 0.0),          # center
+        (-150.0, -200.0),
+        (150.0, -200.0),
+        (-150.0, 200.0),
+        (150.0, 200.0),
+        (0.0, -300.0),
+        (0.0, 300.0)
     ]
 }
 
@@ -231,7 +256,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
         for cand_name in types:
              # --- NEW: ROOM05 and ROOM06 only allowed 30% of the time ---
             if cand_name in ("ROOM05", "ROOM06", "ROOM02"):
-                if random.random() > 0.10:
+                if random.random() > 0.20:
                     continue
             # --- RULE: ROOM05 must attach only to corridors ---
             if cand_name in ("ROOM05","CROSSING01","CROSSING02","CROSSING03"):
