@@ -258,10 +258,24 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
             if cand_name in ("ROOM05", "ROOM06", "ROOM02"):
                 if random.random() > 0.20:
                     continue
-            # --- RULE: ROOM05 must attach only to corridors ---
-            if cand_name in ("ROOM05","CROSSING01","CROSSING02","CROSSING03"):
+
+            # --- ROOM05 must attach only to corridors ---
+            if cand_name == "ROOM05":
                 if not source_name.startswith("CORRIDOR"):
                     continue
+
+            # --- Crossings cannot attach to ROOM05 ---
+            if cand_name in ("CROSSING01", "CROSSING02", "CROSSING03"):
+                if source_name == "ROOM05":
+                    continue
+
+            # --- Crossings can ONLY attach to corridors ---
+            if cand_name in ("CROSSING01", "CROSSING02", "CROSSING03"):
+                if not source_name.startswith("CORRIDOR"):
+                    continue
+
+            
+
             if placed_new: break
             cand_exits = OBJECTS[cand_name]
 
