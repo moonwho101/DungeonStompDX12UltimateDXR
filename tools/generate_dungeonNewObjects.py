@@ -41,7 +41,7 @@ OBJECTS = {
         {'pos': (0, -173), 'out': DIR_S, 'y': 0}
     ],
     'ROOM05': [
-        {'pos': (320, -305), 'out': DIR_E, 'y': 0}
+        {'pos': (320+120, -305-145), 'out': DIR_E, 'y': 0}
     ],
     'ROOM06': [
         {'pos': (0, -311), 'out': DIR_S, 'y': 0}
@@ -256,7 +256,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
         for cand_name in types:
              # --- NEW: ROOM05 and ROOM06 only allowed 30% of the time ---
             if cand_name in ("ROOM05", "ROOM06", "ROOM02"):
-                if random.random() > 0.20:
+                if random.random() > 0.80:
                     continue
 
             # --- ROOM05 must attach only to corridors ---
