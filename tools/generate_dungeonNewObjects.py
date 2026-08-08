@@ -34,8 +34,8 @@ OBJECTS = {
     ],
     'CROSSING03': [
         {'pos': (0, -360), 'out': DIR_S, 'y': 0},
-        {'pos': (-360, 0), 'out': DIR_W, 'y': 0},
-        {'pos': (360, 0), 'out': DIR_E, 'y': 0}
+        {'pos': (-360, 20), 'out': DIR_W, 'y': 0},
+        {'pos': (360, 20), 'out': DIR_E, 'y': 0}
     ],
     'ROOM02': [
         {'pos': (0, -173), 'out': DIR_S, 'y': 0}
