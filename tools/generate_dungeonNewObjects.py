@@ -60,7 +60,20 @@ BOUNDING_BOXES = {
     'CROSSING03':   (-360, -360, 360, 100),
     'ROOM02':       (-255, -173, 249, 165),
     'ROOM06':       (-254, -311, 251, 296),
-    'ROOM05':       (-374/2, -831/2, 455/2, 695/2)
+    'ROOM05':       (-374, -831, 455, 695)
+}
+
+
+BOUNDING_BOXES_FULL = {
+    'CORRIDOR01':   (-372, -297, 358, 303),
+    'CORRIDOR02':   (-288, -298, 298, 302),
+    'CORRIDOR03':   (-185, -299, 182, 301),
+    'CROSSING01':   (-447, -453, 482, 413), #'CROSSING01':   (-100, -360, 360, 100),
+    'CROSSING02':   (-486, -458, 491, 475),
+    'CROSSING03':   (-492, -422, 485, 420),
+    'ROOM02':       (-255, -173, 249, 165),
+    'ROOM06':       (-297, -338, 294, 339),
+    'ROOM05':       (-505, -831, 517, 839)
 }
 
 # PRE-DEFINED FLOOR SLOTS FOR ROOM ITEMS (to avoid collisions)
@@ -138,6 +151,15 @@ def get_world_bounds(name, ox, oz, rot):
     wz = [c[1] + oz for c in rotated]
     return min(wx), min(wz), max(wx), max(wz)
 
+def get_world_bounds_full(name, ox, oz, rot):
+    min_x, min_z, max_x, max_z = BOUNDING_BOXES_FULL[name]
+    corners = [(min_x, min_z), (max_x, min_z), (min_x, max_z), (max_x, max_z)]
+    rotated = [rotate(cx, cz, rot) for cx, cz in corners]
+    wx = [c[0] + ox for c in rotated]
+    wz = [c[1] + oz for c in rotated]
+    return min(wx), min(wz), max(wx), max(wz)
+
+
 def rotate(x, z, angle):
     if angle == 0:   return x, z
     if angle == 90:  return -z, x
@@ -204,13 +226,40 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
             'source_name': 'ROOM2'
         })
 
-    def check_collision(nx, nz, n_name, n_rot):
-        n_minx, n_minz, n_maxx, n_maxz = get_world_bounds(n_name, nx, nz, n_rot)
+    def check_collision(nx, nz, n_name, n_rot, attach_ex):
+        """
+        attach_ex = the exit dict we are attaching to:
+            { 'wx', 'wy', 'wz', 'wdx', 'wdz', 'source_name' }
+        We skip collision against the source piece because floor bounding boxes
+        already validated the attachment.
+        """
+
+        n_minx, n_minz, n_maxx, n_maxz = get_world_bounds_full(n_name, nx, nz, n_rot)
+
         for p in placed:
-            p_minx, p_minz, p_maxx, p_maxz = get_world_bounds(p['name'], p['x'], p['z'], p['rot'])
+            # Skip collision check with the piece we are attaching to
+            if p['name'] == attach_ex['source_name']:
+                # Check if this piece actually contains the exit we are attaching to
+                for ext in OBJECTS[p['name']]:
+                    rp = rotate(ext['pos'][0], ext['pos'][1], p['rot'])
+                    ex_world_x = p['x'] + rp[0]
+                    ex_world_z = p['z'] + rp[1]
+
+                    # If this exit matches the attach point, skip collision
+                    if abs(ex_world_x - attach_ex['wx']) < 1.0 and abs(ex_world_z - attach_ex['wz']) < 1.0:
+                        break
+                else:
+                    # No matching exit → treat normally
+                    pass
+                continue
+
+            # Normal collision check using FULL bounding boxes
+            p_minx, p_minz, p_maxx, p_maxz = get_world_bounds_full(p['name'], p['x'], p['z'], p['rot'])
+
             if (n_minx < p_maxx and n_maxx > p_minx and
-                    n_minz < p_maxz and n_maxz > p_minz):
+                n_minz < p_maxz and n_maxz > p_minz):
                 return True
+
         return False
     
     def check_spacing(nx, nz, n_name, min_distance=800):
@@ -299,7 +348,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                         Oy = wy - loc_ext.get('y', 0)
                         Oz = wz - rp[1]
 
-                        if not check_collision(Ox, Oz, cand_name, ang):
+                        if not check_collision(Ox, Oz, cand_name, ang, O):
                             # Apply spacing check to maintain distance between pieces
                             #if not check_spacing(Ox, Oz, cand_name, min_distance=800):
                             #    continue  # Skip this placement if too close to other pieces
