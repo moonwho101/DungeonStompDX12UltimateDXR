@@ -305,7 +305,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
         for cand_name in types:
              # --- NEW: ROOM05 and ROOM06 only allowed 30% of the time ---
             if cand_name in ("ROOM05", "ROOM06", "ROOM02"):
-                if random.random() > 0.20:
+                if random.random() > 0.40:
                     continue
 
             # --- ROOM05 must attach only to corridors ---
@@ -357,21 +357,76 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                             placed_new = True
                             print(f"Placed {cand_name} at ({Ox:.1f}, {Oy:.1f}, {Oz:.1f}) [Rot: {ang}]")
 
-                            # --- Add wall torches for CORRIDOR01 ---
-                            if cand_name == 'CORRIDOR01':
-                                # CORRIDOR01 has walls at local Z = ±200
-                                # Place torches 20 units away from walls at intervals
-                                all_torch_positions = [
-                                    (-200, -155),  # Left wall, back
-                                    (0, -155),     # Left wall, center
-                                    (200, -155),   # Left wall, front
-                                    (-200, 155),   # Right wall, back
-                                    (0, 155),      # Right wall, center
-                                    (200, 155)     # Right wall, front
-                                ]
-                                
+
+                            if cand_name in ('ROOM05','CORRIDOR01','ROOM06'):
+                                # --- Add wall torches for CORRIDOR01 ---
+                                num_torches = random.randint(1, 4)
+                                if cand_name == 'CORRIDOR01':
+                                    # CORRIDOR01 has walls at local Z = ±200
+                                    # Place torches 20 units away from walls at intervals
+                                    all_torch_positions = [
+                                        (-200, -155,270),  # Left wall, back
+                                        (0, -155,270),     # Left wall, center
+                                        (200, -155,270),   # Left wall, front
+                                        (-200, 155,90),   # Right wall, back
+                                        (0, 155,90),      # Right wall, center
+                                        (200, 155,90)     # Right wall, front
+                                    ]
+                                elif cand_name == 'ROOM05':
+                                    # ROOM05 has walls at local X = ±200
+                                    num_torches = random.randint(3, 7)
+                                    all_torch_positions =[
+                                        # --- WEST WALL  ---
+                                        (-334, -631, 180),#correct
+                                        (-334, -431, 180),
+                                        (-334, -231, 180),
+                                        (-334, -31,  180),
+                                        (-334, 169,  180),
+                                        (-334, 369,  180),
+
+                                        # --- EAST WALL  ---
+                                        (415, -631, 0),
+                                        (415, -431, 0),
+                                        (415, -231, 0),
+                                        (415, -31,  0),
+                                        (415, 169,  0),
+                                        (415, 369,  0),
+
+                                        # --- SOUTH WALL  ---
+                                        (-174, -791, 270),
+                                        (26,   -791, 270),
+                                        (226,  -791, 270),
+                                        (426,  -791, 270),
+
+                                        # --- NORTH WALL  ---
+                                        (-174, 655, 90),
+                                        (26,   655, 90),
+                                        (226,  655, 90),
+                                        (426,  655, 90)
+                                    ]
+
+                                elif cand_name == 'ROOM06':
+                                    all_torch_positions = [
+                                        # --- WEST WALL (faces EAST → rot 90) ---
+                                        (-254 + 40, -311 + 200, 180),
+                                        (-254 + 40, -311 + 400, 180),
+
+                                        # --- EAST WALL (faces WEST → rot 270) ---
+                                        (251 - 40, -311 + 200, 0),
+                                        (251 - 40, -311 + 400, 0),
+
+                                        # --- SOUTH WALL (faces NORTH → rot 0) ---
+                                        (-254 + 200, -311 + 40, 270),
+                                        (-254 + 400, -311 + 40, 279),
+
+                                        # --- NORTH WALL (faces SOUTH → rot 180) ---
+                                        (-254 + 200, 296 - 40, 90),
+                                        (-254 + 400, 296 - 40, 90)
+                                    ]
+
+
                                 # Randomly select 0-3 torches
-                                num_torches = random.randint(0, 3)
+                                
                                 torch_positions = random.sample(all_torch_positions, num_torches) if num_torches > 0 else []
 
                                 # Light source at y + 60 (same as lamp post)
@@ -393,7 +448,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                 torch_g = round(base_color[1] * random.uniform(9.0, 13.0), 1)
                                 torch_b = round(base_color[2] * random.uniform(9.0, 13.0), 1)
                                 
-                                for torch_x, torch_z in torch_positions:
+                                for torch_x, torch_z,base_rot in torch_positions:
                                     # Rotate the local position by the corridor angle
                                     rotated_pos = rotate(torch_x, torch_z, ang)
                                     world_x = Ox + rotated_pos[0]
@@ -401,10 +456,9 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                     
                                     # Torch model at base y level + 50
                                     torch_y = Oy + 100.0
-                                    # Right wall torches (Z > 0) need 180 degree rotation
-                                    torch_rot = (ang - 90) % 360
-                                    if torch_z > 0:  # Right wall
-                                        torch_rot = (torch_rot + 180) % 360
+                                    torch_rot = (base_rot + ang) % 360
+
+                                        
                                     entities.append({
                                         'type': '!monster1', 
                                         'name': '0',
@@ -445,7 +499,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                     })
                                     entity_id_idx += 1
                                 
-                                print(f"  -> Added {len(torch_positions)} wall torches with lights to CORRIDOR01")
+                                print(f"  -> Added {len(torch_positions)} wall torches with lights to {cand_name}")
 
                             if cand_name != 'CORRIDOR02':
                                 # --- Point light at center of each object (110 units above) ---
