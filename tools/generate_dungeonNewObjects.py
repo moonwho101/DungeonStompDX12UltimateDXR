@@ -664,7 +664,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                         st = 0
 
                                         entities.append({'type': ent_type, 'name': name_val,
-                                                        'x': wx_item, 'y': Oy+70.0 + (depth/140.0)*2.0,
+                                                        'x': wx_item, 'y': Oy+50.0 + (depth/140.0)*2.0,
                                                         'z': wz_item, 'rot': d_rot,
                                                         'id': entity_id_idx, 'state': st})
 
