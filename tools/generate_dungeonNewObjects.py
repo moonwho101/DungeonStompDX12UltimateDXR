@@ -305,7 +305,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
         for cand_name in types:
              # --- NEW: ROOM05 and ROOM06 only allowed 30% of the time ---
             if cand_name in ("ROOM05", "ROOM06", "ROOM02"):
-                if random.random() > 0.40:
+                if random.random() > 0.20:
                     continue
 
             # --- ROOM05 must attach only to corridors ---
@@ -552,7 +552,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
 
                               # --- Treasure and Monsters (depth-based scaling) ---
                                 depth = max(0.0, -Oy)
-                                level = min(3, int(depth // 140))
+                                level = min(3, int(depth // 280))
                                 d_rot = random.choice([0, 45, 90, 135, 180, 225, 270, 315])
 
                                 # Determine how many items to spawn
