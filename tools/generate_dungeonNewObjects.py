@@ -594,7 +594,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                                         'rot': d_rot, 'id': entity_id_idx, 'state': 0})
 
                                     elif r < 0.25:
-                                        ent_type = random.choice(['rock1','rock2','skull','QUARTZ'])
+                                        ent_type = random.choice(['rock1','rock2','skull','QUARTZ','cdoorclosedchest'])
                                         entities.append({'type': ent_type, 'name': '0',
                                                         'x': wx_item, 'y': Oy+10.0, 'z': wz_item,
                                                         'rot': d_rot, 'id': entity_id_idx, 'state': 0})
