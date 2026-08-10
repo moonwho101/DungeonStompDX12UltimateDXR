@@ -768,7 +768,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
         # Teleport base circle (slightly below ground)
         entities.append({
             'type': 'circle',
-            'x': tx, 'y': ty - 41.0, 'z': tz,
+            'x': tx, 'y': ty - 41.0 + 40.0,  'z': tz,
             'rot': 0,
             'name': '0',
             'id': entity_id_idx,
@@ -779,7 +779,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
         # Teleport spiral
         entities.append({
             'type': 'spiral',
-            'x': tx, 'y': ty, 'z': tz,
+            'x': tx, 'y': ty + 40, 'z': tz,
             'rot': 0,
             'name': '-1',
             'id': entity_id_idx,
@@ -790,7 +790,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
         # Teleport flare burst
         entities.append({
             'type': '!flarenohit',
-            'x': tx, 'y': ty, 'z': tz,
+            'x': tx, 'y': ty + 40, 'z': tz,
             'rot': 0,
             'name': 'flare@1',
             'id': entity_id_idx,
