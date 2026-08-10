@@ -356,7 +356,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                             print(f"Placed {cand_name} at ({Ox:.1f}, {Oy:.1f}, {Oz:.1f}) [Rot: {ang}]")
 
 
-                            if cand_name in ('ROOM05'):
+                            if cand_name in ('ROOM05','CORRIDOR01','ROOM06'):
                                 # --- Add wall torches for CORRIDOR01 ---
                                 num_torches = random.randint(1, 4)
                                 if cand_name == 'CORRIDOR01':
@@ -410,7 +410,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                         (-254 + 60, -311 + 390, 270),#2
 
                                         # --- EAST WALL (faces WEST → rot 270) ---
-                                        (251 - 135, -311 + 200, 0),#1B--X
+                                        (251 - 125, -311 + 200, 0),#1B--X
                                         (251 - 60, -311 + 390, 270),#2
 
                                         # --- NORTH WALL (faces SOUTH → rot 180) ---
