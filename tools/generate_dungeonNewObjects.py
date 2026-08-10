@@ -414,8 +414,8 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                         (251 - 40, -311 + 400, 0),
 
                                         # --- NORTH WALL (faces SOUTH → rot 180) ---
-                                        (-254 + 200, 296 - 40, 90),
-                                        (-254 + 400, 296 - 40, 90)
+                                        (-254 + 200, 296 - 20, 90),#back wall
+                                        (-254 + 400, 296 - 20, 90)
                                     ]
 
 
