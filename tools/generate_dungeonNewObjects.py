@@ -356,9 +356,9 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                             print(f"Placed {cand_name} at ({Ox:.1f}, {Oy:.1f}, {Oz:.1f}) [Rot: {ang}]")
 
 
-                            if cand_name in ('ROOM06'):
+                            if cand_name in ('ROOM05'):
                                 # --- Add wall torches for CORRIDOR01 ---
-                                num_torches = random.randint(6, 6)
+                                num_torches = random.randint(1, 4)
                                 if cand_name == 'CORRIDOR01':
                                     # CORRIDOR01 has walls at local Z = ±200
                                     # Place torches 20 units away from walls at intervals
@@ -372,7 +372,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                     ]
                                 elif cand_name == 'ROOM05':
                                     # ROOM05 has walls at local X = ±200
-                                    num_torches = random.randint(3, 7)
+                                    num_torches = random.randint(20, 20)
                                     all_torch_positions =[
                                         # --- WEST WALL  ---
                                         (-334, -631, 180),#correct
@@ -391,16 +391,16 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                         (415, 369,  0),
 
                                         # --- SOUTH WALL  ---
-                                        (-174, -791, 270),
-                                        (26,   -791, 270),
-                                        (226,  -791, 270),
-                                        (426,  -791, 270),
+                                        (-174, -791 +180, 270),
+                                        (26,   -791 +180, 270),
+                                        (226,  -791 +180, 270),
+                                        (426,  -791 +180, 270),
 
                                         # --- NORTH WALL  ---
-                                        (-174, 655, 90),
-                                        (26,   655, 90),
-                                        (226,  655, 90),
-                                        (426,  655, 90)
+                                        (-174, 655 + 40, 90),
+                                        (26,   655 + 40, 90),
+                                        (226,  655 + 40, 90),
+                                        (426,  655 + 40, 90)
                                     ]
 
                                 elif cand_name == 'ROOM06':
