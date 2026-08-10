@@ -358,7 +358,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
 
                             if cand_name in ('ROOM05','CORRIDOR01','ROOM06'):
                                 # --- Add wall torches for CORRIDOR01 ---
-                                num_torches = random.randint(1, 4)
+                                num_torches = random.randint(2, 4)
                                 if cand_name == 'CORRIDOR01':
                                     # CORRIDOR01 has walls at local Z = ±200
                                     # Place torches 20 units away from walls at intervals
@@ -372,7 +372,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                     ]
                                 elif cand_name == 'ROOM05':
                                     # ROOM05 has walls at local X = ±200
-                                    num_torches = random.randint(18, 18)
+                                    num_torches = random.randint(4, 8)
                                     all_torch_positions =[
                                         # --- WEST WALL  ---
 
@@ -551,11 +551,11 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
 
                                 # Determine how many items to spawn
                                 if cand_name.startswith("ROOM05"):
-                                    num_items = random.randint(2, 6)
+                                    num_items = random.randint(4, 6)
                                 elif cand_name.startswith("CROSSING"):
-                                    num_items = random.randint(1, 3)
+                                    num_items = random.randint(2, 3)
                                 else:
-                                    num_items = 1
+                                    num_items = random.randint(1, 3)
 
                                 for _ in range(num_items):
 
