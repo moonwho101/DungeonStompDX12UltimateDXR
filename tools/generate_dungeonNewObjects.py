@@ -100,20 +100,18 @@ FLOOR_SLOTS = {
     ],
     'CROSSING01': [
         (0.0, 0.0),
-        (100.0, -100.0),
-        (200.0, -100.0),
-        (100.0, -200.0),
-        (200.0, -200.0)
+        (0.0, -100.0),
+        (100.0, 0.0)
     ],
     'CROSSING02': [
         (0.0, 0.0),
-        (-100.0, -100.0), (100.0, -100.0),
-        (-100.0, 100.0), (100.0, 100.0)
+        (0.0, -100.0),
+        (100.0, 0.0)
     ],
     'CROSSING03': [
         (0.0, 0.0),
-        (-100.0, -100.0), (100.0, -100.0),
-        (-100.0, -200.0), (100.0, -200.0)
+        (0.0, -100.0),
+        (100.0, 0.0)
     ],
      'ROOM02': [
         (0.0, 0.0),          # center
@@ -559,7 +557,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                 if cand_name.startswith("ROOM05"):
                                     num_items = random.randint(2, 6)
                                 elif cand_name.startswith("CROSSING"):
-                                    num_items = random.randint(1, 2)
+                                    num_items = random.randint(1, 3)
                                 else:
                                     num_items = 1
 
