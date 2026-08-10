@@ -80,11 +80,9 @@ BOUNDING_BOXES_FULL = {
 # FLOOR SLOTS for new objects
 FLOOR_SLOTS = {
     'CORRIDOR01': [
-        (0.0, -200.0),
         (0.0, -100.0),
         (0.0, 0.0),
-        (0.0, 100.0),
-        (0.0, 200.0)
+        (0.0, 100.0)
     ],
     'CORRIDOR02': [
         (-20.0, -200.0),
