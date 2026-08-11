@@ -1589,7 +1589,7 @@ AddTexture  ..\textures\BRIKS_nm.dds
 Alias  530   BRIKS_nm           OPAQUE  WHOLE  brick
 
 AddTexture  ..\Textures\Dungeon02\corridor01.dds
-Alias  531   corridor01           OPAQUE  WHOLE  stonemain
+Alias  531   corridor01           OPAQUE  WHOLE  tile
 
 AddTexture  ..\Textures\Dungeon02\corridor02.dds
 Alias  532   corridor02           OPAQUE  WHOLE  stonemain
@@ -1752,22 +1752,22 @@ AddTexture  ..\Textures\Dungeon02\corridor10_nm.dds
 Alias  578   corridor10_nm           OPAQUE  WHOLE  stonemain
 
 AddTexture  ..\Textures\Dungeon02\3ds\torch1.dds
-Alias  579   torch1           OPAQUE  WHOLE  default
+Alias  579   torch1           OPAQUE  WHOLE  metal
 
 AddTexture  ..\Textures\Dungeon02\3ds\torch2.dds
-Alias  580   torch2           OPAQUE  WHOLE  default
+Alias  580   torch2           OPAQUE  WHOLE  metal
 
 AddTexture  ..\Textures\Dungeon02\3ds\link.dds
-Alias  581   link           OPAQUE  WHOLE  default
+Alias  581   link           OPAQUE  WHOLE  metal
 
 AddTexture  ..\Textures\Dungeon02\3ds\chest.dds
-Alias  582   chest           OPAQUE  WHOLE  default
+Alias  582   chest           OPAQUE  WHOLE  metal
 
 AddTexture  ..\Textures\Dungeon02\3ds\flower1.dds
-Alias  583   flower1           OPAQUE  WHOLE  default
+Alias  583   flower1           OPAQUE  WHOLE  wood
 
 AddTexture  ..\Textures\Dungeon02\3ds\mushroom.dds
-Alias  584   mushroom           OPAQUE  WHOLE  default
+Alias  584   mushroom           OPAQUE  WHOLE  wood
 
 AddTexture  ..\Textures\Dungeon02\3ds\pancarte1.dds
 Alias  585   pancarte1           OPAQUE  WHOLE  default
@@ -1776,40 +1776,40 @@ AddTexture  ..\Textures\Dungeon02\3ds\pancarte2.dds
 Alias  586   pancarte2           OPAQUE  WHOLE  default
 
 AddTexture  ..\Textures\Dungeon02\3ds\pot1.dds
-Alias  587   pot1           OPAQUE  WHOLE  default
+Alias  587   pot1           OPAQUE  WHOLE  glass
 
 AddTexture  ..\Textures\Dungeon02\3ds\pot2.dds
-Alias  588   pot2           OPAQUE  WHOLE  default
+Alias  588   pot2           OPAQUE  WHOLE  glass
 
 AddTexture  ..\Textures\Dungeon02\3ds\pot3.dds
-Alias  589   pot3           OPAQUE  WHOLE  default
+Alias  589   pot3           OPAQUE  WHOLE  glass
 
 AddTexture  ..\Textures\Dungeon02\3ds\quartz.dds
-Alias  590   quartz           OPAQUE  WHOLE  default
+Alias  590   quartz           OPAQUE  WHOLE  ice
 
 AddTexture  ..\Textures\Dungeon02\3ds\rocks.dds
-Alias  591   rocks           OPAQUE  WHOLE  default
+Alias  591   rocks           OPAQUE  WHOLE  brick
 
 AddTexture  ..\Textures\Dungeon02\3ds\roots.dds
-Alias  592   roots           OPAQUE  WHOLE  default
+Alias  592   roots           OPAQUE  WHOLE  brick
 
 AddTexture  ..\Textures\Dungeon02\3ds\skull.dds
-Alias  593   skull           OPAQUE  WHOLE  default
+Alias  593   skull           OPAQUE  WHOLE  brick
 
 AddTexture  ..\Textures\Dungeon02\3ds\tree1.dds
-Alias  594   tree1           OPAQUE  WHOLE  default
+Alias  594   tree1           OPAQUE  WHOLE  wood
 
 AddTexture  ..\Textures\Dungeon02\3ds\tree2.dds
-Alias  595   tree2           OPAQUE  WHOLE  default
+Alias  595   tree2           OPAQUE  WHOLE  wood
 
 AddTexture  ..\Textures\Dungeon02\3ds\tree3.dds
-Alias  596   tree3           OPAQUE  WHOLE  default
+Alias  596   tree3           OPAQUE  WHOLE  wood
 
 AddTexture  ..\Textures\Dungeon02\3ds\tree3.dds
-Alias  597   tree3           OPAQUE  WHOLE  default
+Alias  597   tree3           OPAQUE  WHOLE  wood
 
 AddTexture  ..\Textures\Dungeon02\3ds\windmill.dds
-Alias  598   windmill           OPAQUE  WHOLE  default
+Alias  598   windmill           OPAQUE  WHOLE  wood
 
 AddTexture  ..\Textures\Dungeon02\3ds\tree_foliage.dds
 Alias  599   tree_foliage           OPAQUE  WHOLE  default

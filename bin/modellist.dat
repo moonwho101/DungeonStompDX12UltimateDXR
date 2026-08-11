@@ -67,8 +67,8 @@ PLAYER		47 3DS  MODEL_ID 63  ..\models\3ds\bread\bread.3ds		TEX -1  POS 635 13 7
 PLAYER		48 3DS  MODEL_ID 64  ..\models\3ds\basket1\basket1.3ds		TEX -1  POS 635 13 720  ANGLE 0	SCALE 1.00   NO_EXTERNAL_WEP	monster1.snd	AC 10	HD 5	d 1d8 THACO 19	BASKET1	10	NONE
 PLAYER		49 3DS  MODEL_ID 65  ..\models\3ds\basket2\basket2.3ds		TEX -1  POS 635 13 720  ANGLE 0	SCALE 1.00   NO_EXTERNAL_WEP	monster1.snd	AC 10	HD 5	d 1d8 THACO 19	BASKET2	10	NONE
 PLAYER		50 3DS  MODEL_ID 66  ..\models\3ds\basket3\basket3.3ds		TEX -1  POS 635 13 720  ANGLE 0	SCALE 1.00   NO_EXTERNAL_WEP	monster1.snd	AC 10	HD 5	d 1d8 THACO 19	BASKET3	10	NONE
-PLAYER		51 3DS  MODEL_ID 67  ..\models\3ds\woodenbox\cdooropenwoodbox.3ds		TEX -1  POS 635 13 720  ANGLE 0	SCALE 1.00   NO_EXTERNAL_WEP	monster1.snd	AC 10	HD 5	d 1d8 THACO 19	cdooropenwoodbox	10	NONE
-PLAYER		52 3DS  MODEL_ID 68  ..\models\3ds\woodenbox\cdoorclosedwoodbox.3ds		TEX -1  POS 635 13 720  ANGLE 0	SCALE 1.00   NO_EXTERNAL_WEP	monster1.snd	AC 10	HD 5	d 1d8 THACO 19	cdoorclosedwoodbox	10	NONE
+PLAYER		51 3DS  MODEL_ID 67  ..\models\3ds\woodenbox\cdooropenwoodbox.3ds		TEX -1  POS 635 13 720  ANGLE 0	SCALE 25.00   NO_EXTERNAL_WEP	monster1.snd	AC 10	HD 5	d 1d8 THACO 19	cdooropenwoodbox	10	NONE
+PLAYER		52 3DS  MODEL_ID 68  ..\models\3ds\woodenbox\cdoorclosedwoodbox.3ds		TEX -1  POS 635 13 720  ANGLE 0	SCALE 25.00   NO_EXTERNAL_WEP	monster1.snd	AC 10	HD 5	d 1d8 THACO 19	cdoorclosedwoodbox	10	NONE
 PLAYER		53 3DS  MODEL_ID 69  ..\models\3ds\metalbox\cdooropenmetalbox.3ds		TEX -1  POS 635 13 720  ANGLE 0	SCALE 1.00   NO_EXTERNAL_WEP	monster1.snd	AC 10	HD 5	d 1d8 THACO 19	cdooropenmetalbox	10	NONE
 PLAYER		54 3DS  MODEL_ID 70  ..\models\3ds\metalbox\cdoorclosedmetalbox.3ds		TEX -1  POS 635 13 720  ANGLE 0	SCALE 1.00   NO_EXTERNAL_WEP	monster1.snd	AC 10	HD 5	d 1d8 THACO 19	cdoorclosedmetalbox	10	NONE
 PLAYER		55 3DS  MODEL_ID 71  ..\models\3ds\eat\cup.3ds		TEX -1  POS 635 13 720  ANGLE 0	SCALE 1.00   NO_EXTERNAL_WEP	monster1.snd	AC 10	HD 5	d 1d8 THACO 19	CUP	10	NONE
@@ -147,6 +147,8 @@ PLAYER		118 3DS  MODEL_ID 143  ..\textures\dungeon02\3ds\tree2.3ds		TEX -1  POS 
 PLAYER		119 3DS  MODEL_ID 144  ..\textures\dungeon02\3ds\web.3ds		TEX -1  POS 635 13 720  ANGLE 0	SCALE 15.00   NO_EXTERNAL_WEP	monster1.snd	AC 10	HD 5	d 1d8 THACO 19	web	10	NONE
 PLAYER		120 3DS  MODEL_ID 145  ..\textures\dungeon02\3ds\sign.3ds		TEX -1  POS 635 13 720  ANGLE 0	SCALE 15.00   NO_EXTERNAL_WEP	monster1.snd	AC 10	HD 5	d 1d8 THACO 19	sign	10	NONE
 PLAYER		121 3DS  MODEL_ID 146  ..\textures\dungeon02\3ds\windmill.3ds		TEX -1  POS 635 13 720  ANGLE 0	SCALE 15.00   NO_EXTERNAL_WEP	monster1.snd	AC 10	HD 5	d 1d8 THACO 19	WINDMILL	10	NONE
+PLAYER		122 3DS  MODEL_ID 147  ..\textures\dungeon02\3ds\cdooropenchest.3ds		TEX -1  POS 635 13 720  ANGLE 0	SCALE 25.00   NO_EXTERNAL_WEP	monster1.snd	AC 10	HD 5	d 1d8 THACO 19	cdooropenchest	10	NONE
+PLAYER		123 3DS  MODEL_ID 148  ..\textures\dungeon02\3ds\cdoorclosedchest.3ds		TEX -1  POS 635 13 720  ANGLE 0	SCALE 25.00   NO_EXTERNAL_WEP	monster1.snd	AC 10	HD 5	d 1d8 THACO 19	cdoorclosedchest	10	NONE
 END_FILE
 
 
