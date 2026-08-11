@@ -1,3 +1,3 @@
-1	520	1	SetHitPoints	0	120
-2	519	1	SetHitPoints	0	120
+1	133	1	DropTreasure	0	3
+2	114	1	MonsterActive	0	Surface dwellers!
 END_FILE
