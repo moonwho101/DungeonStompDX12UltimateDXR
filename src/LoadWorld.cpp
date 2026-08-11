@@ -2000,6 +2000,9 @@ int load_level(char *filename) {
 		your_missle[i].y_offset = 0;
 		your_missle[i].z_offset = 0;
 		your_missle[i].blood = 0;
+		your_missle[i].bouncemax = 0;
+		your_missle[i].bounce = 0;
+
 	}
 
 	strcpy_s(level, levelname);

@@ -2427,7 +2427,7 @@ void DrawModel() {
 					}
 
 					if (player_list2[i].model_id == 36 && pressopendoor && qdist <= 100.0f ||
-					    strstr(player_list2[i].rname, "cdoorclosed") != NULL && pressopendoor && qdist <= 100.0f) {
+					    strstr(player_list2[i].rname, "cdoorclosed") != NULL && pressopendoor && qdist <= 150.0f) {
 
 						player_list2[i].model_id--;
 						strcpy_s(player_list2[i].rname, "-");
@@ -2952,7 +2952,7 @@ void GetItem() {
 						    strcmp(your_gun[q].gunname, junk) == 0) {
 							if (strstr(your_gun[q].gunname, "SCROLL") != NULL) {
 								your_gun[q].active = 1;
-								your_gun[q].x_offset = your_gun[q].x_offset + 1;
+								your_gun[q].x_offset = your_gun[q].x_offset + 5;
 							} else {
 								// Switch to this wepaon if it is better
 								your_gun[q].active = 1;
@@ -3094,7 +3094,7 @@ void GetItem() {
 						for (int q = 0; q <= num_your_guns; q++) {
 							if (strcmp(your_gun[q].gunname, junk) == 0) {
 								your_gun[q].active = 1;
-								your_gun[q].x_offset = your_gun[q].x_offset + 1;
+								your_gun[q].x_offset = your_gun[q].x_offset + 5;
 							}
 						}
 					}

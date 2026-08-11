@@ -177,6 +177,8 @@ typedef struct gunlist_typ {
 	int dmg;
 	bool critical;
 	bool blood;
+	int bouncemax;
+	int bounce;
 
 } GUNLIST, *gunlist_ptr;
 
