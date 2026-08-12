@@ -508,6 +508,7 @@ extern float wWidth;
 extern float wHeight;
 extern int objectcollide;
 extern int outside;
+extern int largedungeon;
 extern int countswitches;
 
 CONST float QVALUE = 0.3333333333333f;

@@ -847,9 +847,9 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                 f.write(f"CO_ORDINATES {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}\n")
                 f.write(f"ROT_ANGLE {e['rot']} {t} {e.get('name','')} {e.get('id',0)} {e.get('state',0)}\n")
 
-        #f.write("OBJECT text\n")
-        #f.write("CO_ORDINATES 2020.000000 0.000000 1020.000000\n")
-        #f.write("ROT_ANGLE 0 outside\n")
+        f.write("OBJECT text\n")
+        f.write("CO_ORDINATES 2020.000000 0.000000 1020.000000\n")
+        f.write("ROT_ANGLE 0 largedungeon\n")
         f.write("END_FILE\n")
 
     num_walls = sum(1 for e in entities if e['type'] == 'wall')

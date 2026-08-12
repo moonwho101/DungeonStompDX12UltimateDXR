@@ -59,6 +59,8 @@ char g_model_filename[256];
 float monx, mony, monz;
 int totalmod;
 int outside = 0;
+int largedungeon =0;
+
 
 extern int usespell;
 extern struct gametext gtext[200];
@@ -179,6 +181,7 @@ BOOL CLoadWorld::LoadWorldMap(char *filename) {
 	int num_light_sources_in_map = 0;
 	int num_light_sources = 0;
 	outside = 0;
+	largedungeon = 0;
 	while (done == 0) {
 		fscanf_s(fp, "%s", &s, 256);
 
@@ -323,6 +326,9 @@ BOOL CLoadWorld::LoadWorldMap(char *filename) {
 					strcpy_s(globaltext, bigbuf2);
 					if (strstr(bigbuf2, "outside") != NULL) {
 						outside = 1;
+					}
+					if (strstr(bigbuf2, "largedungeon") != NULL) {
+						largedungeon = 1;
 					}
 
 					oblist[object_count].rot_angle = (float)0;
