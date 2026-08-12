@@ -15,8 +15,8 @@ OBJECTS = {
         {'pos': (355, 0), 'out': DIR_E}
     ],
     'CORRIDOR02': [#(-284, -210, 295, 211)
-        {'pos': (-284, 0), 'out': DIR_W, 'y': 72-80},
-        {'pos': (295, 0), 'out': DIR_E, 'y': 414-80}
+        {'pos': (-284, 0), 'out': DIR_W, 'y': 72-74.5},
+        {'pos': (295, 0), 'out': DIR_E, 'y': 414-74.5}
     ],
     'CORRIDOR03': [#(-181, -211, 179, 210)
         {'pos': (-180, 0), 'out': DIR_W, 'y': 0},
@@ -584,9 +584,14 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
 
                                     elif r < 0.25:
                                         ent_type = random.choice(['rock1','rock2','skull','QUARTZ','cdoorclosedchest'])
+                                        st = 0
+
+                                        if ent_type == 'cdoorclosedchest':
+                                            st = random.choice([0, 1]) if level < 2 else random.choice([0, 1, 2])
+
                                         entities.append({'type': ent_type, 'name': '0',
                                                         'x': wx_item, 'y': Oy+10.0, 'z': wz_item,
-                                                        'rot': d_rot, 'id': entity_id_idx, 'state': 0})
+                                                        'rot': d_rot, 'id': entity_id_idx, 'state': st})
 
                                     elif r < 0.28:
                                         ent_type = 'armour'
