@@ -128,21 +128,18 @@ FLOOR_SLOTS = {
 }
 
 
-def get_world_bounds(name, ox, oz, rot):
-    min_x, min_z, max_x, max_z = BOUNDING_BOXES[name]
-    corners = [(min_x, min_z), (max_x, min_z), (min_x, max_z), (max_x, max_z)]
-    rotated = [rotate(cx, cz, rot) for cx, cz in corners]
-    wx = [c[0] + ox for c in rotated]
-    wz = [c[1] + oz for c in rotated]
-    return min(wx), min(wz), max(wx), max(wz)
 
 def get_world_bounds_full(name, ox, oz, rot):
     min_x, min_z, max_x, max_z = BOUNDING_BOXES_FULL[name]
-    corners = [(min_x, min_z), (max_x, min_z), (min_x, max_z), (max_x, max_z)]
-    rotated = [rotate(cx, cz, rot) for cx, cz in corners]
-    wx = [c[0] + ox for c in rotated]
-    wz = [c[1] + oz for c in rotated]
-    return min(wx), min(wz), max(wx), max(wz)
+    if rot == 0:
+        return min_x + ox, min_z + oz, max_x + ox, max_z + oz
+    elif rot == 90:
+        return -max_z + ox, min_x + oz, -min_z + ox, max_x + oz
+    elif rot == 180:
+        return -max_x + ox, -max_z + oz, -min_x + ox, -min_z + oz
+    elif rot == 270:
+        return min_z + ox, -max_x + oz, max_z + ox, -min_x + oz
+    return min_x + ox, min_z + oz, max_x + ox, max_z + oz
 
 
 def rotate(x, z, angle):
@@ -196,7 +193,9 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
 
     # Start with a single corridor at some coordinate base
     print("Placing initial starting CORRIDOR01...")
-    placed.append({'name': 'CORRIDOR01', 'x': start_x, 'y': 0.0, 'z': start_z, 'rot': 0})
+    start_bounds = get_world_bounds_full('CORRIDOR01', start_x, start_z, 0)
+    start_piece = {'name': 'CORRIDOR01', 'x': start_x, 'y': 0.0, 'z': start_z, 'rot': 0, 'bounds': start_bounds}
+    placed.append(start_piece)
 
     open_exits = []
     # Add exits for the first room
@@ -208,38 +207,21 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
             'wy': 0.0 + ext.get('y', 0),
             'wz': start_z + rp[1],
             'wdx': rd[0], 'wdz': rd[1],
-            'source_name': 'CORRIDOR01'
+            'source_name': 'CORRIDOR01',
+            'source_piece': start_piece
         })
 
     def check_collision(nx, nz, n_name, n_rot, attach_ex):
-        """
-        attach_ex = the exit dict we are attaching to:
-            { 'wx', 'wy', 'wz', 'wdx', 'wdz', 'source_name' }
-        We skip collision against the source piece because floor bounding boxes
-        already validated the attachment.
-        """
-
         n_minx, n_minz, n_maxx, n_maxz = get_world_bounds_full(n_name, nx, nz, n_rot)
+        source_piece = attach_ex.get('source_piece')
 
         for p in placed:
-            # Skip collision check with the piece we are attaching to
-            if p['name'] == attach_ex['source_name']:
-                # Check if this piece actually contains the exit we are attaching to
-                for ext in OBJECTS[p['name']]:
-                    rp = rotate(ext['pos'][0], ext['pos'][1], p['rot'])
-                    ex_world_x = p['x'] + rp[0]
-                    ex_world_z = p['z'] + rp[1]
-
-                    # If this exit matches the attach point, skip collision
-                    if abs(ex_world_x - attach_ex['wx']) < 1.0 and abs(ex_world_z - attach_ex['wz']) < 1.0:
-                        break
-                else:
-                    # No matching exit → treat normally
-                    pass
+            # Skip collision check with the specific piece we are attaching to
+            if p is source_piece:
                 continue
 
-            # Normal collision check using FULL bounding boxes
-            p_minx, p_minz, p_maxx, p_maxz = get_world_bounds_full(p['name'], p['x'], p['z'], p['rot'])
+            # Normal collision check using pre-calculated bounds
+            p_minx, p_minz, p_maxx, p_maxz = p['bounds']
 
             if (n_minx < p_maxx and n_maxx > p_minx and
                 n_minz < p_maxz and n_maxz > p_minz):
@@ -338,7 +320,9 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                             #if not check_spacing(Ox, Oz, cand_name, min_distance=800):
                             #    continue  # Skip this placement if too close to other pieces
                             
-                            placed.append({'name': cand_name, 'x': Ox, 'y': Oy, 'z': Oz, 'rot': ang})
+                            cand_bounds = get_world_bounds_full(cand_name, Ox, Oz, ang)
+                            new_piece = {'name': cand_name, 'x': Ox, 'y': Oy, 'z': Oz, 'rot': ang, 'bounds': cand_bounds}
+                            placed.append(new_piece)
                             placed_new = True
                             print(f"Placed {cand_name} at ({Ox:.1f}, {Oy:.1f}, {Oz:.1f}) [Rot: {ang}]")
 
@@ -669,7 +653,8 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                     'wy': Oy + other_ext.get('y', 0),
                                     'wz': Oz + op[1],
                                     'wdx': od[0], 'wdz': od[1],
-                                    'source_name': cand_name
+                                    'source_name': cand_name,
+                                    'source_piece': new_piece
                                 })
                         break
 
@@ -857,11 +842,6 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                 f.write(f"OBJECT {t}\n")
                 f.write(f"CO_ORDINATES {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}\n")
                 f.write(f"ROT_ANGLE {e['rot']} 3 {e.get('name','')} {e.get('id',0)} {e.get('state',0)}\n")
-            elif t in ('cdoorclosedwoodbox', 'cdoorclosedbarrel', 'cdoorclosedmetalbox'):
-                # Treasure chests
-                f.write(f"OBJECT {t}\n")
-                f.write(f"CO_ORDINATES {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}\n")
-                f.write(f"ROT_ANGLE {e['rot']} 0 {e.get('name','')} {e.get('id',0)} {e.get('state',0)}\n")
             elif t == '!monster1':
                 # Wall torches - use torch2 as object type in ROT_ANGLE line
                 f.write(f"OBJECT !monster1\n")
