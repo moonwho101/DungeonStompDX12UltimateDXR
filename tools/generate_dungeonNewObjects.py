@@ -11,7 +11,7 @@ DIR_E = (1, 0)
 # NEW OBJECTS - CORRIDOR01, CORRIDOR02, CORRIDOR03, CROSSING01, CROSSING02, and CROSSING03
 OBJECTS = {
     'CORRIDOR01': [
-        {'pos': (-360, 0), 'out': DIR_W},
+        {'pos': (-364, 0), 'out': DIR_W},
         {'pos': (360, 0), 'out': DIR_E}
     ],
     'CORRIDOR02': [
@@ -52,15 +52,15 @@ OBJECTS = {
 # NEW BOUNDING BOXES based on TRITEX floor dimensions
 # Corridors run east-west, so they're wide in X and narrow in Z
 BOUNDING_BOXES = {
-    'CORRIDOR01':   (-360, -200, 360, 200),
-    'CORRIDOR02':   (-284, -210, 295, 211),
-    'CORRIDOR03':   (-180, -200, 180, 200),
-    'CROSSING01':   (-447, -340, 365, 414), #'CROSSING01':   (-100, -360, 360, 100),
-    'CROSSING02':   (-360, -360, 360, 360),
-    'CROSSING03':   (-360, -360, 360, 100),
-    'ROOM02':       (-255, -173, 249, 165),
-    'ROOM06':       (-254, -311, 251, 296),
-    'ROOM05':       (-374, -831, 455, 695)
+    'CORRIDOR01':   (-360, -200, 360, 200),#(-368, -209, 355, 212)
+    'CORRIDOR02':   (-284, -210, 295, 211),#(-284, -210, 295, 211)
+    'CORRIDOR03':   (-180, -200, 180, 200),#(-181, -211, 179, 210)
+    'CROSSING01':   (-447, -340, 365, 414),#(-447, -340, 364, 413)
+    'CROSSING02':   (-360, -360, 360, 360),#(-406, -369, 405, 384)
+    'CROSSING03':   (-360, -360, 360, 100),#(-412, -334, 399, 420)
+    'ROOM02':       (-255, -173, 249, 165),#(-255, -173, 249, 165)
+    'ROOM06':       (-254, -311, 251, 296),#(-254, -311, 251, 296)
+    'ROOM05':       (-374, -831, 455, 695)#(-374, -831, 455, 695)
 }
 
 
