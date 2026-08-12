@@ -11,7 +11,7 @@
 
 using namespace DirectX;
 
-#define MAX_NUM_TEXTURES 550
+
 #define SPOT_LIGHT_SOURCE 1
 #define DIRECTIONAL_LIGHT_SOURCE 2
 #define POINT_LIGHT_SOURCE 3
@@ -177,6 +177,8 @@ typedef struct gunlist_typ {
 	int dmg;
 	bool critical;
 	bool blood;
+	int bouncemax;
+	int bounce;
 
 } GUNLIST, *gunlist_ptr;
 

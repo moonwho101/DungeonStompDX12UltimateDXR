@@ -457,6 +457,8 @@ void UpdateWorld(float fElapsedTime) {
 		distance = 3000.0f;
 	}
 
+	distance = 2500.0f;
+
 	for (int q = 0; q < oblist_length; q++) {
 		float angle = oblist[q].rot_angle;
 		int ob_type = oblist[q].type;

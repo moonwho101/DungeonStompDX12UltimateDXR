@@ -116,12 +116,18 @@ void FirePlayerMissle(float x, float y, float z, float angy, int owner, int shoo
 		if (strstr(your_gun[current_gun].gunname, "SCROLL-MAGICMISSLE") != NULL) {
 			your_missle[misslespot].model_id = 103;
 			your_missle[misslespot].skin_tex_id = 205;
+			your_missle[misslespot].bouncemax= 1;
+			your_missle[misslespot].bounce= 0;
 		} else if (strstr(your_gun[current_gun].gunname, "SCROLL-FIREBALL") != NULL) {
 			your_missle[misslespot].model_id = 104;
 			your_missle[misslespot].skin_tex_id = 288;
+			your_missle[misslespot].bouncemax = 2;
+			your_missle[misslespot].bounce = 0;
 		} else if (strstr(your_gun[current_gun].gunname, "SCROLL-LIGHTNING") != NULL) {
 			your_missle[misslespot].model_id = 105;
 			your_missle[misslespot].skin_tex_id = 278;
+			your_missle[misslespot].bouncemax = 3;
+			your_missle[misslespot].bounce = 0;
 		} else if (strstr(your_gun[current_gun].gunname, "SCROLL-HEALING") != NULL) {
 			if (player_list[trueplayernum].health < player_list[trueplayernum].hp) {
 				int roll = 0;
@@ -289,25 +295,30 @@ void FirePlayerMissle(float x, float y, float z, float angy, int owner, int shoo
 			eRadius = { 25.0f, 50.0f, 25.0f };
 
 			if (foundcollisiontrue == 1 || qdist > 5000.0f) {
-				your_missle[misslecount].active = 2;
 
-				// Bounce like a billard ball.
-				/*
-				your_missle[misslecount].active = 1;
+				if (your_missle[misslecount].bounce >= your_missle[misslecount].bouncemax) {
+					your_missle[misslecount].active = 2;
+					your_missle[misslecount].bounce = 0;
+					your_missle[misslecount].bouncemax = 0;
+				} else {
+					your_missle[misslecount].bounce++;
 
-				XMFLOAT3 a = your_missle[misslecount].velocity;
-				XMVECTOR m1 = XMVector3Normalize(XMLoadFloat3(&eTest));
-				XMVECTOR m2 = XMVector3Normalize(XMLoadFloat3(&a));
-				XMVECTOR fDotVector = XMVector3Dot(m2, m1);
-				float fDot = XMVectorGetX(fDotVector);
-				XMVECTOR mv = XMLoadFloat3(&your_missle[misslecount].velocity);
-				XMVECTOR v = 1.0f * (-2.0f * (fDot) * m1 + mv);
-				XMFLOAT3 result;
-				XMStoreFloat3(&result, v);
+					// Bounce like a billard ball.
+					your_missle[misslecount].active = 1;
 
-				your_missle[misslecount].velocity = result;
-				*/
+					XMFLOAT3 a = your_missle[misslecount].velocity;
+					XMVECTOR m1 = XMVector3Normalize(XMLoadFloat3(&eTest));
+					XMVECTOR m2 = XMVector3Normalize(XMLoadFloat3(&a));
+					XMVECTOR fDotVector = XMVector3Dot(m2, m1);
+					float fDot = XMVectorGetX(fDotVector);
+					XMVECTOR mv = XMLoadFloat3(&your_missle[misslecount].velocity);
+					XMVECTOR v = 1.0f * (-2.0f * (fDot)*m1 + mv);
+					XMFLOAT3 result;
+					XMStoreFloat3(&result, v);
 
+					your_missle[misslecount].velocity = result;
+
+				}
 				int volume;
 				volume = 100 - (int)((100 * your_missle[misslecount].qdist) / ((numberofsquares * monsterdist) / 2));
 
@@ -318,6 +329,7 @@ void FirePlayerMissle(float x, float y, float z, float angy, int owner, int shoo
 					volume = 100;
 
 				PlayWavSound(your_missle[misslecount].sexplode, volume);
+
 			} else {
 
 				int volume;
@@ -328,8 +340,6 @@ void FirePlayerMissle(float x, float y, float z, float angy, int owner, int shoo
 
 				if (volume > 100)
 					volume = 100;
-
-				// DSound_Set_Volume(your_missle[misslecount].smove, volume);
 
 				your_missle[misslecount].x = result.x;
 				your_missle[misslecount].y = result.y;
@@ -837,6 +847,8 @@ void FireMonsterMissle(int monsterid, int type) {
 	your_missle[misslespot].playernum = (int)monsterid;
 	your_missle[misslespot].playertype = (int)0;
 	your_missle[misslespot].critical = 0;
+	your_missle[misslespot].bounce = 0;
+	your_missle[misslespot].bouncemax = 0;
 
 	if (your_missle[misslespot].sexplode != 0) {
 		// ToODO: fix delete sounds

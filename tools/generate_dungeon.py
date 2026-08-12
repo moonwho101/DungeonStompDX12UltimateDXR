@@ -195,6 +195,9 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
         random.shuffle(types)
 
         for cand_name in types:
+            if cand_name in ("ROOM_SQUARE"):
+                if random.random() > 0.30:
+                    continue
             if placed_new: break
             cand_exits = OBJECTS[cand_name]
 
@@ -292,6 +295,60 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                     entities.append({'type': 'LIGHT_SOURCE','x': Ox+wfx,'y': Oy+0.0,  'z': Oz+wfz, 'rot': 0,     'id': entity_id_idx, 'state': 0, 'name': 'flicker'})
                                     print(f"  -> Spawned torch light in ROOM2")
 
+                            if cand_name in ('ROOM2', 'ROOM_SQUARE', 'ROOMEDIUM', 'slope_stairs'):
+                                # --- Random hanging center torch in ROOM2 ---
+                                if random.random() < 0.45:   # adjust probability as desired
+                                    light_y = Oy + 140.0
+
+                                    # Hanging lamp post anchor
+                                    entities.append({
+                                        'type': 'lamp_post',
+                                        'x': Ox,
+                                        'y': light_y,
+                                        'z': Oz,
+                                        'rot': 0,
+                                        'id': entity_id_idx,
+                                        'state': 0,
+                                        'name': ''
+                                    })
+                                    entity_id_idx += 1
+
+                                    # Random RGB values between 9.0 and 14.0
+                                    center_r = round(random.uniform(9.0, 14.0), 1)
+                                    center_g = round(random.uniform(9.0, 14.0), 1)
+                                    center_b = round(random.uniform(9.0, 14.0), 1)
+
+                                    # Light source pointing downward
+                                    entities.append({
+                                        'type': 'LIGHT_SOURCE',
+                                        'name': 'flicker',
+                                        'x': Ox,
+                                        'y': light_y,
+                                        'z': Oz,
+                                        'rot': 0,
+                                        'id': entity_id_idx,
+                                        'state': 0,
+                                        'color': (center_r, center_g, center_b),
+                                        'dir': (0.0, -1.0, 0.0)
+                                    })
+
+                                    # Hanging torch sprite
+                                    entities.append({
+                                        'type': 'torch1',
+                                        'name': '0',
+                                        'x': Ox,
+                                        'y': Oy + 120.0,
+                                        'z': Oz,
+                                        'rot': 0,
+                                        'id': entity_id_idx,
+                                        'state': 0
+                                    })
+
+                                    entity_id_idx += 1
+
+                                    print("  -> Spawned hanging center torch in ROOM2")
+
+
                             # --- Door at any opening (25 % chance) preserved ---
                             if random.random() < 0.25:
                                 door_type = f"door{random.choice([i for i in range(1, 22) if i != 2])}"
@@ -317,46 +374,107 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
 
                             # --- Torch light in ROOM_SQUARE and ROOMEDIUM ---
                             if cand_name in ('ROOM_SQUARE', 'ROOMEDIUM'):
-                                if cand_name == 'ROOM_SQUARE':
-                                    slots = [
-                                        (-240, -120, -220, -120, 270), # Left wall, south half
-                                        (-240,  120, -220,  120, 270), # Left wall, north half
-                                        ( 240, -120,  220, -120,  90), # Right wall, south half
-                                        ( 240,  120,  220,  120,  90), # Right wall, north half
-                                        (-120, -240, -120, -220,   0), # Bottom wall, west half
-                                        ( 120, -240,  120, -220,   0), # Bottom wall, east half
-                                        (-120,  240, -120,  220, 180), # Top wall, west half
-                                        ( 120,  240,  120,  220, 180)  # Top wall, east half
-                                    ]
+                                torch_type = random.choice(['torch', 'torch1'])
+
+                                if (torch_type == 'torch'):
+
+                                    if cand_name == 'ROOM_SQUARE':
+                                        slots = [
+                                            (-240, -120, -220, -120, 270), # Left wall, south half
+                                            (-240,  120, -220,  120, 270), # Left wall, north half
+                                            ( 240, -120,  220, -120,  90), # Right wall, south half
+                                            ( 240,  120,  220,  120,  90), # Right wall, north half
+                                            (-120, -240, -120, -220,   0), # Bottom wall, west half
+                                            ( 120, -240,  120, -220,   0), # Bottom wall, east half
+                                            (-120,  240, -120,  220, 180), # Top wall, west half
+                                            ( 120,  240,  120,  220, 180)  # Top wall, east half
+                                        ]
+                                    else:
+                                        slots = [
+                                            (-160, -120, -140, -120, 270), # Left wall, south half
+                                            (-160,  120, -140,  120, 270), # Left wall, north half
+                                            ( 160, -120,  140, -120,  90), # Right wall, south half
+                                            ( 160,  120,  140,  120,  90), # Right wall, north half
+                                            (-80, -240, -80, -220,   0),   # Bottom wall, west half
+                                            ( 80, -240,  80, -220,   0),   # Bottom wall, east half
+                                            (-80,  240, -80,  220, 180),   # Top wall, west half
+                                            ( 80,  240,  80,  220, 180)    # Top wall, east half
+                                        ]
+                                    num_torches = random.randint(2, 4)
+                                    chosen_slots = random.sample(slots, num_torches)
+                                    for tlx, tlz, tfx, tfz, trot in chosen_slots:
+                                        wlx, wlz = rotate(tlx, tlz, ang)
+                                        wfx, wfz = rotate(tfx, tfz, ang)
+                                        t_rot = (trot + ang) % 360
+                                        entities.append({'type': 'torch',      'x': Ox+wlx, 'y': Oy+60.0, 'z': Oz+wlz, 'rot': t_rot, 'id': entity_id_idx, 'state': 0, 'name': ''})
+                                        entities.append({'type': '!flamesnohit','x': Ox+wfx, 'y': Oy+60.0, 'z': Oz+wfz, 'rot': 0,     'id': entity_id_idx, 'state': 4, 'name': 'flame@1'})
+                                        entities.append({'type': 'lamp_post',  'x': Ox+wfx, 'y': Oy+80.0, 'z': Oz+wfz, 'rot': 0,     'id': entity_id_idx, 'state': 0, 'name': ''})
+                                        entities.append({'type': 'LIGHT_SOURCE','x': Ox+wfx,'y': Oy+0.0,  'z': Oz+wfz, 'rot': 0,     'id': entity_id_idx, 'state': 0, 'name': 'flicker'})
+                                        entity_id_idx += 1
+                                    print(f"  -> Spawned {num_torches} torches in {cand_name}")
                                 else:
-                                    slots = [
-                                        (-160, -120, -140, -120, 270), # Left wall, south half
-                                        (-160,  120, -140,  120, 270), # Left wall, north half
-                                        ( 160, -120,  140, -120,  90), # Right wall, south half
-                                        ( 160,  120,  140,  120,  90), # Right wall, north half
-                                        (-80, -240, -80, -220,   0),   # Bottom wall, west half
-                                        ( 80, -240,  80, -220,   0),   # Bottom wall, east half
-                                        (-80,  240, -80,  220, 180),   # Top wall, west half
-                                        ( 80,  240,  80,  220, 180)    # Top wall, east half
+                                    if cand_name == 'ROOM_SQUARE':
+                                        slots = [
+                                                (-220, -120, -200, -120, 270), # Left wall, south half
+                                                (-220,  120, -200,  120, 270), # Left wall, north half
+                                                ( 220, -120,  200, -120,  90), # Right wall, south half
+                                                ( 220,  120,  200,  120,  90), # Right wall, north half
+                                                (-120, -220, -120, -200,   0), # Bottom wall, west half
+                                                ( 120, -220,  120, -200,   0), # Bottom wall, east half
+                                                (-120,  220, -120,  200, 180), # Top wall, west half
+                                                ( 120,  220,  120,  200, 180)  # Top wall, east half
+                                            ]
+                                    else:
+                                            slots = [
+                                                (-140, -120, -120, -120, 270), # Left wall, south half
+                                                (-140,  120, -120,  120, 270), # Left wall, north half
+                                                ( 140, -120,  120, -120,  90), # Right wall, south half
+                                                ( 140,  120,  120,  120,  90), # Right wall, north half
+                                                (-80, -220, -80, -200,   0),   # Bottom wall, west half
+                                                ( 80, -220,  80, -200,   0),   # Bottom wall, east half
+                                                (-80,  220, -80,  200, 180),   # Top wall, west half
+                                                ( 80,  220,  80,  200, 180)    # Top wall, east half
+                                            ]
+
+                                    num_torches = random.randint(2, 4)
+                                    chosen_slots = random.sample(slots, num_torches)
+
+                                    # Light source at y + 60 (same as lamp post)
+                                    # Pick a random base color and multiply by 9.0
+                                    base_colors = [
+                                        (1.0, 1.0, 1.0),    # White
+                                        (1.0, 0.0, 0.0),    # Red
+                                        (0.0, 1.0, 0.0),    # Green
+                                        (0.0, 0.0, 1.0),    # Blue
+                                        (1.0, 1.0, 0.0),    # Yellow
+                                        (0.0, 1.0, 1.0),    # Cyan
+                                        (1.0, 0.0, 1.0),    # Magenta
+                                        (1.0, 0.5, 0.0),    # Orange
+                                        (0.5, 0.0, 1.0),    # Purple
+                                        (1.0, 0.75, 0.8)    # Pink
                                     ]
-                                num_torches = random.randint(2, 4)
-                                chosen_slots = random.sample(slots, num_torches)
-                                for tlx, tlz, tfx, tfz, trot in chosen_slots:
-                                    wlx, wlz = rotate(tlx, tlz, ang)
-                                    wfx, wfz = rotate(tfx, tfz, ang)
-                                    t_rot = (trot + ang) % 360
-                                    entities.append({'type': 'torch',      'x': Ox+wlx, 'y': Oy+60.0, 'z': Oz+wlz, 'rot': t_rot, 'id': entity_id_idx, 'state': 0, 'name': ''})
-                                    entities.append({'type': '!flamesnohit','x': Ox+wfx, 'y': Oy+60.0, 'z': Oz+wfz, 'rot': 0,     'id': entity_id_idx, 'state': 4, 'name': 'flame@1'})
-                                    entities.append({'type': 'lamp_post',  'x': Ox+wfx, 'y': Oy+80.0, 'z': Oz+wfz, 'rot': 0,     'id': entity_id_idx, 'state': 0, 'name': ''})
-                                    entities.append({'type': 'LIGHT_SOURCE','x': Ox+wfx,'y': Oy+0.0,  'z': Oz+wfz, 'rot': 0,     'id': entity_id_idx, 'state': 0, 'name': 'flicker'})
-                                    entity_id_idx += 1
-                                print(f"  -> Spawned {num_torches} torches in {cand_name}")
+                                    base_color = random.choice(base_colors)
+                                    torch_r = round(base_color[0] * random.uniform(9.0, 13.0), 1)
+                                    torch_g = round(base_color[1] * random.uniform(9.0, 13.0), 1)
+                                    torch_b = round(base_color[2] * random.uniform(9.0, 13.0), 1)
+
+                                    for tlx, tlz, tfx, tfz, trot in chosen_slots:
+                                        wlx, wlz = rotate(tlx, tlz, ang)
+                                        wfx, wfz = rotate(tfx, tfz, ang)
+                                        t_rot = (trot + ang-90) % 360
+                                        
+                                        entities.append({'type': 'torch2', 'x': Ox+wlx, 'y': Oy+60.0, 'z': Oz+wlz, 'rot': t_rot, 'id': entity_id_idx, 'state': 0, 'name': '0'})
+                                        entities.append({'type': 'lamp_post',  'x': Ox+wlx, 'y': Oy+80.0, 'z': Oz+wlz, 'rot': 0, 'id': entity_id_idx, 'state': 0, 'name': ''})
+                                        entities.append({'type': 'LIGHT_SOURCE','x': Ox+wfx,'y': Oy+0.0,  'z': Oz+wfz, 'rot': 0, 'id': entity_id_idx, 'state': 0, 'color': (torch_r, torch_g, torch_b), 'dir': (0.0, -1.0, 0.0), 'name': 'flicker'})
+                                        entity_id_idx += 1
+                                    print(f"  -> Spawned {num_torches} torches in {cand_name}")
+                                    
 
                             # --- Dungeon dressings in ROOM_SQUARE and ROOMEDIUM (preserved) ---
                             if cand_name in ('ROOM_SQUARE', 'ROOMEDIUM'):
                                 num_dressings = random.randint(1, 2)
                                 for _ in range(num_dressings):
-                                    dressing_type = random.choice(['TABLE', 'stool', 'BED', 'TROUGH', 'LOGS', 'BUCKET'])
+                                    dressing_type = random.choice(['TABLE', 'stool', 'BED', 'TROUGH', 'LOGS', 'BUCKET', 'QUARTZ','rock2'])
                                     d_rot = random.choice([0, 45, 90, 135, 180, 225, 270, 315])
 
                                     if room_slots:
@@ -432,7 +550,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                     wz = Oz + rp[1]
 
                                     if r < 0.12:
-                                        ent_type = random.choice(['POTION', 'cheese1','GOBLET'])
+                                        ent_type = random.choice(['POTION', 'cheese1','GOBLET','pot1','pot2','pot3','mushroom'])
                                         entities.append({'type': ent_type, 'name': '-1',    'x': wx, 'y': Oy-12.0, 'z': wz, 'rot': d_rot, 'id': entity_id_idx, 'state': 0})
                                     elif r < 0.15:
                                         ent_type = 'armour'
@@ -655,7 +773,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                 # Use the direction stored at spawn time for determinism
                 dx, dy, dz = e.get('dir', (0.0, -1.0, 0.0))
 
-                light_color = e.get('color', (1.0, 1.0, 1.0))
+                light_color = e.get('color', (9.0, 9.0, 9.0))
                 f.write(
                     f"LIGHT_SOURCE {e['name']} POS {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}"
                     f" DIR {dx:.6f} {dy:.6f} {dz:.6f} "

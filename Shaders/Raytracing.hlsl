@@ -603,7 +603,7 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
     
     // Normal mapping: sample and apply if this primitive has a normal map
 	int normalMapIndex = ad.normalMapIndex;
-	if (normalMapIndex >= 0 && normalMapIndex < 550)
+	if (normalMapIndex >= 0 && normalMapIndex < 2500)
 	{
 		uint texW, texH;
 		gTextures[NonUniformResourceIndex((uint) normalMapIndex)].GetDimensions(texW, texH);
@@ -615,8 +615,8 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
 	}
     
 	float4 texSample = float4(0.5f, 0.5f, 0.5f, 1.0f);
-    
-	if (texIndex < 550)
+
+	if (texIndex < 1650)
 	{
 		uint texW, texH;
 		gTextures[NonUniformResourceIndex(texIndex)].GetDimensions(texW, texH);
@@ -627,9 +627,9 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
 	}
     
     // Skip old alpha test block - merged into IsTransparentTexture handling below
-    
+
 	float3 albedo;
-	if (texIndex < 550)
+	if (texIndex < 1650)
 	{
 		albedo = texSample.rgb * materialDiffuseAlbedo.rgb;
 	}
@@ -837,8 +837,9 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
         // cosine-weighted sampling: Monte-Carlo weight (cosθ/π) and pdf (cosθ/π) cancel,
         // leaving just the radiance scaled by albedo and the GI strength knob.
 		float3 giColor = giRadiance * albedo * GI_BOUNCE_STRENGTH;
-		color += giColor;
+		color += giColor; // * 2.0f;
 	}
+
 
     // ---- Atmospheric distance fog ----
 	float dist = length(hitPos - gCameraPos);

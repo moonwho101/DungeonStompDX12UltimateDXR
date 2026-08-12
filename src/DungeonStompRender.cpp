@@ -717,10 +717,11 @@ void DungeonStompApp::ProcessLights11() {
 
 		int angle = (int)oblist[q].rot_angle;
 		int ob_type = oblist[q].type;
-
+		float adjust =0.0f;
 		//+1 because 0 is reserved for directional light
 		LightContainer[i + 1].Strength = { 9.0f, 9.0f, 9.0f };
 		LightContainer[i + 1].Position = DirectX::XMFLOAT3{ oblist[q].x, oblist[q].y + 43.0f, oblist[q].z };
+		LightContainer[i + 1].Strength = DirectX::XMFLOAT3{ (float)(oblist[q].light_source->rcolour + adjust) * 1.0f, (float)(oblist[q].light_source->gcolour + adjust) * 1.0f, (float)(oblist[q].light_source->bcolour + adjust) * 1.0f };
 	}
 
 	int count = 0;
