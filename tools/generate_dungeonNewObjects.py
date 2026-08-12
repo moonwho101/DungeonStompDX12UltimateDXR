@@ -754,7 +754,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
             'rot': 0,
             'name': '-1',
             'id': entity_id_idx,
-            'state': 3
+            'state': 2
         })
         entity_id_idx += 1
 
