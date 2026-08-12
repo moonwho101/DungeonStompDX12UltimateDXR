@@ -10,57 +10,43 @@ DIR_E = (1, 0)
 
 # NEW OBJECTS - CORRIDOR01, CORRIDOR02, CORRIDOR03, CROSSING01, CROSSING02, and CROSSING03
 OBJECTS = {
-    'CORRIDOR01': [
-        {'pos': (-364, 0), 'out': DIR_W},
-        {'pos': (360, 0), 'out': DIR_E}
+    'CORRIDOR01': [#(-368, -209, 355, 212)
+        {'pos': (-368, 0), 'out': DIR_W},
+        {'pos': (355, 0), 'out': DIR_E}
     ],
-    'CORRIDOR02': [
+    'CORRIDOR02': [#(-284, -210, 295, 211)
         {'pos': (-284, 0), 'out': DIR_W, 'y': 72-80},
         {'pos': (295, 0), 'out': DIR_E, 'y': 414-80}
     ],
-    'CORRIDOR03': [
+    'CORRIDOR03': [#(-181, -211, 179, 210)
         {'pos': (-180, 0), 'out': DIR_W, 'y': 0},
         {'pos': (180, 0), 'out': DIR_E, 'y': 0}
     ],
-    'CROSSING01': [
+    'CROSSING01': [#(-447, -340, 364, 413)
         {'pos': (-60, -340), 'out': DIR_S, 'y': 0},
-        {'pos': (360, 80), 'out': DIR_E, 'y': 0}
+        {'pos': (365, 80), 'out': DIR_E, 'y': 0}
     ],
-    'CROSSING02': [
-        {'pos': (0, 360), 'out': DIR_N, 'y': 0},
-        {'pos': (0, -360), 'out': DIR_S, 'y': 0},
-        {'pos': (-360, 0), 'out': DIR_W, 'y': 0},
-        {'pos': (360, 0), 'out': DIR_E, 'y': 0}
+    'CROSSING02': [#(-406, -369, 405, 384)
+        {'pos': (0, 384), 'out': DIR_N, 'y': 0},
+        {'pos': (0, -369), 'out': DIR_S, 'y': 0},
+        {'pos': (-406, 0), 'out': DIR_W, 'y': 0},
+        {'pos': (405, 0), 'out': DIR_E, 'y': 0}
     ],
-    'CROSSING03': [
-        {'pos': (0, -360), 'out': DIR_S, 'y': 0},
-        {'pos': (-360, 20), 'out': DIR_W, 'y': 0},
-        {'pos': (360, 20), 'out': DIR_E, 'y': 0}
+    'CROSSING03': [#(-412, -334, 399, 420)
+        {'pos': (0, -334), 'out': DIR_S, 'y': 0},
+        {'pos': (-412, 20), 'out': DIR_W, 'y': 0},
+        {'pos': (399, 20), 'out': DIR_E, 'y': 0}
     ],
-    'ROOM02': [
+    'ROOM02': [#(-255, -173, 249, 165)
         {'pos': (0, -173), 'out': DIR_S, 'y': 0}
     ],
-    'ROOM05': [
-        {'pos': (320+120, -305-145), 'out': DIR_E, 'y': 0}
+    'ROOM05': [#(-374, -831, 455, 695)
+        {'pos': (455, -305-145), 'out': DIR_E, 'y': 0}
     ],
-    'ROOM06': [
+    'ROOM06': [#(-254, -311, 251, 296)
         {'pos': (0, -311), 'out': DIR_S, 'y': 0}
     ]
 
-}
-
-# NEW BOUNDING BOXES based on TRITEX floor dimensions
-# Corridors run east-west, so they're wide in X and narrow in Z
-BOUNDING_BOXES = {
-    'CORRIDOR01':   (-360, -200, 360, 200),#(-368, -209, 355, 212)
-    'CORRIDOR02':   (-284, -210, 295, 211),#(-284, -210, 295, 211)
-    'CORRIDOR03':   (-180, -200, 180, 200),#(-181, -211, 179, 210)
-    'CROSSING01':   (-447, -340, 365, 414),#(-447, -340, 364, 413)
-    'CROSSING02':   (-360, -360, 360, 360),#(-406, -369, 405, 384)
-    'CROSSING03':   (-360, -360, 360, 100),#(-412, -334, 399, 420)
-    'ROOM02':       (-255, -173, 249, 165),#(-255, -173, 249, 165)
-    'ROOM06':       (-254, -311, 251, 296),#(-254, -311, 251, 296)
-    'ROOM05':       (-374, -831, 455, 695)#(-374, -831, 455, 695)
 }
 
 
@@ -68,13 +54,16 @@ BOUNDING_BOXES_FULL = {
     'CORRIDOR01':   (-372, -297, 358, 303),
     'CORRIDOR02':   (-288, -298, 298, 302),
     'CORRIDOR03':   (-185, -299, 182, 301),
-    'CROSSING01':   (-447, -453, 482, 413), #'CROSSING01':   (-100, -360, 360, 100),
+    'CROSSING01':   (-447, -453, 482, 413),
     'CROSSING02':   (-486, -458, 491, 475),
     'CROSSING03':   (-492, -422, 485, 420),
     'ROOM02':       (-255, -173, 249, 165),
     'ROOM06':       (-297, -338, 294, 339),
     'ROOM05':       (-505, -831, 517, 839)
 }
+
+
+
 
 # PRE-DEFINED FLOOR SLOTS FOR ROOM ITEMS (to avoid collisions)
 # FLOOR SLOTS for new objects
@@ -219,7 +208,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
             'wy': 0.0 + ext.get('y', 0),
             'wz': start_z + rp[1],
             'wdx': rd[0], 'wdz': rd[1],
-            'source_name': 'ROOM2'
+            'source_name': 'CORRIDOR01'
         })
 
     def check_collision(nx, nz, n_name, n_rot, attach_ex):
@@ -289,7 +278,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
         O = open_exits.pop(exit_idx)
         wx, wy, wz = O['wx'], O['wy'], O['wz']
         wdx, wdz = O['wdx'], O['wdz']
-        source_name = O.get('source_name', 'ROOM2')
+        source_name = O.get('source_name', placed[0]['name'])
 
         placed_new = False
 
