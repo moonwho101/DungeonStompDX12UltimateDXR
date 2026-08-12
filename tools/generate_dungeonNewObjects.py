@@ -128,19 +128,13 @@ FLOOR_SLOTS = {
 }
 
 
-
 def get_world_bounds_full(name, ox, oz, rot):
     min_x, min_z, max_x, max_z = BOUNDING_BOXES_FULL[name]
-    if rot == 0:
-        return min_x + ox, min_z + oz, max_x + ox, max_z + oz
-    elif rot == 90:
-        return -max_z + ox, min_x + oz, -min_z + ox, max_x + oz
-    elif rot == 180:
-        return -max_x + ox, -max_z + oz, -min_x + ox, -min_z + oz
-    elif rot == 270:
-        return min_z + ox, -max_x + oz, max_z + ox, -min_x + oz
-    return min_x + ox, min_z + oz, max_x + ox, max_z + oz
-
+    corners = [(min_x, min_z), (max_x, min_z), (min_x, max_z), (max_x, max_z)]
+    rotated = [rotate(cx, cz, rot) for cx, cz in corners]
+    wx = [c[0] + ox for c in rotated]
+    wz = [c[1] + oz for c in rotated]
+    return min(wx), min(wz), max(wx), max(wz)
 
 def rotate(x, z, angle):
     if angle == 0:   return x, z
