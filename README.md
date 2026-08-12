@@ -237,10 +237,16 @@ The dungeon generator uses seed-based generation to create reproducible layouts.
 ### How to Run
 
 Execute the script from the `tools` directory to generate a new layout. This process replaces the existing `level1.map` file in your `bin` directory.
+The first is the classic tile set, the second is a newer green tile set.
 
 ```sh
 cd tools
 python generate_dungeon.py
+```
+
+```sh
+cd tools
+python generate_dungeonNewObjects.py
 ```
 
 ---
