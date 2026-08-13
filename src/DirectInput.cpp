@@ -948,9 +948,9 @@ void smooth_mouse(float time_d, float realx, float realy) {
 
 void level() {
 	if (currentlevel < 1)
-		currentlevel = 15;
+		currentlevel = 16;
 
-	if (currentlevel > 15)
+	if (currentlevel > 16)
 		currentlevel = 1;
 
 	char level[255];
