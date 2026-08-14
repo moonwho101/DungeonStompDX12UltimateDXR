@@ -10,7 +10,7 @@
 [![C++](https://img.shields.io/badge/language-C%2B%2B-orange?style=flat-square&logo=cplusplus)](https://github.com/moonwho101/DungeonStompDX12UltimateDXR)
 [![Visual Studio](https://img.shields.io/badge/VS-2022-purple?style=flat-square&logo=visualstudio)](https://visualstudio.microsoft.com/)
 
-![Dungeon Stomp DX12 DXR](Textures/screenshot36.jpg)
+![Dungeon Stomp DX12 DXR](Textures/screenshot37.jpg)
 
 **A fully playable, open-source C++ game engine demo showcasing DirectX 12 Ultimate's most advanced features — DXR 1.1 inline ray tracing, Variable Rate Shading, PBR, and SSAO — wrapped in a classic dungeon crawler with 15 levels, 25+ monsters, and 30+ weapons.**
 
