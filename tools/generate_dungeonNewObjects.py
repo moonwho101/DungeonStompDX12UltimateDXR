@@ -560,8 +560,8 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                                         'x': wx_item, 'y': Oy+40.0, 'z': wz_item,
                                                         'rot': d_rot, 'id': entity_id_idx, 'state': 0})
 
-                                    elif r < 0.25:#'rock1','rock2','skull','QUARTZ','cdoorclosedchest',
-                                        ent_type = random.choice(['block01','block02'])
+                                    elif r < 0.25:
+                                        ent_type = random.choice(['rock1','rock2','skull','QUARTZ','cdoorclosedchest','block01','block02'])
                                         st = 0
 
                                         if ent_type == 'cdoorclosedchest':
