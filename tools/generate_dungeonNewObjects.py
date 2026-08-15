@@ -570,7 +570,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                         adjust = 10.0
 
                                         if ent_type == 'block01' or ent_type == 'block02':
-                                            adjust = 18.0
+                                            adjust = -11.0
 
                                         entities.append({'type': ent_type, 'name': '0',
                                                         'x': wx_item, 'y': Oy+adjust, 'z': wz_item,
