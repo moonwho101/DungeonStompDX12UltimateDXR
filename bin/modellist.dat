@@ -149,6 +149,8 @@ PLAYER		120 3DS  MODEL_ID 145  ..\textures\dungeon02\3ds\sign.3ds		TEX -1  POS 6
 PLAYER		121 3DS  MODEL_ID 146  ..\textures\dungeon02\3ds\windmill.3ds		TEX -1  POS 635 13 720  ANGLE 0	SCALE 15.00   NO_EXTERNAL_WEP	monster1.snd	AC 10	HD 5	d 1d8 THACO 19	WINDMILL	10	NONE
 PLAYER		122 3DS  MODEL_ID 147  ..\textures\dungeon02\3ds\cdooropenchest.3ds		TEX -1  POS 635 13 720  ANGLE 0	SCALE 25.00   NO_EXTERNAL_WEP	monster1.snd	AC 10	HD 5	d 1d8 THACO 19	cdooropenchest	10	NONE
 PLAYER		123 3DS  MODEL_ID 148  ..\textures\dungeon02\3ds\cdoorclosedchest.3ds		TEX -1  POS 635 13 720  ANGLE 0	SCALE 25.00   NO_EXTERNAL_WEP	monster1.snd	AC 10	HD 5	d 1d8 THACO 19	cdoorclosedchest	10	NONE
+PLAYER		124 3DS  MODEL_ID 149  ..\textures\dungeon02\3ds\block01.3ds		TEX -1  POS 635 13 720  ANGLE 0	SCALE 1.00   NO_EXTERNAL_WEP	monster1.snd	AC 10	HD 5	d 1d8 THACO 19	block01	10	NONE
+PLAYER		125 3DS  MODEL_ID 150  ..\textures\dungeon02\3ds\block02.3ds		TEX -1  POS 635 13 720  ANGLE 0	SCALE 1.00   NO_EXTERNAL_WEP	monster1.snd	AC 10	HD 5	d 1d8 THACO 19	block02	10	NONE
 END_FILE
 
 
