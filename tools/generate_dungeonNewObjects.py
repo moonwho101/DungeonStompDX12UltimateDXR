@@ -561,14 +561,19 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                                         'rot': d_rot, 'id': entity_id_idx, 'state': 0})
 
                                     elif r < 0.25:
-                                        ent_type = random.choice(['rock1','rock2','skull','QUARTZ','cdoorclosedchest'])
+                                        ent_type = random.choice(['rock1','rock2','skull','QUARTZ','cdoorclosedchest','BLOCK01','BLOCK02'])
                                         st = 0
 
                                         if ent_type == 'cdoorclosedchest':
                                             st = random.choice([0, 1]) if level < 2 else random.choice([0, 1, 2])
 
+                                        adjust = 10.0
+
+                                        if ent_type == 'BLOCK01' or 'BLOCK02': 
+                                            adjust = 40.0
+
                                         entities.append({'type': ent_type, 'name': '0',
-                                                        'x': wx_item, 'y': Oy+10.0, 'z': wz_item,
+                                                        'x': wx_item, 'y': Oy+adjust, 'z': wz_item,
                                                         'rot': d_rot, 'id': entity_id_idx, 'state': st})
 
                                     elif r < 0.28:
@@ -788,7 +793,16 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
 
         for e in entities:
             t = e['type']
-            if t == 'wall':
+
+            if t == 'BLOCK01':
+                f.write("OBJECT BLOCK01\n")
+                f.write(f"CO_ORDINATES {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}\n")
+                f.write(f"ROT_ANGLE {e['rot']}\n")
+            elif t == 'BLOCK02':
+                f.write("OBJECT BLOCK02\n")
+                f.write(f"CO_ORDINATES {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}\n")
+                f.write(f"ROT_ANGLE {e['rot']}\n")
+            elif t == 'wall':
                 f.write(f"OBJECT !wall0-240-160\n")
                 f.write(f"CO_ORDINATES {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}\n")
                 f.write(f"ROT_ANGLE {e['rot']} 0 {e['name']} {e['id']} 0\n")
