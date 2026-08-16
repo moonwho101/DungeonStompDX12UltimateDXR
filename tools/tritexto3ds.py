@@ -2,7 +2,7 @@ import struct
 import sys
 from collections import OrderedDict
 
-# 3DS chunk IDs (matching your C++ importer)
+# 3DS chunk IDs (matching your C++ importer and generator scripts)
 MAIN3DS             = 0x4D4D
 EDIT3DS             = 0x3D3D
 NAMED_OBJECT        = 0x4000
@@ -16,9 +16,6 @@ EDIT_MATERIAL       = 0xAFFF
 MAT_NAME01          = 0xA000
 TEXTURE_MAP         = 0xA200
 MAPPING_NAME        = 0xA300
-
-def rot_x_90(x, y, z):
-    return (-x, z, y)
 
 def write_chunk(f, chunk_id, data_bytes):
     length = 6 + len(data_bytes)
@@ -132,7 +129,8 @@ def write_3ds(filename, objects):
 
         # --- Objects / meshes ---
         # In Import3DS.cpp, texture is assigned per 3DS NAMED_OBJECT (object_texture[total_num_objects]).
-        # Therefore, triangles in each object must be grouped by texture into distinct 3DS NAMED_OBJECTs.
+        # Triangles in each object are grouped by texture into distinct 3DS NAMED_OBJECTs.
+        # Coordinates and face structure match bed.3ds and table.3ds.
         for obj in objects:
             tex_groups = OrderedDict()
             for tex, v1, v2, v3 in obj["triangles"]:
@@ -153,44 +151,41 @@ def write_3ds(filename, objects):
                 for v1, v2, v3 in tris:
                     face_indices = []
                     for (x, y, z, u, v) in (v1, v2, v3):
-                        x2, y2, z2 = rot_x_90(x, y, z)
                         idx = len(vertices)
-                        vertices.append((x2, y2, z2))
+                        vertices.append((x, y, z))
                         uvs.append((u, v))
                         face_indices.append(idx)
 
-                    # Enforce clockwise winding (Direct3D default)
                     a, b, c = face_indices
-                    faces.append((a, c, b))
+                    faces.append((a, b, c))
 
                 named_obj_data = bytearray()
                 named_obj_data += cstring(sub_name)
 
                 mesh_data = bytearray()
 
-                # TRIANGLE_VERTEXLIST
+                # TRIANGLE_VERTEXLIST (0x4110)
                 vlist = bytearray()
                 vlist += struct.pack('<H', len(vertices))
                 for (x, y, z) in vertices:
-                    vlist += struct.pack('<fff', y, x, z)
+                    vlist += struct.pack('<fff', x, y, z)
                 mesh_data += struct.pack('<HI', TRIANGLE_VERTEXLIST, 6 + len(vlist)) + vlist
 
-                # TRIANGLE_FACELIST
+                # TRIANGLE_FACELIST (0x4120) with edge visibility flags 0x0007 (matching bed.3ds / table.3ds)
                 flist = bytearray()
                 flist += struct.pack('<H', len(faces))
                 for (a, b, c) in faces:
-                    flist += struct.pack('<HHH', a, b, c)
-                    flist += struct.pack('<H', 0)  # face flags
+                    flist += struct.pack('<HHHH', a, b, c, 0x0007)
                 mesh_data += struct.pack('<HI', TRIANGLE_FACELIST, 6 + len(flist)) + flist
 
-                # TRIANGLE_MAPPINGCOORS
+                # TRIANGLE_MAPPINGCOORS (0x4140)
                 mcoords = bytearray()
                 mcoords += struct.pack('<H', len(uvs))
                 for (u, v) in uvs:
                     mcoords += struct.pack('<ff', u, v)
                 mesh_data += struct.pack('<HI', TRIANGLE_MAPPINGCOORS, 6 + len(mcoords)) + mcoords
 
-                # TRIANGLE_MATERIAL
+                # TRIANGLE_MATERIAL (0x4130)
                 if tex:
                     tm_data = bytearray()
                     tm_data += cstring(tex)
