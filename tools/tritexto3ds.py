@@ -1,4 +1,5 @@
 import struct
+import sys
 from collections import OrderedDict
 
 # 3DS chunk IDs (matching your C++ importer)
@@ -57,7 +58,8 @@ def parse_tritex_file(text):
         if line.startswith("TEXTURE"):
             _, texname = line.split()
             current_tex = texname
-            current_obj["textures"].append(texname)
+            if current_obj is not None and texname not in current_obj["textures"]:
+                current_obj["textures"].append(texname)
             i += 1
             continue
 
@@ -73,6 +75,14 @@ def parse_tritex_file(text):
             v2 = tuple(map(float, v2_line.split()))
             v3 = tuple(map(float, v3_line.split()))
 
+            if current_obj is None:
+                current_obj = {
+                    "name": "OBJECT",
+                    "triangles": [],
+                    "textures": []
+                }
+                objects.append(current_obj)
+
             current_obj["triangles"].append((current_tex, v1, v2, v3))
 
             i += 3
@@ -81,30 +91,6 @@ def parse_tritex_file(text):
         i += 1
 
     return objects
-
-def build_mesh_from_object(obj):
-    vertices = []      # list of (x,y,z)
-    uvs = []           # list of (u,v)
-    faces = []         # list of (i1,i2,i3)
-    tex_per_face = []  # texture per face
-
-    for tex, v1, v2, v3 in obj["triangles"]:
-        tri = [v1, v2, v3]
-        face_indices = []
-        for (x, y, z, u, v) in tri:
-              x2, y2, z2 = rot_x_90(x, y, z)
-              idx = len(vertices)
-              vertices.append((x2, y2, z2))
-              uvs.append((u, v))
-              face_indices.append(idx)
-
-        # enforce clockwise winding (Direct3D default)
-        a, b, c = face_indices
-        faces.append((a, c, b))
-
-        tex_per_face.append(tex)
-
-    return vertices, faces, uvs, tex_per_face
 
 def write_3ds(filename, objects):
     with open(filename, 'wb') as f:
@@ -115,36 +101,25 @@ def write_3ds(filename, objects):
         edit_data = bytearray()
 
         # --- Materials ---
-        # Build unique texture list across all objects
+        # Build unique texture list across all triangles
         all_textures = []
         for obj in objects:
-            for t in obj["textures"]:
-                if t not in all_textures:
-                    all_textures.append(t)
+            for tex, v1, v2, v3 in obj["triangles"]:
+                if tex and tex not in all_textures:
+                    all_textures.append(tex)
 
         mat_data = bytearray()
         for tex in all_textures:
             # EDIT_MATERIAL subchunk
             mat_sub = bytearray()
 
-            # MAT_NAME01
-            mat_name = tex  # use texture name as material name
-            mat_name_bytes = cstring(mat_name)
-            mat_sub_matname = mat_name_bytes
-            write_chunk_bytes = struct.pack  # just alias
-
             # MAT_NAME01 chunk
-            mat_sub_chunk = bytearray()
-            mat_sub_chunk += mat_name_bytes
-            write_chunk_bytes = struct.pack
-            # We'll wrap MAT_NAME01 properly:
-            buf = bytearray()
-            buf += mat_name_bytes
+            mat_name_bytes = cstring(tex)
+            buf = bytearray() + mat_name_bytes
             mat_sub += struct.pack('<HI', MAT_NAME01, 6 + len(buf)) + buf
 
             # TEXTURE_MAP + MAPPING_NAME
             texmap_data = bytearray()
-            # MAPPING_NAME chunk inside TEXTURE_MAP
             mapname_bytes = cstring(tex)
             texmap_data += struct.pack('<HI', MAPPING_NAME, 6 + len(mapname_bytes)) + mapname_bytes
 
@@ -156,56 +131,79 @@ def write_3ds(filename, objects):
         edit_data += mat_data
 
         # --- Objects / meshes ---
+        # In Import3DS.cpp, texture is assigned per 3DS NAMED_OBJECT (object_texture[total_num_objects]).
+        # Therefore, triangles in each object must be grouped by texture into distinct 3DS NAMED_OBJECTs.
         for obj in objects:
-            obj_data = bytearray()
+            tex_groups = OrderedDict()
+            for tex, v1, v2, v3 in obj["triangles"]:
+                if tex not in tex_groups:
+                    tex_groups[tex] = []
+                tex_groups[tex].append((v1, v2, v3))
 
-            # NAMED_OBJECT
-            name_bytes = cstring(obj["name"])
-            named_obj_data = bytearray()
-            named_obj_data += name_bytes
+            for tex, tris in tex_groups.items():
+                if len(tex_groups) == 1:
+                    sub_name = obj["name"]
+                else:
+                    sub_name = f"{obj['name']}_{tex}" if tex else obj["name"]
 
-            # TRIANGLE_MESH
-            mesh_data = bytearray()
+                vertices = []
+                uvs = []
+                faces = []
 
-            vertices, faces, uvs, tex_per_face = build_mesh_from_object(obj)
+                for v1, v2, v3 in tris:
+                    face_indices = []
+                    for (x, y, z, u, v) in (v1, v2, v3):
+                        x2, y2, z2 = rot_x_90(x, y, z)
+                        idx = len(vertices)
+                        vertices.append((x2, y2, z2))
+                        uvs.append((u, v))
+                        face_indices.append(idx)
 
-            # TRIANGLE_VERTEXLIST
-            vlist = bytearray()
-            vlist += struct.pack('<H', len(vertices))
-            for (x, y, z) in vertices:
-                vlist += struct.pack('<fff', y, x, z)
-            mesh_data += struct.pack('<HI', TRIANGLE_VERTEXLIST, 6 + len(vlist)) + vlist
+                    # Enforce clockwise winding (Direct3D default)
+                    a, b, c = face_indices
+                    faces.append((a, c, b))
 
-            # TRIANGLE_FACELIST
-            flist = bytearray()
-            flist += struct.pack('<H', len(faces))
-            for (a, b, c) in faces:
-                flist += struct.pack('<HHH', a, b, c)
-                flist += struct.pack('<H', 0)  # face flags
-            mesh_data += struct.pack('<HI', TRIANGLE_FACELIST, 6 + len(flist)) + flist
+                named_obj_data = bytearray()
+                named_obj_data += cstring(sub_name)
 
-            # TRIANGLE_MAPPINGCOORS
-            mcoords = bytearray()
-            mcoords += struct.pack('<H', len(uvs))
-            for (u, v) in uvs:
-                mcoords += struct.pack('<ff', u, v)
-            mesh_data += struct.pack('<HI', TRIANGLE_MAPPINGCOORS, 6 + len(mcoords)) + mcoords
+                mesh_data = bytearray()
 
-            # TRIANGLE_MATERIAL (assign first texture to all faces)
-            if obj["textures"]:
-                matname = obj["textures"][0]
-                tm_data = bytearray()
-                tm_data += cstring(matname)
-                tm_data += struct.pack('<H', len(faces))
-                for i in range(len(faces)):
-                    tm_data += struct.pack('<H', i)
-                mesh_data += struct.pack('<HI', TRIANGLE_MATERIAL, 6 + len(tm_data)) + tm_data
+                # TRIANGLE_VERTEXLIST
+                vlist = bytearray()
+                vlist += struct.pack('<H', len(vertices))
+                for (x, y, z) in vertices:
+                    vlist += struct.pack('<fff', y, x, z)
+                mesh_data += struct.pack('<HI', TRIANGLE_VERTEXLIST, 6 + len(vlist)) + vlist
 
-            # Wrap TRIANGLE_MESH
-            named_obj_data += struct.pack('<HI', TRIANGLE_MESH, 6 + len(mesh_data)) + mesh_data
+                # TRIANGLE_FACELIST
+                flist = bytearray()
+                flist += struct.pack('<H', len(faces))
+                for (a, b, c) in faces:
+                    flist += struct.pack('<HHH', a, b, c)
+                    flist += struct.pack('<H', 0)  # face flags
+                mesh_data += struct.pack('<HI', TRIANGLE_FACELIST, 6 + len(flist)) + flist
 
-            # Wrap NAMED_OBJECT
-            edit_data += struct.pack('<HI', NAMED_OBJECT, 6 + len(named_obj_data)) + named_obj_data
+                # TRIANGLE_MAPPINGCOORS
+                mcoords = bytearray()
+                mcoords += struct.pack('<H', len(uvs))
+                for (u, v) in uvs:
+                    mcoords += struct.pack('<ff', u, v)
+                mesh_data += struct.pack('<HI', TRIANGLE_MAPPINGCOORS, 6 + len(mcoords)) + mcoords
+
+                # TRIANGLE_MATERIAL
+                if tex:
+                    tm_data = bytearray()
+                    tm_data += cstring(tex)
+                    tm_data += struct.pack('<H', len(faces))
+                    for i in range(len(faces)):
+                        tm_data += struct.pack('<H', i)
+                    mesh_data += struct.pack('<HI', TRIANGLE_MATERIAL, 6 + len(tm_data)) + tm_data
+
+                # Wrap TRIANGLE_MESH
+                named_obj_data += struct.pack('<HI', TRIANGLE_MESH, 6 + len(mesh_data)) + mesh_data
+
+                # Wrap NAMED_OBJECT
+                edit_data += struct.pack('<HI', NAMED_OBJECT, 6 + len(named_obj_data)) + named_obj_data
 
         # Wrap EDIT3DS
         main_data += struct.pack('<HI', EDIT3DS, 6 + len(edit_data)) + edit_data
@@ -216,9 +214,16 @@ def write_3ds(filename, objects):
 
 
 if __name__ == "__main__":
-    # Paste your TRITEX text here
-    tritex_text = """
-    
+    if len(sys.argv) > 1:
+        input_file = sys.argv[1]
+        output_file = sys.argv[2] if len(sys.argv) > 2 else "output.3ds"
+        with open(input_file, "r", encoding="utf-8") as f:
+            content = f.read()
+        objs = parse_tritex_file(content)
+        write_3ds(output_file, objs)
+        print(f"Wrote {output_file}")
+    else:
+        tritex_text = """
 OBJECT 191 BLOCK02
 
 TEXTURE corridor07
@@ -346,10 +351,8 @@ TRITEX -27.65625 55.309365 -2.76684 0.9995 0.08010799999999996
 TRITEX -11.879895 27.153945 -28.125 0.736824 0.9995
        -27.65625 22.942439999999998 -11.443725 0.9995 0.721757
        -27.65625 26.72751 -28.125 0.999501 0.9995
-
-       
 """
 
-    objs = parse_tritex_file(tritex_text)
-    write_3ds("output.3ds", objs)
-    print("Wrote output.3ds")
+        objs = parse_tritex_file(tritex_text)
+        write_3ds("output.3ds", objs)
+        print("Wrote output.3ds")
