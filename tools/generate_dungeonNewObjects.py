@@ -697,8 +697,8 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
         elif ndx == 1 and ndz ==  0: wall_rot = 0
         elif ndx == 0 and ndz ==  1: wall_rot = 90
         elif ndx == -1 and ndz == 0: wall_rot = 180
-        wx += ndz * 80
-        wz += -ndx * 80
+        wx += ndz * 160
+        wz += -ndx * 160
         entities.append({
             'type': 'wall', 'name': 'corridor10',
             'x': wx, 'y': wy, 'z': wz,
@@ -795,7 +795,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
             t = e['type']
 
             if t == 'wall':
-                f.write(f"OBJECT !wall0-240-160\n")
+                f.write(f"OBJECT !wall0-240-320\n")
                 f.write(f"CO_ORDINATES {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}\n")
                 f.write(f"ROT_ANGLE {e['rot']} 0 {e['name']} {e['id']} 0\n")
             elif t == 'torch':
