@@ -245,5 +245,23 @@ BOOL ImportMD2_GLCMD(char *filename, int texture_alias, int pmodel_id, float sca
 	pmdata[pmodel_id].num_frames = header.num_frames;
 	pmdata[pmodel_id].use_indexed_primitive = FALSE;
 
+	// Calculate surface normal and tangent for each triangle across all frames
+	for (frame_num = 0; frame_num < header.num_frames; frame_num++) {
+		for (int tri = 0; tri + 2 < cnt; tri += 3) {
+			int idx0 = pmdata[pmodel_id].f[tri + 0];
+			int idx1 = pmdata[pmodel_id].f[tri + 1];
+			int idx2 = pmdata[pmodel_id].f[tri + 2];
+
+			CalculateVertNormalAndTangent(
+				pmdata[pmodel_id].w[frame_num][idx0],
+				pmdata[pmodel_id].w[frame_num][idx1],
+				pmdata[pmodel_id].w[frame_num][idx2],
+				pmdata[pmodel_id].t[tri + 0],
+				pmdata[pmodel_id].t[tri + 1],
+				pmdata[pmodel_id].t[tri + 2]
+			);
+		}
+	}
+
 	return TRUE;
 }
