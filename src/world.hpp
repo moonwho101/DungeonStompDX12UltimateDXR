@@ -285,13 +285,13 @@ typedef struct objectdata_typ {
 	// v and t are vertices -
 	//  everything else polygones
 
-	VERT v[2900]; // 6000
-	VERT t[2900]; // 6000 //2200
-	int f[2900];
-	int num_vert[1600];
-	D3DPRIMITIVETYPE poly_cmd[1600];
+	VERT v[6000]; // 6000
+	VERT t[6000]; // 6000 //2200
+	int f[6000];
+	int num_vert[6000];
+	D3DPRIMITIVETYPE poly_cmd[6000];
 	int tex[1600];
-	BOOL use_texmap[1600];
+	BOOL use_texmap[6000];
 	char name[256];
 	VERT connection[4];
 	char typedesc[255];

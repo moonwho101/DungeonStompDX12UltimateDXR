@@ -547,7 +547,7 @@ void PlayerToD3DVertList(int pmodel_id, int curr_frame, float angle, int texture
 	}
 
 	// Keep smoothing for MD2
-	//SmoothNormals(start_cnt);
+	SmoothNormals(start_cnt);
 	return;
 }
 
