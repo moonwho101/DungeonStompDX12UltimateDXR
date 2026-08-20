@@ -269,6 +269,7 @@ void ObjectToD3DVertList(int ob_type, float angle, int oblist_index) {
 		ObjectsToDraw[number_of_polys_per_frame].castshaddow = oblist[oblist_index].castshadow ? 1 : 0;
 		texture_list_buffer[number_of_polys_per_frame] = ctext;
 
+		float fDot = 0.0f;
 		int cresult = CycleBitMap(ctext);
 		if (cresult != -1) {
 			oblist[oblist_index].monstertexture = cresult;
@@ -279,7 +280,7 @@ void ObjectToD3DVertList(int ob_type, float angle, int oblist_index) {
 
 			XMVECTOR final = XMVector3Normalize(XMLoadFloat3(&work1) - XMLoadFloat3(&work2));
 			XMVECTOR final2 = XMVector3Normalize(XMLoadFloat3(&normroadold));
-			float fDot = XMVectorGetX(XMVector3Dot(final, final2));
+			fDot = XMVectorGetX(XMVector3Dot(final, final2));
 			float convangle = (float)acos(fDot) / k;
 			fDot = (work2.z < work1.z) ? convangle : 180.0f + (180.0f - convangle);
 
@@ -311,6 +312,10 @@ void ObjectToD3DVertList(int ob_type, float angle, int oblist_index) {
 
 		// Texture mapping branch
 		bool use_texmap = obdata[ob_type].use_texmap[w] != FALSE;
+		int poly_v_start = ob_vert_count - num_vert;
+		float rotAngleRad = (cresult != -1) ? (fDot * k) : (angle * k);
+		XMMATRIX rotMatrix = XMMatrixRotationY(rotAngleRad);
+
 		for (int i = 0; i < num_vert; i++) {
 			src_v[cnt].x = D3DVAL(mx[i]);
 			src_v[cnt].y = D3DVAL(my[i]);
@@ -321,28 +326,31 @@ void ObjectToD3DVertList(int ob_type, float angle, int oblist_index) {
 
 			src_collide[cnt] = objectcollide == 1 ? 1 : 0;
 
-			// Calculate normal for each triangle in the list
-			if (i % 3 == 0 && (i + 2) < num_vert) {
-				XMFLOAT3 vw1{ D3DVAL(mx[i]), D3DVAL(my[i]), D3DVAL(mz[i]) };
-				XMFLOAT3 vw2{ D3DVAL(mx[i + 1]), D3DVAL(my[i + 1]), D3DVAL(mz[i + 1]) };
-				XMFLOAT3 vw3{ D3DVAL(mx[i + 2]), D3DVAL(my[i + 2]), D3DVAL(mz[i + 2]) };
+			const auto &v_src = obdata[ob_type].v[poly_v_start + i];
 
-				XMVECTOR vCross = XMVector3Cross(XMLoadFloat3(&vw1) - XMLoadFloat3(&vw2), XMLoadFloat3(&vw3) - XMLoadFloat3(&vw2));
-				XMFLOAT3 final2;
-				XMStoreFloat3(&final2, XMVector3Normalize(vCross));
-				workx = -final2.x;
-				worky = -final2.y;
-				workz = -final2.z;
+			XMVECTOR normVec = XMVectorSet(v_src.nx, v_src.ny, v_src.nz, 0.0f);
+			XMVECTOR rotNorm = XMVector3TransformNormal(normVec, rotMatrix);
+			if (XMVectorGetX(XMVector3LengthSq(rotNorm)) > 0.00001f) {
+				rotNorm = XMVector3Normalize(rotNorm);
 			}
+			XMFLOAT3 fn;
+			XMStoreFloat3(&fn, rotNorm);
+			src_v[cnt].nx = fn.x;
+			src_v[cnt].ny = fn.y;
+			src_v[cnt].nz = fn.z;
 
-			src_v[cnt].nx = workx;
-			src_v[cnt].ny = worky;
-			src_v[cnt].nz = workz;
+			XMVECTOR tanVec = XMVectorSet(v_src.nmx, v_src.nmy, v_src.nmz, 0.0f);
+			XMVECTOR rotTan = XMVector3TransformNormal(tanVec, rotMatrix);
+			if (XMVectorGetX(XMVector3LengthSq(rotTan)) > 0.00001f) {
+				rotTan = XMVector3Normalize(rotTan);
+			}
+			XMFLOAT3 ft;
+			XMStoreFloat3(&ft, rotTan);
+			src_v[cnt].nmx = ft.x;
+			src_v[cnt].nmy = ft.y;
+			src_v[cnt].nmz = ft.z;
 
 			cnt++;
-
-			if (i % 3 == 2)
-				CalculateTangentBinormal(src_v[cnt - 3], src_v[cnt - 2], src_v[cnt - 1]);
 		}
 
 		ObjectsToDraw[number_of_polys_per_frame].vert_index = number_of_polys_per_frame;
@@ -475,8 +483,6 @@ void PlayerToD3DVertList(int pmodel_id, int curr_frame, float angle, int texture
 		ObjectsToDraw[number_of_polys_per_frame].objectId = -1;
 
 		const int fan_cnt = cnt;
-		int triVertexCounter = 0;
-
 		for (int j = 0; j < num_verts_per_poly; j++) {
 			const short v_index = pmdata[pmodel_id].f[i_count];
 
@@ -540,36 +546,71 @@ void PlayerToD3DVertList(int pmodel_id, int curr_frame, float angle, int texture
 			src_v[cnt].CastShadow = 1;
 			src_collide[cnt] = 1;
 
-			// For triangle list streams, compute normal/tangent per tri as it forms
-			if (p_command == D3DPT_TRIANGLELIST) {
-				if (triVertexCounter == 2) {
-					D3DVERTEX2 &v1 = src_v[cnt - 2];
-					D3DVERTEX2 &v2 = src_v[cnt - 1];
-					D3DVERTEX2 &v3 = src_v[cnt];
+			// Normal and Tangent interpolation / retrieval from pmdata
+			float nx, ny, nz;
+			float nmx, nmy, nmz;
 
-					XMFLOAT3 p1{ v1.x, v1.y, v1.z };
-					XMFLOAT3 p2{ v2.x, v2.y, v2.z };
-					XMFLOAT3 p3{ v3.x, v3.y, v3.z };
+			if (nextFrame != -1) {
+				const vert_ptr tpNextFrame = &pmdata[pmodel_id].w[nextFrame][v_index];
+				const float t = (gametimerAnimation > 0.0f && gametimerAnimation < 1.0f) ? gametimerAnimation : 0.0f;
+				if (t > 0.0f) {
+					nx = tp->nx + t * (tpNextFrame->nx - tp->nx);
+					ny = tp->ny + t * (tpNextFrame->ny - tp->ny);
+					nz = tp->nz + t * (tpNextFrame->nz - tp->nz);
 
-
-		 		    XMVECTOR e1 = XMLoadFloat3(&p2) - XMLoadFloat3(&p1);
-					XMVECTOR e2 = XMLoadFloat3(&p3) - XMLoadFloat3(&p1);
-					XMVECTOR nrm = XMVector3Normalize(XMVector3Cross(e1, e2));
-
-
-					XMFLOAT3 n3;
-					XMStoreFloat3(&n3, nrm);
-
-					v1.nx = v2.nx = v3.nx = n3.x;
-					v1.ny = v2.ny = v3.ny = n3.y;
-					v1.nz = v2.nz = v3.nz = n3.z;
-
-					CalculateTangentBinormal(v1, v2, v3);
-					triVertexCounter = 0;
+					nmx = tp->nmx + t * (tpNextFrame->nmx - tp->nmx);
+					nmy = tp->nmy + t * (tpNextFrame->nmy - tp->nmy);
+					nmz = tp->nmz + t * (tpNextFrame->nmz - tp->nmz);
 				} else {
-					triVertexCounter++;
+					nx = tp->nx;
+					ny = tp->ny;
+					nz = tp->nz;
+					nmx = tp->nmx;
+					nmy = tp->nmy;
+					nmz = tp->nmz;
 				}
+			} else {
+				nx = tp->nx;
+				ny = tp->ny;
+				nz = tp->nz;
+				nmx = tp->nmx;
+				nmy = tp->nmy;
+				nmz = tp->nmz;
 			}
+
+			// Vertices in pmdata use MD2 coordinate convention where Y is Z and Z is Y.
+			// Transform normal and tangent from MD2 space (x, z, y) to D3D space (x, y, z)
+			XMVECTOR normVec = XMVectorSet(nx, nz, ny, 0.0f);
+			XMVECTOR tanVec = XMVectorSet(nmx, nmz, nmy, 0.0f);
+
+			XMMATRIX rotMat;
+			if (weapondrop == 1 && fDot2 != 0.0f) {
+				XMMATRIX pitchMat = XMMatrixRotationZ(-fDot2 * k);
+				XMMATRIX yawMat = XMMatrixRotationY(angle * k);
+				rotMat = pitchMat * yawMat;
+			} else {
+				rotMat = XMMatrixRotationY(angle * k);
+			}
+
+			XMVECTOR rotNorm = XMVector3TransformNormal(normVec, rotMat);
+			if (XMVectorGetX(XMVector3LengthSq(rotNorm)) > 0.00001f) {
+				rotNorm = XMVector3Normalize(rotNorm);
+			}
+			XMFLOAT3 fn;
+			XMStoreFloat3(&fn, rotNorm);
+			src_v[cnt].nx = fn.x;
+			src_v[cnt].ny = fn.y;
+			src_v[cnt].nz = fn.z;
+
+			XMVECTOR rotTan = XMVector3TransformNormal(tanVec, rotMat);
+			if (XMVectorGetX(XMVector3LengthSq(rotTan)) > 0.00001f) {
+				rotTan = XMVector3Normalize(rotTan);
+			}
+			XMFLOAT3 ft;
+			XMStoreFloat3(&ft, rotTan);
+			src_v[cnt].nmx = ft.x;
+			src_v[cnt].nmy = ft.y;
+			src_v[cnt].nmz = ft.z;
 
 			cnt++;
 			i_count++;
@@ -1685,8 +1726,6 @@ void PlayerToD3DIndexedVertList(int pmodel_id, int curr_frame, float angle, int 
 
 		ObjectsToDraw[number_of_polys_per_frame].srcstart = cnt;
 
-		int triVertexCounter = 0;
-
 		for (int j = 0; j < num_verts_per_poly; j++) {
 			// Read source vertex
 			x = pmdata[pmodel_id].w[curr_frame][i_count].x;
@@ -1729,42 +1768,48 @@ void PlayerToD3DIndexedVertList(int pmodel_id, int curr_frame, float angle, int 
 			src_v[cnt].CastShadow = 1;
 			src_collide[cnt] = 1;
 
-			// When a full triangle is present (streamed as list), compute normal and tangent
-			if (triVertexCounter == 2) {
-				const D3DVERTEX2 &v1 = src_v[cnt - 2];
-				const D3DVERTEX2 &v2 = src_v[cnt - 1];
-				const D3DVERTEX2 &v3 = src_v[cnt];
+			// Retrieve normal and tangent from pmdata
+			const float nx = pmdata[pmodel_id].w[curr_frame][i_count].nx;
+			const float ny = pmdata[pmodel_id].w[curr_frame][i_count].ny;
+			const float nz = pmdata[pmodel_id].w[curr_frame][i_count].nz;
 
-				XMFLOAT3 p1{ v1.x, v1.y, v1.z };
-				XMFLOAT3 p2{ v2.x, v2.y, v2.z };
-				XMFLOAT3 p3{ v3.x, v3.y, v3.z };
+			const float nmx = pmdata[pmodel_id].w[curr_frame][i_count].nmx;
+			const float nmy = pmdata[pmodel_id].w[curr_frame][i_count].nmy;
+			const float nmz = pmdata[pmodel_id].w[curr_frame][i_count].nmz;
 
-				XMVECTOR vDiff = XMLoadFloat3(&p1) - XMLoadFloat3(&p2);
-				XMVECTOR vDiff2 = XMLoadFloat3(&p3) - XMLoadFloat3(&p2);
-				XMVECTOR nrm = XMVector3Normalize(XMVector3Cross(vDiff, vDiff2));
+			// Vertices in pmdata use 3DS coordinate convention where Y is Z and Z is Y.
+			// Transform normal and tangent from model space (x, z, y) to D3D space (x, y, z)
+			XMVECTOR normVec = XMVectorSet(nx, nz, ny, 0.0f);
+			XMVECTOR tanVec = XMVectorSet(nmx, nmz, nmy, 0.0f);
 
-				XMFLOAT3 n3;
-				XMStoreFloat3(&n3, nrm);
-
-				// Original code uses flipped normal
-				const float nx = -n3.x, ny = -n3.y, nz = -n3.z;
-
-				src_v[cnt - 2].nx = nx;
-				src_v[cnt - 2].ny = ny;
-				src_v[cnt - 2].nz = nz;
-				src_v[cnt - 1].nx = nx;
-				src_v[cnt - 1].ny = ny;
-				src_v[cnt - 1].nz = nz;
-				src_v[cnt].nx = nx;
-				src_v[cnt].ny = ny;
-				src_v[cnt].nz = nz;
-
-				CalculateTangentBinormal(src_v[cnt - 2], src_v[cnt - 1], src_v[cnt]);
-
-				triVertexCounter = 0;
+			XMMATRIX rotMat;
+			if (fDot2 != 0.0f) {
+				XMMATRIX pitchMat = XMMatrixRotationZ(-fDot2 * k);
+				XMMATRIX yawMat = XMMatrixRotationY(angle * k);
+				rotMat = pitchMat * yawMat;
 			} else {
-				triVertexCounter++;
+				rotMat = XMMatrixRotationY(angle * k);
 			}
+
+			XMVECTOR rotNorm = XMVector3TransformNormal(normVec, rotMat);
+			if (XMVectorGetX(XMVector3LengthSq(rotNorm)) > 0.00001f) {
+				rotNorm = XMVector3Normalize(rotNorm);
+			}
+			XMFLOAT3 fn;
+			XMStoreFloat3(&fn, rotNorm);
+			src_v[cnt].nx = fn.x;
+			src_v[cnt].ny = fn.y;
+			src_v[cnt].nz = fn.z;
+
+			XMVECTOR rotTan = XMVector3TransformNormal(tanVec, rotMat);
+			if (XMVectorGetX(XMVector3LengthSq(rotTan)) > 0.00001f) {
+				rotTan = XMVector3Normalize(rotTan);
+			}
+			XMFLOAT3 ft;
+			XMStoreFloat3(&ft, rotTan);
+			src_v[cnt].nmx = ft.x;
+			src_v[cnt].nmy = ft.y;
+			src_v[cnt].nmz = ft.z;
 
 			cnt++;
 			i_count++;
