@@ -897,6 +897,21 @@ BOOL CLoadWorld::LoadObjectData(char *filename) {
 	}
 	fclose(fp);
 
+	// Calculate normal and tangent for each triangle of every object in obdata
+	for (int obj_idx = 0; obj_idx < obdata_length; obj_idx++) {
+		int v_count = num_vert_per_object[obj_idx];
+		for (int v_i = 0; v_i + 2 < v_count; v_i += 3) {
+			CalculateVertNormalAndTangent(
+				obdata[obj_idx].v[v_i],
+				obdata[obj_idx].v[v_i + 1],
+				obdata[obj_idx].v[v_i + 2],
+				obdata[obj_idx].t[v_i],
+				obdata[obj_idx].t[v_i + 1],
+				obdata[obj_idx].t[v_i + 2]
+			);
+		}
+	}
+
 	//_itoa_s(obdata_length, buffer, _countof(buffer), 10);
 
 	// PrintMessage(hwnd, buffer, " DAT objects loaded", SCN_AND_FILE);

@@ -150,6 +150,73 @@ void CalculateTangentBinormal(D3DVERTEX2 &vertex1, D3DVERTEX2 &vertex2, D3DVERTE
 	vertex1.nmz = vertex2.nmz = vertex3.nmz = tangent.z;
 }
 
+void CalculateVertNormalAndTangent(VERT &vertex1, VERT &vertex2, VERT &vertex3, const VERT &tex1, const VERT &tex2, const VERT &tex3) {
+	float vector1[3], vector2[3];
+	float tuVector[2], tvVector[2];
+
+	// Calculate the two vectors for this face.
+	vector1[0] = vertex2.x - vertex1.x;
+	vector1[1] = vertex2.y - vertex1.y;
+	vector1[2] = vertex2.z - vertex1.z;
+
+	vector2[0] = vertex3.x - vertex1.x;
+	vector2[1] = vertex3.y - vertex1.y;
+	vector2[2] = vertex3.z - vertex1.z;
+
+	// Calculate surface normal (vector1 x vector2)
+	float nx = vector1[1] * vector2[2] - vector1[2] * vector2[1];
+	float ny = vector1[2] * vector2[0] - vector1[0] * vector2[2];
+	float nz = vector1[0] * vector2[1] - vector1[1] * vector2[0];
+
+	float length = sqrtf(nx * nx + ny * ny + nz * nz);
+	if (length > 0.00001f) {
+		nx /= length;
+		ny /= length;
+		nz /= length;
+	} else {
+		nx = ny = nz = 0.0f;
+	}
+
+	vertex1.nx = vertex2.nx = vertex3.nx = nx;
+	vertex1.ny = vertex2.ny = vertex3.ny = ny;
+	vertex1.nz = vertex2.nz = vertex3.nz = nz;
+
+	// Calculate texture space vectors
+	tuVector[0] = tex2.x - tex1.x;
+	tvVector[0] = tex2.y - tex1.y;
+
+	tuVector[1] = tex3.x - tex1.x;
+	tvVector[1] = tex3.y - tex1.y;
+
+	float result = (tuVector[0] * tvVector[1] - tuVector[1] * tvVector[0]);
+
+	if (result == 0.0f) {
+		vertex1.nmx = vertex2.nmx = vertex3.nmx = 0.0f;
+		vertex1.nmy = vertex2.nmy = vertex3.nmy = 0.0f;
+		vertex1.nmz = vertex2.nmz = vertex3.nmz = 0.0f;
+		return;
+	}
+
+	float den = 1.0f / result;
+
+	float tanX = (tvVector[1] * vector1[0] - tvVector[0] * vector2[0]) * den;
+	float tanY = (tvVector[1] * vector1[1] - tvVector[0] * vector2[1]) * den;
+	float tanZ = (tvVector[1] * vector1[2] - tvVector[0] * vector2[2]) * den;
+
+	length = sqrtf(tanX * tanX + tanY * tanY + tanZ * tanZ);
+	if (length > 0.00001f) {
+		tanX /= length;
+		tanY /= length;
+		tanZ /= length;
+	} else {
+		tanX = tanY = tanZ = 0.0f;
+	}
+
+	vertex1.nmx = vertex2.nmx = vertex3.nmx = tanX;
+	vertex1.nmy = vertex2.nmy = vertex3.nmy = tanY;
+	vertex1.nmz = vertex2.nmz = vertex3.nmz = tanZ;
+}
+
 bool ObjectHasShadow(int object_id) {
 
 	if (object_id == -99 || object_id == -111 || object_id == -1) {
