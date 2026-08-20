@@ -484,23 +484,18 @@ void PlayerToD3DVertList(int pmodel_id, int curr_frame, float angle, int texture
 					XMFLOAT3 p2{ v2.x, v2.y, v2.z };
 					XMFLOAT3 p3{ v3.x, v3.y, v3.z };
 
-					XMVECTOR nrm = XMVector3Normalize(
-					    XMVector3Cross(XMLoadFloat3(&p1) - XMLoadFloat3(&p2),
-					                   XMLoadFloat3(&p3) - XMLoadFloat3(&p2)));
+
+		 		    XMVECTOR e1 = XMLoadFloat3(&p2) - XMLoadFloat3(&p1);
+					XMVECTOR e2 = XMLoadFloat3(&p3) - XMLoadFloat3(&p1);
+					XMVECTOR nrm = XMVector3Normalize(XMVector3Cross(e1, e2));
+
 
 					XMFLOAT3 n3;
 					XMStoreFloat3(&n3, nrm);
 
-					// Keep current convention (positive normal)
-					v1.nx = n3.x;
-					v1.ny = n3.y;
-					v1.nz = n3.z;
-					v2.nx = n3.x;
-					v2.ny = n3.y;
-					v2.nz = n3.z;
-					v3.nx = n3.x;
-					v3.ny = n3.y;
-					v3.nz = n3.z;
+					v1.nx = v2.nx = v3.nx = n3.x;
+					v1.ny = v2.ny = v3.ny = n3.y;
+					v1.nz = v2.nz = v3.nz = n3.z;
 
 					CalculateTangentBinormal(v1, v2, v3);
 					triVertexCounter = 0;
@@ -552,7 +547,7 @@ void PlayerToD3DVertList(int pmodel_id, int curr_frame, float angle, int texture
 	}
 
 	// Keep smoothing for MD2
-	SmoothNormals(start_cnt);
+	//SmoothNormals(start_cnt);
 	return;
 }
 
