@@ -169,26 +169,14 @@ void ObjectToD3DVertList(int ob_type, float angle, int oblist_index) {
 	float wx = oblist[oblist_index].x;
 	float wy = oblist[oblist_index].y;
 	float wz = oblist[oblist_index].z;
-	float workx = 0;
-	float worky = 0;
-	float workz = 0;
 
-	float cosine = (float)cos(angle * k);
-	float sine = (float)sin(angle * k);
-
-	int start_cnt = cnt;
+	XMMATRIX W = XMMatrixRotationY(XMConvertToRadians(angle)) * XMMatrixTranslation(wx, wy, wz);
 
 	for (int w = 0; w < poly; w++) {
 		int num_vert = obdata[ob_type].num_vert[w];
 		int fan_cnt = cnt;
 		int ctext;
 
-		// Reset mx/my/mz only for used vertices
-		for (int v = 0; v < num_vert; v++) {
-			mx[v] = my[v] = mz[v] = 0.0f;
-		}
-
-		// Texture selection
 		if (strstr(oblist[oblist_index].name, "!") != NULL) {
 			ObjectsToDraw[number_of_polys_per_frame].texture = oblist[oblist_index].monstertexture;
 			ctext = oblist[oblist_index].monstertexture;
@@ -216,66 +204,56 @@ void ObjectToD3DVertList(int ob_type, float angle, int oblist_index) {
 			float convangle = (float)acos(fDot) / k;
 			fDot = (work2.z < work1.z) ? convangle : 180.0f + (180.0f - convangle);
 
-			cosine = (float)cos(fDot * k);
-			sine = (float)sin(fDot * k);
+			W = XMMatrixRotationY(XMConvertToRadians(fDot)) * XMMatrixTranslation(wx, wy, wz);
 		}
 
-		// Vertex transformation and texture coordinates
-		for (int vert_cnt = 0; vert_cnt < num_vert; vert_cnt++) {
-			const auto &v = obdata[ob_type].v[ob_vert_count];
-			const auto &t = obdata[ob_type].t[ob_vert_count];
-
-			tx[vert_cnt] = t.x;
-			ty[vert_cnt] = t.y;
-
-			mx[vert_cnt] = wx + (v.x * cosine - v.z * sine);
-			my[vert_cnt] = wy + v.y;
-			mz[vert_cnt] = wz + (v.x * sine + v.z * cosine);
-
-			ob_vert_count++;
-			g_ob_vert_count++;
-		}
+		XMMATRIX invTransposeW = XMMatrixTranspose(XMMatrixInverse(nullptr, W));
 
 		verts_per_poly[number_of_polys_per_frame] = num_vert;
 		ObjectsToDraw[number_of_polys_per_frame].vertsperpoly = num_vert;
 		ObjectsToDraw[number_of_polys_per_frame].srcstart = cnt;
 
 		D3DPRIMITIVETYPE poly_command = obdata[ob_type].poly_cmd[w];
-
-		// Texture mapping branch
 		bool use_texmap = obdata[ob_type].use_texmap[w] != FALSE;
-		for (int i = 0; i < num_vert; i++) {
-			src_v[cnt].x = D3DVAL(mx[i]);
-			src_v[cnt].y = D3DVAL(my[i]);
-			src_v[cnt].z = D3DVAL(mz[i]);
-			src_v[cnt].tu = D3DVAL(use_texmap ? TexMap[ctext].tu[i] : tx[i]);
-			src_v[cnt].tv = D3DVAL(use_texmap ? TexMap[ctext].tv[i] : ty[i]);
+
+		for (int vert_cnt = 0; vert_cnt < num_vert; vert_cnt++) {
+			int idx = ob_vert_count;
+			const auto &v = obdata[ob_type].v[idx];
+			const auto &n = obdata[ob_type].n[idx];
+			const auto &tan = obdata[ob_type].tan[idx];
+			const auto &t = obdata[ob_type].t[idx];
+
+			XMVECTOR posObj = XMVectorSet(v.x, v.y, v.z, 1.0f);
+			XMVECTOR normObj = XMVectorSet(n.x, n.y, n.z, 0.0f);
+			XMVECTOR tanObj = XMVectorSet(tan.x, tan.y, tan.z, 0.0f);
+
+			XMVECTOR posWorld = XMVector3TransformCoord(posObj, W);
+			XMVECTOR normWorld = XMVector3Normalize(XMVector3TransformNormal(normObj, invTransposeW));
+			XMVECTOR tanWorld = XMVector3Normalize(XMVector3TransformNormal(tanObj, invTransposeW));
+
+			XMFLOAT3 pW, nW, tW;
+			XMStoreFloat3(&pW, posWorld);
+			XMStoreFloat3(&nW, normWorld);
+			XMStoreFloat3(&tW, tanWorld);
+
+			src_v[cnt].x = pW.x;
+			src_v[cnt].y = pW.y;
+			src_v[cnt].z = pW.z;
+			src_v[cnt].nx = nW.x;
+			src_v[cnt].ny = nW.y;
+			src_v[cnt].nz = nW.z;
+			src_v[cnt].nmx = tW.x;
+			src_v[cnt].nmy = tW.y;
+			src_v[cnt].nmz = tW.z;
+			src_v[cnt].tu = use_texmap ? TexMap[ctext].tu[vert_cnt] : t.x;
+			src_v[cnt].tv = use_texmap ? TexMap[ctext].tv[vert_cnt] : t.y;
 			src_v[cnt].CastShadow = 0;
 
 			src_collide[cnt] = objectcollide == 1 ? 1 : 0;
 
-			// Calculate normal for first vertex
-			if (i == 0 && num_vert >= 3) {
-				XMFLOAT3 vw1{ D3DVAL(mx[i]), D3DVAL(my[i]), D3DVAL(mz[i]) };
-				XMFLOAT3 vw2{ D3DVAL(mx[i + 1]), D3DVAL(my[i + 1]), D3DVAL(mz[i + 1]) };
-				XMFLOAT3 vw3{ D3DVAL(mx[i + 2]), D3DVAL(my[i + 2]), D3DVAL(mz[i + 2]) };
-
-				XMVECTOR vCross = XMVector3Cross(XMLoadFloat3(&vw1) - XMLoadFloat3(&vw2), XMLoadFloat3(&vw3) - XMLoadFloat3(&vw2));
-				XMFLOAT3 final2;
-				XMStoreFloat3(&final2, XMVector3Normalize(vCross));
-				workx = -final2.x;
-				worky = -final2.y;
-				workz = -final2.z;
-			}
-
-			src_v[cnt].nx = workx;
-			src_v[cnt].ny = worky;
-			src_v[cnt].nz = workz;
-
+			ob_vert_count++;
+			g_ob_vert_count++;
 			cnt++;
-
-			if (i == 2)
-				CalculateTangentBinormal(src_v[cnt - 3], src_v[cnt - 2], src_v[cnt - 1]);
 		}
 
 		ObjectsToDraw[number_of_polys_per_frame].vert_index = number_of_polys_per_frame;
@@ -307,10 +285,6 @@ void ObjectToD3DVertList(int ob_type, float angle, int oblist_index) {
 		num_verts_in_scene += num_vert;
 		num_dp_commands_in_scene++;
 	}
-	// Uncomment if you want to smooth normals for specific objects
-	// if (ob_type == 121 || ob_type == 169 || ob_type == 170 || ob_type == 58 || strstr(oblist[oblist_index].name, "door") != NULL) {
-	//     SmoothNormals(start_cnt);
-	// }
 }
 
 void DrawBoundingBox() {
@@ -373,32 +347,33 @@ void DrawBoundingBox() {
 }
 
 void PlayerToD3DVertList(int pmodel_id, int curr_frame, float angle, int texture_alias, int tex_flag, float xt, float yt, float zt, int nextFrame, float fDot2) {
-	// Normalize angle (degrees)
-	if (angle >= 360.0f)
-		angle -= 360.0f;
-	if (angle < 0.0f)
-		angle += 360.0f;
+	if (angle >= 360.0f) angle -= 360.0f;
+	if (angle < 0.0f) angle += 360.0f;
 
-	// Indexed 3DS models: forward to indexed path with the correct frame
 	if (pmdata[pmodel_id].use_indexed_primitive == TRUE) {
 		PlayerToD3DIndexedVertList(pmodel_id, curr_frame, angle, texture_alias, tex_flag, xt, yt, zt, fDot2);
 		return;
 	}
 
-	// MD2 models
 	if (curr_frame >= pmdata[pmodel_id].num_frames)
 		curr_frame = 0;
 
-	const float cosine = (float)cos(angle * k);
-	const float sine = (float)sin(angle * k);
+	float wx = xt;
+	float wy = yt;
+	float wz = zt;
 
-	const float wx = xt;
-	const float wy = yt;
-	const float wz = zt;
+	XMMATRIX W;
+	if (weapondrop == 1 && fDot2 != 0.0f) {
+		W = XMMatrixRotationX(XMConvertToRadians(fDot2)) * XMMatrixRotationY(XMConvertToRadians(angle)) * XMMatrixTranslation(wx, wy - 40.0f, wz);
+	} else if (weapondrop == 1) {
+		W = XMMatrixRotationY(XMConvertToRadians(angle)) * XMMatrixTranslation(wx, wy - 40.0f, wz);
+	} else {
+		W = XMMatrixRotationY(XMConvertToRadians(angle)) * XMMatrixTranslation(wx, wy, wz);
+	}
+	XMMATRIX invTransposeW = XMMatrixTranspose(XMMatrixInverse(nullptr, W));
 
 	int i_count = 0;
 	const int num_poly = pmdata[pmodel_id].num_polys_per_frame;
-	const int start_cnt = cnt;
 
 	for (int i = 0; i < num_poly; i++) {
 		const D3DPRIMITIVETYPE p_command = pmdata[pmodel_id].poly_cmd[i];
@@ -408,106 +383,54 @@ void PlayerToD3DVertList(int pmodel_id, int curr_frame, float angle, int texture
 		ObjectsToDraw[number_of_polys_per_frame].objectId = -1;
 
 		const int fan_cnt = cnt;
-		int triVertexCounter = 0;
 
 		for (int j = 0; j < num_verts_per_poly; j++) {
 			const short v_index = pmdata[pmodel_id].f[i_count];
-
 			const vert_ptr tp = &pmdata[pmodel_id].w[curr_frame][v_index];
 
-			float x, y, z;
-			if (nextFrame != -1) {
+			float x = tp->x, z = tp->y, y = tp->z;
+			if (nextFrame != -1 && pmdata[pmodel_id].w[nextFrame]) {
 				const vert_ptr tpNextFrame = &pmdata[pmodel_id].w[nextFrame][v_index];
 				const float t = (gametimerAnimation > 0.0f && gametimerAnimation < 1.0f) ? gametimerAnimation : 0.0f;
-
 				if (t > 0.0f) {
 					x = tp->x + t * (tpNextFrame->x - tp->x);
 					z = tp->y + t * (tpNextFrame->y - tp->y);
 					y = tp->z + t * (tpNextFrame->z - tp->z);
-				} else {
-					x = tp->x;
-					z = tp->y;
-					y = tp->z;
 				}
-			} else {
-				x = tp->x;
-				z = tp->y;
-				y = tp->z;
 			}
 
-			if (weapondrop == 1) {
-				y -= 40.0f;
-			}
+			const vert_ptr np = (pmdata[pmodel_id].n && pmdata[pmodel_id].n[curr_frame]) ? &pmdata[pmodel_id].n[curr_frame][i_count] : nullptr;
+			const vert_ptr tanp = (pmdata[pmodel_id].tan && pmdata[pmodel_id].tan[curr_frame]) ? &pmdata[pmodel_id].tan[curr_frame][i_count] : nullptr;
 
-			// Apply optional pitch (fDot2) only for weapondrop path (matches previous behavior)
-			if (weapondrop == 1 && fDot2 != 0.0f) {
-				const float cp = cosf(fDot2 * k);
-				const float sp = sinf(fDot2 * k);
-				const float px = (y * sp + x * cp);
-				const float py = (y * cp - x * sp);
-				// z unchanged
-				x = px;
-				y = py;
-			}
+			XMVECTOR posObj = XMVectorSet(x, y, z, 1.0f);
+			XMVECTOR normObj = np ? XMVectorSet(np->x, np->y, np->z, 0.0f) : XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+			XMVECTOR tanObj = tanp ? XMVectorSet(tanp->x, tanp->y, tanp->z, 0.0f) : XMVectorSet(1.0f, 0.0f, 0.0f, 0.0f);
 
-			// Yaw
-			float rx = (x * cosine - z * sine);
-			float ry = y;
-			float rz = (x * sine + z * cosine);
+			XMVECTOR posWorld = XMVector3TransformCoord(posObj, W);
+			XMVECTOR normWorld = XMVector3Normalize(XMVector3TransformNormal(normObj, invTransposeW));
+			XMVECTOR tanWorld = XMVector3Normalize(XMVector3TransformNormal(tanObj, invTransposeW));
 
-			// Translate
-			rx += wx;
-			ry += wy;
-			rz += wz;
+			XMFLOAT3 pW, nW, tW;
+			XMStoreFloat3(&pW, posWorld);
+			XMStoreFloat3(&nW, normWorld);
+			XMStoreFloat3(&tW, tanWorld);
 
-			// UVs
 			const float tx = pmdata[pmodel_id].t[i_count].x * pmdata[pmodel_id].skx;
 			const float ty = pmdata[pmodel_id].t[i_count].y * pmdata[pmodel_id].sky;
 
-			// Write vertex
-			src_v[cnt].x = D3DVAL(rx);
-			src_v[cnt].y = D3DVAL(ry);
-			src_v[cnt].z = D3DVAL(rz);
-			src_v[cnt].tu = D3DVAL(tx);
-			src_v[cnt].tv = D3DVAL(ty);
+			src_v[cnt].x = pW.x;
+			src_v[cnt].y = pW.y;
+			src_v[cnt].z = pW.z;
+			src_v[cnt].nx = nW.x;
+			src_v[cnt].ny = nW.y;
+			src_v[cnt].nz = nW.z;
+			src_v[cnt].nmx = tW.x;
+			src_v[cnt].nmy = tW.y;
+			src_v[cnt].nmz = tW.z;
+			src_v[cnt].tu = tx;
+			src_v[cnt].tv = ty;
 			src_v[cnt].CastShadow = 1;
 			src_collide[cnt] = 1;
-
-			// For triangle list streams, compute normal/tangent per tri as it forms
-			if (p_command == D3DPT_TRIANGLELIST) {
-				if (triVertexCounter == 2) {
-					D3DVERTEX2 &v1 = src_v[cnt - 2];
-					D3DVERTEX2 &v2 = src_v[cnt - 1];
-					D3DVERTEX2 &v3 = src_v[cnt];
-
-					XMFLOAT3 p1{ v1.x, v1.y, v1.z };
-					XMFLOAT3 p2{ v2.x, v2.y, v2.z };
-					XMFLOAT3 p3{ v3.x, v3.y, v3.z };
-
-					XMVECTOR nrm = XMVector3Normalize(
-					    XMVector3Cross(XMLoadFloat3(&p1) - XMLoadFloat3(&p2),
-					                   XMLoadFloat3(&p3) - XMLoadFloat3(&p2)));
-
-					XMFLOAT3 n3;
-					XMStoreFloat3(&n3, nrm);
-
-					// Keep current convention (positive normal)
-					v1.nx = n3.x;
-					v1.ny = n3.y;
-					v1.nz = n3.z;
-					v2.nx = n3.x;
-					v2.ny = n3.y;
-					v2.nz = n3.z;
-					v3.nx = n3.x;
-					v3.ny = n3.y;
-					v3.nz = n3.z;
-
-					CalculateTangentBinormal(v1, v2, v3);
-					triVertexCounter = 0;
-				} else {
-					triVertexCounter++;
-				}
-			}
 
 			cnt++;
 			i_count++;
@@ -550,9 +473,6 @@ void PlayerToD3DVertList(int pmodel_id, int curr_frame, float angle, int texture
 
 		number_of_polys_per_frame++;
 	}
-
-	// Keep smoothing for MD2
-	SmoothNormals(start_cnt);
 	return;
 }
 
@@ -687,90 +607,316 @@ void SmoothNormals(int start_cnt) {
 		}
 	}
 }
-void SmoothNormalsNoHash(int start_cnt) {
-	// Smooth the vertex normals out so the models look less blocky.
-	// Improvements:
-	// - Use epsilon for position comparison to handle floating point errors from tessellation.
-	// - Use a dot product threshold to avoid smoothing across sharp edges (smooth when you can).
-	// - Better management of shared vertex groups.
-
+void SmoothNormalsNoHashForVertices(D3DVERTEX2* verts, int count) {
+	if (count <= 1) return;
 	const float epsilon = 0.0001f;
-	const float smooth_threshold = 0.4f; // approx 60 degrees. 0.7f is 45 deg. 0.5f is more aggressive.
+	const float smooth_threshold = 0.4f;
 
-	// 0.707: Smooths up to 45� (Common default for most models).
-	// 0.500: Smooths up to 60�.
-	// 0.000: Smooths up to 90� (Everything up to a perfect right angle will be smoothed).
+	std::vector<uint8_t> tracked(count, 0);
 
-	for (int i = start_cnt; i < cnt; i++) {
-		tracknormal[i] = 0;
+	for (int i = 0; i < count; i++) {
+		if (tracked[i]) continue;
+
+		XMVECTOR posI = XMVectorSet(verts[i].x, verts[i].y, verts[i].z, 0.0f);
+		XMVECTOR normI = XMVectorSet(verts[i].nx, verts[i].ny, verts[i].nz, 0.0f);
+
+		std::vector<int> shared;
+		shared.push_back(i);
+
+		for (int j = i + 1; j < count; j++) {
+			if (tracked[j]) continue;
+
+			XMVECTOR posJ = XMVectorSet(verts[j].x, verts[j].y, verts[j].z, 0.0f);
+			XMVECTOR diff = XMVectorAbs(XMVectorSubtract(posI, posJ));
+
+			if (XMVectorGetX(diff) < epsilon && XMVectorGetY(diff) < epsilon && XMVectorGetZ(diff) < epsilon) {
+				XMVECTOR normJ = XMVectorSet(verts[j].nx, verts[j].ny, verts[j].nz, 0.0f);
+				float dot = XMVectorGetX(XMVector3Dot(normI, normJ));
+				if (dot > smooth_threshold) {
+					shared.push_back(j);
+				}
+			}
+		}
+
+		if (shared.size() > 1) {
+			XMVECTOR sumNorm = XMVectorZero();
+			XMVECTOR sumTan = XMVectorZero();
+
+			for (int idx : shared) {
+				sumNorm = XMVectorAdd(sumNorm, XMVectorSet(verts[idx].nx, verts[idx].ny, verts[idx].nz, 0.0f));
+				sumTan = XMVectorAdd(sumTan, XMVectorSet(verts[idx].nmx, verts[idx].nmy, verts[idx].nmz, 0.0f));
+			}
+
+			XMVECTOR avgNorm = XMVector3Normalize(sumNorm);
+			// Gram-Schmidt orthogonalization: ensure Tangent is orthogonal to Normal
+			XMVECTOR avgTan = XMVector3Normalize(XMVectorSubtract(sumTan, XMVectorMultiply(avgNorm, XMVector3Dot(avgNorm, sumTan))));
+
+			XMFLOAT3 fNorm, fTan;
+			XMStoreFloat3(&fNorm, avgNorm);
+			XMStoreFloat3(&fTan, avgTan);
+
+			for (int idx : shared) {
+				verts[idx].nx = fNorm.x;
+				verts[idx].ny = fNorm.y;
+				verts[idx].nz = fNorm.z;
+				verts[idx].nmx = fTan.x;
+				verts[idx].nmy = fTan.y;
+				verts[idx].nmz = fTan.z;
+				tracked[idx] = 1;
+			}
+		} else {
+			tracked[i] = 1;
+		}
+	}
+}
+
+void SmoothNormalsNoHash(int start_cnt) {
+	if (cnt > start_cnt) {
+		SmoothNormalsNoHashForVertices(&src_v[start_cnt], cnt - start_cnt);
+	}
+}
+
+void ComputeAndSmoothObjectDataNormals(int ob_type) {
+	int poly = num_polys_per_object[ob_type];
+	int vert_cnt_total = num_vert_per_object[ob_type];
+
+	if (vert_cnt_total <= 0) return;
+
+	std::vector<D3DVERTEX2> obj_verts(vert_cnt_total);
+	int ob_vert_count = 0;
+
+	for (int w = 0; w < poly; w++) {
+		int num_vert = obdata[ob_type].num_vert[w];
+		int ctext = obdata[ob_type].tex[w];
+		bool use_texmap = obdata[ob_type].use_texmap[w] != FALSE;
+
+		int poly_start = ob_vert_count;
+
+		// Compute face normal for polygon in object space
+		float workx = 0.0f, worky = 0.0f, workz = 0.0f;
+		if (num_vert >= 3) {
+			const auto &v1 = obdata[ob_type].v[poly_start];
+			const auto &v2 = obdata[ob_type].v[poly_start + 1];
+			const auto &v3 = obdata[ob_type].v[poly_start + 2];
+
+			XMVECTOR p1 = XMVectorSet(v1.x, v1.y, v1.z, 0.0f);
+			XMVECTOR p2 = XMVectorSet(v2.x, v2.y, v2.z, 0.0f);
+			XMVECTOR p3 = XMVectorSet(v3.x, v3.y, v3.z, 0.0f);
+
+			XMVECTOR vCross = XMVector3Cross(p1 - p2, p3 - p2);
+			XMVECTOR norm = XMVector3Normalize(vCross);
+			XMFLOAT3 fN;
+			XMStoreFloat3(&fN, norm);
+			workx = -fN.x;
+			worky = -fN.y;
+			workz = -fN.z;
+		}
+
+		for (int i = 0; i < num_vert; i++) {
+			int idx = ob_vert_count + i;
+			const auto &v = obdata[ob_type].v[idx];
+			const auto &t = obdata[ob_type].t[idx];
+
+			obj_verts[idx].x = v.x;
+			obj_verts[idx].y = v.y;
+			obj_verts[idx].z = v.z;
+			obj_verts[idx].tu = use_texmap ? TexMap[ctext].tu[i] : t.x;
+			obj_verts[idx].tv = use_texmap ? TexMap[ctext].tv[i] : t.y;
+			obj_verts[idx].nx = workx;
+			obj_verts[idx].ny = worky;
+			obj_verts[idx].nz = workz;
+			obj_verts[idx].nmx = 1.0f;
+			obj_verts[idx].nmy = 0.0f;
+			obj_verts[idx].nmz = 0.0f;
+		}
+
+		if (num_vert >= 3) {
+			CalculateTangentBinormal(obj_verts[poly_start], obj_verts[poly_start + 1], obj_verts[poly_start + 2]);
+			for (int i = 3; i < num_vert; i++) {
+				obj_verts[poly_start + i].nmx = obj_verts[poly_start].nmx;
+				obj_verts[poly_start + i].nmy = obj_verts[poly_start].nmy;
+				obj_verts[poly_start + i].nmz = obj_verts[poly_start].nmz;
+			}
+		}
+
+		ob_vert_count += num_vert;
 	}
 
-	for (int i = start_cnt; i < cnt; i++) {
-		if (tracknormal[i] == 0) {
-			float x = src_v[i].x;
-			float y = src_v[i].y;
-			float z = src_v[i].z;
+	SmoothNormalsNoHashForVertices(obj_verts.data(), vert_cnt_total);
 
-			XMVECTOR ni = XMVectorSet(src_v[i].nx, src_v[i].ny, src_v[i].nz, 0);
+	for (int i = 0; i < vert_cnt_total; i++) {
+		obdata[ob_type].n[i].x = obj_verts[i].nx;
+		obdata[ob_type].n[i].y = obj_verts[i].ny;
+		obdata[ob_type].n[i].z = obj_verts[i].nz;
 
-			int scount = 0;
-			// Pass 1: find all vertices at the same location with similar normals
-			for (int j = i; j < cnt; j++) {
-				if (tracknormal[j] == 0) {
-					// Check position with epsilon
-					if (fabsf(src_v[j].x - x) < epsilon &&
-					    fabsf(src_v[j].y - y) < epsilon &&
-					    fabsf(src_v[j].z - z) < epsilon) {
+		obdata[ob_type].tan[i].x = obj_verts[i].nmx;
+		obdata[ob_type].tan[i].y = obj_verts[i].nmy;
+		obdata[ob_type].tan[i].z = obj_verts[i].nmz;
+	}
+}
 
-						// Condition for smoothing: similar normals (smooth when you can)
-						XMVECTOR nj = XMVectorSet(src_v[j].nx, src_v[j].ny, src_v[j].nz, 0);
-						float dot = XMVectorGetX(XMVector3Dot(ni, nj));
+void ComputeAndSmoothPMData3DS(int pmodel_id) {
+	int num_poly = pmdata[pmodel_id].num_polys_per_frame;
+	int total_verts = pmdata[pmodel_id].num_verts;
+	int num_frames = pmdata[pmodel_id].num_frames;
 
-						// If normals are within the threshold, or if they are very similar (likely part of same quad)
-						if (dot > smooth_threshold) {
-							if (scount < 2000) {
-								sharedv[scount++] = j;
-							}
-						}
-					}
-				}
+	if (total_verts <= 0 || num_frames <= 0) return;
+
+	pmdata[pmodel_id].n = new VERT*[num_frames];
+	pmdata[pmodel_id].tan = new VERT*[num_frames];
+
+	for (int frame = 0; frame < num_frames; frame++) {
+		pmdata[pmodel_id].n[frame] = new VERT[total_verts];
+		pmdata[pmodel_id].tan[frame] = new VERT[total_verts];
+
+		std::vector<D3DVERTEX2> model_verts(total_verts);
+		int i_count = 0;
+
+		for (int i = 0; i < num_poly; i++) {
+			int num_verts_per_poly = pmdata[pmodel_id].num_verts_per_object[i];
+			int poly_start = i_count;
+
+			for (int j = 0; j < num_verts_per_poly; j++) {
+				int idx = poly_start + j;
+				float x = pmdata[pmodel_id].w[frame][idx].x;
+				float z = pmdata[pmodel_id].w[frame][idx].y;
+				float y = pmdata[pmodel_id].w[frame][idx].z;
+
+				float tx = pmdata[pmodel_id].t[idx].x * pmdata[pmodel_id].skx;
+				float ty = pmdata[pmodel_id].t[idx].y * pmdata[pmodel_id].sky;
+				ty = 1.0f - ty;
+
+				model_verts[idx].x = x;
+				model_verts[idx].y = y;
+				model_verts[idx].z = z;
+				model_verts[idx].tu = tx;
+				model_verts[idx].tv = ty;
+				model_verts[idx].nx = 0.0f;
+				model_verts[idx].ny = 1.0f;
+				model_verts[idx].nz = 0.0f;
+				model_verts[idx].nmx = 1.0f;
+				model_verts[idx].nmy = 0.0f;
+				model_verts[idx].nmz = 0.0f;
 			}
 
-			if (scount > 1) {
-				XMVECTOR sum = XMVectorSet(0, 0, 0, 0);
-				XMVECTOR sumtan = XMVectorSet(0, 0, 0, 0);
+			for (int j = 0; j + 2 < num_verts_per_poly; j += 3) {
+				D3DVERTEX2 &v1 = model_verts[poly_start + j];
+				D3DVERTEX2 &v2 = model_verts[poly_start + j + 1];
+				D3DVERTEX2 &v3 = model_verts[poly_start + j + 2];
 
-				for (int k = 0; k < scount; k++) {
-					sum = sum + XMVectorSet(src_v[sharedv[k]].nx, src_v[sharedv[k]].ny, src_v[sharedv[k]].nz, 0);
-					sumtan = sumtan + XMVectorSet(src_v[sharedv[k]].nmx, src_v[sharedv[k]].nmy, src_v[sharedv[k]].nmz, 0);
-				}
+				XMVECTOR p1 = XMVectorSet(v1.x, v1.y, v1.z, 0.0f);
+				XMVECTOR p2 = XMVectorSet(v2.x, v2.y, v2.z, 0.0f);
+				XMVECTOR p3 = XMVectorSet(v3.x, v3.y, v3.z, 0.0f);
 
-				XMVECTOR average = XMVector3Normalize(sum);
-				// Gram-Schmidt orthogonalization: ensure Tangent is orthogonal to Normal (matches SmoothNormals)
-				XMVECTOR averagetan = XMVector3Normalize(XMVectorSubtract(sumtan, XMVectorMultiply(average, XMVector3Dot(average, sumtan))));
+				XMVECTOR vDiff = p1 - p2;
+				XMVECTOR vDiff2 = p3 - p2;
+				XMVECTOR nrm = XMVector3Normalize(XMVector3Cross(vDiff, vDiff2));
+				XMFLOAT3 n3;
+				XMStoreFloat3(&n3, nrm);
 
-				XMFLOAT3 final2;
-				XMStoreFloat3(&final2, average);
+				v1.nx = v2.nx = v3.nx = -n3.x;
+				v1.ny = v2.ny = v3.ny = -n3.y;
+				v1.nz = v2.nz = v3.nz = -n3.z;
 
-				XMFLOAT3 finaltan;
-				XMStoreFloat3(&finaltan, averagetan);
-
-				for (int k = 0; k < scount; k++) {
-					src_v[sharedv[k]].nx = final2.x;
-					src_v[sharedv[k]].ny = final2.y;
-					src_v[sharedv[k]].nz = final2.z;
-
-					src_v[sharedv[k]].nmx = finaltan.x;
-					src_v[sharedv[k]].nmy = finaltan.y;
-					src_v[sharedv[k]].nmz = finaltan.z;
-
-					tracknormal[sharedv[k]] = 1;
-				}
-			} else if (scount == 1) {
-				// Even if only one matched the normal threshold, we must mark it as tracked
-				// to avoid re-processing it as a new seed.
-				tracknormal[sharedv[0]] = 1;
+				CalculateTangentBinormal(v1, v2, v3);
 			}
+
+			i_count += num_verts_per_poly;
+		}
+
+		SmoothNormalsNoHashForVertices(model_verts.data(), total_verts);
+
+		for (int i = 0; i < total_verts; i++) {
+			pmdata[pmodel_id].n[frame][i].x = model_verts[i].nx;
+			pmdata[pmodel_id].n[frame][i].y = model_verts[i].ny;
+			pmdata[pmodel_id].n[frame][i].z = model_verts[i].nz;
+
+			pmdata[pmodel_id].tan[frame][i].x = model_verts[i].nmx;
+			pmdata[pmodel_id].tan[frame][i].y = model_verts[i].nmy;
+			pmdata[pmodel_id].tan[frame][i].z = model_verts[i].nmz;
+		}
+	}
+}
+
+void ComputeAndSmoothPMDataMD2(int pmodel_id) {
+	int num_poly = pmdata[pmodel_id].num_polys_per_frame;
+	int total_verts = pmdata[pmodel_id].num_verts;
+	int num_frames = pmdata[pmodel_id].num_frames;
+
+	if (total_verts <= 0 || num_frames <= 0) return;
+
+	pmdata[pmodel_id].n = new VERT*[num_frames];
+	pmdata[pmodel_id].tan = new VERT*[num_frames];
+
+	for (int frame = 0; frame < num_frames; frame++) {
+		pmdata[pmodel_id].n[frame] = new VERT[total_verts];
+		pmdata[pmodel_id].tan[frame] = new VERT[total_verts];
+
+		std::vector<D3DVERTEX2> model_verts(total_verts);
+		int i_count = 0;
+
+		for (int i = 0; i < num_poly; i++) {
+			int num_verts_per_poly = pmdata[pmodel_id].num_vert[i];
+			int poly_start = i_count;
+
+			for (int j = 0; j < num_verts_per_poly; j++) {
+				int idx = poly_start + j;
+				short v_index = pmdata[pmodel_id].f[idx];
+				const vert_ptr tp = &pmdata[pmodel_id].w[frame][v_index];
+
+				float x = tp->x;
+				float z = tp->y;
+				float y = tp->z;
+
+				float tx = pmdata[pmodel_id].t[idx].x * pmdata[pmodel_id].skx;
+				float ty = pmdata[pmodel_id].t[idx].y * pmdata[pmodel_id].sky;
+
+				model_verts[idx].x = x;
+				model_verts[idx].y = y;
+				model_verts[idx].z = z;
+				model_verts[idx].tu = tx;
+				model_verts[idx].tv = ty;
+				model_verts[idx].nx = 0.0f;
+				model_verts[idx].ny = 1.0f;
+				model_verts[idx].nz = 0.0f;
+				model_verts[idx].nmx = 1.0f;
+				model_verts[idx].nmy = 0.0f;
+				model_verts[idx].nmz = 0.0f;
+			}
+
+			for (int j = 0; j + 2 < num_verts_per_poly; j += 3) {
+				D3DVERTEX2 &v1 = model_verts[poly_start + j];
+				D3DVERTEX2 &v2 = model_verts[poly_start + j + 1];
+				D3DVERTEX2 &v3 = model_verts[poly_start + j + 2];
+
+				XMVECTOR p1 = XMVectorSet(v1.x, v1.y, v1.z, 0.0f);
+				XMVECTOR p2 = XMVectorSet(v2.x, v2.y, v2.z, 0.0f);
+				XMVECTOR p3 = XMVectorSet(v3.x, v3.y, v3.z, 0.0f);
+
+				XMVECTOR nrm = XMVector3Normalize(XMVector3Cross(p1 - p2, p3 - p2));
+				XMFLOAT3 n3;
+				XMStoreFloat3(&n3, nrm);
+
+				v1.nx = v2.nx = v3.nx = n3.x;
+				v1.ny = v2.ny = v3.ny = n3.y;
+				v1.nz = v2.nz = v3.nz = n3.z;
+
+				CalculateTangentBinormal(v1, v2, v3);
+			}
+
+			i_count += num_verts_per_poly;
+		}
+
+		SmoothNormalsNoHashForVertices(model_verts.data(), total_verts);
+
+		for (int i = 0; i < total_verts; i++) {
+			pmdata[pmodel_id].n[frame][i].x = model_verts[i].nx;
+			pmdata[pmodel_id].n[frame][i].y = model_verts[i].ny;
+			pmdata[pmodel_id].n[frame][i].z = model_verts[i].nz;
+
+			pmdata[pmodel_id].tan[frame][i].x = model_verts[i].nmx;
+			pmdata[pmodel_id].tan[frame][i].y = model_verts[i].nmy;
+			pmdata[pmodel_id].tan[frame][i].z = model_verts[i].nmz;
 		}
 	}
 }
@@ -1020,58 +1166,15 @@ void ConvertTraingleFan(int fan_cnt) {
 
 	for (int i = fan_cnt; i < cnt; i++) {
 		if (counter < 3) {
-			temp_v[counter] = src_v[i];
-			counter++;
+			temp_v[counter++] = src_v[i];
 		} else {
-			temp_v[counter] = src_v[fan_cnt];
-			counter++;
-			temp_v[counter] = src_v[i - 1];
-			counter++;
-			temp_v[counter] = src_v[i];
-			counter++;
+			temp_v[counter++] = src_v[fan_cnt];
+			temp_v[counter++] = src_v[i - 1];
+			temp_v[counter++] = src_v[i];
 		}
 	}
 
-	int normal = 0;
-
-	for (int i = 0; i < counter; i++) {
-		src_v[fan_cnt + i] = temp_v[i];
-
-		if (normal == 2) {
-			normal = 0;
-			XMFLOAT3 vw1 = { src_v[(fan_cnt + i) - 2].x, src_v[(fan_cnt + i) - 2].y, src_v[(fan_cnt + i) - 2].z };
-			XMFLOAT3 vw2 = { src_v[(fan_cnt + i) - 1].x, src_v[(fan_cnt + i) - 1].y, src_v[(fan_cnt + i) - 1].z };
-			XMFLOAT3 vw3 = { src_v[(fan_cnt + i)].x, src_v[(fan_cnt + i)].y, src_v[(fan_cnt + i)].z };
-
-			XMVECTOR vDiff = XMLoadFloat3(&vw1) - XMLoadFloat3(&vw2);
-			XMVECTOR vDiff2 = XMLoadFloat3(&vw3) - XMLoadFloat3(&vw2);
-			XMVECTOR vCross = XMVector3Cross(vDiff, vDiff2);
-			XMVECTOR final = XMVector3Normalize(vCross);
-
-			XMFLOAT3 final2;
-			XMStoreFloat3(&final2, final);
-
-			float workx = -final2.x;
-			float worky = -final2.y;
-			float workz = -final2.z;
-
-			src_v[(fan_cnt + i) - 2].nx = workx;
-			src_v[(fan_cnt + i) - 2].ny = worky;
-			src_v[(fan_cnt + i) - 2].nz = workz;
-
-			src_v[(fan_cnt + i) - 1].nx = workx;
-			src_v[(fan_cnt + i) - 1].ny = worky;
-			src_v[(fan_cnt + i) - 1].nz = workz;
-
-			src_v[(fan_cnt + i)].nx = workx;
-			src_v[(fan_cnt + i)].ny = worky;
-			src_v[(fan_cnt + i)].nz = workz;
-
-			CalculateTangentBinormal(src_v[(fan_cnt + i) - 2], src_v[(fan_cnt + i) - 1], src_v[(fan_cnt + i)]);
-		} else {
-			normal++;
-		}
-	}
+	std::copy(temp_v, temp_v + counter, src_v + fan_cnt);
 	cnt = fan_cnt + counter;
 }
 
@@ -1079,7 +1182,6 @@ void ConvertTraingleStrip(int fan_cnt) {
 	int counter = 0;
 	int v = 0;
 
-	// Combine loops to reduce redundant operations
 	for (int i = fan_cnt; i < cnt; i++) {
 		if (counter < 3) {
 			temp_v[counter++] = src_v[i];
@@ -1098,183 +1200,30 @@ void ConvertTraingleStrip(int fan_cnt) {
 		}
 	}
 
-	// Directly process vertices without intermediate copying
-	for (int i = 0; i < counter; i += 3) {
-		XMFLOAT3 vw1 = { temp_v[i].x, temp_v[i].y, temp_v[i].z };
-		XMFLOAT3 vw2 = { temp_v[i + 1].x, temp_v[i + 1].y, temp_v[i + 1].z };
-		XMFLOAT3 vw3 = { temp_v[i + 2].x, temp_v[i + 2].y, temp_v[i + 2].z };
-
-		XMVECTOR vDiff = XMLoadFloat3(&vw1) - XMLoadFloat3(&vw2);
-		XMVECTOR vDiff2 = XMLoadFloat3(&vw3) - XMLoadFloat3(&vw2);
-		XMVECTOR vCross = XMVector3Cross(vDiff, vDiff2);
-		XMVECTOR final = XMVector3Normalize(vCross);
-
-		XMFLOAT3 final2;
-		XMStoreFloat3(&final2, final);
-
-		float workx = -final2.x;
-		float worky = -final2.y;
-		float workz = -final2.z;
-
-		for (int j = 0; j < 3; j++) {
-			temp_v[i + j].nx = workx;
-			temp_v[i + j].ny = worky;
-			temp_v[i + j].nz = workz;
-		}
-
-		CalculateTangentBinormal(temp_v[i], temp_v[i + 1], temp_v[i + 2]);
-	}
-
-	// Update src_v in bulk
 	std::copy(temp_v, temp_v + counter, src_v + fan_cnt);
 	cnt = fan_cnt + counter;
 }
 
 void ConvertQuad(int fan_cnt) {
-
 	int counter = 0;
-	int v = 0;
 	int quad = 0;
 
 	for (int i = fan_cnt; i < cnt; i++) {
-
 		if (quad >= 3) {
+			temp_v[counter++] = src_v[i - 3];
+			temp_v[counter++] = src_v[i - 2];
+			temp_v[counter++] = src_v[i - 1];
 
-			temp_v[counter].x = src_v[i - 3].x;
-			temp_v[counter].y = src_v[i - 3].y;
-			temp_v[counter].z = src_v[i - 3].z;
-			temp_v[counter].nx = src_v[i - 3].nx;
-			temp_v[counter].ny = src_v[i - 3].ny;
-			temp_v[counter].nz = src_v[i - 3].nz;
-			temp_v[counter].tu = src_v[i - 3].tu;
-			temp_v[counter].tv = src_v[i - 3].tv;
-			counter++;
-
-			temp_v[counter].x = src_v[i - 2].x;
-			temp_v[counter].y = src_v[i - 2].y;
-			temp_v[counter].z = src_v[i - 2].z;
-			temp_v[counter].nx = src_v[i - 2].nx;
-			temp_v[counter].ny = src_v[i - 2].ny;
-			temp_v[counter].nz = src_v[i - 2].nz;
-			temp_v[counter].tu = src_v[i - 2].tu;
-			temp_v[counter].tv = src_v[i - 2].tv;
-			counter++;
-
-			temp_v[counter].x = src_v[i - 1].x;
-			temp_v[counter].y = src_v[i - 1].y;
-			temp_v[counter].z = src_v[i - 1].z;
-			temp_v[counter].nx = src_v[i - 1].nx;
-			temp_v[counter].ny = src_v[i - 1].ny;
-			temp_v[counter].nz = src_v[i - 1].nz;
-			temp_v[counter].tu = src_v[i - 1].tu;
-			temp_v[counter].tv = src_v[i - 1].tv;
-			counter++;
-
-			// 2nd
-
-			temp_v[counter].x = src_v[i].x;
-			temp_v[counter].y = src_v[i].y;
-			temp_v[counter].z = src_v[i].z;
-			temp_v[counter].nx = src_v[i].nx;
-			temp_v[counter].ny = src_v[i].ny;
-			temp_v[counter].nz = src_v[i].nz;
-			temp_v[counter].tu = src_v[i].tu;
-			temp_v[counter].tv = src_v[i].tv;
-			counter++;
-
-			temp_v[counter].x = src_v[i - 1].x;
-			temp_v[counter].y = src_v[i - 1].y;
-			temp_v[counter].z = src_v[i - 1].z;
-			temp_v[counter].nx = src_v[i - 1].nx;
-			temp_v[counter].ny = src_v[i - 1].ny;
-			temp_v[counter].nz = src_v[i - 1].nz;
-			temp_v[counter].tu = src_v[i - 1].tu;
-			temp_v[counter].tv = src_v[i - 1].tv;
-			counter++;
-
-			temp_v[counter].x = src_v[i - 2].x;
-			temp_v[counter].y = src_v[i - 2].y;
-			temp_v[counter].z = src_v[i - 2].z;
-			temp_v[counter].nx = src_v[i - 2].nx;
-			temp_v[counter].ny = src_v[i - 2].ny;
-			temp_v[counter].nz = src_v[i - 2].nz;
-			temp_v[counter].tu = src_v[i - 2].tu;
-			temp_v[counter].tv = src_v[i - 2].tv;
-			counter++;
-
+			temp_v[counter++] = src_v[i];
+			temp_v[counter++] = src_v[i - 1];
+			temp_v[counter++] = src_v[i - 2];
 			quad = 0;
-
 		} else {
 			quad++;
 		}
 	}
 
-	int normal = 0;
-
-	for (int i = 0; i < counter; i++) {
-		src_v[fan_cnt + i].x = temp_v[i].x;
-		src_v[fan_cnt + i].y = temp_v[i].y;
-		src_v[fan_cnt + i].z = temp_v[i].z;
-
-		src_v[fan_cnt + i].nx = temp_v[i].nx;
-		src_v[fan_cnt + i].ny = temp_v[i].ny;
-		src_v[fan_cnt + i].nz = temp_v[i].nz;
-
-		src_v[fan_cnt + i].tu = temp_v[i].tu;
-		src_v[fan_cnt + i].tv = temp_v[i].tv;
-
-		// don't collide with visual box
-		src_collide[fan_cnt + i] = 0;
-
-		if (normal == 2) {
-
-			normal = 0;
-			XMFLOAT3 vw1, vw2, vw3;
-
-			vw1.x = D3DVAL(src_v[(fan_cnt + i) - 2].x);
-			vw1.y = D3DVAL(src_v[(fan_cnt + i) - 2].y);
-			vw1.z = D3DVAL(src_v[(fan_cnt + i) - 2].z);
-
-			vw2.x = D3DVAL(src_v[(fan_cnt + i) - 1].x);
-			vw2.y = D3DVAL(src_v[(fan_cnt + i) - 1].y);
-			vw2.z = D3DVAL(src_v[(fan_cnt + i) - 1].z);
-
-			vw3.x = D3DVAL(src_v[(fan_cnt + i)].x);
-			vw3.y = D3DVAL(src_v[(fan_cnt + i)].y);
-			vw3.z = D3DVAL(src_v[(fan_cnt + i)].z);
-
-			XMVECTOR vDiff = XMLoadFloat3(&vw1) - XMLoadFloat3(&vw2);
-			XMVECTOR vDiff2 = XMLoadFloat3(&vw3) - XMLoadFloat3(&vw2);
-
-			XMVECTOR vCross, final;
-			vCross = XMVector3Cross(vDiff, vDiff2);
-			final = XMVector3Normalize(vCross);
-
-			XMFLOAT3 final2;
-			XMStoreFloat3(&final2, final);
-
-			float workx = (-final2.x);
-			float worky = (-final2.y);
-			float workz = (-final2.z);
-
-			src_v[(fan_cnt + i) - 2].nx = workx;
-			src_v[(fan_cnt + i) - 2].ny = worky;
-			src_v[(fan_cnt + i) - 2].nz = workz;
-
-			src_v[(fan_cnt + i) - 1].nx = workx;
-			src_v[(fan_cnt + i) - 1].ny = worky;
-			src_v[(fan_cnt + i) - 1].nz = workz;
-
-			src_v[(fan_cnt + i)].nx = workx;
-			src_v[(fan_cnt + i)].ny = worky;
-			src_v[(fan_cnt + i)].nz = workz;
-
-			CalculateTangentBinormal(src_v[(fan_cnt + i) - 2], src_v[(fan_cnt + i) - 1], src_v[(fan_cnt + i)]);
-
-		} else {
-			normal++;
-		}
-	}
+	std::copy(temp_v, temp_v + counter, src_v + fan_cnt);
 	cnt = fan_cnt + counter;
 }
 
@@ -1588,34 +1537,24 @@ void DrawItems(float fElapsedTime) {
 }
 
 void PlayerToD3DIndexedVertList(int pmodel_id, int curr_frame, float angle, int texture_alias, int tex_flag, float xt, float yt, float zt, float fDot2) {
-	float qdist = 0.0f;
-
-	int num_poly;
-	int i_count, face_i_count;
-	float x, y, z;
-	float rx, ry, rz;
-	float tx, ty;
+	if (curr_frame >= pmdata[pmodel_id].num_frames)
+		curr_frame = 0;
 
 	float wx = xt;
 	float wy = yt;
 	float wz = zt;
 
-	if (curr_frame >= pmdata[pmodel_id].num_frames)
-		curr_frame = 0;
+	XMMATRIX W;
+	if (fDot2 != 0.0f) {
+		W = XMMatrixRotationX(XMConvertToRadians(fDot2)) * XMMatrixRotationY(XMConvertToRadians(angle)) * XMMatrixTranslation(wx, wy, wz);
+	} else {
+		W = XMMatrixRotationY(XMConvertToRadians(angle)) * XMMatrixTranslation(wx, wy, wz);
+	}
+	XMMATRIX invTransposeW = XMMatrixTranspose(XMMatrixInverse(nullptr, W));
 
-	// Use radians once
-	const float cosine = (float)cos(angle * k);
-	const float sine = (float)sin(angle * k);
-
-	i_count = 0;
-	face_i_count = 0;
-
-	num_poly = pmdata[pmodel_id].num_polys_per_frame;
-
-	ObjectsToDraw[number_of_polys_per_frame].srcstart = cnt;
-	ObjectsToDraw[number_of_polys_per_frame].objectId = -1;
-
-	const int start_cnt = cnt;
+	int i_count = 0;
+	int face_i_count = 0;
+	int num_poly = pmdata[pmodel_id].num_polys_per_frame;
 
 	for (int i = 0; i < num_poly; i++) {
 		const int num_verts_per_poly = pmdata[pmodel_id].num_verts_per_object[i];
@@ -1623,94 +1562,51 @@ void PlayerToD3DIndexedVertList(int pmodel_id, int curr_frame, float angle, int 
 
 		ObjectsToDraw[number_of_polys_per_frame].srcstart = cnt;
 
-		int triVertexCounter = 0;
-
 		for (int j = 0; j < num_verts_per_poly; j++) {
-			// Read source vertex
-			x = pmdata[pmodel_id].w[curr_frame][i_count].x;
-			z = pmdata[pmodel_id].w[curr_frame][i_count].y;
-			y = pmdata[pmodel_id].w[curr_frame][i_count].z;
+			float x = pmdata[pmodel_id].w[curr_frame][i_count].x;
+			float z = pmdata[pmodel_id].w[curr_frame][i_count].y;
+			float y = pmdata[pmodel_id].w[curr_frame][i_count].z;
 
-			// Apply optional pitch (fDot2) then yaw (angle)
-			if (fDot2 != 0.0f) {
-				float newx = (y * sinf(fDot2 * k) + x * cosf(fDot2 * k));
-				float newy = (y * cosf(fDot2 * k) - x * sinf(fDot2 * k));
-				float newz = z;
+			const vert_ptr np = (pmdata[pmodel_id].n && pmdata[pmodel_id].n[curr_frame]) ? &pmdata[pmodel_id].n[curr_frame][i_count] : nullptr;
+			const vert_ptr tanp = (pmdata[pmodel_id].tan && pmdata[pmodel_id].tan[curr_frame]) ? &pmdata[pmodel_id].tan[curr_frame][i_count] : nullptr;
 
-				// yaw
-				float yawx = (newx * cosine - newz * sine);
-				float yawy = newy;
-				float yawz = (newx * sine + newz * cosine);
+			XMVECTOR posObj = XMVectorSet(x, y, z, 1.0f);
+			XMVECTOR normObj = np ? XMVectorSet(np->x, np->y, np->z, 0.0f) : XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+			XMVECTOR tanObj = tanp ? XMVectorSet(tanp->x, tanp->y, tanp->z, 0.0f) : XMVectorSet(1.0f, 0.0f, 0.0f, 0.0f);
 
-				// roll is 0 in original code path
-				rx = yawx + wx;
-				ry = yawy + wy;
-				rz = yawz + wz;
-			} else {
-				// yaw only
-				rx = (x * cosine - z * sine) + wx;
-				ry = y + wy;
-				rz = (x * sine + z * cosine) + wz;
-			}
+			XMVECTOR posWorld = XMVector3TransformCoord(posObj, W);
+			XMVECTOR normWorld = XMVector3Normalize(XMVector3TransformNormal(normObj, invTransposeW));
+			XMVECTOR tanWorld = XMVector3Normalize(XMVector3TransformNormal(tanObj, invTransposeW));
 
-			// UVs (v flipped)
-			tx = pmdata[pmodel_id].t[i_count].x * pmdata[pmodel_id].skx;
-			ty = pmdata[pmodel_id].t[i_count].y * pmdata[pmodel_id].sky;
+			XMFLOAT3 pW, nW, tW;
+			XMStoreFloat3(&pW, posWorld);
+			XMStoreFloat3(&nW, normWorld);
+			XMStoreFloat3(&tW, tanWorld);
+
+			float tx = pmdata[pmodel_id].t[i_count].x * pmdata[pmodel_id].skx;
+			float ty = pmdata[pmodel_id].t[i_count].y * pmdata[pmodel_id].sky;
 			ty = 1.0f - ty;
 
-			// Write vertex
-			src_v[cnt].x = D3DVAL(rx);
-			src_v[cnt].y = D3DVAL(ry);
-			src_v[cnt].z = D3DVAL(rz);
-			src_v[cnt].tu = D3DVAL(tx);
-			src_v[cnt].tv = D3DVAL(ty);
+			src_v[cnt].x = pW.x;
+			src_v[cnt].y = pW.y;
+			src_v[cnt].z = pW.z;
+			src_v[cnt].nx = nW.x;
+			src_v[cnt].ny = nW.y;
+			src_v[cnt].nz = nW.z;
+			src_v[cnt].nmx = tW.x;
+			src_v[cnt].nmy = tW.y;
+			src_v[cnt].nmz = tW.z;
+			src_v[cnt].tu = tx;
+			src_v[cnt].tv = ty;
 			src_v[cnt].CastShadow = 1;
 			src_collide[cnt] = 1;
 
-			// When a full triangle is present (streamed as list), compute normal and tangent
-			if (triVertexCounter == 2) {
-				const D3DVERTEX2 &v1 = src_v[cnt - 2];
-				const D3DVERTEX2 &v2 = src_v[cnt - 1];
-				const D3DVERTEX2 &v3 = src_v[cnt];
-
-				XMFLOAT3 p1{ v1.x, v1.y, v1.z };
-				XMFLOAT3 p2{ v2.x, v2.y, v2.z };
-				XMFLOAT3 p3{ v3.x, v3.y, v3.z };
-
-				XMVECTOR vDiff = XMLoadFloat3(&p1) - XMLoadFloat3(&p2);
-				XMVECTOR vDiff2 = XMLoadFloat3(&p3) - XMLoadFloat3(&p2);
-				XMVECTOR nrm = XMVector3Normalize(XMVector3Cross(vDiff, vDiff2));
-
-				XMFLOAT3 n3;
-				XMStoreFloat3(&n3, nrm);
-
-				// Original code uses flipped normal
-				const float nx = -n3.x, ny = -n3.y, nz = -n3.z;
-
-				src_v[cnt - 2].nx = nx;
-				src_v[cnt - 2].ny = ny;
-				src_v[cnt - 2].nz = nz;
-				src_v[cnt - 1].nx = nx;
-				src_v[cnt - 1].ny = ny;
-				src_v[cnt - 1].nz = nz;
-				src_v[cnt].nx = nx;
-				src_v[cnt].ny = ny;
-				src_v[cnt].nz = nz;
-
-				CalculateTangentBinormal(src_v[cnt - 2], src_v[cnt - 1], src_v[cnt]);
-
-				triVertexCounter = 0;
-			} else {
-				triVertexCounter++;
-			}
-
 			cnt++;
 			i_count++;
-		} // end for vertices
+		}
 
 		ObjectsToDraw[number_of_polys_per_frame].srcfstart = cnt_f;
 
-		// Copy indices for this poly
 		for (int j = 0; j < num_faces_per_poly * 3; j++) {
 			src_f[cnt_f++] = pmdata[pmodel_id].f[face_i_count++];
 		}
@@ -1736,7 +1632,7 @@ void PlayerToD3DIndexedVertList(int pmodel_id, int curr_frame, float angle, int 
 			texture_list_buffer[number_of_polys_per_frame] = pmdata[pmodel_id].texture_list[i];
 
 		number_of_polys_per_frame++;
-	} // end for polys
+	}
 	return;
 }
 

@@ -4,6 +4,7 @@
 #include <windows.h>
 #include "world.hpp"
 #include "ImportMD2.hpp"
+#include "ProcessModel.hpp"
 
 PLAYERMODELDATA *pmdata;
 MODELLIST *model_list;
@@ -186,6 +187,8 @@ BOOL ImportMD2_GLCMD(char *filename, int texture_alias, int pmodel_id, float sca
 	pmdata[pmodel_id].sky = (float)1 / header.skinheight;
 	pmdata[pmodel_id].num_frames = header.num_frames;
 	pmdata[pmodel_id].use_indexed_primitive = FALSE;
+
+	ComputeAndSmoothPMDataMD2(pmodel_id);
 
 	return TRUE;
 }

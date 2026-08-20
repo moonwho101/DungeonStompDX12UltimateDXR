@@ -11,6 +11,7 @@
 #include "world.hpp"
 #include "Import3DS.hpp"
 #include "LoadWorld.hpp"
+#include "ProcessModel.hpp"
 
 OBJECT3DS oblistitem[MAX_NUM_3DS_OBJECTS];
 
@@ -753,6 +754,8 @@ BOOL Import3DS(char *filename, int pmodel_id, float scale) {
 	pmdata[pmodel_id].use_indexed_primitive = TRUE;
 
 	ReleaseTempMemory();
+
+	ComputeAndSmoothPMData3DS(pmodel_id);
 
 	// Write_pmdata_debugfile(m_hWnd, pmodel_id);
 
