@@ -253,6 +253,8 @@ typedef struct player_typ {
 
 typedef struct pmdata_typ {
 	VERT **w;
+	VERT **n;
+	VERT **tan;
 	VERT *t;
 	int *f;
 	int *num_vert;
@@ -286,6 +288,8 @@ typedef struct objectdata_typ {
 	//  everything else polygones
 
 	VERT v[2900]; // 6000
+	VERT n[2900];
+	VERT tan[2900];
 	VERT t[2900]; // 6000 //2200
 	int f[2900];
 	int num_vert[1600];

@@ -13,6 +13,7 @@
 #include "world.hpp"
 #include "ImportMD2.hpp"
 #include "Import3DS.hpp"
+#include "ProcessModel.hpp"
 #include "GlobalSettings.hpp"
 #include "GameLogic.hpp"
 #include "Missle.hpp"
@@ -821,12 +822,9 @@ BOOL CLoadWorld::LoadObjectData(char *filename) {
 	// sprintf_s(buffer, "MAXVERTCOUNT %d", maxvertcount);
 	// PrintMessage(hwnd, buffer, "", LOGFILE_ONLY);
 
-	// for (i = 0; i < obdata_length; i++)
-	//{
-
-	//		sprintf_s(buffer, "%d %s", i, obdata[i].name);
-	//	PrintMessage(hwnd, buffer, "", LOGFILE_ONLY);
-	//}
+	for (i = 0; i < obdata_length; i++) {
+		ComputeAndSmoothObjectDataNormals(i);
+	}
 
 	return TRUE;
 }

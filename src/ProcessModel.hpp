@@ -33,4 +33,9 @@ int CycleBitMap(int i);
 int CalculateView(XMFLOAT3 EyeBall, XMFLOAT3 LookPoint, float angle);
 void ObjectToD3DVertList(int ob_type, float angle, int oblist_index);
 
+void SmoothNormalsNoHashForVertices(D3DVERTEX2* verts, int count);
+void ComputeAndSmoothObjectDataNormals(int ob_type);
+void ComputeAndSmoothPMData3DS(int pmodel_id);
+void ComputeAndSmoothPMDataMD2(int pmodel_id);
+
 #endif
