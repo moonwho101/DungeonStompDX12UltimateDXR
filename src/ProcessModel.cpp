@@ -282,19 +282,123 @@ void SmoothVertArrayNoHash(VERT *verts, int num_verts) {
 	}
 }
 
-void SmoothModelNormals(int pmodel_id) {
+void Smooth3DSModelNormals(int pmodel_id) {
 	if (pmodel_id < 0) return;
 
 	int num_frames = pmdata[pmodel_id].num_frames;
 	if (num_frames <= 0) return;
 
-	int num_indices = 0;
-	if (pmdata[pmodel_id].use_indexed_primitive) {
-		num_indices = pmdata[pmodel_id].num_faces * 3;
-	} else {
-		num_indices = pmdata[pmodel_id].num_verts;
-	}
+	int total_objects = pmdata[pmodel_id].num_polys_per_frame;
+	int total_num_verts = pmdata[pmodel_id].num_verts;
+	int total_num_faces = pmdata[pmodel_id].num_faces;
 
+	if (total_num_verts <= 0 || total_num_faces <= 0 || total_objects <= 0) return;
+
+	for (int frame_num = 0; frame_num < num_frames; frame_num++) {
+		VERT *frame_verts = pmdata[pmodel_id].w[frame_num];
+		if (!frame_verts) continue;
+
+		// 1. Reset vertex normals and tangents to zero
+		for (int v = 0; v < total_num_verts; v++) {
+			frame_verts[v].nx = frame_verts[v].ny = frame_verts[v].nz = 0.0f;
+			frame_verts[v].nmx = frame_verts[v].nmy = frame_verts[v].nmz = 0.0f;
+		}
+
+		// 2. Accumulate face normals and tangents per subobject using local face indices & subobject offsets
+		int v_base = 0;
+		int f_base = 0;
+
+		for (int obj = 0; obj < total_objects; obj++) {
+			int num_obj_verts = pmdata[pmodel_id].num_verts_per_object[obj];
+			int num_obj_faces = pmdata[pmodel_id].num_faces_per_object[obj];
+
+			for (int i = 0; i < num_obj_faces; i++) {
+				int tri = f_base + i * 3;
+				int local_idx0 = pmdata[pmodel_id].f[tri + 0];
+				int local_idx1 = pmdata[pmodel_id].f[tri + 1];
+				int local_idx2 = pmdata[pmodel_id].f[tri + 2];
+
+				if (local_idx0 < 0 || local_idx0 >= num_obj_verts ||
+				    local_idx1 < 0 || local_idx1 >= num_obj_verts ||
+				    local_idx2 < 0 || local_idx2 >= num_obj_verts) continue;
+
+				int global_idx0 = v_base + local_idx0;
+				int global_idx1 = v_base + local_idx1;
+				int global_idx2 = v_base + local_idx2;
+
+				VERT tmp0, tmp1, tmp2;
+
+				tmp0.x = frame_verts[global_idx0].x;
+				tmp0.y = frame_verts[global_idx0].z;
+				tmp0.z = frame_verts[global_idx0].y;
+
+				tmp1.x = frame_verts[global_idx1].x;
+				tmp1.y = frame_verts[global_idx1].z;
+				tmp1.z = frame_verts[global_idx1].y;
+
+				tmp2.x = frame_verts[global_idx2].x;
+				tmp2.y = frame_verts[global_idx2].z;
+				tmp2.z = frame_verts[global_idx2].y;
+
+				CalculateVertNormalAndTangent(
+					tmp0, tmp1, tmp2,
+					pmdata[pmodel_id].t[tri + 0],
+					pmdata[pmodel_id].t[tri + 1],
+					pmdata[pmodel_id].t[tri + 2],
+					true // flipV is true for indexed 3DS models
+				);
+
+				frame_verts[global_idx0].nx += tmp0.nx; frame_verts[global_idx0].ny += tmp0.ny; frame_verts[global_idx0].nz += tmp0.nz;
+				frame_verts[global_idx1].nx += tmp0.nx; frame_verts[global_idx1].ny += tmp0.ny; frame_verts[global_idx1].nz += tmp0.nz;
+				frame_verts[global_idx2].nx += tmp0.nx; frame_verts[global_idx2].ny += tmp0.ny; frame_verts[global_idx2].nz += tmp0.nz;
+
+				frame_verts[global_idx0].nmx += tmp0.nmx; frame_verts[global_idx0].nmy += tmp0.nmy; frame_verts[global_idx0].nmz += tmp0.nmz;
+				frame_verts[global_idx1].nmx += tmp0.nmx; frame_verts[global_idx1].nmy += tmp0.nmy; frame_verts[global_idx1].nmz += tmp0.nmz;
+				frame_verts[global_idx2].nmx += tmp0.nmx; frame_verts[global_idx2].nmy += tmp0.nmy; frame_verts[global_idx2].nmz += tmp0.nmz;
+			}
+
+			v_base += num_obj_verts;
+			f_base += num_obj_faces * 3;
+		}
+
+		// 3. Normalize accumulated normals and Gram-Schmidt orthogonalize tangents
+		for (int v = 0; v < total_num_verts; v++) {
+			XMVECTOR N = XMVectorSet(frame_verts[v].nx, frame_verts[v].ny, frame_verts[v].nz, 0.0f);
+			XMVECTOR T = XMVectorSet(frame_verts[v].nmx, frame_verts[v].nmy, frame_verts[v].nmz, 0.0f);
+
+			if (XMVectorGetX(XMVector3LengthSq(N)) > 0.00001f) {
+				N = XMVector3Normalize(N);
+			} else {
+				N = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+			}
+
+			T = XMVectorSubtract(T, XMVectorMultiply(N, XMVector3Dot(N, T)));
+			if (XMVectorGetX(XMVector3LengthSq(T)) > 0.00001f) {
+				T = XMVector3Normalize(T);
+			} else {
+				T = XMVectorZero();
+			}
+
+			XMFLOAT3 fN, fT;
+			XMStoreFloat3(&fN, N);
+			XMStoreFloat3(&fT, T);
+
+			frame_verts[v].nx = fN.x; frame_verts[v].ny = fN.y; frame_verts[v].nz = fN.z;
+			frame_verts[v].nmx = fT.x; frame_verts[v].nmy = fT.y; frame_verts[v].nmz = fT.z;
+		}
+
+		// 4. Smooth across duplicate seam vertices at identical positions using SmoothVertArrayNoHash
+		SmoothVertArrayNoHash(frame_verts, total_num_verts);
+	}
+}
+
+void SmoothMD2ModelNormals(int pmodel_id) {
+	if (pmodel_id < 0) return;
+
+	int num_frames = pmdata[pmodel_id].num_frames;
+	if (num_frames <= 0) return;
+
+	int num_indices = pmdata[pmodel_id].num_verts; // for MD2 models, num_verts stores total triangle list indices
 	if (num_indices < 3) return;
 
 	int max_v_idx = 0;
@@ -305,8 +409,6 @@ void SmoothModelNormals(int pmodel_id) {
 	}
 	int num_verts = max_v_idx + 1;
 	int num_tris = num_indices / 3;
-
-	bool is_indexed = pmdata[pmodel_id].use_indexed_primitive != FALSE;
 
 	for (int frame_num = 0; frame_num < num_frames; frame_num++) {
 		VERT *frame_verts = pmdata[pmodel_id].w[frame_num];
@@ -349,7 +451,7 @@ void SmoothModelNormals(int pmodel_id) {
 				pmdata[pmodel_id].t[tri + 0],
 				pmdata[pmodel_id].t[tri + 1],
 				pmdata[pmodel_id].t[tri + 2],
-				is_indexed
+				false // flipV is false for MD2 models
 			);
 
 			// Add face normal & tangent to all three face vertices (in DirectX model space)
@@ -390,6 +492,16 @@ void SmoothModelNormals(int pmodel_id) {
 
 		// 4. Smooth across duplicate seam vertices at identical positions using SmoothVertArrayNoHash
 		SmoothVertArrayNoHash(frame_verts, num_verts);
+	}
+}
+
+void SmoothModelNormals(int pmodel_id) {
+	if (pmodel_id < 0) return;
+
+	if (pmdata[pmodel_id].use_indexed_primitive) {
+		Smooth3DSModelNormals(pmodel_id);
+	} else {
+		SmoothMD2ModelNormals(pmodel_id);
 	}
 }
 
