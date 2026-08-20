@@ -150,7 +150,7 @@ void CalculateTangentBinormal(D3DVERTEX2 &vertex1, D3DVERTEX2 &vertex2, D3DVERTE
 	vertex1.nmz = vertex2.nmz = vertex3.nmz = tangent.z;
 }
 
-void CalculateVertNormalAndTangent(VERT &vertex1, VERT &vertex2, VERT &vertex3, const VERT &tex1, const VERT &tex2, const VERT &tex3) {
+void CalculateVertNormalAndTangent(VERT &vertex1, VERT &vertex2, VERT &vertex3, const VERT &tex1, const VERT &tex2, const VERT &tex3, bool flipV) {
 	float vector1[3], vector2[3];
 	float tuVector[2], tvVector[2];
 
@@ -183,10 +183,10 @@ void CalculateVertNormalAndTangent(VERT &vertex1, VERT &vertex2, VERT &vertex3, 
 
 	// Calculate texture space vectors
 	tuVector[0] = tex2.x - tex1.x;
-	tvVector[0] = tex2.y - tex1.y;
+	tvVector[0] = flipV ? (-(tex2.y - tex1.y)) : (tex2.y - tex1.y);
 
 	tuVector[1] = tex3.x - tex1.x;
-	tvVector[1] = tex3.y - tex1.y;
+	tvVector[1] = flipV ? (-(tex3.y - tex1.y)) : (tex3.y - tex1.y);
 
 	float result = (tuVector[0] * tvVector[1] - tuVector[1] * tvVector[0]);
 
@@ -288,23 +288,10 @@ void SmoothModelNormals(int pmodel_id) {
 	int num_frames = pmdata[pmodel_id].num_frames;
 	if (num_frames <= 0) return;
 
-	int num_indices = 0;
-	if (pmdata[pmodel_id].use_indexed_primitive) {
-		num_indices = pmdata[pmodel_id].num_faces * 3;
-	} else {
-		num_indices = pmdata[pmodel_id].num_verts;
-	}
+	bool is_indexed = pmdata[pmodel_id].use_indexed_primitive != FALSE;
 
-	if (num_indices < 3) return;
-
-	int max_v_idx = 0;
-	for (int i = 0; i < num_indices; i++) {
-		if (pmdata[pmodel_id].f[i] > max_v_idx) {
-			max_v_idx = pmdata[pmodel_id].f[i];
-		}
-	}
-	int num_verts = max_v_idx + 1;
-	int num_tris = num_indices / 3;
+	int num_verts = pmdata[pmodel_id].num_verts;
+	if (num_verts <= 0) return;
 
 	for (int frame_num = 0; frame_num < num_frames; frame_num++) {
 		VERT *frame_verts = pmdata[pmodel_id].w[frame_num];
@@ -316,36 +303,110 @@ void SmoothModelNormals(int pmodel_id) {
 			frame_verts[v].nmx = frame_verts[v].nmy = frame_verts[v].nmz = 0.0f;
 		}
 
-		// 2. Accumulate face normals and tangents
-		for (int i = 0; i < num_tris; i++) {
-			int tri = i * 3;
-			int idx0 = pmdata[pmodel_id].f[tri + 0];
-			int idx1 = pmdata[pmodel_id].f[tri + 1];
-			int idx2 = pmdata[pmodel_id].f[tri + 2];
+		// 2. Accumulate face normals and tangents in DirectX model space
+		if (is_indexed) {
+			int num_objects = pmdata[pmodel_id].num_polys_per_frame;
+			int v_base = 0;
+			int f_base = 0;
 
-			if (idx0 < 0 || idx0 >= num_verts ||
-			    idx1 < 0 || idx1 >= num_verts ||
-			    idx2 < 0 || idx2 >= num_verts) continue;
+			for (int obj_idx = 0; obj_idx < num_objects; obj_idx++) {
+				int num_obj_verts = pmdata[pmodel_id].num_verts_per_object[obj_idx];
+				int num_obj_faces = pmdata[pmodel_id].num_faces_per_object[obj_idx];
 
-			VERT tmp0 = frame_verts[idx0];
-			VERT tmp1 = frame_verts[idx1];
-			VERT tmp2 = frame_verts[idx2];
+				for (int face = 0; face < num_obj_faces; face++) {
+					int tri = f_base + face * 3;
+					int local_idx0 = pmdata[pmodel_id].f[tri + 0];
+					int local_idx1 = pmdata[pmodel_id].f[tri + 1];
+					int local_idx2 = pmdata[pmodel_id].f[tri + 2];
 
-			CalculateVertNormalAndTangent(
-				tmp0, tmp1, tmp2,
-				pmdata[pmodel_id].t[tri + 0],
-				pmdata[pmodel_id].t[tri + 1],
-				pmdata[pmodel_id].t[tri + 2]
-			);
+					int idx0 = v_base + local_idx0;
+					int idx1 = v_base + local_idx1;
+					int idx2 = v_base + local_idx2;
 
-			// Add face normal & tangent to all three face vertices
-			frame_verts[idx0].nx += tmp0.nx; frame_verts[idx0].ny += tmp0.ny; frame_verts[idx0].nz += tmp0.nz;
-			frame_verts[idx1].nx += tmp0.nx; frame_verts[idx1].ny += tmp0.ny; frame_verts[idx1].nz += tmp0.nz;
-			frame_verts[idx2].nx += tmp0.nx; frame_verts[idx2].ny += tmp0.ny; frame_verts[idx2].nz += tmp0.nz;
+					if (idx0 < 0 || idx0 >= num_verts ||
+					    idx1 < 0 || idx1 >= num_verts ||
+					    idx2 < 0 || idx2 >= num_verts) continue;
 
-			frame_verts[idx0].nmx += tmp0.nmx; frame_verts[idx0].nmy += tmp0.nmy; frame_verts[idx0].nmz += tmp0.nmz;
-			frame_verts[idx1].nmx += tmp0.nmx; frame_verts[idx1].nmy += tmp0.nmy; frame_verts[idx1].nmz += tmp0.nmz;
-			frame_verts[idx2].nmx += tmp0.nmx; frame_verts[idx2].nmy += tmp0.nmy; frame_verts[idx2].nmz += tmp0.nmz;
+					// Construct DirectX model space positions (X, Y=z, Z=y) for face calculation
+					VERT tmp0, tmp1, tmp2;
+
+					tmp0.x = frame_verts[idx0].x;
+					tmp0.y = frame_verts[idx0].z;
+					tmp0.z = frame_verts[idx0].y;
+
+					tmp1.x = frame_verts[idx1].x;
+					tmp1.y = frame_verts[idx1].z;
+					tmp1.z = frame_verts[idx1].y;
+
+					tmp2.x = frame_verts[idx2].x;
+					tmp2.y = frame_verts[idx2].z;
+					tmp2.z = frame_verts[idx2].y;
+
+					CalculateVertNormalAndTangent(
+						tmp0, tmp1, tmp2,
+						pmdata[pmodel_id].t[tri + 0],
+						pmdata[pmodel_id].t[tri + 1],
+						pmdata[pmodel_id].t[tri + 2],
+						true
+					);
+
+					// Add face normal & tangent to all three face vertices (in DirectX model space)
+					frame_verts[idx0].nx += tmp0.nx; frame_verts[idx0].ny += tmp0.ny; frame_verts[idx0].nz += tmp0.nz;
+					frame_verts[idx1].nx += tmp0.nx; frame_verts[idx1].ny += tmp0.ny; frame_verts[idx1].nz += tmp0.nz;
+					frame_verts[idx2].nx += tmp0.nx; frame_verts[idx2].ny += tmp0.ny; frame_verts[idx2].nz += tmp0.nz;
+
+					frame_verts[idx0].nmx += tmp0.nmx; frame_verts[idx0].nmy += tmp0.nmy; frame_verts[idx0].nmz += tmp0.nmz;
+					frame_verts[idx1].nmx += tmp0.nmx; frame_verts[idx1].nmy += tmp0.nmy; frame_verts[idx1].nmz += tmp0.nmz;
+					frame_verts[idx2].nmx += tmp0.nmx; frame_verts[idx2].nmy += tmp0.nmy; frame_verts[idx2].nmz += tmp0.nmz;
+				}
+
+				v_base += num_obj_verts;
+				f_base += num_obj_faces * 3;
+			}
+		} else { // Non-indexed (MD2)
+			int num_indices = pmdata[pmodel_id].num_verts;
+			int num_tris = num_indices / 3;
+
+			for (int i = 0; i < num_tris; i++) {
+				int tri = i * 3;
+				int idx0 = pmdata[pmodel_id].f[tri + 0];
+				int idx1 = pmdata[pmodel_id].f[tri + 1];
+				int idx2 = pmdata[pmodel_id].f[tri + 2];
+
+				if (idx0 < 0 || idx0 >= num_verts ||
+				    idx1 < 0 || idx1 >= num_verts ||
+				    idx2 < 0 || idx2 >= num_verts) continue;
+
+				VERT tmp0, tmp1, tmp2;
+
+				tmp0.x = frame_verts[idx0].x;
+				tmp0.y = frame_verts[idx0].z;
+				tmp0.z = frame_verts[idx0].y;
+
+				tmp1.x = frame_verts[idx1].x;
+				tmp1.y = frame_verts[idx1].z;
+				tmp1.z = frame_verts[idx1].y;
+
+				tmp2.x = frame_verts[idx2].x;
+				tmp2.y = frame_verts[idx2].z;
+				tmp2.z = frame_verts[idx2].y;
+
+				CalculateVertNormalAndTangent(
+					tmp0, tmp1, tmp2,
+					pmdata[pmodel_id].t[tri + 0],
+					pmdata[pmodel_id].t[tri + 1],
+					pmdata[pmodel_id].t[tri + 2],
+					false
+				);
+
+				frame_verts[idx0].nx += tmp0.nx; frame_verts[idx0].ny += tmp0.ny; frame_verts[idx0].nz += tmp0.nz;
+				frame_verts[idx1].nx += tmp0.nx; frame_verts[idx1].ny += tmp0.ny; frame_verts[idx1].nz += tmp0.nz;
+				frame_verts[idx2].nx += tmp0.nx; frame_verts[idx2].ny += tmp0.ny; frame_verts[idx2].nz += tmp0.nz;
+
+				frame_verts[idx0].nmx += tmp0.nmx; frame_verts[idx0].nmy += tmp0.nmy; frame_verts[idx0].nmz += tmp0.nmz;
+				frame_verts[idx1].nmx += tmp0.nmx; frame_verts[idx1].nmy += tmp0.nmy; frame_verts[idx1].nmz += tmp0.nmz;
+				frame_verts[idx2].nmx += tmp0.nmx; frame_verts[idx2].nmy += tmp0.nmy; frame_verts[idx2].nmz += tmp0.nmz;
+			}
 		}
 
 		// 3. Normalize accumulated normals and Gram-Schmidt orthogonalize tangents
@@ -688,21 +749,21 @@ void PlayerToD3DVertList(int pmodel_id, int curr_frame, float angle, int texture
 					y = tp->z + t * (tpNextFrame->z - tp->z);
 
 					nx = tp->nx + t * (tpNextFrame->nx - tp->nx);
-					nz = tp->ny + t * (tpNextFrame->ny - tp->ny);
-					ny = tp->nz + t * (tpNextFrame->nz - tp->nz);
+					ny = tp->ny + t * (tpNextFrame->ny - tp->ny);
+					nz = tp->nz + t * (tpNextFrame->nz - tp->nz);
 
 					nmx = tp->nmx + t * (tpNextFrame->nmx - tp->nmx);
-					nmz = tp->nmy + t * (tpNextFrame->nmy - tp->nmy);
-					nmy = tp->nmz + t * (tpNextFrame->nmz - tp->nmz);
+					nmy = tp->nmy + t * (tpNextFrame->nmy - tp->nmy);
+					nmz = tp->nmz + t * (tpNextFrame->nmz - tp->nmz);
 				} else {
 					x = tp->x; z = tp->y; y = tp->z;
-					nx = tp->nx; nz = tp->ny; ny = tp->nz;
-					nmx = tp->nmx; nmz = tp->nmy; nmy = tp->nmz;
+					nx = tp->nx; ny = tp->ny; nz = tp->nz;
+					nmx = tp->nmx; nmy = tp->nmy; nmz = tp->nmz;
 				}
 			} else {
 				x = tp->x; z = tp->y; y = tp->z;
-				nx = tp->nx; nz = tp->ny; ny = tp->nz;
-				nmx = tp->nmx; nmz = tp->nmy; nmy = tp->nmz;
+				nx = tp->nx; ny = tp->ny; nz = tp->nz;
+				nmx = tp->nmx; nmy = tp->nmy; nmz = tp->nmz;
 			}
 
 			if (weapondrop == 1) {
@@ -1904,12 +1965,12 @@ void PlayerToD3DIndexedVertList(int pmodel_id, int curr_frame, float angle, int 
 			y = vert.z;
 
 			float nx = vert.nx;
-			float nz = vert.ny;
-			float ny = vert.nz;
+			float ny = vert.ny;
+			float nz = vert.nz;
 
 			float nmx = vert.nmx;
-			float nmz = vert.nmy;
-			float nmy = vert.nmz;
+			float nmy = vert.nmy;
+			float nmz = vert.nmz;
 
 			// Apply optional pitch (fDot2) then yaw (angle)
 			if (fDot2 != 0.0f) {
