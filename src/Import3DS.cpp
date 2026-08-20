@@ -752,24 +752,7 @@ BOOL Import3DS(char *filename, int pmodel_id, float scale) {
 	pmdata[pmodel_id].tex_alias = 7;
 	pmdata[pmodel_id].use_indexed_primitive = TRUE;
 
-	// Calculate surface normal and tangent for each triangle face across all frames
-	for (frame_num = 0; frame_num < total_num_frames; frame_num++) {
-		for (i = 0; i < total_num_faces; i++) {
-			int tri = i * 3;
-			int idx0 = pmdata[pmodel_id].f[tri + 0];
-			int idx1 = pmdata[pmodel_id].f[tri + 1];
-			int idx2 = pmdata[pmodel_id].f[tri + 2];
-
-			CalculateVertNormalAndTangent(
-				pmdata[pmodel_id].w[frame_num][idx0],
-				pmdata[pmodel_id].w[frame_num][idx1],
-				pmdata[pmodel_id].w[frame_num][idx2],
-				pmdata[pmodel_id].t[tri + 0],
-				pmdata[pmodel_id].t[tri + 1],
-				pmdata[pmodel_id].t[tri + 2]
-			);
-		}
-	}
+	SmoothModelNormals(pmodel_id);
 
 	ReleaseTempMemory();
 

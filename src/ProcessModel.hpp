@@ -32,5 +32,6 @@ int FindGunTexture(char *p);
 int CycleBitMap(int i);
 int CalculateView(XMFLOAT3 EyeBall, XMFLOAT3 LookPoint, float angle);
 void ObjectToD3DVertList(int ob_type, float angle, int oblist_index);
+void SmoothModelNormals(int pmodel_id);
 
 #endif
