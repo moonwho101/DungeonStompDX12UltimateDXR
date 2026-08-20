@@ -254,8 +254,8 @@ void ObjectToD3DVertList(int ob_type, float angle, int oblist_index) {
 
 			src_collide[cnt] = objectcollide == 1 ? 1 : 0;
 
-			// Calculate normal for first vertex
-			if (i == 0 && num_vert >= 3) {
+			// Calculate normal for each triangle in the list
+			if (i % 3 == 0 && (i + 2) < num_vert) {
 				XMFLOAT3 vw1{ D3DVAL(mx[i]), D3DVAL(my[i]), D3DVAL(mz[i]) };
 				XMFLOAT3 vw2{ D3DVAL(mx[i + 1]), D3DVAL(my[i + 1]), D3DVAL(mz[i + 1]) };
 				XMFLOAT3 vw3{ D3DVAL(mx[i + 2]), D3DVAL(my[i + 2]), D3DVAL(mz[i + 2]) };
@@ -274,7 +274,7 @@ void ObjectToD3DVertList(int ob_type, float angle, int oblist_index) {
 
 			cnt++;
 
-			if (i == 2)
+			if (i % 3 == 2)
 				CalculateTangentBinormal(src_v[cnt - 3], src_v[cnt - 2], src_v[cnt - 1]);
 		}
 

@@ -95,6 +95,15 @@ BOOL ImportMD2_GLCMD(char *filename, int texture_alias, int pmodel_id, float sca
 
 	// PrintMessage(NULL, "verts = ", buffer, LOGFILE_ONLY);
 
+	// Calculate total vertices when converted to triangle lists
+	int total_tri_verts = 0;
+	for (i = 0; i < glc_cnt; i++) {
+		int glverts = abs(glc[i]);
+		if (glverts >= 3) {
+			total_tri_verts += (glverts - 2) * 3;
+		}
+	}
+
 	// allocate memory dynamically
 
 	pmdata[pmodel_id].w = new VERT *[header.num_frames];
@@ -102,19 +111,19 @@ BOOL ImportMD2_GLCMD(char *filename, int texture_alias, int pmodel_id, float sca
 	for (i = 0; i < header.num_frames; i++)
 		pmdata[pmodel_id].w[i] = new VERT[header.num_verts];
 
-	pmdata[pmodel_id].f = new int[glv_cnt];
-	pmdata[pmodel_id].num_vert = new int[header.num_verts];
+	pmdata[pmodel_id].f = new int[total_tri_verts];
+	pmdata[pmodel_id].num_vert = new int[glc_cnt];
 	pmdata[pmodel_id].poly_cmd = new D3DPRIMITIVETYPE[glc_cnt];
 	pmdata[pmodel_id].texture_list = new int[glc_cnt];
-	pmdata[pmodel_id].t = new VERT[glv_cnt];
+	pmdata[pmodel_id].t = new VERT[total_tri_verts];
 
 	int mem = 0;
 	mem += (sizeof(VERT) * header.num_verts * header.num_frames);
-	mem += (sizeof(short) * glv_cnt);
+	mem += (sizeof(short) * total_tri_verts);
 	mem += (sizeof(short) * header.num_verts);
 	mem += (sizeof(short) * glc_cnt);
 	mem += (sizeof(short) * glc_cnt);
-	mem += (sizeof(VERT) * glv_cnt);
+	mem += (sizeof(VERT) * total_tri_verts);
 
 	mem = mem / 1024;
 
@@ -122,9 +131,10 @@ BOOL ImportMD2_GLCMD(char *filename, int texture_alias, int pmodel_id, float sca
 	strcat_s(buffer, " KB\n");
 	// PrintMessage(NULL, "Memory allocated = ", buffer, LOGFILE_ONLY);
 
-	// load GL Commands into pmdata structure
+	// load GL Commands into pmdata structure as triangle lists
 
 	cnt = 0;
+	int glv_offset = 0;
 
 	for (i = 0; i < glc_cnt; i++) {
 		if (glc[i] == 0) {
@@ -132,25 +142,73 @@ BOOL ImportMD2_GLCMD(char *filename, int texture_alias, int pmodel_id, float sca
 			return FALSE;
 		}
 
-		if (glc[i] < 0)
-			pmdata[pmodel_id].poly_cmd[i] = D3DPT_TRIANGLEFAN;
-
-		if (glc[i] > 0)
-			pmdata[pmodel_id].poly_cmd[i] = D3DPT_TRIANGLESTRIP;
-
+		pmdata[pmodel_id].poly_cmd[i] = D3DPT_TRIANGLELIST;
 		pmdata[pmodel_id].texture_list[i] = texture_alias;
 
 		glnum_verts = abs(glc[i]);
-		pmdata[pmodel_id].num_vert[i] = glnum_verts;
 
-		for (j = 0; j < glnum_verts; j++) {
-			pmdata[pmodel_id].f[cnt] = glv[cnt].index;
+		if (glc[i] > 0) {
+			// Triangle Strip decomposition into Triangle List
+			int tri_cnt = 0;
+			for (j = 0; j < glnum_verts - 2; j++) {
+				int idx0, idx1, idx2;
+				if (j % 2 == 0) {
+					idx0 = glv_offset + j;
+					idx1 = glv_offset + j + 1;
+					idx2 = glv_offset + j + 2;
+				} else {
+					idx0 = glv_offset + j + 2;
+					idx1 = glv_offset + j + 1;
+					idx2 = glv_offset + j;
+				}
 
-			pmdata[pmodel_id].t[cnt].x = glv[cnt].s * header.skinwidth;
-			pmdata[pmodel_id].t[cnt].y = glv[cnt].t * header.skinheight;
+				pmdata[pmodel_id].f[cnt] = glv[idx0].index;
+				pmdata[pmodel_id].t[cnt].x = glv[idx0].s * header.skinwidth;
+				pmdata[pmodel_id].t[cnt].y = glv[idx0].t * header.skinheight;
+				cnt++;
 
-			cnt++;
+				pmdata[pmodel_id].f[cnt] = glv[idx1].index;
+				pmdata[pmodel_id].t[cnt].x = glv[idx1].s * header.skinwidth;
+				pmdata[pmodel_id].t[cnt].y = glv[idx1].t * header.skinheight;
+				cnt++;
+
+				pmdata[pmodel_id].f[cnt] = glv[idx2].index;
+				pmdata[pmodel_id].t[cnt].x = glv[idx2].s * header.skinwidth;
+				pmdata[pmodel_id].t[cnt].y = glv[idx2].t * header.skinheight;
+				cnt++;
+
+				tri_cnt += 3;
+			}
+			pmdata[pmodel_id].num_vert[i] = tri_cnt;
+		} else {
+			// Triangle Fan decomposition into Triangle List
+			int tri_cnt = 0;
+			for (j = 0; j < glnum_verts - 2; j++) {
+				int idx0 = glv_offset;
+				int idx1 = glv_offset + j + 1;
+				int idx2 = glv_offset + j + 2;
+
+				pmdata[pmodel_id].f[cnt] = glv[idx0].index;
+				pmdata[pmodel_id].t[cnt].x = glv[idx0].s * header.skinwidth;
+				pmdata[pmodel_id].t[cnt].y = glv[idx0].t * header.skinheight;
+				cnt++;
+
+				pmdata[pmodel_id].f[cnt] = glv[idx1].index;
+				pmdata[pmodel_id].t[cnt].x = glv[idx1].s * header.skinwidth;
+				pmdata[pmodel_id].t[cnt].y = glv[idx1].t * header.skinheight;
+				cnt++;
+
+				pmdata[pmodel_id].f[cnt] = glv[idx2].index;
+				pmdata[pmodel_id].t[cnt].x = glv[idx2].s * header.skinwidth;
+				pmdata[pmodel_id].t[cnt].y = glv[idx2].t * header.skinheight;
+				cnt++;
+
+				tri_cnt += 3;
+			}
+			pmdata[pmodel_id].num_vert[i] = tri_cnt;
 		}
+
+		glv_offset += glnum_verts;
 	}
 
 	// read vertices for all frames
