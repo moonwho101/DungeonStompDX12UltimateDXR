@@ -282,7 +282,7 @@ void SmoothVertArrayNoHash(VERT *verts, int num_verts) {
 	}
 }
 
-void Smooth3DSModelNormals(int pmodel_id) {
+void Compute3DSModelNormals(int pmodel_id) {
 	if (pmodel_id < 0) return;
 
 	int num_frames = pmdata[pmodel_id].num_frames;
@@ -386,13 +386,10 @@ void Smooth3DSModelNormals(int pmodel_id) {
 			frame_verts[v].nx = fN.x; frame_verts[v].ny = fN.y; frame_verts[v].nz = fN.z;
 			frame_verts[v].nmx = fT.x; frame_verts[v].nmy = fT.y; frame_verts[v].nmz = fT.z;
 		}
-
-		// 4. Smooth across duplicate seam vertices at identical positions using SmoothVertArrayNoHash
-		SmoothVertArrayNoHash(frame_verts, total_num_verts);
 	}
 }
 
-void SmoothMD2ModelNormals(int pmodel_id) {
+void ComputeMD2ModelNormals(int pmodel_id) {
 	if (pmodel_id < 0) return;
 
 	int num_frames = pmdata[pmodel_id].num_frames;
@@ -489,8 +486,57 @@ void SmoothMD2ModelNormals(int pmodel_id) {
 			frame_verts[v].nx = fN.x; frame_verts[v].ny = fN.y; frame_verts[v].nz = fN.z;
 			frame_verts[v].nmx = fT.x; frame_verts[v].nmy = fT.y; frame_verts[v].nmz = fT.z;
 		}
+	}
+}
 
-		// 4. Smooth across duplicate seam vertices at identical positions using SmoothVertArrayNoHash
+void ComputeModelNormals(int pmodel_id) {
+	if (pmodel_id < 0) return;
+
+	if (pmdata[pmodel_id].use_indexed_primitive) {
+		Compute3DSModelNormals(pmodel_id);
+	} else {
+		ComputeMD2ModelNormals(pmodel_id);
+	}
+}
+
+void Smooth3DSModelNormals(int pmodel_id) {
+	if (pmodel_id < 0) return;
+
+	int num_frames = pmdata[pmodel_id].num_frames;
+	if (num_frames <= 0) return;
+
+	int total_num_verts = pmdata[pmodel_id].num_verts;
+	if (total_num_verts <= 0) return;
+
+	for (int frame_num = 0; frame_num < num_frames; frame_num++) {
+		VERT *frame_verts = pmdata[pmodel_id].w[frame_num];
+		if (!frame_verts) continue;
+
+		SmoothVertArrayNoHash(frame_verts, total_num_verts);
+	}
+}
+
+void SmoothMD2ModelNormals(int pmodel_id) {
+	if (pmodel_id < 0) return;
+
+	int num_frames = pmdata[pmodel_id].num_frames;
+	if (num_frames <= 0) return;
+
+	int num_indices = pmdata[pmodel_id].num_verts; // for MD2 models, num_verts stores total triangle list indices
+	if (num_indices < 3) return;
+
+	int max_v_idx = 0;
+	for (int i = 0; i < num_indices; i++) {
+		if (pmdata[pmodel_id].f[i] > max_v_idx) {
+			max_v_idx = pmdata[pmodel_id].f[i];
+		}
+	}
+	int num_verts = max_v_idx + 1;
+
+	for (int frame_num = 0; frame_num < num_frames; frame_num++) {
+		VERT *frame_verts = pmdata[pmodel_id].w[frame_num];
+		if (!frame_verts) continue;
+
 		SmoothVertArrayNoHash(frame_verts, num_verts);
 	}
 }

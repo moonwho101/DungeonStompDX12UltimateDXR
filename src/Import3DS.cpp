@@ -752,6 +752,7 @@ BOOL Import3DS(char *filename, int pmodel_id, float scale) {
 	pmdata[pmodel_id].tex_alias = 7;
 	pmdata[pmodel_id].use_indexed_primitive = TRUE;
 
+	ComputeModelNormals(pmodel_id);
 	SmoothModelNormals(pmodel_id);
 
 	ReleaseTempMemory();
