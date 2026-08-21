@@ -541,17 +541,6 @@ void ComputeMD2ModelNormals(int pmodel_id) {
 	}
 }
 
-void ComputeModelNormals(int pmodel_id) {
-	if (pmodel_id < 0)
-		return;
-
-	if (pmdata[pmodel_id].use_indexed_primitive) {
-		Compute3DSModelNormals(pmodel_id);
-	} else {
-		ComputeMD2ModelNormals(pmodel_id);
-	}
-}
-
 void Smooth3DSModelNormals(int pmodel_id) {
 	if (pmodel_id < 0)
 		return;
