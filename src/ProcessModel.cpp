@@ -395,8 +395,9 @@ void ComputeMD2ModelNormals(int pmodel_id) {
 	int num_frames = pmdata[pmodel_id].num_frames;
 	if (num_frames <= 0) return;
 
-	int num_indices = pmdata[pmodel_id].num_verts; // for MD2 models, num_verts stores total triangle list indices
-	if (num_indices < 3) return;
+	int num_poly = pmdata[pmodel_id].num_polys_per_frame;
+	int num_indices = pmdata[pmodel_id].num_verts; // total face vertex count
+	if (num_poly <= 0 || num_indices < 3) return;
 
 	int max_v_idx = 0;
 	for (int i = 0; i < num_indices; i++) {
@@ -405,7 +406,6 @@ void ComputeMD2ModelNormals(int pmodel_id) {
 		}
 	}
 	int num_verts = max_v_idx + 1;
-	int num_tris = num_indices / 3;
 
 	for (int frame_num = 0; frame_num < num_frames; frame_num++) {
 		VERT *frame_verts = pmdata[pmodel_id].w[frame_num];
@@ -417,48 +417,53 @@ void ComputeMD2ModelNormals(int pmodel_id) {
 			frame_verts[v].nmx = frame_verts[v].nmy = frame_verts[v].nmz = 0.0f;
 		}
 
-		// 2. Accumulate face normals and tangents in DirectX model space
-		for (int i = 0; i < num_tris; i++) {
-			int tri = i * 3;
-			int idx0 = pmdata[pmodel_id].f[tri + 0];
-			int idx1 = pmdata[pmodel_id].f[tri + 1];
-			int idx2 = pmdata[pmodel_id].f[tri + 2];
+		// 2. Accumulate face normals and tangents matching PlayerToD3DVertList pattern
+		int i_count = 0;
+		for (int i = 0; i < num_poly; i++) {
+			int num_verts_per_poly = pmdata[pmodel_id].num_vert[i];
 
-			if (idx0 < 0 || idx0 >= num_verts ||
-			    idx1 < 0 || idx1 >= num_verts ||
-			    idx2 < 0 || idx2 >= num_verts) continue;
+			for (int j = 0; j < num_verts_per_poly; j += 3) {
+				int idx0 = pmdata[pmodel_id].f[i_count + j + 0];
+				int idx1 = pmdata[pmodel_id].f[i_count + j + 1];
+				int idx2 = pmdata[pmodel_id].f[i_count + j + 2];
 
-			// Construct DirectX model space positions (X, Y=z, Z=y) for face calculation
-			VERT tmp0, tmp1, tmp2;
+				if (idx0 >= 0 && idx0 < num_verts &&
+				    idx1 >= 0 && idx1 < num_verts &&
+				    idx2 >= 0 && idx2 < num_verts) {
 
-			tmp0.x = frame_verts[idx0].x;
-			tmp0.y = frame_verts[idx0].z;
-			tmp0.z = frame_verts[idx0].y;
+					VERT tmp0, tmp1, tmp2;
 
-			tmp1.x = frame_verts[idx1].x;
-			tmp1.y = frame_verts[idx1].z;
-			tmp1.z = frame_verts[idx1].y;
+					tmp0.x = frame_verts[idx0].x;
+					tmp0.y = frame_verts[idx0].z;
+					tmp0.z = frame_verts[idx0].y;
 
-			tmp2.x = frame_verts[idx2].x;
-			tmp2.y = frame_verts[idx2].z;
-			tmp2.z = frame_verts[idx2].y;
+					tmp1.x = frame_verts[idx1].x;
+					tmp1.y = frame_verts[idx1].z;
+					tmp1.z = frame_verts[idx1].y;
 
-			CalculateVertNormalAndTangent(
-				tmp0, tmp1, tmp2,
-				pmdata[pmodel_id].t[tri + 0],
-				pmdata[pmodel_id].t[tri + 1],
-				pmdata[pmodel_id].t[tri + 2],
-				false // flipV is false for MD2 models
-			);
+					tmp2.x = frame_verts[idx2].x;
+					tmp2.y = frame_verts[idx2].z;
+					tmp2.z = frame_verts[idx2].y;
 
-			// Add face normal & tangent to all three face vertices (in DirectX model space)
-			frame_verts[idx0].nx += tmp0.nx; frame_verts[idx0].ny += tmp0.ny; frame_verts[idx0].nz += tmp0.nz;
-			frame_verts[idx1].nx += tmp0.nx; frame_verts[idx1].ny += tmp0.ny; frame_verts[idx1].nz += tmp0.nz;
-			frame_verts[idx2].nx += tmp0.nx; frame_verts[idx2].ny += tmp0.ny; frame_verts[idx2].nz += tmp0.nz;
+					CalculateVertNormalAndTangent(
+						tmp0, tmp1, tmp2,
+						pmdata[pmodel_id].t[i_count + j + 0],
+						pmdata[pmodel_id].t[i_count + j + 1],
+						pmdata[pmodel_id].t[i_count + j + 2],
+						false // flipV is false for MD2 models
+					);
 
-			frame_verts[idx0].nmx += tmp0.nmx; frame_verts[idx0].nmy += tmp0.nmy; frame_verts[idx0].nmz += tmp0.nmz;
-			frame_verts[idx1].nmx += tmp0.nmx; frame_verts[idx1].nmy += tmp0.nmy; frame_verts[idx1].nmz += tmp0.nmz;
-			frame_verts[idx2].nmx += tmp0.nmx; frame_verts[idx2].nmy += tmp0.nmy; frame_verts[idx2].nmz += tmp0.nmz;
+					frame_verts[idx0].nx += tmp0.nx; frame_verts[idx0].ny += tmp0.ny; frame_verts[idx0].nz += tmp0.nz;
+					frame_verts[idx1].nx += tmp0.nx; frame_verts[idx1].ny += tmp0.ny; frame_verts[idx1].nz += tmp0.nz;
+					frame_verts[idx2].nx += tmp0.nx; frame_verts[idx2].ny += tmp0.ny; frame_verts[idx2].nz += tmp0.nz;
+
+					frame_verts[idx0].nmx += tmp0.nmx; frame_verts[idx0].nmy += tmp0.nmy; frame_verts[idx0].nmz += tmp0.nmz;
+					frame_verts[idx1].nmx += tmp0.nmx; frame_verts[idx1].nmy += tmp0.nmy; frame_verts[idx1].nmz += tmp0.nmz;
+					frame_verts[idx2].nmx += tmp0.nmx; frame_verts[idx2].nmy += tmp0.nmy; frame_verts[idx2].nmz += tmp0.nmz;
+				}
+			}
+
+			i_count += num_verts_per_poly;
 		}
 
 		// 3. Normalize accumulated normals and Gram-Schmidt orthogonalize tangents
