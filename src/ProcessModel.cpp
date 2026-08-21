@@ -282,20 +282,122 @@ void SmoothVertArrayNoHash(VERT *verts, int num_verts) {
 	}
 }
 
-void SmoothModelNormals(int pmodel_id) {
+void Compute3DSModelNormals(int pmodel_id) {
 	if (pmodel_id < 0) return;
 
 	int num_frames = pmdata[pmodel_id].num_frames;
 	if (num_frames <= 0) return;
 
-	int num_indices = 0;
-	if (pmdata[pmodel_id].use_indexed_primitive) {
-		num_indices = pmdata[pmodel_id].num_faces * 3;
-	} else {
-		num_indices = pmdata[pmodel_id].num_verts;
-	}
+	int total_num_verts = pmdata[pmodel_id].num_verts;
+	int num_poly = pmdata[pmodel_id].num_polys_per_frame;
 
-	if (num_indices < 3) return;
+	if (total_num_verts <= 0 || num_poly <= 0) return;
+
+	for (int frame_num = 0; frame_num < num_frames; frame_num++) {
+		VERT *frame_verts = pmdata[pmodel_id].w[frame_num];
+		if (!frame_verts) continue;
+
+		// 1. Reset vertex normals and tangents to zero
+		for (int v = 0; v < total_num_verts; v++) {
+			frame_verts[v].nx = frame_verts[v].ny = frame_verts[v].nz = 0.0f;
+			frame_verts[v].nmx = frame_verts[v].nmy = frame_verts[v].nmz = 0.0f;
+		}
+
+		// 2. Accumulate face normals and tangents per object matching PlayerToD3DIndexedVertList pattern
+		int v_start = 0;
+		int face_i_count = 0;
+
+		for (int i = 0; i < num_poly; i++) {
+			const int num_verts_per_poly = pmdata[pmodel_id].num_verts_per_object[i];
+			const int num_faces_per_poly = pmdata[pmodel_id].num_faces_per_object[i];
+
+			for (int j = 0; j < num_faces_per_poly; j++) {
+				int idx0 = pmdata[pmodel_id].f[face_i_count + 0];
+				int idx1 = pmdata[pmodel_id].f[face_i_count + 1];
+				int idx2 = pmdata[pmodel_id].f[face_i_count + 2];
+
+				if (idx0 >= 0 && idx0 < num_verts_per_poly &&
+				    idx1 >= 0 && idx1 < num_verts_per_poly &&
+				    idx2 >= 0 && idx2 < num_verts_per_poly) {
+
+					int g0 = v_start + idx0;
+					int g1 = v_start + idx1;
+					int g2 = v_start + idx2;
+
+					VERT tmp0, tmp1, tmp2;
+
+					tmp0.x = frame_verts[g0].x;
+					tmp0.y = frame_verts[g0].z;
+					tmp0.z = frame_verts[g0].y;
+
+					tmp1.x = frame_verts[g1].x;
+					tmp1.y = frame_verts[g1].z;
+					tmp1.z = frame_verts[g1].y;
+
+					tmp2.x = frame_verts[g2].x;
+					tmp2.y = frame_verts[g2].z;
+					tmp2.z = frame_verts[g2].y;
+
+					CalculateVertNormalAndTangent(
+						tmp0, tmp1, tmp2,
+						pmdata[pmodel_id].t[face_i_count + 0],
+						pmdata[pmodel_id].t[face_i_count + 1],
+						pmdata[pmodel_id].t[face_i_count + 2],
+						true
+					);
+
+					frame_verts[g0].nx += tmp0.nx; frame_verts[g0].ny += tmp0.ny; frame_verts[g0].nz += tmp0.nz;
+					frame_verts[g1].nx += tmp0.nx; frame_verts[g1].ny += tmp0.ny; frame_verts[g1].nz += tmp0.nz;
+					frame_verts[g2].nx += tmp0.nx; frame_verts[g2].ny += tmp0.ny; frame_verts[g2].nz += tmp0.nz;
+
+					frame_verts[g0].nmx += tmp0.nmx; frame_verts[g0].nmy += tmp0.nmy; frame_verts[g0].nmz += tmp0.nmz;
+					frame_verts[g1].nmx += tmp0.nmx; frame_verts[g1].nmy += tmp0.nmy; frame_verts[g1].nmz += tmp0.nmz;
+					frame_verts[g2].nmx += tmp0.nmx; frame_verts[g2].nmy += tmp0.nmy; frame_verts[g2].nmz += tmp0.nmz;
+				}
+
+				face_i_count += 3;
+			}
+
+			v_start += num_verts_per_poly;
+		}
+
+		// 3. Normalize accumulated normals and Gram-Schmidt orthogonalize tangents
+		for (int v = 0; v < total_num_verts; v++) {
+			XMVECTOR N = XMVectorSet(frame_verts[v].nx, frame_verts[v].ny, frame_verts[v].nz, 0.0f);
+			XMVECTOR T = XMVectorSet(frame_verts[v].nmx, frame_verts[v].nmy, frame_verts[v].nmz, 0.0f);
+
+			if (XMVectorGetX(XMVector3LengthSq(N)) > 0.00001f) {
+				N = XMVector3Normalize(N);
+			} else {
+				N = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+			}
+
+			T = XMVectorSubtract(T, XMVectorMultiply(N, XMVector3Dot(N, T)));
+			if (XMVectorGetX(XMVector3LengthSq(T)) > 0.00001f) {
+				T = XMVector3Normalize(T);
+			} else {
+				T = XMVectorZero();
+			}
+
+			XMFLOAT3 fN, fT;
+			XMStoreFloat3(&fN, N);
+			XMStoreFloat3(&fT, T);
+
+			frame_verts[v].nx = fN.x; frame_verts[v].ny = fN.y; frame_verts[v].nz = fN.z;
+			frame_verts[v].nmx = fT.x; frame_verts[v].nmy = fT.y; frame_verts[v].nmz = fT.z;
+		}
+	}
+}
+
+void ComputeMD2ModelNormals(int pmodel_id) {
+	if (pmodel_id < 0) return;
+
+	int num_frames = pmdata[pmodel_id].num_frames;
+	if (num_frames <= 0) return;
+
+	int num_poly = pmdata[pmodel_id].num_polys_per_frame;
+	int num_indices = pmdata[pmodel_id].num_verts; // total face vertex count
+	if (num_poly <= 0 || num_indices < 3) return;
 
 	int max_v_idx = 0;
 	for (int i = 0; i < num_indices; i++) {
@@ -304,9 +406,6 @@ void SmoothModelNormals(int pmodel_id) {
 		}
 	}
 	int num_verts = max_v_idx + 1;
-	int num_tris = num_indices / 3;
-
-	bool is_indexed = pmdata[pmodel_id].use_indexed_primitive != FALSE;
 
 	for (int frame_num = 0; frame_num < num_frames; frame_num++) {
 		VERT *frame_verts = pmdata[pmodel_id].w[frame_num];
@@ -318,48 +417,53 @@ void SmoothModelNormals(int pmodel_id) {
 			frame_verts[v].nmx = frame_verts[v].nmy = frame_verts[v].nmz = 0.0f;
 		}
 
-		// 2. Accumulate face normals and tangents in DirectX model space
-		for (int i = 0; i < num_tris; i++) {
-			int tri = i * 3;
-			int idx0 = pmdata[pmodel_id].f[tri + 0];
-			int idx1 = pmdata[pmodel_id].f[tri + 1];
-			int idx2 = pmdata[pmodel_id].f[tri + 2];
+		// 2. Accumulate face normals and tangents matching PlayerToD3DVertList pattern
+		int i_count = 0;
+		for (int i = 0; i < num_poly; i++) {
+			int num_verts_per_poly = pmdata[pmodel_id].num_vert[i];
 
-			if (idx0 < 0 || idx0 >= num_verts ||
-			    idx1 < 0 || idx1 >= num_verts ||
-			    idx2 < 0 || idx2 >= num_verts) continue;
+			for (int j = 0; j < num_verts_per_poly; j += 3) {
+				int idx0 = pmdata[pmodel_id].f[i_count + j + 0];
+				int idx1 = pmdata[pmodel_id].f[i_count + j + 1];
+				int idx2 = pmdata[pmodel_id].f[i_count + j + 2];
 
-			// Construct DirectX model space positions (X, Y=z, Z=y) for face calculation
-			VERT tmp0, tmp1, tmp2;
+				if (idx0 >= 0 && idx0 < num_verts &&
+				    idx1 >= 0 && idx1 < num_verts &&
+				    idx2 >= 0 && idx2 < num_verts) {
 
-			tmp0.x = frame_verts[idx0].x;
-			tmp0.y = frame_verts[idx0].z;
-			tmp0.z = frame_verts[idx0].y;
+					VERT tmp0, tmp1, tmp2;
 
-			tmp1.x = frame_verts[idx1].x;
-			tmp1.y = frame_verts[idx1].z;
-			tmp1.z = frame_verts[idx1].y;
+					tmp0.x = frame_verts[idx0].x;
+					tmp0.y = frame_verts[idx0].z;
+					tmp0.z = frame_verts[idx0].y;
 
-			tmp2.x = frame_verts[idx2].x;
-			tmp2.y = frame_verts[idx2].z;
-			tmp2.z = frame_verts[idx2].y;
+					tmp1.x = frame_verts[idx1].x;
+					tmp1.y = frame_verts[idx1].z;
+					tmp1.z = frame_verts[idx1].y;
 
-			CalculateVertNormalAndTangent(
-				tmp0, tmp1, tmp2,
-				pmdata[pmodel_id].t[tri + 0],
-				pmdata[pmodel_id].t[tri + 1],
-				pmdata[pmodel_id].t[tri + 2],
-				is_indexed
-			);
+					tmp2.x = frame_verts[idx2].x;
+					tmp2.y = frame_verts[idx2].z;
+					tmp2.z = frame_verts[idx2].y;
 
-			// Add face normal & tangent to all three face vertices (in DirectX model space)
-			frame_verts[idx0].nx += tmp0.nx; frame_verts[idx0].ny += tmp0.ny; frame_verts[idx0].nz += tmp0.nz;
-			frame_verts[idx1].nx += tmp0.nx; frame_verts[idx1].ny += tmp0.ny; frame_verts[idx1].nz += tmp0.nz;
-			frame_verts[idx2].nx += tmp0.nx; frame_verts[idx2].ny += tmp0.ny; frame_verts[idx2].nz += tmp0.nz;
+					CalculateVertNormalAndTangent(
+						tmp0, tmp1, tmp2,
+						pmdata[pmodel_id].t[i_count + j + 0],
+						pmdata[pmodel_id].t[i_count + j + 1],
+						pmdata[pmodel_id].t[i_count + j + 2],
+						false // flipV is false for MD2 models
+					);
 
-			frame_verts[idx0].nmx += tmp0.nmx; frame_verts[idx0].nmy += tmp0.nmy; frame_verts[idx0].nmz += tmp0.nmz;
-			frame_verts[idx1].nmx += tmp0.nmx; frame_verts[idx1].nmy += tmp0.nmy; frame_verts[idx1].nmz += tmp0.nmz;
-			frame_verts[idx2].nmx += tmp0.nmx; frame_verts[idx2].nmy += tmp0.nmy; frame_verts[idx2].nmz += tmp0.nmz;
+					frame_verts[idx0].nx += tmp0.nx; frame_verts[idx0].ny += tmp0.ny; frame_verts[idx0].nz += tmp0.nz;
+					frame_verts[idx1].nx += tmp0.nx; frame_verts[idx1].ny += tmp0.ny; frame_verts[idx1].nz += tmp0.nz;
+					frame_verts[idx2].nx += tmp0.nx; frame_verts[idx2].ny += tmp0.ny; frame_verts[idx2].nz += tmp0.nz;
+
+					frame_verts[idx0].nmx += tmp0.nmx; frame_verts[idx0].nmy += tmp0.nmy; frame_verts[idx0].nmz += tmp0.nmz;
+					frame_verts[idx1].nmx += tmp0.nmx; frame_verts[idx1].nmy += tmp0.nmy; frame_verts[idx1].nmz += tmp0.nmz;
+					frame_verts[idx2].nmx += tmp0.nmx; frame_verts[idx2].nmy += tmp0.nmy; frame_verts[idx2].nmz += tmp0.nmz;
+				}
+			}
+
+			i_count += num_verts_per_poly;
 		}
 
 		// 3. Normalize accumulated normals and Gram-Schmidt orthogonalize tangents
@@ -387,9 +491,68 @@ void SmoothModelNormals(int pmodel_id) {
 			frame_verts[v].nx = fN.x; frame_verts[v].ny = fN.y; frame_verts[v].nz = fN.z;
 			frame_verts[v].nmx = fT.x; frame_verts[v].nmy = fT.y; frame_verts[v].nmz = fT.z;
 		}
+	}
+}
 
-		// 4. Smooth across duplicate seam vertices at identical positions using SmoothVertArrayNoHash
+void ComputeModelNormals(int pmodel_id) {
+	if (pmodel_id < 0) return;
+
+	if (pmdata[pmodel_id].use_indexed_primitive) {
+		Compute3DSModelNormals(pmodel_id);
+	} else {
+		ComputeMD2ModelNormals(pmodel_id);
+	}
+}
+
+void Smooth3DSModelNormals(int pmodel_id) {
+	if (pmodel_id < 0) return;
+
+	int num_frames = pmdata[pmodel_id].num_frames;
+	if (num_frames <= 0) return;
+
+	int total_num_verts = pmdata[pmodel_id].num_verts;
+	if (total_num_verts <= 0) return;
+
+	for (int frame_num = 0; frame_num < num_frames; frame_num++) {
+		VERT *frame_verts = pmdata[pmodel_id].w[frame_num];
+		if (!frame_verts) continue;
+
+		SmoothVertArrayNoHash(frame_verts, total_num_verts);
+	}
+}
+
+void SmoothMD2ModelNormals(int pmodel_id) {
+	if (pmodel_id < 0) return;
+
+	int num_frames = pmdata[pmodel_id].num_frames;
+	if (num_frames <= 0) return;
+
+	int num_indices = pmdata[pmodel_id].num_verts; // for MD2 models, num_verts stores total triangle list indices
+	if (num_indices < 3) return;
+
+	int max_v_idx = 0;
+	for (int i = 0; i < num_indices; i++) {
+		if (pmdata[pmodel_id].f[i] > max_v_idx) {
+			max_v_idx = pmdata[pmodel_id].f[i];
+		}
+	}
+	int num_verts = max_v_idx + 1;
+
+	for (int frame_num = 0; frame_num < num_frames; frame_num++) {
+		VERT *frame_verts = pmdata[pmodel_id].w[frame_num];
+		if (!frame_verts) continue;
+
 		SmoothVertArrayNoHash(frame_verts, num_verts);
+	}
+}
+
+void SmoothModelNormals(int pmodel_id) {
+	if (pmodel_id < 0) return;
+
+	if (pmdata[pmodel_id].use_indexed_primitive) {
+		Smooth3DSModelNormals(pmodel_id);
+	} else {
+		SmoothMD2ModelNormals(pmodel_id);
 	}
 }
 

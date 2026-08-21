@@ -245,6 +245,7 @@ BOOL ImportMD2_GLCMD(char *filename, int texture_alias, int pmodel_id, float sca
 	pmdata[pmodel_id].num_frames = header.num_frames;
 	pmdata[pmodel_id].use_indexed_primitive = FALSE;
 
+	ComputeModelNormals(pmodel_id);
 	SmoothModelNormals(pmodel_id);
 
 	return TRUE;
