@@ -283,19 +283,23 @@ void SmoothVertArrayNoHash(VERT *verts, int num_verts) {
 }
 
 void Compute3DSModelNormals(int pmodel_id) {
-	if (pmodel_id < 0) return;
+	if (pmodel_id < 0)
+		return;
 
 	int num_frames = pmdata[pmodel_id].num_frames;
-	if (num_frames <= 0) return;
+	if (num_frames <= 0)
+		return;
 
 	int total_num_verts = pmdata[pmodel_id].num_verts;
 	int num_poly = pmdata[pmodel_id].num_polys_per_frame;
 
-	if (total_num_verts <= 0 || num_poly <= 0) return;
+	if (total_num_verts <= 0 || num_poly <= 0)
+		return;
 
 	for (int frame_num = 0; frame_num < num_frames; frame_num++) {
 		VERT *frame_verts = pmdata[pmodel_id].w[frame_num];
-		if (!frame_verts) continue;
+		if (!frame_verts)
+			continue;
 
 		// 1. Reset vertex normals and tangents to zero
 		for (int v = 0; v < total_num_verts; v++) {
@@ -339,24 +343,39 @@ void Compute3DSModelNormals(int pmodel_id) {
 					tmp2.z = frame_verts[g2].y;
 
 					CalculateVertNormalAndTangent(
-						tmp0, tmp1, tmp2,
-						pmdata[pmodel_id].t[face_i_count + 0],
-						pmdata[pmodel_id].t[face_i_count + 1],
-						pmdata[pmodel_id].t[face_i_count + 2],
-						true
-					);
+					    tmp0, tmp1, tmp2,
+					    pmdata[pmodel_id].t[face_i_count + 0],
+					    pmdata[pmodel_id].t[face_i_count + 1],
+					    pmdata[pmodel_id].t[face_i_count + 2],
+					    true);
 
 					// Negate normal and tangent to ensure outward-pointing vectors for 3DS models
-					tmp0.nx = -tmp0.nx; tmp0.ny = -tmp0.ny; tmp0.nz = -tmp0.nz;
-					tmp0.nmx = -tmp0.nmx; tmp0.nmy = -tmp0.nmy; tmp0.nmz = -tmp0.nmz;
+		/*			tmp0.nx = -tmp0.nx;
+					tmp0.ny = -tmp0.ny;
+					tmp0.nz = -tmp0.nz;
+					tmp0.nmx = -tmp0.nmx;
+					tmp0.nmy = -tmp0.nmy;
+					tmp0.nmz = -tmp0.nmz;*/
 
-					frame_verts[g0].nx += tmp0.nx; frame_verts[g0].ny += tmp0.ny; frame_verts[g0].nz += tmp0.nz;
-					frame_verts[g1].nx += tmp0.nx; frame_verts[g1].ny += tmp0.ny; frame_verts[g1].nz += tmp0.nz;
-					frame_verts[g2].nx += tmp0.nx; frame_verts[g2].ny += tmp0.ny; frame_verts[g2].nz += tmp0.nz;
+					frame_verts[g0].nx += tmp0.nx;
+					frame_verts[g0].ny += tmp0.ny;
+					frame_verts[g0].nz += tmp0.nz;
+					frame_verts[g1].nx += tmp0.nx;
+					frame_verts[g1].ny += tmp0.ny;
+					frame_verts[g1].nz += tmp0.nz;
+					frame_verts[g2].nx += tmp0.nx;
+					frame_verts[g2].ny += tmp0.ny;
+					frame_verts[g2].nz += tmp0.nz;
 
-					frame_verts[g0].nmx += tmp0.nmx; frame_verts[g0].nmy += tmp0.nmy; frame_verts[g0].nmz += tmp0.nmz;
-					frame_verts[g1].nmx += tmp0.nmx; frame_verts[g1].nmy += tmp0.nmy; frame_verts[g1].nmz += tmp0.nmz;
-					frame_verts[g2].nmx += tmp0.nmx; frame_verts[g2].nmy += tmp0.nmy; frame_verts[g2].nmz += tmp0.nmz;
+					frame_verts[g0].nmx += tmp0.nmx;
+					frame_verts[g0].nmy += tmp0.nmy;
+					frame_verts[g0].nmz += tmp0.nmz;
+					frame_verts[g1].nmx += tmp0.nmx;
+					frame_verts[g1].nmy += tmp0.nmy;
+					frame_verts[g1].nmz += tmp0.nmz;
+					frame_verts[g2].nmx += tmp0.nmx;
+					frame_verts[g2].nmy += tmp0.nmy;
+					frame_verts[g2].nmz += tmp0.nmz;
 				}
 
 				face_i_count += 3;
@@ -387,21 +406,28 @@ void Compute3DSModelNormals(int pmodel_id) {
 			XMStoreFloat3(&fN, N);
 			XMStoreFloat3(&fT, T);
 
-			frame_verts[v].nx = fN.x; frame_verts[v].ny = fN.y; frame_verts[v].nz = fN.z;
-			frame_verts[v].nmx = fT.x; frame_verts[v].nmy = fT.y; frame_verts[v].nmz = fT.z;
+			frame_verts[v].nx = fN.x;
+			frame_verts[v].ny = fN.y;
+			frame_verts[v].nz = fN.z;
+			frame_verts[v].nmx = fT.x;
+			frame_verts[v].nmy = fT.y;
+			frame_verts[v].nmz = fT.z;
 		}
 	}
 }
 
 void ComputeMD2ModelNormals(int pmodel_id) {
-	if (pmodel_id < 0) return;
+	if (pmodel_id < 0)
+		return;
 
 	int num_frames = pmdata[pmodel_id].num_frames;
-	if (num_frames <= 0) return;
+	if (num_frames <= 0)
+		return;
 
 	int num_poly = pmdata[pmodel_id].num_polys_per_frame;
 	int num_indices = pmdata[pmodel_id].num_verts; // total face vertex count
-	if (num_poly <= 0 || num_indices < 3) return;
+	if (num_poly <= 0 || num_indices < 3)
+		return;
 
 	int max_v_idx = 0;
 	for (int i = 0; i < num_indices; i++) {
@@ -413,7 +439,8 @@ void ComputeMD2ModelNormals(int pmodel_id) {
 
 	for (int frame_num = 0; frame_num < num_frames; frame_num++) {
 		VERT *frame_verts = pmdata[pmodel_id].w[frame_num];
-		if (!frame_verts) continue;
+		if (!frame_verts)
+			continue;
 
 		// 1. Reset vertex normals and tangents to zero
 		for (int v = 0; v < num_verts; v++) {
@@ -450,20 +477,32 @@ void ComputeMD2ModelNormals(int pmodel_id) {
 					tmp2.z = frame_verts[idx2].y;
 
 					CalculateVertNormalAndTangent(
-						tmp0, tmp1, tmp2,
-						pmdata[pmodel_id].t[i_count + j + 0],
-						pmdata[pmodel_id].t[i_count + j + 1],
-						pmdata[pmodel_id].t[i_count + j + 2],
-						false // flipV is false for MD2 models
+					    tmp0, tmp1, tmp2,
+					    pmdata[pmodel_id].t[i_count + j + 0],
+					    pmdata[pmodel_id].t[i_count + j + 1],
+					    pmdata[pmodel_id].t[i_count + j + 2],
+					    false // flipV is false for MD2 models
 					);
 
-					frame_verts[idx0].nx += tmp0.nx; frame_verts[idx0].ny += tmp0.ny; frame_verts[idx0].nz += tmp0.nz;
-					frame_verts[idx1].nx += tmp0.nx; frame_verts[idx1].ny += tmp0.ny; frame_verts[idx1].nz += tmp0.nz;
-					frame_verts[idx2].nx += tmp0.nx; frame_verts[idx2].ny += tmp0.ny; frame_verts[idx2].nz += tmp0.nz;
+					frame_verts[idx0].nx += tmp0.nx;
+					frame_verts[idx0].ny += tmp0.ny;
+					frame_verts[idx0].nz += tmp0.nz;
+					frame_verts[idx1].nx += tmp0.nx;
+					frame_verts[idx1].ny += tmp0.ny;
+					frame_verts[idx1].nz += tmp0.nz;
+					frame_verts[idx2].nx += tmp0.nx;
+					frame_verts[idx2].ny += tmp0.ny;
+					frame_verts[idx2].nz += tmp0.nz;
 
-					frame_verts[idx0].nmx += tmp0.nmx; frame_verts[idx0].nmy += tmp0.nmy; frame_verts[idx0].nmz += tmp0.nmz;
-					frame_verts[idx1].nmx += tmp0.nmx; frame_verts[idx1].nmy += tmp0.nmy; frame_verts[idx1].nmz += tmp0.nmz;
-					frame_verts[idx2].nmx += tmp0.nmx; frame_verts[idx2].nmy += tmp0.nmy; frame_verts[idx2].nmz += tmp0.nmz;
+					frame_verts[idx0].nmx += tmp0.nmx;
+					frame_verts[idx0].nmy += tmp0.nmy;
+					frame_verts[idx0].nmz += tmp0.nmz;
+					frame_verts[idx1].nmx += tmp0.nmx;
+					frame_verts[idx1].nmy += tmp0.nmy;
+					frame_verts[idx1].nmz += tmp0.nmz;
+					frame_verts[idx2].nmx += tmp0.nmx;
+					frame_verts[idx2].nmy += tmp0.nmy;
+					frame_verts[idx2].nmz += tmp0.nmz;
 				}
 			}
 
@@ -492,14 +531,19 @@ void ComputeMD2ModelNormals(int pmodel_id) {
 			XMStoreFloat3(&fN, N);
 			XMStoreFloat3(&fT, T);
 
-			frame_verts[v].nx = fN.x; frame_verts[v].ny = fN.y; frame_verts[v].nz = fN.z;
-			frame_verts[v].nmx = fT.x; frame_verts[v].nmy = fT.y; frame_verts[v].nmz = fT.z;
+			frame_verts[v].nx = fN.x;
+			frame_verts[v].ny = fN.y;
+			frame_verts[v].nz = fN.z;
+			frame_verts[v].nmx = fT.x;
+			frame_verts[v].nmy = fT.y;
+			frame_verts[v].nmz = fT.z;
 		}
 	}
 }
 
 void ComputeModelNormals(int pmodel_id) {
-	if (pmodel_id < 0) return;
+	if (pmodel_id < 0)
+		return;
 
 	if (pmdata[pmodel_id].use_indexed_primitive) {
 		Compute3DSModelNormals(pmodel_id);
@@ -509,30 +553,37 @@ void ComputeModelNormals(int pmodel_id) {
 }
 
 void Smooth3DSModelNormals(int pmodel_id) {
-	if (pmodel_id < 0) return;
+	if (pmodel_id < 0)
+		return;
 
 	int num_frames = pmdata[pmodel_id].num_frames;
-	if (num_frames <= 0) return;
+	if (num_frames <= 0)
+		return;
 
 	int total_num_verts = pmdata[pmodel_id].num_verts;
-	if (total_num_verts <= 0) return;
+	if (total_num_verts <= 0)
+		return;
 
 	for (int frame_num = 0; frame_num < num_frames; frame_num++) {
 		VERT *frame_verts = pmdata[pmodel_id].w[frame_num];
-		if (!frame_verts) continue;
+		if (!frame_verts)
+			continue;
 
 		SmoothVertArrayNoHash(frame_verts, total_num_verts);
 	}
 }
 
 void SmoothMD2ModelNormals(int pmodel_id) {
-	if (pmodel_id < 0) return;
+	if (pmodel_id < 0)
+		return;
 
 	int num_frames = pmdata[pmodel_id].num_frames;
-	if (num_frames <= 0) return;
+	if (num_frames <= 0)
+		return;
 
 	int num_indices = pmdata[pmodel_id].num_verts; // for MD2 models, num_verts stores total triangle list indices
-	if (num_indices < 3) return;
+	if (num_indices < 3)
+		return;
 
 	int max_v_idx = 0;
 	for (int i = 0; i < num_indices; i++) {
@@ -544,14 +595,16 @@ void SmoothMD2ModelNormals(int pmodel_id) {
 
 	for (int frame_num = 0; frame_num < num_frames; frame_num++) {
 		VERT *frame_verts = pmdata[pmodel_id].w[frame_num];
-		if (!frame_verts) continue;
+		if (!frame_verts)
+			continue;
 
 		SmoothVertArrayNoHash(frame_verts, num_verts);
 	}
 }
 
 void SmoothModelNormals(int pmodel_id) {
-	if (pmodel_id < 0) return;
+	if (pmodel_id < 0)
+		return;
 
 	if (pmdata[pmodel_id].use_indexed_primitive) {
 		Smooth3DSModelNormals(pmodel_id);
@@ -632,11 +685,10 @@ void ObjectToD3DVertList(int ob_type, float angle, int oblist_index) {
 
 		// Rotation matrix for DirectX Math transformation of normals and tangents
 		XMMATRIX rotMat = XMMATRIX(
-			cosine, 0.0f,  sine, 0.0f,
-			  0.0f, 1.0f,  0.0f, 0.0f,
-			 -sine, 0.0f, cosine, 0.0f,
-			  0.0f, 0.0f,  0.0f, 1.0f
-		);
+		    cosine, 0.0f, sine, 0.0f,
+		    0.0f, 1.0f, 0.0f, 0.0f,
+		    -sine, 0.0f, cosine, 0.0f,
+		    0.0f, 0.0f, 0.0f, 1.0f);
 
 		// Vertex transformation and texture coordinates
 		for (int vert_cnt = 0; vert_cnt < num_vert; vert_cnt++) {
@@ -830,22 +882,20 @@ void PlayerToD3DVertList(int pmodel_id, int curr_frame, float angle, int texture
 		int triVertexCounter = 0;
 
 		XMMATRIX rotYaw = XMMATRIX(
-			cosine, 0.0f,  sine, 0.0f,
-			  0.0f, 1.0f,  0.0f, 0.0f,
-			 -sine, 0.0f, cosine, 0.0f,
-			  0.0f, 0.0f,  0.0f, 1.0f
-		);
+		    cosine, 0.0f, sine, 0.0f,
+		    0.0f, 1.0f, 0.0f, 0.0f,
+		    -sine, 0.0f, cosine, 0.0f,
+		    0.0f, 0.0f, 0.0f, 1.0f);
 
 		XMMATRIX rotMat;
 		if (weapondrop == 1 && fDot2 != 0.0f) {
 			const float cp = cosf(fDot2 * k);
 			const float sp = sinf(fDot2 * k);
 			XMMATRIX rotPitch = XMMATRIX(
-				  cp,   -sp,   0.0f, 0.0f,
-				  sp,    cp,   0.0f, 0.0f,
-				0.0f,  0.0f,   1.0f, 0.0f,
-				0.0f,  0.0f,   0.0f, 1.0f
-			);
+			    cp, -sp, 0.0f, 0.0f,
+			    sp, cp, 0.0f, 0.0f,
+			    0.0f, 0.0f, 1.0f, 0.0f,
+			    0.0f, 0.0f, 0.0f, 1.0f);
 			rotMat = rotPitch * rotYaw;
 		} else {
 			rotMat = rotYaw;
@@ -876,14 +926,26 @@ void PlayerToD3DVertList(int pmodel_id, int curr_frame, float angle, int texture
 					nmy = tp->nmy + t * (tpNextFrame->nmy - tp->nmy);
 					nmz = tp->nmz + t * (tpNextFrame->nmz - tp->nmz);
 				} else {
-					x = tp->x; z = tp->y; y = tp->z;
-					nx = tp->nx; ny = tp->ny; nz = tp->nz;
-					nmx = tp->nmx; nmy = tp->nmy; nmz = tp->nmz;
+					x = tp->x;
+					z = tp->y;
+					y = tp->z;
+					nx = tp->nx;
+					ny = tp->ny;
+					nz = tp->nz;
+					nmx = tp->nmx;
+					nmy = tp->nmy;
+					nmz = tp->nmz;
 				}
 			} else {
-				x = tp->x; z = tp->y; y = tp->z;
-				nx = tp->nx; ny = tp->ny; nz = tp->nz;
-				nmx = tp->nmx; nmy = tp->nmy; nmz = tp->nmz;
+				x = tp->x;
+				z = tp->y;
+				y = tp->z;
+				nx = tp->nx;
+				ny = tp->ny;
+				nz = tp->nz;
+				nmx = tp->nmx;
+				nmy = tp->nmy;
+				nmz = tp->nmz;
 			}
 
 			if (weapondrop == 1) {
@@ -1884,7 +1946,6 @@ void DrawItems(float fElapsedTime) {
 	float rotateSpeed = 100.0f * fElapsedTime;
 	const float pickupRiseSpeed = 350.0f; // world units per second
 
-
 	for (int i = 0; i < itemlistcount; i++) {
 		if (item_list[i].bIsPlayerValid == TRUE) {
 			bool pickupFxActive = (item_list[i].attackspeed > 0);
@@ -2036,22 +2097,20 @@ void PlayerToD3DIndexedVertList(int pmodel_id, int curr_frame, float angle, int 
 	const int num_poly = pmdata[pmodel_id].num_polys_per_frame;
 
 	XMMATRIX rotYaw = XMMATRIX(
-		cosine, 0.0f,  sine, 0.0f,
-		  0.0f, 1.0f,  0.0f, 0.0f,
-		 -sine, 0.0f, cosine, 0.0f,
-		  0.0f, 0.0f,  0.0f, 1.0f
-	);
+	    cosine, 0.0f, sine, 0.0f,
+	    0.0f, 1.0f, 0.0f, 0.0f,
+	    -sine, 0.0f, cosine, 0.0f,
+	    0.0f, 0.0f, 0.0f, 1.0f);
 
 	XMMATRIX rotMat;
 	if (fDot2 != 0.0f) {
 		const float cp = cosf(fDot2 * k);
 		const float sp = sinf(fDot2 * k);
 		XMMATRIX rotPitch = XMMATRIX(
-			  cp,   -sp,   0.0f, 0.0f,
-			  sp,    cp,   0.0f, 0.0f,
-			0.0f,  0.0f,   1.0f, 0.0f,
-			0.0f,  0.0f,   0.0f, 1.0f
-		);
+		    cp, -sp, 0.0f, 0.0f,
+		    sp, cp, 0.0f, 0.0f,
+		    0.0f, 0.0f, 1.0f, 0.0f,
+		    0.0f, 0.0f, 0.0f, 1.0f);
 		rotMat = rotPitch * rotYaw;
 	} else {
 		rotMat = rotYaw;

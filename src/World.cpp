@@ -536,7 +536,6 @@ void UpdateWorld(float fElapsedTime) {
 	}
 	playerObjectEnd = number_of_polys_per_frame;
 
-
 	// DrawBoundingBox();
 
 	num_light_sources = 0;
@@ -899,7 +898,6 @@ void display_message(float x, float y, char text[2048], int r, int g, int b, flo
 }
 
 void SmoothNormalsNoHash(int start_cnt);
-
 
 std::wstring charToWChar(const char *text) {
 	const size_t size = strlen(text) + 1;
