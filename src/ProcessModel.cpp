@@ -346,6 +346,10 @@ void Compute3DSModelNormals(int pmodel_id) {
 						true
 					);
 
+					// Negate normal and tangent to ensure outward-pointing vectors for 3DS models
+					tmp0.nx = -tmp0.nx; tmp0.ny = -tmp0.ny; tmp0.nz = -tmp0.nz;
+					tmp0.nmx = -tmp0.nmx; tmp0.nmy = -tmp0.nmy; tmp0.nmz = -tmp0.nmz;
+
 					frame_verts[g0].nx += tmp0.nx; frame_verts[g0].ny += tmp0.ny; frame_verts[g0].nz += tmp0.nz;
 					frame_verts[g1].nx += tmp0.nx; frame_verts[g1].ny += tmp0.ny; frame_verts[g1].nz += tmp0.nz;
 					frame_verts[g2].nx += tmp0.nx; frame_verts[g2].ny += tmp0.ny; frame_verts[g2].nz += tmp0.nz;
