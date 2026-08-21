@@ -519,7 +519,6 @@ CONST float QVALUE = 0.3333333333333f;
 void DrawMonsters();
 void DrawModel();
 void DrawItems(float fElapsedTime);
-void DrawIndexedItems(int fakel, int vert_index);
 void UpdateWorld(float fElapsedTime);
 int random_num(int num);
 void PrintMessage(HWND hwnd, char *message1, char *message2, int message_mode);

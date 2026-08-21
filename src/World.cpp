@@ -536,15 +536,6 @@ void UpdateWorld(float fElapsedTime) {
 	}
 	playerObjectEnd = number_of_polys_per_frame;
 
-	int lsort = 0;
-	for (lsort = 0; lsort < number_of_polys_per_frame; lsort++) {
-		int i = ObjectsToDraw[lsort].vert_index;
-		int vert_index = ObjectsToDraw[lsort].srcstart;
-
-		if (dp_command_index_mode[i] == 0) { // USE_INDEXED_DP
-			DrawIndexedItems(lsort, vert_index);
-		}
-	}
 
 	// DrawBoundingBox();
 
@@ -909,25 +900,6 @@ void display_message(float x, float y, char text[2048], int r, int g, int b, flo
 
 void SmoothNormalsNoHash(int start_cnt);
 
-void DrawIndexedItems(int fakel, int vert_index) {
-	if (dp_command_index_mode[fakel] == 0) // USE_INDEXED_DP
-	{
-		int dwIndexCount = ObjectsToDraw[fakel].facesperpoly * 3;
-		int face_index = ObjectsToDraw[fakel].srcfstart;
-
-		dp_command_index_mode[fakel] = 1;
-		verts_per_poly[fakel] = dwIndexCount;
-		ObjectsToDraw[fakel].srcstart = cnt;
-		ObjectsToDraw[fakel].vertsperpoly = dwIndexCount;
-
-		for (int t = 0; t < dwIndexCount; t++) {
-			int f_index = src_f[face_index + t];
-			src_v[cnt] = src_v[vert_index + f_index];
-			src_v[cnt].CastShadow = 1;
-			cnt++;
-		}
-	}
-}
 
 std::wstring charToWChar(const char *text) {
 	const size_t size = strlen(text) + 1;
