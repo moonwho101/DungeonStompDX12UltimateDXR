@@ -346,6 +346,10 @@ void Compute3DSModelNormals(int pmodel_id) {
 						true
 					);
 
+					// Negate normal and tangent to ensure outward-pointing vectors for 3DS models
+					tmp0.nx = -tmp0.nx; tmp0.ny = -tmp0.ny; tmp0.nz = -tmp0.nz;
+					tmp0.nmx = -tmp0.nmx; tmp0.nmy = -tmp0.nmy; tmp0.nmz = -tmp0.nmz;
+
 					frame_verts[g0].nx += tmp0.nx; frame_verts[g0].ny += tmp0.ny; frame_verts[g0].nz += tmp0.nz;
 					frame_verts[g1].nx += tmp0.nx; frame_verts[g1].ny += tmp0.ny; frame_verts[g1].nz += tmp0.nz;
 					frame_verts[g2].nx += tmp0.nx; frame_verts[g2].ny += tmp0.ny; frame_verts[g2].nz += tmp0.nz;
@@ -2016,34 +2020,20 @@ void DrawItems(float fElapsedTime) {
 }
 
 void PlayerToD3DIndexedVertList(int pmodel_id, int curr_frame, float angle, int texture_alias, int tex_flag, float xt, float yt, float zt, float fDot2) {
-	float qdist = 0.0f;
-
-	int num_poly;
-	int i_count, face_i_count;
-	float x, y, z;
-	float rx, ry, rz;
-	float tx, ty;
-
-	float wx = xt;
-	float wy = yt;
-	float wz = zt;
-
 	if (curr_frame >= pmdata[pmodel_id].num_frames)
 		curr_frame = 0;
 
-	// Use radians once
 	const float cosine = (float)cos(angle * k);
 	const float sine = (float)sin(angle * k);
 
-	i_count = 0;
-	face_i_count = 0;
+	const float wx = xt;
+	const float wy = yt;
+	const float wz = zt;
 
-	num_poly = pmdata[pmodel_id].num_polys_per_frame;
+	int i_count = 0;
+	int face_i_count = 0;
 
-	ObjectsToDraw[number_of_polys_per_frame].srcstart = cnt;
-	ObjectsToDraw[number_of_polys_per_frame].objectId = -1;
-
-	const int start_cnt = cnt;
+	const int num_poly = pmdata[pmodel_id].num_polys_per_frame;
 
 	XMMATRIX rotYaw = XMMATRIX(
 		cosine, 0.0f,  sine, 0.0f,
@@ -2070,112 +2060,99 @@ void PlayerToD3DIndexedVertList(int pmodel_id, int curr_frame, float angle, int 
 	for (int i = 0; i < num_poly; i++) {
 		const int num_verts_per_poly = pmdata[pmodel_id].num_verts_per_object[i];
 		const int num_faces_per_poly = pmdata[pmodel_id].num_faces_per_object[i];
+		const int dwIndexCount = num_faces_per_poly * 3;
 
 		ObjectsToDraw[number_of_polys_per_frame].srcstart = cnt;
+		ObjectsToDraw[number_of_polys_per_frame].objectId = -1;
 
-		for (int j = 0; j < num_verts_per_poly; j++) {
-			// Read source vertex
-			const auto &vert = pmdata[pmodel_id].w[curr_frame][i_count];
-			x = vert.x;
-			z = vert.y;
-			y = vert.z;
+		for (int f = 0; f < num_faces_per_poly; f++) {
+			for (int c = 0; c < 3; c++) {
+				int local_v = pmdata[pmodel_id].f[face_i_count + c];
+				int global_v = i_count + local_v;
 
-			float nx = vert.nx;
-			float ny = vert.ny;
-			float nz = vert.nz;
+				const auto &vert = pmdata[pmodel_id].w[curr_frame][global_v];
+				float x = vert.x;
+				float z = vert.y;
+				float y = vert.z;
 
-			float nmx = vert.nmx;
-			float nmy = vert.nmy;
-			float nmz = vert.nmz;
+				float rx, ry, rz;
 
-			// Apply optional pitch (fDot2) then yaw (angle)
-			if (fDot2 != 0.0f) {
-				float newx = (y * sinf(fDot2 * k) + x * cosf(fDot2 * k));
-				float newy = (y * cosf(fDot2 * k) - x * sinf(fDot2 * k));
-				float newz = z;
+				if (fDot2 != 0.0f) {
+					float newx = (y * sinf(fDot2 * k) + x * cosf(fDot2 * k));
+					float newy = (y * cosf(fDot2 * k) - x * sinf(fDot2 * k));
+					float newz = z;
 
-				// yaw
-				float yawx = (newx * cosine - newz * sine);
-				float yawy = newy;
-				float yawz = (newx * sine + newz * cosine);
+					float yawx = (newx * cosine - newz * sine);
+					float yawy = newy;
+					float yawz = (newx * sine + newz * cosine);
 
-				// roll is 0 in original code path
-				rx = yawx + wx;
-				ry = yawy + wy;
-				rz = yawz + wz;
-			} else {
-				// yaw only
-				rx = (x * cosine - z * sine) + wx;
-				ry = y + wy;
-				rz = (x * sine + z * cosine) + wz;
+					rx = yawx + wx;
+					ry = yawy + wy;
+					rz = yawz + wz;
+				} else {
+					rx = (x * cosine - z * sine) + wx;
+					ry = y + wy;
+					rz = (x * sine + z * cosine) + wz;
+				}
+
+				float tx = pmdata[pmodel_id].t[face_i_count + c].x * pmdata[pmodel_id].skx;
+				float ty = pmdata[pmodel_id].t[face_i_count + c].y * pmdata[pmodel_id].sky;
+				ty = 1.0f - ty;
+
+				src_v[cnt].x = D3DVAL(rx);
+				src_v[cnt].y = D3DVAL(ry);
+				src_v[cnt].z = D3DVAL(rz);
+				src_v[cnt].tu = D3DVAL(tx);
+				src_v[cnt].tv = D3DVAL(ty);
+				src_v[cnt].CastShadow = 1;
+				src_collide[cnt] = 1;
+
+				XMVECTOR nVec = XMVectorSet(vert.nx, vert.ny, vert.nz, 0.0f);
+				XMVECTOR tVec = XMVectorSet(vert.nmx, vert.nmy, vert.nmz, 0.0f);
+
+				XMVECTOR rotN = XMVector3Normalize(XMVector3TransformNormal(nVec, rotMat));
+				XMVECTOR rotT = XMVector3Normalize(XMVector3TransformNormal(tVec, rotMat));
+
+				XMFLOAT3 fn, ft;
+				XMStoreFloat3(&fn, rotN);
+				XMStoreFloat3(&ft, rotT);
+
+				src_v[cnt].nx = fn.x;
+				src_v[cnt].ny = fn.y;
+				src_v[cnt].nz = fn.z;
+
+				src_v[cnt].nmx = ft.x;
+				src_v[cnt].nmy = ft.y;
+				src_v[cnt].nmz = ft.z;
+
+				cnt++;
 			}
-
-			// UVs (v flipped)
-			tx = pmdata[pmodel_id].t[i_count].x * pmdata[pmodel_id].skx;
-			ty = pmdata[pmodel_id].t[i_count].y * pmdata[pmodel_id].sky;
-			ty = 1.0f - ty;
-
-			// Write vertex
-			src_v[cnt].x = D3DVAL(rx);
-			src_v[cnt].y = D3DVAL(ry);
-			src_v[cnt].z = D3DVAL(rz);
-			src_v[cnt].tu = D3DVAL(tx);
-			src_v[cnt].tv = D3DVAL(ty);
-			src_v[cnt].CastShadow = 1;
-			src_collide[cnt] = 1;
-
-			// Transform normal and tangent from model using DirectX Math
-			XMVECTOR nVec = XMVectorSet(nx, ny, nz, 0.0f);
-			XMVECTOR tVec = XMVectorSet(nmx, nmy, nmz, 0.0f);
-
-			XMVECTOR rotN = XMVector3Normalize(XMVector3TransformNormal(nVec, rotMat));
-			XMVECTOR rotT = XMVector3Normalize(XMVector3TransformNormal(tVec, rotMat));
-
-			XMFLOAT3 fn, ft;
-			XMStoreFloat3(&fn, rotN);
-			XMStoreFloat3(&ft, rotT);
-
-			src_v[cnt].nx = fn.x;
-			src_v[cnt].ny = fn.y;
-			src_v[cnt].nz = fn.z;
-
-			src_v[cnt].nmx = ft.x;
-			src_v[cnt].nmy = ft.y;
-			src_v[cnt].nmz = ft.z;
-
-			cnt++;
-			i_count++;
-		} // end for vertices
-
-		ObjectsToDraw[number_of_polys_per_frame].srcfstart = cnt_f;
-
-		// Copy indices for this poly
-		for (int j = 0; j < num_faces_per_poly * 3; j++) {
-			src_f[cnt_f++] = pmdata[pmodel_id].f[face_i_count++];
+			face_i_count += 3;
 		}
 
+		i_count += num_verts_per_poly;
+
+		int ctext = (tex_flag == USE_PLAYERS_SKIN) ? texture_alias : pmdata[pmodel_id].texture_list[i];
+
 		ObjectsToDraw[number_of_polys_per_frame].vert_index = number_of_polys_per_frame;
-		ObjectsToDraw[number_of_polys_per_frame].texture = texture_alias;
-		ObjectsToDraw[number_of_polys_per_frame].vertsperpoly = num_verts_per_poly;
+		ObjectsToDraw[number_of_polys_per_frame].texture = ctext;
+		ObjectsToDraw[number_of_polys_per_frame].vertsperpoly = dwIndexCount;
 		ObjectsToDraw[number_of_polys_per_frame].facesperpoly = num_faces_per_poly;
 
-		verts_per_poly[number_of_polys_per_frame] = num_verts_per_poly;
+		verts_per_poly[number_of_polys_per_frame] = dwIndexCount;
 		faces_per_poly[number_of_polys_per_frame] = num_faces_per_poly;
 
-		dp_command_index_mode[number_of_polys_per_frame] = USE_INDEXED_DP;
+		dp_command_index_mode[number_of_polys_per_frame] = USE_NON_INDEXED_DP;
 		dp_commands[number_of_polys_per_frame] = D3DPT_TRIANGLELIST;
 
 		num_triangles_in_scene += num_faces_per_poly;
-		num_verts_in_scene += num_verts_per_poly;
+		num_verts_in_scene += dwIndexCount;
 		num_dp_commands_in_scene++;
 
-		if (tex_flag == USE_PLAYERS_SKIN)
-			texture_list_buffer[number_of_polys_per_frame] = texture_alias;
-		else
-			texture_list_buffer[number_of_polys_per_frame] = pmdata[pmodel_id].texture_list[i];
+		texture_list_buffer[number_of_polys_per_frame] = ctext;
 
 		number_of_polys_per_frame++;
-	} // end for polys
+	}
 	return;
 }
 

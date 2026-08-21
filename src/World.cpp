@@ -536,35 +536,6 @@ void UpdateWorld(float fElapsedTime) {
 	}
 	playerObjectEnd = number_of_polys_per_frame;
 
-	int lsort = 0;
-	for (lsort = 0; lsort < number_of_polys_per_frame; lsort++) {
-		int i = ObjectsToDraw[lsort].vert_index;
-		int vert_index = ObjectsToDraw[lsort].srcstart;
-		int fperpoly = ObjectsToDraw[lsort].srcfstart;
-		int face_index = ObjectsToDraw[lsort].srcfstart;
-
-		if (dp_command_index_mode[i] == 1) { // USE_NON_INDEXED_DP
-
-		} else {
-			DrawIndexedItems(lsort, vert_index);
-		}
-	}
-
-	// Compact src_v to remove gaps left by indexed item expansion
-	{
-		int compact_cnt = 0;
-		for (int i = 0; i < number_of_polys_per_frame; i++) {
-			int src_start = ObjectsToDraw[i].srcstart;
-			int num_verts = verts_per_poly[i];
-			if (num_verts > 0) {
-				memcpy(&temp_v[compact_cnt], &src_v[src_start], num_verts * sizeof(D3DVERTEX2));
-				ObjectsToDraw[i].srcstart = compact_cnt;
-			}
-			compact_cnt += num_verts;
-		}
-		memcpy(src_v, temp_v, compact_cnt * sizeof(D3DVERTEX2));
-		cnt = compact_cnt;
-	}
 
 	// DrawBoundingBox();
 
@@ -929,59 +900,6 @@ void display_message(float x, float y, char text[2048], int r, int g, int b, flo
 
 void SmoothNormalsNoHash(int start_cnt);
 
-void DrawIndexedItems(int fakel, int vert_index) {
-	if (dp_command_index_mode[fakel] == 0) // USE_INDEXED_DP
-	{
-		int dwIndexCount = ObjectsToDraw[fakel].facesperpoly * 3;
-		int face_index = ObjectsToDraw[fakel].srcfstart;
-
-		dp_command_index_mode[fakel] = 1;
-		verts_per_poly[fakel] = dwIndexCount;
-		ObjectsToDraw[fakel].srcstart = cnt;
-		ObjectsToDraw[fakel].vertsperpoly = dwIndexCount;
-
-		for (int t = 0; t < dwIndexCount; t++) {
-			int f_index = src_f[face_index + t];
-			temp_v[t] = src_v[vert_index + f_index];
-		}
-
-		for (int j = 0; j < dwIndexCount; j += 3) {
-			float lenSqN = temp_v[j].nx * temp_v[j].nx + temp_v[j].ny * temp_v[j].ny + temp_v[j].nz * temp_v[j].nz;
-			if (lenSqN < 0.00001f) {
-				XMFLOAT3 vw1 = { temp_v[j].x, temp_v[j].y, temp_v[j].z };
-				XMFLOAT3 vw2 = { temp_v[j + 1].x, temp_v[j + 1].y, temp_v[j + 1].z };
-				XMFLOAT3 vw3 = { temp_v[j + 2].x, temp_v[j + 2].y, temp_v[j + 2].z };
-
-				XMVECTOR vDiff = XMLoadFloat3(&vw1) - XMLoadFloat3(&vw2);
-				XMVECTOR vDiff2 = XMLoadFloat3(&vw3) - XMLoadFloat3(&vw2);
-				XMVECTOR vCross = XMVector3Cross(vDiff, vDiff2);
-				XMVECTOR finalN = XMVector3Normalize(vCross);
-
-				XMFLOAT3 fn;
-				XMStoreFloat3(&fn, finalN);
-
-				float workx = -fn.x;
-				float worky = -fn.y;
-				float workz = -fn.z;
-
-				temp_v[j].nx = temp_v[j + 1].nx = temp_v[j + 2].nx = workx;
-				temp_v[j].ny = temp_v[j + 1].ny = temp_v[j + 2].ny = worky;
-				temp_v[j].nz = temp_v[j + 1].nz = temp_v[j + 2].nz = workz;
-			}
-
-			float lenSqT = temp_v[j].nmx * temp_v[j].nmx + temp_v[j].nmy * temp_v[j].nmy + temp_v[j].nmz * temp_v[j].nmz;
-			if (lenSqT < 0.00001f) {
-				CalculateTangentBinormal(temp_v[j], temp_v[j + 1], temp_v[j + 2]);
-			}
-		}
-
-		for (int j = 0; j < dwIndexCount; j++) {
-			src_v[cnt] = temp_v[j];
-			src_v[cnt].CastShadow = 1;
-			cnt++;
-		}
-	}
-}
 
 std::wstring charToWChar(const char *text) {
 	const size_t size = strlen(text) + 1;

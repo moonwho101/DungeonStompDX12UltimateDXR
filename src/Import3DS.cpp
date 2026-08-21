@@ -712,21 +712,38 @@ BOOL Import3DS(char *filename, int pmodel_id, float scale) {
 			pmdata[pmodel_id].w[frame_num][i].x = tx;
 			pmdata[pmodel_id].w[frame_num][i].y = ty;
 			pmdata[pmodel_id].w[frame_num][i].z = tz;
+			pmdata[pmodel_id].w[frame_num][i].tu = mcoords[i].x;
+			pmdata[pmodel_id].w[frame_num][i].tv = mcoords[i].y;
 		}
 	}
 
 	//	fclose(fp_3dsmodel);
 
 	cnt = 0;
+	int face_idx = 0;
 
-	for (i = 0; i < total_num_faces; i++) {
-		for (j = 0; j < 3; j++) {
-			pmdata[pmodel_id].f[cnt] = faces[i].v[j];
+	for (i = 0; i < total_num_objects; i++) {
+		int v_start = oblistitem[i].verts_start;
+		int num_faces_obj = num_faces_in_object[i];
 
-			pmdata[pmodel_id].t[cnt].x = mcoords[cnt].x;
-			pmdata[pmodel_id].t[cnt].y = mcoords[cnt].y;
+		for (int f = 0; f < num_faces_obj; f++) {
+			for (j = 0; j < 3; j++) {
+				int local_v = faces[face_idx].v[j];
+				int global_v = v_start + local_v;
 
-			cnt++;
+				pmdata[pmodel_id].f[cnt] = local_v;
+
+				if (global_v >= 0 && global_v < total_num_verts) {
+					pmdata[pmodel_id].t[cnt].x = mcoords[global_v].x;
+					pmdata[pmodel_id].t[cnt].y = mcoords[global_v].y;
+				} else {
+					pmdata[pmodel_id].t[cnt].x = 0.0f;
+					pmdata[pmodel_id].t[cnt].y = 0.0f;
+				}
+
+				cnt++;
+			}
+			face_idx++;
 		}
 	}
 
