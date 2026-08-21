@@ -217,10 +217,9 @@ void CalculateVertNormalAndTangent(VERT &vertex1, VERT &vertex2, VERT &vertex3, 
 	vertex1.nmz = vertex2.nmz = vertex3.nmz = tanZ;
 }
 
-void SmoothVertArrayNoHash(VERT *verts, int num_verts) {
+void SmoothVertArrayNoHash(VERT *verts, int num_verts, float smooth_threshold) {
 	const float epsilon = 0.0001f;
-	const float smooth_threshold = 0.4f;
-
+	
 	std::vector<uint8_t> tracked(num_verts, 0);
 
 	for (int i = 0; i < num_verts; i++) {
@@ -558,7 +557,7 @@ void Smooth3DSModelNormals(int pmodel_id) {
 		if (!frame_verts)
 			continue;
 
-		SmoothVertArrayNoHash(frame_verts, total_num_verts);
+		SmoothVertArrayNoHash(frame_verts, total_num_verts,0.6f);
 	}
 }
 
@@ -587,7 +586,7 @@ void SmoothMD2ModelNormals(int pmodel_id) {
 		if (!frame_verts)
 			continue;
 
-		SmoothVertArrayNoHash(frame_verts, num_verts);
+		SmoothVertArrayNoHash(frame_verts, num_verts, 0.2f);
 	}
 }
 
