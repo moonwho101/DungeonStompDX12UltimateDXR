@@ -1024,7 +1024,7 @@ void DrawIndexedItems(int fakel, int vert_index) {
 
 			cnt++;
 		}
-		SmoothNormals(start_cnt);
+		SmoothNormalsNoHash(start_cnt);
 	}
 }
 
