@@ -342,7 +342,7 @@ void ObjectToD3DVertList(int ob_type, float angle, int oblist_index) {
 			XMVECTOR tanVec = XMVectorSet(v_src.nmx, v_src.nmy, v_src.nmz, 0.0f);
 			XMVECTOR rotTan = XMVector3TransformNormal(tanVec, rotMatrix);
 			if (XMVectorGetX(XMVector3LengthSq(rotTan)) > 0.00001f) {
-				rotTan = XMVector3Normalize(rotTan);
+				rotTan = XMVector3Normalize(XMVectorSubtract(rotTan, XMVectorMultiply(rotNorm, XMVector3Dot(rotNorm, rotTan))));
 			}
 			XMFLOAT3 ft;
 			XMStoreFloat3(&ft, rotTan);
@@ -604,7 +604,7 @@ void PlayerToD3DVertList(int pmodel_id, int curr_frame, float angle, int texture
 
 			XMVECTOR rotTan = XMVector3TransformNormal(tanVec, rotMat);
 			if (XMVectorGetX(XMVector3LengthSq(rotTan)) > 0.00001f) {
-				rotTan = XMVector3Normalize(rotTan);
+				rotTan = XMVector3Normalize(XMVectorSubtract(rotTan, XMVectorMultiply(rotNorm, XMVector3Dot(rotNorm, rotTan))));
 			}
 			XMFLOAT3 ft;
 			XMStoreFloat3(&ft, rotTan);
@@ -1803,7 +1803,7 @@ void PlayerToD3DIndexedVertList(int pmodel_id, int curr_frame, float angle, int 
 
 			XMVECTOR rotTan = XMVector3TransformNormal(tanVec, rotMat);
 			if (XMVectorGetX(XMVector3LengthSq(rotTan)) > 0.00001f) {
-				rotTan = XMVector3Normalize(rotTan);
+				rotTan = XMVector3Normalize(XMVectorSubtract(rotTan, XMVectorMultiply(rotNorm, XMVector3Dot(rotNorm, rotTan))));
 			}
 			XMFLOAT3 ft;
 			XMStoreFloat3(&ft, rotTan);
