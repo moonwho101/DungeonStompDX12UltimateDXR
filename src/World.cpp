@@ -945,6 +945,36 @@ void DrawIndexedItems(int fakel, int vert_index) {
 			temp_v[t] = src_v[vert_index + f_index];
 		}
 
+		for (int j = 0; j < dwIndexCount; j += 3) {
+			float lenSqN = temp_v[j].nx * temp_v[j].nx + temp_v[j].ny * temp_v[j].ny + temp_v[j].nz * temp_v[j].nz;
+			if (lenSqN < 0.00001f) {
+				XMFLOAT3 vw1 = { temp_v[j].x, temp_v[j].y, temp_v[j].z };
+				XMFLOAT3 vw2 = { temp_v[j + 1].x, temp_v[j + 1].y, temp_v[j + 1].z };
+				XMFLOAT3 vw3 = { temp_v[j + 2].x, temp_v[j + 2].y, temp_v[j + 2].z };
+
+				XMVECTOR vDiff = XMLoadFloat3(&vw1) - XMLoadFloat3(&vw2);
+				XMVECTOR vDiff2 = XMLoadFloat3(&vw3) - XMLoadFloat3(&vw2);
+				XMVECTOR vCross = XMVector3Cross(vDiff, vDiff2);
+				XMVECTOR finalN = XMVector3Normalize(vCross);
+
+				XMFLOAT3 fn;
+				XMStoreFloat3(&fn, finalN);
+
+				float workx = -fn.x;
+				float worky = -fn.y;
+				float workz = -fn.z;
+
+				temp_v[j].nx = temp_v[j + 1].nx = temp_v[j + 2].nx = workx;
+				temp_v[j].ny = temp_v[j + 1].ny = temp_v[j + 2].ny = worky;
+				temp_v[j].nz = temp_v[j + 1].nz = temp_v[j + 2].nz = workz;
+			}
+
+			float lenSqT = temp_v[j].nmx * temp_v[j].nmx + temp_v[j].nmy * temp_v[j].nmy + temp_v[j].nmz * temp_v[j].nmz;
+			if (lenSqT < 0.00001f) {
+				CalculateTangentBinormal(temp_v[j], temp_v[j + 1], temp_v[j + 2]);
+			}
+		}
+
 		for (int j = 0; j < dwIndexCount; j++) {
 			src_v[cnt] = temp_v[j];
 			src_v[cnt].CastShadow = 1;
