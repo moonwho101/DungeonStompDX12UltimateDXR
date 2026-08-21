@@ -73,6 +73,7 @@ typedef struct vert_typ {
 	float z;
 	float nx, ny, nz;
 	float nmx, nmy, nmz;
+	float tu, tv;
 
 } VERT, *vert_ptr;
 

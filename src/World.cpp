@@ -540,30 +540,10 @@ void UpdateWorld(float fElapsedTime) {
 	for (lsort = 0; lsort < number_of_polys_per_frame; lsort++) {
 		int i = ObjectsToDraw[lsort].vert_index;
 		int vert_index = ObjectsToDraw[lsort].srcstart;
-		int fperpoly = ObjectsToDraw[lsort].srcfstart;
-		int face_index = ObjectsToDraw[lsort].srcfstart;
 
-		if (dp_command_index_mode[i] == 1) { // USE_NON_INDEXED_DP
-
-		} else {
+		if (dp_command_index_mode[i] == 0) { // USE_INDEXED_DP
 			DrawIndexedItems(lsort, vert_index);
 		}
-	}
-
-	// Compact src_v to remove gaps left by indexed item expansion
-	{
-		int compact_cnt = 0;
-		for (int i = 0; i < number_of_polys_per_frame; i++) {
-			int src_start = ObjectsToDraw[i].srcstart;
-			int num_verts = verts_per_poly[i];
-			if (num_verts > 0) {
-				memcpy(&temp_v[compact_cnt], &src_v[src_start], num_verts * sizeof(D3DVERTEX2));
-				ObjectsToDraw[i].srcstart = compact_cnt;
-			}
-			compact_cnt += num_verts;
-		}
-		memcpy(src_v, temp_v, compact_cnt * sizeof(D3DVERTEX2));
-		cnt = compact_cnt;
 	}
 
 	// DrawBoundingBox();
