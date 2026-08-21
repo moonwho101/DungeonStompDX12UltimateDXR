@@ -681,6 +681,15 @@ BOOL CLoadWorld::LoadObjectData(char *filename) {
 			obdata[object_id].tex[poly_count] = texture;
 			obdata[object_id].num_vert[poly_count] = 3;
 			obdata[object_id].poly_cmd[poly_count] = D3DPT_TRIANGLELIST; // POLY_CMD_TRI;
+
+			obdata[object_id].t[vert_count + 0].x = TexMap[texture].tu[0];
+			obdata[object_id].t[vert_count + 0].y = TexMap[texture].tv[0];
+			obdata[object_id].t[vert_count + 1].x = TexMap[texture].tu[1];
+			obdata[object_id].t[vert_count + 1].y = TexMap[texture].tv[1];
+			obdata[object_id].t[vert_count + 2].x = TexMap[texture].tu[2];
+			obdata[object_id].t[vert_count + 2].y = TexMap[texture].tv[2];
+
+
 			poly_count++;
 			command_error = FALSE;
 		}
