@@ -949,79 +949,12 @@ void DrawIndexedItems(int fakel, int vert_index) {
 		ObjectsToDraw[fakel].srcstart = cnt;
 		ObjectsToDraw[fakel].vertsperpoly = dwIndexCount;
 
-		for (int t = 0; t < (int)dwIndexCount; t++) {
-			int f_index = src_f[face_index + t];
-			memset(&temp_v[t], 0, sizeof(D3DVERTEX2));
-			memcpy(&temp_v[t], &src_v[vert_index + f_index],
-			       sizeof(D3DVERTEX2));
-		}
-
-		int counttri = 0;
-
-		for (int t = 0; t < (int)dwIndexCount; t++) {
-			if (counttri == 0) {
-
-				vw1.x = temp_v[t].x;
-				vw1.y = temp_v[t].y;
-				vw1.z = temp_v[t].z;
-
-				vw2.x = temp_v[t + 1].x;
-				vw2.y = temp_v[t + 1].y;
-				vw2.z = temp_v[t + 1].z;
-
-				vw3.x = temp_v[t + 2].x;
-				vw3.y = temp_v[t + 2].y;
-				vw3.z = temp_v[t + 2].z;
-
-				CalculateTangentBinormal(temp_v[t], temp_v[t + 1], temp_v[t + 2]);
-
-				// calculate the NORMAL for the road using the CrossProduct <-important!
-
-				XMVECTOR vDiff = XMLoadFloat3(&vw1) - XMLoadFloat3(&vw2);
-				XMVECTOR vDiff2 = XMLoadFloat3(&vw3) - XMLoadFloat3(&vw2);
-
-				XMVECTOR vCross, final;
-				vCross = XMVector3Cross(vDiff, vDiff2);
-				final = XMVector3Normalize(vCross);
-				XMFLOAT3 final2;
-				XMStoreFloat3(&final2, final);
-
-				workx = -final2.x;
-				worky = -final2.y;
-				workz = -final2.z;
-
-				workx = -final2.x;
-				worky = -final2.y;
-				workz = -final2.z;
-			}
-
-			counttri++;
-			if (counttri > 2) {
-				counttri = 0;
-			}
-
-			temp_v[t].nx = workx;
-			temp_v[t].ny = worky;
-			temp_v[t].nz = workz;
-		}
-
 		int start_cnt = cnt;
 
-		for (int j = 0; j < dwIndexCount; j++) {
-			src_v[cnt].x = temp_v[j].x;
-			src_v[cnt].y = temp_v[j].y;
-			src_v[cnt].z = temp_v[j].z;
-			src_v[cnt].tu = temp_v[j].tu;
-			src_v[cnt].tv = temp_v[j].tv;
-			src_v[cnt].nx = temp_v[j].nx;
-			src_v[cnt].ny = temp_v[j].ny;
-			src_v[cnt].nz = temp_v[j].nz;
-
-			src_v[cnt].nmx = temp_v[j].nmx;
-			src_v[cnt].nmy = temp_v[j].nmy;
-			src_v[cnt].nmz = temp_v[j].nmz;
-			src_v[cnt].CastShadow =1;
-
+		for (int t = 0; t < (int)dwIndexCount; t++) {
+			int f_index = src_f[face_index + t];
+			src_v[cnt] = src_v[vert_index + f_index];
+			src_v[cnt].CastShadow = 1;
 			cnt++;
 		}
 		SmoothNormals(start_cnt);
