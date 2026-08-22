@@ -150,7 +150,7 @@ void CalculateTangentBinormal(D3DVERTEX2 &vertex1, D3DVERTEX2 &vertex2, D3DVERTE
 	vertex1.nmz = vertex2.nmz = vertex3.nmz = tangent.z;
 }
 
-void CalculateVertNormalAndTangent(VERT &vertex1, VERT &vertex2, VERT &vertex3, const VERT &tex1, const VERT &tex2, const VERT &tex3, bool flipV) {
+void CalculateVertNormalAndTangent(VERT &vertex1, VERT &vertex2, VERT &vertex3, const VERT &tex1, const VERT &tex2, const VERT &tex3) {
 	float vector1[3], vector2[3];
 	float tuVector[2], tvVector[2];
 
@@ -176,21 +176,21 @@ void CalculateVertNormalAndTangent(VERT &vertex1, VERT &vertex2, VERT &vertex3, 
 	} else {
 		nx = ny = nz = 0.0f;
 	}
-
+	
 	vertex1.nx = vertex2.nx = vertex3.nx = nx;
 	vertex1.ny = vertex2.ny = vertex3.ny = ny;
 	vertex1.nz = vertex2.nz = vertex3.nz = nz;
 
 	// Calculate texture space vectors
 	tuVector[0] = tex2.x - tex1.x;
-	tvVector[0] = flipV ? (-(tex2.y - tex1.y)) : (tex2.y - tex1.y);
+	tvVector[0] = -(tex2.y - tex1.y);
 
 	tuVector[1] = tex3.x - tex1.x;
-	tvVector[1] = flipV ? (-(tex3.y - tex1.y)) : (tex3.y - tex1.y);
+	tvVector[1] = -(tex3.y - tex1.y);
 
 	float result = (tuVector[0] * tvVector[1] - tuVector[1] * tvVector[0]);
 
-	if (fabs(result) < 1e-6f) {
+	if (fabs(result) < 1e-9f) {
 		// Pick ANY vector not parallel to the normal
 		float ax = (fabs(nx) > 0.9f) ? 0.0f : 1.0f;
 		float ay = 0.0f;
@@ -208,9 +208,9 @@ void CalculateVertNormalAndTangent(VERT &vertex1, VERT &vertex2, VERT &vertex3, 
 			tanZ /= len;
 		}
 
-		vertex1.nmx = vertex2.nmx = vertex3.nmx = tanX;
-		vertex1.nmy = vertex2.nmy = vertex3.nmy = tanY;
-		vertex1.nmz = vertex2.nmz = vertex3.nmz = tanZ;
+		vertex1.nmx = vertex2.nmx = vertex3.nmx = 0;
+		vertex1.nmy = vertex2.nmy = vertex3.nmy = 0;
+		vertex1.nmz = vertex2.nmz = vertex3.nmz = 0;
 		return;
 	}
 
@@ -369,8 +369,7 @@ void Compute3DSModelNormals(int pmodel_id) {
 					    tmp0, tmp1, tmp2,
 					    pmdata[pmodel_id].t[face_i_count + 0],
 					    pmdata[pmodel_id].t[face_i_count + 1],
-					    pmdata[pmodel_id].t[face_i_count + 2],
-					    true);
+					    pmdata[pmodel_id].t[face_i_count + 2]);
 
 					
 
@@ -468,8 +467,7 @@ void ComputeMD2ModelNormals(int pmodel_id) {
 					    tmp0, tmp1, tmp2,
 					    pmdata[pmodel_id].t[i_count + j + 0],
 					    pmdata[pmodel_id].t[i_count + j + 1],
-					    pmdata[pmodel_id].t[i_count + j + 2],
-					    false // flipV is false for MD2 models
+					    pmdata[pmodel_id].t[i_count + j + 2]
 					);
 
 					// Assign directly to each vertex of this triangle (no smoothing accumulation)
