@@ -372,7 +372,13 @@ void Compute3DSModelNormals(int pmodel_id) {
 					    pmdata[pmodel_id].t[face_i_count + 2],
 					    true);
 
-					
+					// Negate normal and tangent vectors to account for 3DS face winding order
+					tmp0.nx = -tmp0.nx;
+					tmp0.ny = -tmp0.ny;
+					tmp0.nz = -tmp0.nz;
+					tmp0.nmx = -tmp0.nmx;
+					tmp0.nmy = -tmp0.nmy;
+					tmp0.nmz = -tmp0.nmz;
 
 					// Assign directly to each vertex of this triangle (no smoothing accumulation)
 					frame_verts[g0].nx = tmp0.nx;
