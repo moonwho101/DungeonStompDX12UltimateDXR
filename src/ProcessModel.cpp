@@ -190,7 +190,7 @@ void CalculateVertNormalAndTangent(VERT &vertex1, VERT &vertex2, VERT &vertex3, 
 
 	float result = (tuVector[0] * tvVector[1] - tuVector[1] * tvVector[0]);
 
-	if (fabs(result) < 1e-9f) {
+	if (fabs(result) < 1e-6f) {
 		// Pick ANY vector not parallel to the normal
 		float ax = (fabs(nx) > 0.9f) ? 0.0f : 1.0f;
 		float ay = 0.0f;
