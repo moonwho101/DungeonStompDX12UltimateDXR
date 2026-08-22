@@ -203,6 +203,12 @@ void CalculateVertNormalAndTangent(VERT &vertex1, VERT &vertex2, VERT &vertex3, 
 	float tanY = (tvVector[1] * vector1[1] - tvVector[0] * vector2[1]) * den;
 	float tanZ = (tvVector[1] * vector1[2] - tvVector[0] * vector2[2]) * den;
 
+	// Gram-Schmidt orthogonalization: ensure Tangent is orthogonal to Normal
+	float dot = tanX * nx + tanY * ny + tanZ * nz;
+	tanX -= nx * dot;
+	tanY -= ny * dot;
+	tanZ -= nz * dot;
+
 	length = sqrtf(tanX * tanX + tanY * tanY + tanZ * tanZ);
 	if (length > 0.00001f) {
 		tanX /= length;
