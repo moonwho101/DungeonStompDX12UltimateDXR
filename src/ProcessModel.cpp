@@ -550,17 +550,6 @@ void SmoothMD2ModelNormals(int pmodel_id) {
 	}
 }
 
-void SmoothModelNormals(int pmodel_id) {
-	if (pmodel_id < 0)
-		return;
-
-	if (pmdata[pmodel_id].use_indexed_primitive) {
-		Smooth3DSModelNormals(pmodel_id);
-	} else {
-		SmoothMD2ModelNormals(pmodel_id);
-	}
-}
-
 bool ObjectHasShadow(int object_id) {
 
 	if (object_id == -99 || object_id == -111 || object_id == -1) {

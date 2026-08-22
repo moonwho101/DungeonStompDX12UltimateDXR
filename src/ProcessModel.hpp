@@ -35,7 +35,7 @@ void ObjectToD3DVertList(int ob_type, float angle, int oblist_index);
 
 void Compute3DSModelNormals(int pmodel_id);
 void ComputeMD2ModelNormals(int pmodel_id);
-void SmoothModelNormals(int pmodel_id);
+
 void Smooth3DSModelNormals(int pmodel_id);
 void SmoothMD2ModelNormals(int pmodel_id);
 
