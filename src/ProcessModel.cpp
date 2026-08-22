@@ -374,26 +374,26 @@ void Compute3DSModelNormals(int pmodel_id) {
 
 					
 
-					// Assign directly to each vertex of this triangle (no smoothing accumulation)
-					frame_verts[g0].nx = tmp0.nx;
-					frame_verts[g0].ny = tmp0.ny;
-					frame_verts[g0].nz = tmp0.nz;
-					frame_verts[g1].nx = tmp0.nx;
-					frame_verts[g1].ny = tmp0.ny;
-					frame_verts[g1].nz = tmp0.nz;
-					frame_verts[g2].nx = tmp0.nx;
-					frame_verts[g2].ny = tmp0.ny;
-					frame_verts[g2].nz = tmp0.nz;
+					// Assign directly to each vertex of this triangle (negated to account for 3DS winding order)
+					frame_verts[g0].nx = -tmp0.nx;
+					frame_verts[g0].ny = -tmp0.ny;
+					frame_verts[g0].nz = -tmp0.nz;
+					frame_verts[g1].nx = -tmp0.nx;
+					frame_verts[g1].ny = -tmp0.ny;
+					frame_verts[g1].nz = -tmp0.nz;
+					frame_verts[g2].nx = -tmp0.nx;
+					frame_verts[g2].ny = -tmp0.ny;
+					frame_verts[g2].nz = -tmp0.nz;
 
-					frame_verts[g0].nmx = tmp0.nmx;
-					frame_verts[g0].nmy = tmp0.nmy;
-					frame_verts[g0].nmz = tmp0.nmz;
-					frame_verts[g1].nmx = tmp0.nmx;
-					frame_verts[g1].nmy = tmp0.nmy;
-					frame_verts[g1].nmz = tmp0.nmz;
-					frame_verts[g2].nmx = tmp0.nmx;
-					frame_verts[g2].nmy = tmp0.nmy;
-					frame_verts[g2].nmz = tmp0.nmz;
+					frame_verts[g0].nmx = -tmp0.nmx;
+					frame_verts[g0].nmy = -tmp0.nmy;
+					frame_verts[g0].nmz = -tmp0.nmz;
+					frame_verts[g1].nmx = -tmp0.nmx;
+					frame_verts[g1].nmy = -tmp0.nmy;
+					frame_verts[g1].nmz = -tmp0.nmz;
+					frame_verts[g2].nmx = -tmp0.nmx;
+					frame_verts[g2].nmy = -tmp0.nmy;
+					frame_verts[g2].nmz = -tmp0.nmz;
 				}
 
 				face_i_count += 3;
