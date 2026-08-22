@@ -190,12 +190,30 @@ void CalculateVertNormalAndTangent(VERT &vertex1, VERT &vertex2, VERT &vertex3, 
 
 	float result = (tuVector[0] * tvVector[1] - tuVector[1] * tvVector[0]);
 
-	if (result == 0.0f) {
-		vertex1.nmx = vertex2.nmx = vertex3.nmx = 0.0f;
-		vertex1.nmy = vertex2.nmy = vertex3.nmy = 0.0f;
-		vertex1.nmz = vertex2.nmz = vertex3.nmz = 0.0f;
+	if (fabs(result) < 1e-6f) {
+		// Pick ANY vector not parallel to the normal
+		float ax = (fabs(nx) > 0.9f) ? 0.0f : 1.0f;
+		float ay = 0.0f;
+		float az = (fabs(nz) > 0.9f) ? 0.0f : 1.0f;
+
+		// Cross to get a tangent perpendicular to the normal
+		float tanX = ay * nz - az * ny;
+		float tanY = az * nx - ax * nz;
+		float tanZ = ax * ny - ay * nx;
+
+		float len = sqrtf(tanX * tanX + tanY * tanY + tanZ * tanZ);
+		if (len > 0.00001f) {
+			tanX /= len;
+			tanY /= len;
+			tanZ /= len;
+		}
+
+		vertex1.nmx = vertex2.nmx = vertex3.nmx = tanX;
+		vertex1.nmy = vertex2.nmy = vertex3.nmy = tanY;
+		vertex1.nmz = vertex2.nmz = vertex3.nmz = tanZ;
 		return;
 	}
+
 
 	float den = 1.0f / result;
 
@@ -354,13 +372,7 @@ void Compute3DSModelNormals(int pmodel_id) {
 					    pmdata[pmodel_id].t[face_i_count + 2],
 					    true);
 
-					// Negate normal and tangent to ensure outward-pointing vectors for 3DS models
-					tmp0.nx = -tmp0.nx;
-					tmp0.ny = -tmp0.ny;
-					tmp0.nz = -tmp0.nz;
-					tmp0.nmx = -tmp0.nmx;
-					tmp0.nmy = -tmp0.nmy;
-					tmp0.nmz = -tmp0.nmz;
+					
 
 					// Assign directly to each vertex of this triangle (no smoothing accumulation)
 					frame_verts[g0].nx = tmp0.nx;
