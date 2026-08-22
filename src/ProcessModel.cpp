@@ -203,6 +203,12 @@ void CalculateVertNormalAndTangent(VERT &vertex1, VERT &vertex2, VERT &vertex3, 
 	float tanY = (tvVector[1] * vector1[1] - tvVector[0] * vector2[1]) * den;
 	float tanZ = (tvVector[1] * vector1[2] - tvVector[0] * vector2[2]) * den;
 
+	// Gram-Schmidt orthogonalization: ensure Tangent is orthogonal to Normal
+	float dot = tanX * nx + tanY * ny + tanZ * nz;
+	tanX -= nx * dot;
+	tanY -= ny * dot;
+	tanZ -= nz * dot;
+
 	length = sqrtf(tanX * tanX + tanY * tanY + tanZ * tanZ);
 	if (length > 0.00001f) {
 		tanX /= length;
@@ -306,7 +312,7 @@ void Compute3DSModelNormals(int pmodel_id) {
 			frame_verts[v].nmx = frame_verts[v].nmy = frame_verts[v].nmz = 0.0f;
 		}
 
-		// 2. Accumulate face normals and tangents per object matching PlayerToD3DIndexedVertList pattern
+		// 2. Compute face normals and tangents per object and assign directly (no smoothing accumulation)
 		int v_start = 0;
 		int face_i_count = 0;
 
@@ -319,13 +325,13 @@ void Compute3DSModelNormals(int pmodel_id) {
 				int idx1 = pmdata[pmodel_id].f[face_i_count + 1];
 				int idx2 = pmdata[pmodel_id].f[face_i_count + 2];
 
-				if (idx0 >= 0 && idx0 < num_verts_per_poly &&
-				    idx1 >= 0 && idx1 < num_verts_per_poly &&
-				    idx2 >= 0 && idx2 < num_verts_per_poly) {
+				int g0 = v_start + idx0;
+				int g1 = v_start + idx1;
+				int g2 = v_start + idx2;
 
-					int g0 = v_start + idx0;
-					int g1 = v_start + idx1;
-					int g2 = v_start + idx2;
+				if (g0 >= 0 && g0 < total_num_verts &&
+				    g1 >= 0 && g1 < total_num_verts &&
+				    g2 >= 0 && g2 < total_num_verts) {
 
 					VERT tmp0, tmp1, tmp2;
 
@@ -349,68 +355,39 @@ void Compute3DSModelNormals(int pmodel_id) {
 					    true);
 
 					// Negate normal and tangent to ensure outward-pointing vectors for 3DS models
-		/*			tmp0.nx = -tmp0.nx;
+					tmp0.nx = -tmp0.nx;
 					tmp0.ny = -tmp0.ny;
 					tmp0.nz = -tmp0.nz;
 					tmp0.nmx = -tmp0.nmx;
 					tmp0.nmy = -tmp0.nmy;
-					tmp0.nmz = -tmp0.nmz;*/
+					tmp0.nmz = -tmp0.nmz;
 
-					frame_verts[g0].nx += tmp0.nx;
-					frame_verts[g0].ny += tmp0.ny;
-					frame_verts[g0].nz += tmp0.nz;
-					frame_verts[g1].nx += tmp0.nx;
-					frame_verts[g1].ny += tmp0.ny;
-					frame_verts[g1].nz += tmp0.nz;
-					frame_verts[g2].nx += tmp0.nx;
-					frame_verts[g2].ny += tmp0.ny;
-					frame_verts[g2].nz += tmp0.nz;
+					// Assign directly to each vertex of this triangle (no smoothing accumulation)
+					frame_verts[g0].nx = tmp0.nx;
+					frame_verts[g0].ny = tmp0.ny;
+					frame_verts[g0].nz = tmp0.nz;
+					frame_verts[g1].nx = tmp0.nx;
+					frame_verts[g1].ny = tmp0.ny;
+					frame_verts[g1].nz = tmp0.nz;
+					frame_verts[g2].nx = tmp0.nx;
+					frame_verts[g2].ny = tmp0.ny;
+					frame_verts[g2].nz = tmp0.nz;
 
-					frame_verts[g0].nmx += tmp0.nmx;
-					frame_verts[g0].nmy += tmp0.nmy;
-					frame_verts[g0].nmz += tmp0.nmz;
-					frame_verts[g1].nmx += tmp0.nmx;
-					frame_verts[g1].nmy += tmp0.nmy;
-					frame_verts[g1].nmz += tmp0.nmz;
-					frame_verts[g2].nmx += tmp0.nmx;
-					frame_verts[g2].nmy += tmp0.nmy;
-					frame_verts[g2].nmz += tmp0.nmz;
+					frame_verts[g0].nmx = tmp0.nmx;
+					frame_verts[g0].nmy = tmp0.nmy;
+					frame_verts[g0].nmz = tmp0.nmz;
+					frame_verts[g1].nmx = tmp0.nmx;
+					frame_verts[g1].nmy = tmp0.nmy;
+					frame_verts[g1].nmz = tmp0.nmz;
+					frame_verts[g2].nmx = tmp0.nmx;
+					frame_verts[g2].nmy = tmp0.nmy;
+					frame_verts[g2].nmz = tmp0.nmz;
 				}
 
 				face_i_count += 3;
 			}
 
 			v_start += num_verts_per_poly;
-		}
-
-		// 3. Normalize accumulated normals and Gram-Schmidt orthogonalize tangents
-		for (int v = 0; v < total_num_verts; v++) {
-			XMVECTOR N = XMVectorSet(frame_verts[v].nx, frame_verts[v].ny, frame_verts[v].nz, 0.0f);
-			XMVECTOR T = XMVectorSet(frame_verts[v].nmx, frame_verts[v].nmy, frame_verts[v].nmz, 0.0f);
-
-			if (XMVectorGetX(XMVector3LengthSq(N)) > 0.00001f) {
-				N = XMVector3Normalize(N);
-			} else {
-				N = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
-			}
-
-			T = XMVectorSubtract(T, XMVectorMultiply(N, XMVector3Dot(N, T)));
-			if (XMVectorGetX(XMVector3LengthSq(T)) > 0.00001f) {
-				T = XMVector3Normalize(T);
-			} else {
-				T = XMVectorZero();
-			}
-
-			XMFLOAT3 fN, fT;
-			XMStoreFloat3(&fN, N);
-			XMStoreFloat3(&fT, T);
-
-			frame_verts[v].nx = fN.x;
-			frame_verts[v].ny = fN.y;
-			frame_verts[v].nz = fN.z;
-			frame_verts[v].nmx = fT.x;
-			frame_verts[v].nmy = fT.y;
-			frame_verts[v].nmz = fT.z;
 		}
 	}
 }
@@ -452,7 +429,7 @@ void ComputeMD2ModelNormals(int pmodel_id) {
 		for (int i = 0; i < num_poly; i++) {
 			int num_verts_per_poly = pmdata[pmodel_id].num_vert[i];
 
-			for (int j = 0; j < num_verts_per_poly; j += 3) {
+			for (int j = 0; j + 2 < num_verts_per_poly; j += 3) {
 				int idx0 = pmdata[pmodel_id].f[i_count + j + 0];
 				int idx1 = pmdata[pmodel_id].f[i_count + j + 1];
 				int idx2 = pmdata[pmodel_id].f[i_count + j + 2];
@@ -483,59 +460,30 @@ void ComputeMD2ModelNormals(int pmodel_id) {
 					    false // flipV is false for MD2 models
 					);
 
-					frame_verts[idx0].nx += tmp0.nx;
-					frame_verts[idx0].ny += tmp0.ny;
-					frame_verts[idx0].nz += tmp0.nz;
-					frame_verts[idx1].nx += tmp0.nx;
-					frame_verts[idx1].ny += tmp0.ny;
-					frame_verts[idx1].nz += tmp0.nz;
-					frame_verts[idx2].nx += tmp0.nx;
-					frame_verts[idx2].ny += tmp0.ny;
-					frame_verts[idx2].nz += tmp0.nz;
+					// Assign directly to each vertex of this triangle (no smoothing accumulation)
+					frame_verts[idx0].nx = tmp0.nx;
+					frame_verts[idx0].ny = tmp0.ny;
+					frame_verts[idx0].nz = tmp0.nz;
+					frame_verts[idx1].nx = tmp0.nx;
+					frame_verts[idx1].ny = tmp0.ny;
+					frame_verts[idx1].nz = tmp0.nz;
+					frame_verts[idx2].nx = tmp0.nx;
+					frame_verts[idx2].ny = tmp0.ny;
+					frame_verts[idx2].nz = tmp0.nz;
 
-					frame_verts[idx0].nmx += tmp0.nmx;
-					frame_verts[idx0].nmy += tmp0.nmy;
-					frame_verts[idx0].nmz += tmp0.nmz;
-					frame_verts[idx1].nmx += tmp0.nmx;
-					frame_verts[idx1].nmy += tmp0.nmy;
-					frame_verts[idx1].nmz += tmp0.nmz;
-					frame_verts[idx2].nmx += tmp0.nmx;
-					frame_verts[idx2].nmy += tmp0.nmy;
-					frame_verts[idx2].nmz += tmp0.nmz;
+					frame_verts[idx0].nmx = tmp0.nmx;
+					frame_verts[idx0].nmy = tmp0.nmy;
+					frame_verts[idx0].nmz = tmp0.nmz;
+					frame_verts[idx1].nmx = tmp0.nmx;
+					frame_verts[idx1].nmy = tmp0.nmy;
+					frame_verts[idx1].nmz = tmp0.nmz;
+					frame_verts[idx2].nmx = tmp0.nmx;
+					frame_verts[idx2].nmy = tmp0.nmy;
+					frame_verts[idx2].nmz = tmp0.nmz;
 				}
 			}
 
 			i_count += num_verts_per_poly;
-		}
-
-		// 3. Normalize accumulated normals and Gram-Schmidt orthogonalize tangents
-		for (int v = 0; v < num_verts; v++) {
-			XMVECTOR N = XMVectorSet(frame_verts[v].nx, frame_verts[v].ny, frame_verts[v].nz, 0.0f);
-			XMVECTOR T = XMVectorSet(frame_verts[v].nmx, frame_verts[v].nmy, frame_verts[v].nmz, 0.0f);
-
-			if (XMVectorGetX(XMVector3LengthSq(N)) > 0.00001f) {
-				N = XMVector3Normalize(N);
-			} else {
-				N = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
-			}
-
-			T = XMVectorSubtract(T, XMVectorMultiply(N, XMVector3Dot(N, T)));
-			if (XMVectorGetX(XMVector3LengthSq(T)) > 0.00001f) {
-				T = XMVector3Normalize(T);
-			} else {
-				T = XMVectorZero();
-			}
-
-			XMFLOAT3 fN, fT;
-			XMStoreFloat3(&fN, N);
-			XMStoreFloat3(&fT, T);
-
-			frame_verts[v].nx = fN.x;
-			frame_verts[v].ny = fN.y;
-			frame_verts[v].nz = fN.z;
-			frame_verts[v].nmx = fT.x;
-			frame_verts[v].nmy = fT.y;
-			frame_verts[v].nmz = fT.z;
 		}
 	}
 }
