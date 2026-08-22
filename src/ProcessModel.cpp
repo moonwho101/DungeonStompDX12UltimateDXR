@@ -208,9 +208,9 @@ void CalculateVertNormalAndTangent(VERT &vertex1, VERT &vertex2, VERT &vertex3, 
 			tanZ /= len;
 		}
 
-		vertex1.nmx = vertex2.nmx = vertex3.nmx = 0;
-		vertex1.nmy = vertex2.nmy = vertex3.nmy = 0;
-		vertex1.nmz = vertex2.nmz = vertex3.nmz = 0;
+		vertex1.nmx = vertex2.nmx = vertex3.nmx = tanX;
+		vertex1.nmy = vertex2.nmy = vertex3.nmy = tanY;
+		vertex1.nmz = vertex2.nmz = vertex3.nmz = tanZ;
 		return;
 	}
 
