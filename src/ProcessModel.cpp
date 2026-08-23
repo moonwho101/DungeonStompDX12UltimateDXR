@@ -523,25 +523,25 @@ void ComputeMD2ModelNormals(int pmodel_id) {
 					    pmdata[pmodel_id].t[i_count + j + 2]
 					);
 
-					frame_verts[idx0].nx = tmp0.nx;
-					frame_verts[idx0].ny = tmp0.ny;
-					frame_verts[idx0].nz = tmp0.nz;
-					frame_verts[idx1].nx = tmp0.nx;
-					frame_verts[idx1].ny = tmp0.ny;
-					frame_verts[idx1].nz = tmp0.nz;
-					frame_verts[idx2].nx = tmp0.nx;
-					frame_verts[idx2].ny = tmp0.ny;
-					frame_verts[idx2].nz = tmp0.nz;
+					frame_verts[idx0].nx += tmp0.nx;
+					frame_verts[idx0].ny += tmp0.ny;
+					frame_verts[idx0].nz += tmp0.nz;
+					frame_verts[idx1].nx += tmp0.nx;
+					frame_verts[idx1].ny += tmp0.ny;
+					frame_verts[idx1].nz += tmp0.nz;
+					frame_verts[idx2].nx += tmp0.nx;
+					frame_verts[idx2].ny += tmp0.ny;
+					frame_verts[idx2].nz += tmp0.nz;
 
-					frame_verts[idx0].nmx = tmp0.nmx;
-					frame_verts[idx0].nmy = tmp0.nmy;
-					frame_verts[idx0].nmz = tmp0.nmz;
-					frame_verts[idx1].nmx = tmp0.nmx;
-					frame_verts[idx1].nmy = tmp0.nmy;
-					frame_verts[idx1].nmz = tmp0.nmz;
-					frame_verts[idx2].nmx = tmp0.nmx;
-					frame_verts[idx2].nmy = tmp0.nmy;
-					frame_verts[idx2].nmz = tmp0.nmz;
+					frame_verts[idx0].nmx += tmp0.nmx;
+					frame_verts[idx0].nmy += tmp0.nmy;
+					frame_verts[idx0].nmz += tmp0.nmz;
+					frame_verts[idx1].nmx += tmp0.nmx;
+					frame_verts[idx1].nmy += tmp0.nmy;
+					frame_verts[idx1].nmz += tmp0.nmz;
+					frame_verts[idx2].nmx += tmp0.nmx;
+					frame_verts[idx2].nmy += tmp0.nmy;
+					frame_verts[idx2].nmz += tmp0.nmz;
 				}
 			}
 
