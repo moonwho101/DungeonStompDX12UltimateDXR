@@ -697,6 +697,55 @@ bool ObjectHasShadow(int object_id) {
 	return false;
 }
 
+struct ObjectMikkUserData {
+	D3DVERTEX2 *verts;
+	int start_cnt;
+	int total_faces;
+};
+
+static int ObjectMikk_GetNumFaces(const SMikkTSpaceContext *pContext) {
+	auto *userData = static_cast<ObjectMikkUserData*>(pContext->m_pUserData);
+	return userData->total_faces;
+}
+
+static int ObjectMikk_GetNumVerticesOfFace(const SMikkTSpaceContext *pContext, const int iFace) {
+	return 3;
+}
+
+static void ObjectMikk_GetPosition(const SMikkTSpaceContext *pContext, float fvPosOut[], const int iFace, const int iVert) {
+	auto *userData = static_cast<ObjectMikkUserData*>(pContext->m_pUserData);
+	int idx = userData->start_cnt + iFace * 3 + iVert;
+	const D3DVERTEX2 &v = userData->verts[idx];
+	fvPosOut[0] = v.x;
+	fvPosOut[1] = v.y;
+	fvPosOut[2] = v.z;
+}
+
+static void ObjectMikk_GetNormal(const SMikkTSpaceContext *pContext, float fvNormOut[], const int iFace, const int iVert) {
+	auto *userData = static_cast<ObjectMikkUserData*>(pContext->m_pUserData);
+	int idx = userData->start_cnt + iFace * 3 + iVert;
+	const D3DVERTEX2 &v = userData->verts[idx];
+	fvNormOut[0] = v.nx;
+	fvNormOut[1] = v.ny;
+	fvNormOut[2] = v.nz;
+}
+
+static void ObjectMikk_GetTexCoord(const SMikkTSpaceContext *pContext, float fvTexcOut[], const int iFace, const int iVert) {
+	auto *userData = static_cast<ObjectMikkUserData*>(pContext->m_pUserData);
+	int idx = userData->start_cnt + iFace * 3 + iVert;
+	const D3DVERTEX2 &v = userData->verts[idx];
+	fvTexcOut[0] = v.tu;
+	fvTexcOut[1] = v.tv;
+}
+
+static void ObjectMikk_SetTSpaceBasic(const SMikkTSpaceContext *pContext, const float fvTangent[], const float fSign, const int iFace, const int iVert) {
+	auto *userData = static_cast<ObjectMikkUserData*>(pContext->m_pUserData);
+	int idx = userData->start_cnt + iFace * 3 + iVert;
+	userData->verts[idx].nmx = fvTangent[0];
+	userData->verts[idx].nmy = fvTangent[1];
+	userData->verts[idx].nmz = fvTangent[2];
+}
+
 void ObjectToD3DVertList(int ob_type, float angle, int oblist_index) {
 	int ob_vert_count = 0;
 	int poly = num_polys_per_object[ob_type];
@@ -853,6 +902,29 @@ void ObjectToD3DVertList(int ob_type, float angle, int oblist_index) {
 	// if (ob_type == 121 || ob_type == 169 || ob_type == 170 || ob_type == 58 || strstr(oblist[oblist_index].name, "door") != NULL) {
 	//     SmoothNormals(start_cnt);
 	// }
+
+	// Generate tangents using MikkTSpace
+	int total_verts = cnt - start_cnt;
+	if (total_verts >= 3) {
+		SMikkTSpaceInterface mikkInterface = {};
+		mikkInterface.m_getNumFaces = ObjectMikk_GetNumFaces;
+		mikkInterface.m_getNumVerticesOfFace = ObjectMikk_GetNumVerticesOfFace;
+		mikkInterface.m_getPosition = ObjectMikk_GetPosition;
+		mikkInterface.m_getNormal = ObjectMikk_GetNormal;
+		mikkInterface.m_getTexCoord = ObjectMikk_GetTexCoord;
+		mikkInterface.m_setTSpaceBasic = ObjectMikk_SetTSpaceBasic;
+
+		ObjectMikkUserData userData;
+		userData.verts = src_v;
+		userData.start_cnt = start_cnt;
+		userData.total_faces = total_verts / 3;
+
+		SMikkTSpaceContext mikkContext = {};
+		mikkContext.m_pInterface = &mikkInterface;
+		mikkContext.m_pUserData = &userData;
+
+		genTangSpaceDefault(&mikkContext);
+	}
 }
 
 void DrawBoundingBox() {
