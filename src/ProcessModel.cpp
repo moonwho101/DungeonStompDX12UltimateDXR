@@ -6,6 +6,7 @@
 #include "GameLogic.hpp"
 #include "Missle.hpp"
 #include "../Common/MathHelper.h"
+#include "mikktspace.h"
 #include <cstddef>
 #include <functional>
 #include <unordered_map>
@@ -403,6 +404,58 @@ void Compute3DSModelNormals(int pmodel_id) {
 	}
 }
 
+struct MD2MikkUserData {
+	int pmodel_id;
+	VERT *frame_verts;
+	int total_triangles;
+};
+
+static int MD2Mikk_GetNumFaces(const SMikkTSpaceContext *pContext) {
+	auto *userData = static_cast<MD2MikkUserData*>(pContext->m_pUserData);
+	return userData->total_triangles;
+}
+
+static int MD2Mikk_GetNumVerticesOfFace(const SMikkTSpaceContext *pContext, const int iFace) {
+	return 3;
+}
+
+static void MD2Mikk_GetPosition(const SMikkTSpaceContext *pContext, float fvPosOut[], const int iFace, const int iVert) {
+	auto *userData = static_cast<MD2MikkUserData*>(pContext->m_pUserData);
+	int corner_idx = iFace * 3 + iVert;
+	int v_idx = pmdata[userData->pmodel_id].f[corner_idx];
+	const VERT &v = userData->frame_verts[v_idx];
+	fvPosOut[0] = v.x;
+	fvPosOut[1] = v.y;
+	fvPosOut[2] = v.z;
+}
+
+static void MD2Mikk_GetNormal(const SMikkTSpaceContext *pContext, float fvNormOut[], const int iFace, const int iVert) {
+	auto *userData = static_cast<MD2MikkUserData*>(pContext->m_pUserData);
+	int corner_idx = iFace * 3 + iVert;
+	int v_idx = pmdata[userData->pmodel_id].f[corner_idx];
+	const VERT &v = userData->frame_verts[v_idx];
+	fvNormOut[0] = v.nx;
+	fvNormOut[1] = v.ny;
+	fvNormOut[2] = v.nz;
+}
+
+static void MD2Mikk_GetTexCoord(const SMikkTSpaceContext *pContext, float fvTexcOut[], const int iFace, const int iVert) {
+	auto *userData = static_cast<MD2MikkUserData*>(pContext->m_pUserData);
+	int corner_idx = iFace * 3 + iVert;
+	const VERT &t = pmdata[userData->pmodel_id].t[corner_idx];
+	fvTexcOut[0] = t.x * pmdata[userData->pmodel_id].skx;
+	fvTexcOut[1] = t.y * pmdata[userData->pmodel_id].sky;
+}
+
+static void MD2Mikk_SetTSpaceBasic(const SMikkTSpaceContext *pContext, const float fvTangent[], const float fSign, const int iFace, const int iVert) {
+	auto *userData = static_cast<MD2MikkUserData*>(pContext->m_pUserData);
+	int corner_idx = iFace * 3 + iVert;
+	int v_idx = pmdata[userData->pmodel_id].f[corner_idx];
+	userData->frame_verts[v_idx].nmx = fvTangent[0];
+	userData->frame_verts[v_idx].nmy = fvTangent[1];
+	userData->frame_verts[v_idx].nmz = fvTangent[2];
+}
+
 void ComputeMD2ModelNormals(int pmodel_id) {
 	if (pmodel_id < 0)
 		return;
@@ -435,7 +488,7 @@ void ComputeMD2ModelNormals(int pmodel_id) {
 			frame_verts[v].nmx = frame_verts[v].nmy = frame_verts[v].nmz = 0.0f;
 		}
 
-		// 2. Accumulate face normals and tangents matching PlayerToD3DVertList pattern
+		// 2. Calculate face/vertex normals
 		int i_count = 0;
 		for (int i = 0; i < num_poly; i++) {
 			int num_verts_per_poly = pmdata[pmodel_id].num_vert[i];
@@ -470,7 +523,6 @@ void ComputeMD2ModelNormals(int pmodel_id) {
 					    pmdata[pmodel_id].t[i_count + j + 2]
 					);
 
-					// Assign directly to each vertex of this triangle (no smoothing accumulation)
 					frame_verts[idx0].nx = tmp0.nx;
 					frame_verts[idx0].ny = tmp0.ny;
 					frame_verts[idx0].nz = tmp0.nz;
@@ -495,6 +547,26 @@ void ComputeMD2ModelNormals(int pmodel_id) {
 
 			i_count += num_verts_per_poly;
 		}
+
+		// 3. Generate tangents using MikkTSpace
+		SMikkTSpaceInterface mikkInterface = {};
+		mikkInterface.m_getNumFaces = MD2Mikk_GetNumFaces;
+		mikkInterface.m_getNumVerticesOfFace = MD2Mikk_GetNumVerticesOfFace;
+		mikkInterface.m_getPosition = MD2Mikk_GetPosition;
+		mikkInterface.m_getNormal = MD2Mikk_GetNormal;
+		mikkInterface.m_getTexCoord = MD2Mikk_GetTexCoord;
+		mikkInterface.m_setTSpaceBasic = MD2Mikk_SetTSpaceBasic;
+
+		MD2MikkUserData userData;
+		userData.pmodel_id = pmodel_id;
+		userData.frame_verts = frame_verts;
+		userData.total_triangles = num_indices / 3;
+
+		SMikkTSpaceContext mikkContext = {};
+		mikkContext.m_pInterface = &mikkInterface;
+		mikkContext.m_pUserData = &userData;
+
+		genTangSpaceDefault(&mikkContext);
 	}
 }
 
