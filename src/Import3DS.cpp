@@ -8,6 +8,7 @@
 #include <windows.h>
 #include <stdio.h>
 #include <math.h>
+#include <vector>
 #include "world.hpp"
 #include "Import3DS.hpp"
 #include "LoadWorld.hpp"
@@ -560,16 +561,14 @@ BOOL Import3DS(char *filename, int pmodel_id, float scale) {
 		}
 	}
 
-	// copy verts into pmdata for all frames
+	// Temporary vertex buffer for original un-split vertices
+	std::vector<std::vector<VERT>> orig_w(total_num_frames, std::vector<VERT>(total_num_verts));
 
 	for (frame_num = 0; frame_num < total_num_frames; frame_num++) {
-
-		// fix this part swapped 0 1 2 to 0 2 1 see below
-		// should be  1 0 2
 		for (i = 0; i < total_num_verts; i++) {
-			pmdata[pmodel_id].w[frame_num][i].x = fverts[i][1];
-			pmdata[pmodel_id].w[frame_num][i].y = fverts[i][0];
-			pmdata[pmodel_id].w[frame_num][i].z = fverts[i][2];
+			orig_w[frame_num][i].x = fverts[i][1];
+			orig_w[frame_num][i].y = fverts[i][0];
+			orig_w[frame_num][i].z = fverts[i][2];
 		}
 	}
 
@@ -585,26 +584,18 @@ BOOL Import3DS(char *filename, int pmodel_id, float scale) {
 		v_end = oblistitem[i].verts_end;
 		pos_keys = oblistitem[i].poskeys;
 
-		// fprintf(logfile, "i: %d  obs: %d  v_start: %d  v_end: %d  pos_keys: %d\n",
-		//				  i, total_num_objects, v_start, v_end, pos_keys);
-
 		for (j = 0; j < pos_keys; j++) {
 			frame_num = oblistitem[i].pos_track[j].framenum;
-
-			// fprintf(logfile, "j: %d  frame_num: %d  total_num_frames: %d\n",
-			//	j, frame_num, total_num_frames);
 
 			if ((j < total_num_frames) && (frame_num < total_num_frames)) {
 				pos_x = oblistitem[i].pos_track[j].pos_x - oblistitem[i].local_centre_x;
 				pos_y = oblistitem[i].pos_track[j].pos_y - oblistitem[i].local_centre_y;
 				pos_z = oblistitem[i].pos_track[j].pos_z - oblistitem[i].local_centre_z;
 
-				// fprintf(logfile, "i: %d  v_start: %d  v_end: %d\n", i, v_start, v_end);
-
 				for (v = v_start; v <= v_end; v++) {
-					pmdata[pmodel_id].w[frame_num][v].x += pos_x;
-					pmdata[pmodel_id].w[frame_num][v].y += pos_y;
-					pmdata[pmodel_id].w[frame_num][v].z += pos_z;
+					orig_w[frame_num][v].x += pos_x;
+					orig_w[frame_num][v].y += pos_y;
+					orig_w[frame_num][v].z += pos_z;
 					if (bEnable3dsLogfile)
 						fprintf(logfile, "obj: %d  frame_num: %d  v: %d\n", i, frame_num, v);
 				}
@@ -643,17 +634,10 @@ BOOL Import3DS(char *filename, int pmodel_id, float scale) {
 				rot_angle_y = rot_angle * axis_y;
 				rot_angle_z = rot_angle * axis_z;
 
-				if (bEnable3dsLogfile) {
-					fprintf(logfile, "local xyz: %f %f %f\n",
-					        oblistitem[i].local_centre_x,
-					        oblistitem[i].local_centre_y,
-					        oblistitem[i].local_centre_z);
-				}
-
 				for (v = v_start; v <= v_end; v++) {
-					x = pmdata[pmodel_id].w[frame_num][v].x - oblistitem[i].local_centre_x;
-					y = pmdata[pmodel_id].w[frame_num][v].y - oblistitem[i].local_centre_y;
-					z = pmdata[pmodel_id].w[frame_num][v].z - oblistitem[i].local_centre_z;
+					x = orig_w[frame_num][v].x - oblistitem[i].local_centre_x;
+					y = orig_w[frame_num][v].y - oblistitem[i].local_centre_y;
+					z = orig_w[frame_num][v].z - oblistitem[i].local_centre_z;
 
 					tx = x * (float)cos(rot_angle_z) + y * (float)sin(rot_angle_z);
 					ty = y * (float)cos(rot_angle_z) - x * (float)sin(rot_angle_z);
@@ -675,16 +659,9 @@ BOOL Import3DS(char *filename, int pmodel_id, float scale) {
 					ty = y;
 					tz = z * (float)cos(rot_angle_y) + x * (float)sin(rot_angle_y);
 
-					if (bEnable3dsLogfile) {
-						fprintf(logfile, "i: %d  frame: %d  v: %d  angle: %f  ", i, frame_num, v, rot_angle);
-						fprintf(logfile, "pxyz: %f %f %f  xyz: %f %f %f\n", x, y, z,
-						        pmdata[pmodel_id].w[frame_num][v].x,
-						        pmdata[pmodel_id].w[frame_num][v].y,
-						        pmdata[pmodel_id].w[frame_num][v].z);
-					}
-					pmdata[pmodel_id].w[frame_num][v].x = tx + oblistitem[i].local_centre_x;
-					pmdata[pmodel_id].w[frame_num][v].y = ty + oblistitem[i].local_centre_y;
-					pmdata[pmodel_id].w[frame_num][v].z = tz + oblistitem[i].local_centre_z;
+					orig_w[frame_num][v].x = tx + oblistitem[i].local_centre_x;
+					orig_w[frame_num][v].y = ty + oblistitem[i].local_centre_y;
+					orig_w[frame_num][v].z = tz + oblistitem[i].local_centre_z;
 				}
 				if (bEnable3dsLogfile)
 					fprintf(logfile, "\n");
@@ -699,9 +676,9 @@ BOOL Import3DS(char *filename, int pmodel_id, float scale) {
 
 	for (frame_num = 0; frame_num < total_num_frames; frame_num++) {
 		for (i = 0; i < total_num_verts; i++) {
-			x = scale * pmdata[pmodel_id].w[frame_num][i].x;
-			y = scale * pmdata[pmodel_id].w[frame_num][i].y;
-			z = scale * pmdata[pmodel_id].w[frame_num][i].z;
+			x = scale * orig_w[frame_num][i].x;
+			y = scale * orig_w[frame_num][i].y;
+			z = scale * orig_w[frame_num][i].z;
 
 			angle = 0;
 
@@ -709,49 +686,108 @@ BOOL Import3DS(char *filename, int pmodel_id, float scale) {
 			ty = y;
 			tz = z * (float)cos(angle) - x * (float)sin(angle);
 
-			pmdata[pmodel_id].w[frame_num][i].x = tx;
-			pmdata[pmodel_id].w[frame_num][i].y = ty;
-			pmdata[pmodel_id].w[frame_num][i].z = tz;
-			pmdata[pmodel_id].w[frame_num][i].tu = mcoords[i].x;
-			pmdata[pmodel_id].w[frame_num][i].tv = mcoords[i].y;
+			orig_w[frame_num][i].x = tx;
+			orig_w[frame_num][i].y = ty;
+			orig_w[frame_num][i].z = tz;
+			orig_w[frame_num][i].tu = mcoords[i].x;
+			orig_w[frame_num][i].tv = mcoords[i].y;
 		}
 	}
 
-	//	fclose(fp_3dsmodel);
+	// Split vertices at UV seams per subobject
+	struct SplitVert3DS {
+		int local_v_orig;
+		int global_v_orig;
+		float u, v;
+	};
+
+	std::vector<std::vector<SplitVert3DS>> split_verts_per_obj(total_num_objects);
+	std::vector<int> num_split_verts_per_obj(total_num_objects);
+	int total_split_verts = 0;
 
 	cnt = 0;
 	int face_idx = 0;
 
 	for (i = 0; i < total_num_objects; i++) {
-		int v_start = oblistitem[i].verts_start;
+		int v_start_orig = oblistitem[i].verts_start;
+		int num_verts_orig = num_verts_in_object[i];
 		int num_faces_obj = num_faces_in_object[i];
+
+		std::vector<std::vector<int>> orig_to_splits(num_verts_orig);
 
 		for (int f = 0; f < num_faces_obj; f++) {
 			for (j = 0; j < 3; j++) {
-				int local_v = faces[face_idx].v[j];
-				int global_v = v_start + local_v;
+				int local_v_orig = faces[face_idx].v[j];
+				int global_v_orig = v_start_orig + local_v_orig;
 
-				pmdata[pmodel_id].f[cnt] = local_v;
-
-				if (global_v >= 0 && global_v < total_num_verts) {
-					pmdata[pmodel_id].t[cnt].x = mcoords[global_v].x;
-					pmdata[pmodel_id].t[cnt].y = mcoords[global_v].y;
-				} else {
-					pmdata[pmodel_id].t[cnt].x = 0.0f;
-					pmdata[pmodel_id].t[cnt].y = 0.0f;
+				float u = 0.0f, v = 0.0f;
+				if (global_v_orig >= 0 && global_v_orig < total_num_verts) {
+					u = mcoords[global_v_orig].x;
+					v = mcoords[global_v_orig].y;
 				}
 
+				int match = -1;
+				if (local_v_orig >= 0 && local_v_orig < num_verts_orig) {
+					for (int sv : orig_to_splits[local_v_orig]) {
+						if (fabsf(split_verts_per_obj[i][sv].u - u) < 1e-4f &&
+						    fabsf(split_verts_per_obj[i][sv].v - v) < 1e-4f) {
+							match = sv;
+							break;
+						}
+					}
+				}
+
+				if (match == -1) {
+					match = (int)split_verts_per_obj[i].size();
+					split_verts_per_obj[i].push_back({local_v_orig, global_v_orig, u, v});
+					if (local_v_orig >= 0 && local_v_orig < num_verts_orig) {
+						orig_to_splits[local_v_orig].push_back(match);
+					}
+				}
+
+				pmdata[pmodel_id].f[cnt] = match;
+				pmdata[pmodel_id].t[cnt].x = u;
+				pmdata[pmodel_id].t[cnt].y = v;
 				cnt++;
 			}
 			face_idx++;
 		}
+
+		num_split_verts_per_obj[i] = (int)split_verts_per_obj[i].size();
+		total_split_verts += num_split_verts_per_obj[i];
 	}
 
+	// allocate vertex memory per frame based on total split vertex count
+	for (i = 0; i < total_num_frames; i++) {
+		pmdata[pmodel_id].w[i] = new VERT[total_split_verts];
+	}
+
+	// copy split vertices into pmdata.w for all frames
+	int v_start_split = 0;
 	for (i = 0; i < total_num_objects; i++) {
+		int num_splits = num_split_verts_per_obj[i];
+
+		for (int sv = 0; sv < num_splits; sv++) {
+			int global_v_orig = split_verts_per_obj[i][sv].global_v_orig;
+			int global_v_split = v_start_split + sv;
+
+			for (frame_num = 0; frame_num < total_num_frames; frame_num++) {
+				if (global_v_orig >= 0 && global_v_orig < total_num_verts) {
+					pmdata[pmodel_id].w[frame_num][global_v_split] = orig_w[frame_num][global_v_orig];
+				} else {
+					pmdata[pmodel_id].w[frame_num][global_v_split] = {};
+				}
+				pmdata[pmodel_id].w[frame_num][global_v_split].tu = split_verts_per_obj[i][sv].u;
+				pmdata[pmodel_id].w[frame_num][global_v_split].tv = split_verts_per_obj[i][sv].v;
+			}
+		}
+
 		pmdata[pmodel_id].poly_cmd[i] = D3DPT_TRIANGLELIST;
-		pmdata[pmodel_id].num_verts_per_object[i] = (int)num_verts_in_object[i];
+		pmdata[pmodel_id].num_verts_per_object[i] = num_splits;
 		pmdata[pmodel_id].num_faces_per_object[i] = (int)num_faces_in_object[i];
 		pmdata[pmodel_id].texture_list[i] = object_texture[i];
+
+		v_start_split += num_splits;
 	}
 
 	loading_first_model_flag = FALSE;
@@ -761,7 +797,7 @@ BOOL Import3DS(char *filename, int pmodel_id, float scale) {
 
 	pmdata[pmodel_id].num_polys_per_frame = total_num_objects;
 	pmdata[pmodel_id].num_faces = total_num_faces;
-	pmdata[pmodel_id].num_verts = total_num_verts;
+	pmdata[pmodel_id].num_verts = total_split_verts;
 	pmdata[pmodel_id].num_frames = total_num_frames;
 
 	pmdata[pmodel_id].skx = 1;
