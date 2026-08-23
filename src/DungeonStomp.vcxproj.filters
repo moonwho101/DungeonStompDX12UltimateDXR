@@ -60,6 +60,9 @@
     <ClCompile Include="ImportMD2.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="mikktspace.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="LoadWorld.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -150,6 +153,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="ImportMD2.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="mikktspace.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="LoadWorld.hpp">
