@@ -347,7 +347,7 @@ static void ThreeDSMikk_GetTexCoord(const SMikkTSpaceContext *pContext, float fv
 	int corner_idx = iFace * 3 + iVert;
 	const VERT &t = pmdata[userData->pmodel_id].t[corner_idx];
 	fvTexcOut[0] = t.x * pmdata[userData->pmodel_id].skx;
-	fvTexcOut[1] = t.y * pmdata[userData->pmodel_id].sky;
+	fvTexcOut[1] = 1.0f - (t.y * pmdata[userData->pmodel_id].sky);
 }
 
 static void ThreeDSMikk_SetTSpaceBasic(const SMikkTSpaceContext *pContext, const float fvTangent[], const float fSign, const int iFace, const int iVert) {
@@ -410,19 +410,9 @@ void Compute3DSModelNormals(int pmodel_id) {
 				    g1 >= 0 && g1 < total_num_verts &&
 				    g2 >= 0 && g2 < total_num_verts) {
 
-					VERT tmp0, tmp1, tmp2;
-
-					tmp0.x = frame_verts[g0].x;
-					tmp0.y = frame_verts[g0].z;
-					tmp0.z = frame_verts[g0].y;
-
-					tmp1.x = frame_verts[g1].x;
-					tmp1.y = frame_verts[g1].z;
-					tmp1.z = frame_verts[g1].y;
-
-					tmp2.x = frame_verts[g2].x;
-					tmp2.y = frame_verts[g2].z;
-					tmp2.z = frame_verts[g2].y;
+					VERT tmp0 = frame_verts[g0];
+					VERT tmp1 = frame_verts[g1];
+					VERT tmp2 = frame_verts[g2];
 
 					CalculateVertNormalAndTangent(
 					    tmp0, tmp1, tmp2,
@@ -445,6 +435,43 @@ void Compute3DSModelNormals(int pmodel_id) {
 			v_start += num_verts_per_poly;
 		}
 
+		// Normalize accumulated vertex normals & initial tangents
+		for (int v = 0; v < total_num_verts; v++) {
+			float len = sqrtf(frame_verts[v].nx * frame_verts[v].nx +
+			                  frame_verts[v].ny * frame_verts[v].ny +
+			                  frame_verts[v].nz * frame_verts[v].nz);
+			if (len > 0.00001f) {
+				frame_verts[v].nx /= len;
+				frame_verts[v].ny /= len;
+				frame_verts[v].nz /= len;
+			} else {
+				frame_verts[v].nx = 0.0f;
+				frame_verts[v].ny = 1.0f;
+				frame_verts[v].nz = 0.0f;
+			}
+
+			float tlen = sqrtf(frame_verts[v].nmx * frame_verts[v].nmx +
+			                   frame_verts[v].nmy * frame_verts[v].nmy +
+			                   frame_verts[v].nmz * frame_verts[v].nmz);
+			if (tlen > 0.00001f) {
+				frame_verts[v].nmx /= tlen;
+				frame_verts[v].nmy /= tlen;
+				frame_verts[v].nmz /= tlen;
+			} else {
+				float ax = (fabsf(frame_verts[v].nx) > 0.9f) ? 0.0f : 1.0f;
+				float ay = 0.0f;
+				float az = (fabsf(frame_verts[v].nz) > 0.9f) ? 0.0f : 1.0f;
+				float tx = ay * frame_verts[v].nz - az * frame_verts[v].ny;
+				float ty = az * frame_verts[v].nx - ax * frame_verts[v].nz;
+				float tz = ax * frame_verts[v].ny - ay * frame_verts[v].nx;
+				float l = sqrtf(tx * tx + ty * ty + tz * tz);
+				if (l > 0.00001f) { tx /= l; ty /= l; tz /= l; }
+				frame_verts[v].nmx = tx;
+				frame_verts[v].nmy = ty;
+				frame_verts[v].nmz = tz;
+			}
+		}
+
 		// 3. Generate tangents using MikkTSpace
 		SMikkTSpaceInterface mikkInterface = {};
 		mikkInterface.m_getNumFaces = ThreeDSMikk_GetNumFaces;
@@ -465,6 +492,29 @@ void Compute3DSModelNormals(int pmodel_id) {
 		mikkContext.m_pUserData = &userData;
 
 		genTangSpaceDefault(&mikkContext);
+
+		// Fallback for any zero tangents post-MikkTSpace
+		for (int v = 0; v < total_num_verts; v++) {
+			float tlen = sqrtf(frame_verts[v].nmx * frame_verts[v].nmx +
+			                   frame_verts[v].nmy * frame_verts[v].nmy +
+			                   frame_verts[v].nmz * frame_verts[v].nmz);
+			if (tlen < 0.00001f) {
+				float nx = frame_verts[v].nx;
+				float ny = frame_verts[v].ny;
+				float nz = frame_verts[v].nz;
+				float ax = (fabsf(nx) > 0.9f) ? 0.0f : 1.0f;
+				float ay = 0.0f;
+				float az = (fabsf(nz) > 0.9f) ? 0.0f : 1.0f;
+				float tx = ay * nz - az * ny;
+				float ty = az * nx - ax * nz;
+				float tz = ax * ny - ay * nx;
+				float l = sqrtf(tx * tx + ty * ty + tz * tz);
+				if (l > 0.00001f) { tx /= l; ty /= l; tz /= l; }
+				frame_verts[v].nmx = tx;
+				frame_verts[v].nmy = ty;
+				frame_verts[v].nmz = tz;
+			}
+		}
 	}
 }
 
@@ -566,19 +616,9 @@ void ComputeMD2ModelNormals(int pmodel_id) {
 				    idx1 >= 0 && idx1 < num_verts &&
 				    idx2 >= 0 && idx2 < num_verts) {
 
-					VERT tmp0, tmp1, tmp2;
-
-					tmp0.x = frame_verts[idx0].x;
-					tmp0.y = frame_verts[idx0].z;
-					tmp0.z = frame_verts[idx0].y;
-
-					tmp1.x = frame_verts[idx1].x;
-					tmp1.y = frame_verts[idx1].z;
-					tmp1.z = frame_verts[idx1].y;
-
-					tmp2.x = frame_verts[idx2].x;
-					tmp2.y = frame_verts[idx2].z;
-					tmp2.z = frame_verts[idx2].y;
+					VERT tmp0 = frame_verts[idx0];
+					VERT tmp1 = frame_verts[idx1];
+					VERT tmp2 = frame_verts[idx2];
 
 					CalculateVertNormalAndTangent(
 					    tmp0, tmp1, tmp2,
@@ -612,6 +652,43 @@ void ComputeMD2ModelNormals(int pmodel_id) {
 			i_count += num_verts_per_poly;
 		}
 
+		// Normalize accumulated vertex normals & initial tangents
+		for (int v = 0; v < num_verts; v++) {
+			float len = sqrtf(frame_verts[v].nx * frame_verts[v].nx +
+			                  frame_verts[v].ny * frame_verts[v].ny +
+			                  frame_verts[v].nz * frame_verts[v].nz);
+			if (len > 0.00001f) {
+				frame_verts[v].nx /= len;
+				frame_verts[v].ny /= len;
+				frame_verts[v].nz /= len;
+			} else {
+				frame_verts[v].nx = 0.0f;
+				frame_verts[v].ny = 1.0f;
+				frame_verts[v].nz = 0.0f;
+			}
+
+			float tlen = sqrtf(frame_verts[v].nmx * frame_verts[v].nmx +
+			                   frame_verts[v].nmy * frame_verts[v].nmy +
+			                   frame_verts[v].nmz * frame_verts[v].nmz);
+			if (tlen > 0.00001f) {
+				frame_verts[v].nmx /= tlen;
+				frame_verts[v].nmy /= tlen;
+				frame_verts[v].nmz /= tlen;
+			} else {
+				float ax = (fabsf(frame_verts[v].nx) > 0.9f) ? 0.0f : 1.0f;
+				float ay = 0.0f;
+				float az = (fabsf(frame_verts[v].nz) > 0.9f) ? 0.0f : 1.0f;
+				float tx = ay * frame_verts[v].nz - az * frame_verts[v].ny;
+				float ty = az * frame_verts[v].nx - ax * frame_verts[v].nz;
+				float tz = ax * frame_verts[v].ny - ay * frame_verts[v].nx;
+				float l = sqrtf(tx * tx + ty * ty + tz * tz);
+				if (l > 0.00001f) { tx /= l; ty /= l; tz /= l; }
+				frame_verts[v].nmx = tx;
+				frame_verts[v].nmy = ty;
+				frame_verts[v].nmz = tz;
+			}
+		}
+
 		// 3. Generate tangents using MikkTSpace
 		SMikkTSpaceInterface mikkInterface = {};
 		mikkInterface.m_getNumFaces = MD2Mikk_GetNumFaces;
@@ -631,6 +708,29 @@ void ComputeMD2ModelNormals(int pmodel_id) {
 		mikkContext.m_pUserData = &userData;
 
 		genTangSpaceDefault(&mikkContext);
+
+		// Fallback for any zero tangents post-MikkTSpace
+		for (int v = 0; v < num_verts; v++) {
+			float tlen = sqrtf(frame_verts[v].nmx * frame_verts[v].nmx +
+			                   frame_verts[v].nmy * frame_verts[v].nmy +
+			                   frame_verts[v].nmz * frame_verts[v].nmz);
+			if (tlen < 0.00001f) {
+				float nx = frame_verts[v].nx;
+				float ny = frame_verts[v].ny;
+				float nz = frame_verts[v].nz;
+				float ax = (fabsf(nx) > 0.9f) ? 0.0f : 1.0f;
+				float ay = 0.0f;
+				float az = (fabsf(nz) > 0.9f) ? 0.0f : 1.0f;
+				float tx = ay * nz - az * ny;
+				float ty = az * nx - ax * nz;
+				float tz = ax * ny - ay * nx;
+				float l = sqrtf(tx * tx + ty * ty + tz * tz);
+				if (l > 0.00001f) { tx /= l; ty /= l; tz /= l; }
+				frame_verts[v].nmx = tx;
+				frame_verts[v].nmy = ty;
+				frame_verts[v].nmz = tz;
+			}
+		}
 	}
 }
 
