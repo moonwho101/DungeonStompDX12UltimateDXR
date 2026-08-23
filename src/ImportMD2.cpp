@@ -2,6 +2,8 @@
 #include <io.h>
 #include <fcntl.h>
 #include <windows.h>
+#include <vector>
+#include <math.h>
 #include "world.hpp"
 #include "ImportMD2.hpp"
 
@@ -104,41 +106,21 @@ BOOL ImportMD2_GLCMD(char *filename, int texture_alias, int pmodel_id, float sca
 		}
 	}
 
-	// allocate memory dynamically
-
-	pmdata[pmodel_id].w = new VERT *[header.num_frames];
-
-	for (i = 0; i < header.num_frames; i++)
-		pmdata[pmodel_id].w[i] = new VERT[header.num_verts];
-
 	pmdata[pmodel_id].f = new int[total_tri_verts];
 	pmdata[pmodel_id].num_vert = new int[glc_cnt];
 	pmdata[pmodel_id].poly_cmd = new D3DPRIMITIVETYPE[glc_cnt];
 	pmdata[pmodel_id].texture_list = new int[glc_cnt];
 	pmdata[pmodel_id].t = new VERT[total_tri_verts];
 
-	int mem = 0;
-	mem += (sizeof(VERT) * header.num_verts * header.num_frames);
-	mem += (sizeof(short) * total_tri_verts);
-	mem += (sizeof(short) * header.num_verts);
-	mem += (sizeof(short) * glc_cnt);
-	mem += (sizeof(short) * glc_cnt);
-	mem += (sizeof(VERT) * total_tri_verts);
-
-	mem = mem / 1024;
-
-	_itoa_s(mem, buffer, _countof(buffer), 10);
-	strcat_s(buffer, " KB\n");
-	// PrintMessage(NULL, "Memory allocated = ", buffer, LOGFILE_ONLY);
-
-	// load GL Commands into pmdata structure as triangle lists
+	// Temporary arrays to hold face corner data before UV seam splitting
+	std::vector<int> temp_orig_f(total_tri_verts);
+	std::vector<VERT> temp_t(total_tri_verts);
 
 	cnt = 0;
 	int glv_offset = 0;
 
 	for (i = 0; i < glc_cnt; i++) {
 		if (glc[i] == 0) {
-			// PrintMessage(NULL, "ERROR MD2 GL COMMAND DATA", NULL, LOGFILE_ONLY);
 			return FALSE;
 		}
 
@@ -162,19 +144,19 @@ BOOL ImportMD2_GLCMD(char *filename, int texture_alias, int pmodel_id, float sca
 					idx2 = glv_offset + j;
 				}
 
-				pmdata[pmodel_id].f[cnt] = glv[idx0].index;
-				pmdata[pmodel_id].t[cnt].x = glv[idx0].s * header.skinwidth;
-				pmdata[pmodel_id].t[cnt].y = glv[idx0].t * header.skinheight;
+				temp_orig_f[cnt] = glv[idx0].index;
+				temp_t[cnt].x = glv[idx0].s * header.skinwidth;
+				temp_t[cnt].y = glv[idx0].t * header.skinheight;
 				cnt++;
 
-				pmdata[pmodel_id].f[cnt] = glv[idx1].index;
-				pmdata[pmodel_id].t[cnt].x = glv[idx1].s * header.skinwidth;
-				pmdata[pmodel_id].t[cnt].y = glv[idx1].t * header.skinheight;
+				temp_orig_f[cnt] = glv[idx1].index;
+				temp_t[cnt].x = glv[idx1].s * header.skinwidth;
+				temp_t[cnt].y = glv[idx1].t * header.skinheight;
 				cnt++;
 
-				pmdata[pmodel_id].f[cnt] = glv[idx2].index;
-				pmdata[pmodel_id].t[cnt].x = glv[idx2].s * header.skinwidth;
-				pmdata[pmodel_id].t[cnt].y = glv[idx2].t * header.skinheight;
+				temp_orig_f[cnt] = glv[idx2].index;
+				temp_t[cnt].x = glv[idx2].s * header.skinwidth;
+				temp_t[cnt].y = glv[idx2].t * header.skinheight;
 				cnt++;
 
 				tri_cnt += 3;
@@ -188,19 +170,19 @@ BOOL ImportMD2_GLCMD(char *filename, int texture_alias, int pmodel_id, float sca
 				int idx1 = glv_offset + j + 1;
 				int idx2 = glv_offset + j + 2;
 
-				pmdata[pmodel_id].f[cnt] = glv[idx0].index;
-				pmdata[pmodel_id].t[cnt].x = glv[idx0].s * header.skinwidth;
-				pmdata[pmodel_id].t[cnt].y = glv[idx0].t * header.skinheight;
+				temp_orig_f[cnt] = glv[idx0].index;
+				temp_t[cnt].x = glv[idx0].s * header.skinwidth;
+				temp_t[cnt].y = glv[idx0].t * header.skinheight;
 				cnt++;
 
-				pmdata[pmodel_id].f[cnt] = glv[idx1].index;
-				pmdata[pmodel_id].t[cnt].x = glv[idx1].s * header.skinwidth;
-				pmdata[pmodel_id].t[cnt].y = glv[idx1].t * header.skinheight;
+				temp_orig_f[cnt] = glv[idx1].index;
+				temp_t[cnt].x = glv[idx1].s * header.skinwidth;
+				temp_t[cnt].y = glv[idx1].t * header.skinheight;
 				cnt++;
 
-				pmdata[pmodel_id].f[cnt] = glv[idx2].index;
-				pmdata[pmodel_id].t[cnt].x = glv[idx2].s * header.skinwidth;
-				pmdata[pmodel_id].t[cnt].y = glv[idx2].t * header.skinheight;
+				temp_orig_f[cnt] = glv[idx2].index;
+				temp_t[cnt].x = glv[idx2].s * header.skinwidth;
+				temp_t[cnt].y = glv[idx2].t * header.skinheight;
 				cnt++;
 
 				tri_cnt += 3;
@@ -211,24 +193,78 @@ BOOL ImportMD2_GLCMD(char *filename, int texture_alias, int pmodel_id, float sca
 		glv_offset += glnum_verts;
 	}
 
-	// read vertices for all frames
+	// Split vertices at UV seams
+	struct SplitVertMD2 {
+		int orig_idx;
+		float u, v;
+	};
+	std::vector<SplitVertMD2> split_verts;
+	std::vector<std::vector<int>> orig_to_splits(header.num_verts);
 
+	for (i = 0; i < total_tri_verts; i++) {
+		int orig_idx = temp_orig_f[i];
+		float u = temp_t[i].x;
+		float v = temp_t[i].y;
+
+		int match = -1;
+		if (orig_idx >= 0 && orig_idx < header.num_verts) {
+			for (int sv : orig_to_splits[orig_idx]) {
+				if (fabsf(split_verts[sv].u - u) < 1e-4f && fabsf(split_verts[sv].v - v) < 1e-4f) {
+					match = sv;
+					break;
+				}
+			}
+		}
+
+		if (match == -1) {
+			match = (int)split_verts.size();
+			split_verts.push_back({orig_idx, u, v});
+			if (orig_idx >= 0 && orig_idx < header.num_verts) {
+				orig_to_splits[orig_idx].push_back(match);
+			}
+		}
+
+		pmdata[pmodel_id].f[i] = match;
+		pmdata[pmodel_id].t[i].x = u;
+		pmdata[pmodel_id].t[i].y = v;
+	}
+
+	int num_split_verts = (int)split_verts.size();
+
+	// allocate vertex memory per frame based on split vertex count
+	pmdata[pmodel_id].w = new VERT *[header.num_frames];
+
+	for (i = 0; i < header.num_frames; i++)
+		pmdata[pmodel_id].w[i] = new VERT[num_split_verts];
+
+	// read vertices for all frames and map to split vertices
 	fseek(fp, (UINT)header.offset_frames, SEEK_SET);
+
+	std::vector<MD2VERTEX> orig_frame_verts(header.num_verts);
 
 	for (frame_num = 0; frame_num < header.num_frames; frame_num++) {
 		fread(bscale, sizeof(float), 3, fp);
 		fread(translate, sizeof(float), 3, fp);
 		fread(name, 1, 16, fp);
 
-		// strcpy_s(frame_list[frame_num].framename, name );
+		for (j = 0; j < header.num_verts; j++) {
+			fread(&orig_frame_verts[j], sizeof(MD2VERTEX), 1, fp);
+		}
 
-		for (j = 0; j < header.num_verts; j++) // VERTS
-		{
-			fread(&bverts, sizeof(MD2VERTEX), 1, fp);
-
-			pmdata[pmodel_id].w[frame_num][j].x = scale * (bscale[0] * bverts.v[0] + translate[0]);
-			pmdata[pmodel_id].w[frame_num][j].y = scale * (bscale[1] * bverts.v[1] + translate[1]);
-			pmdata[pmodel_id].w[frame_num][j].z = scale * (bscale[2] * bverts.v[2] + translate[2]);
+		for (j = 0; j < num_split_verts; j++) {
+			int orig_idx = split_verts[j].orig_idx;
+			if (orig_idx >= 0 && orig_idx < header.num_verts) {
+				const auto &bv = orig_frame_verts[orig_idx];
+				pmdata[pmodel_id].w[frame_num][j].x = scale * (bscale[0] * bv.v[0] + translate[0]);
+				pmdata[pmodel_id].w[frame_num][j].y = scale * (bscale[1] * bv.v[1] + translate[1]);
+				pmdata[pmodel_id].w[frame_num][j].z = scale * (bscale[2] * bv.v[2] + translate[2]);
+			} else {
+				pmdata[pmodel_id].w[frame_num][j].x = 0.0f;
+				pmdata[pmodel_id].w[frame_num][j].y = 0.0f;
+				pmdata[pmodel_id].w[frame_num][j].z = 0.0f;
+			}
+			pmdata[pmodel_id].w[frame_num][j].tu = split_verts[j].u;
+			pmdata[pmodel_id].w[frame_num][j].tv = split_verts[j].v;
 		}
 	}
 

@@ -154,6 +154,11 @@ void CalculateVertNormalAndTangent(VERT &vertex1, VERT &vertex2, VERT &vertex3, 
 	float vector1[3], vector2[3];
 	float tuVector[2], tvVector[2];
 
+	// Assign UVs to vertices
+	vertex1.tu = tex1.x; vertex1.tv = tex1.y;
+	vertex2.tu = tex2.x; vertex2.tv = tex2.y;
+	vertex3.tu = tex3.x; vertex3.tv = tex3.y;
+
 	// Calculate the two vectors for this face.
 	vector1[0] = vertex2.x - vertex1.x;
 	vector1[1] = vertex2.y - vertex1.y;
@@ -190,30 +195,33 @@ void CalculateVertNormalAndTangent(VERT &vertex1, VERT &vertex2, VERT &vertex3, 
 
 	float result = (tuVector[0] * tvVector[1] - tuVector[1] * tvVector[0]);
 
-	if ( result == 0 ) { //fabs(result) < 1e-6f
-		// Pick ANY vector not parallel to the normal
-		float ax = (fabs(nx) > 0.9f) ? 0.0f : 1.0f;
+	auto fallbackTangent = [&](float &tanX, float &tanY, float &tanZ) {
+		float ax = (fabsf(nx) > 0.9f) ? 0.0f : 1.0f;
 		float ay = 0.0f;
-		float az = (fabs(nz) > 0.9f) ? 0.0f : 1.0f;
+		float az = (fabsf(nz) > 0.9f) ? 0.0f : 1.0f;
 
-		// Cross to get a tangent perpendicular to the normal
-		float tanX = ay * nz - az * ny;
-		float tanY = az * nx - ax * nz;
-		float tanZ = ax * ny - ay * nx;
+		tanX = ay * nz - az * ny;
+		tanY = az * nx - ax * nz;
+		tanZ = ax * ny - ay * nx;
 
 		float len = sqrtf(tanX * tanX + tanY * tanY + tanZ * tanZ);
 		if (len > 0.00001f) {
 			tanX /= len;
 			tanY /= len;
 			tanZ /= len;
+		} else {
+			tanX = tanY = tanZ = 0.0f;
 		}
+	};
 
+	if (fabsf(result) < 1e-12f) {
+		float tanX, tanY, tanZ;
+		fallbackTangent(tanX, tanY, tanZ);
 		vertex1.nmx = vertex2.nmx = vertex3.nmx = tanX;
 		vertex1.nmy = vertex2.nmy = vertex3.nmy = tanY;
 		vertex1.nmz = vertex2.nmz = vertex3.nmz = tanZ;
 		return;
 	}
-
 
 	float den = 1.0f / result;
 
@@ -233,7 +241,7 @@ void CalculateVertNormalAndTangent(VERT &vertex1, VERT &vertex2, VERT &vertex3, 
 		tanY /= length;
 		tanZ /= length;
 	} else {
-		tanX = tanY = tanZ = 0.0f;
+		fallbackTangent(tanX, tanY, tanZ);
 	}
 
 	vertex1.nmx = vertex2.nmx = vertex3.nmx = tanX;
@@ -330,7 +338,7 @@ void Compute3DSModelNormals(int pmodel_id) {
 			frame_verts[v].nmx = frame_verts[v].nmy = frame_verts[v].nmz = 0.0f;
 		}
 
-		// 2. Compute face normals and tangents per object and assign directly (no smoothing accumulation)
+		// 2. Accumulate face normals and tangents across triangles sharing a vertex index
 		int v_start = 0;
 		int face_i_count = 0;
 
@@ -371,34 +379,82 @@ void Compute3DSModelNormals(int pmodel_id) {
 					    pmdata[pmodel_id].t[face_i_count + 1],
 					    pmdata[pmodel_id].t[face_i_count + 2]);
 
-					
+					frame_verts[g0].nx += tmp0.nx;
+					frame_verts[g0].ny += tmp0.ny;
+					frame_verts[g0].nz += tmp0.nz;
+					frame_verts[g1].nx += tmp0.nx;
+					frame_verts[g1].ny += tmp0.ny;
+					frame_verts[g1].nz += tmp0.nz;
+					frame_verts[g2].nx += tmp0.nx;
+					frame_verts[g2].ny += tmp0.ny;
+					frame_verts[g2].nz += tmp0.nz;
 
-					// Assign directly to each vertex of this triangle (no smoothing accumulation)
-					frame_verts[g0].nx = tmp0.nx;
-					frame_verts[g0].ny = tmp0.ny;
-					frame_verts[g0].nz = tmp0.nz;
-					frame_verts[g1].nx = tmp0.nx;
-					frame_verts[g1].ny = tmp0.ny;
-					frame_verts[g1].nz = tmp0.nz;
-					frame_verts[g2].nx = tmp0.nx;
-					frame_verts[g2].ny = tmp0.ny;
-					frame_verts[g2].nz = tmp0.nz;
+					frame_verts[g0].nmx += tmp0.nmx;
+					frame_verts[g0].nmy += tmp0.nmy;
+					frame_verts[g0].nmz += tmp0.nmz;
+					frame_verts[g1].nmx += tmp0.nmx;
+					frame_verts[g1].nmy += tmp0.nmy;
+					frame_verts[g1].nmz += tmp0.nmz;
+					frame_verts[g2].nmx += tmp0.nmx;
+					frame_verts[g2].nmy += tmp0.nmy;
+					frame_verts[g2].nmz += tmp0.nmz;
 
-					frame_verts[g0].nmx = tmp0.nmx;
-					frame_verts[g0].nmy = tmp0.nmy;
-					frame_verts[g0].nmz = tmp0.nmz;
-					frame_verts[g1].nmx = tmp0.nmx;
-					frame_verts[g1].nmy = tmp0.nmy;
-					frame_verts[g1].nmz = tmp0.nmz;
-					frame_verts[g2].nmx = tmp0.nmx;
-					frame_verts[g2].nmy = tmp0.nmy;
-					frame_verts[g2].nmz = tmp0.nmz;
+					frame_verts[g0].tu = tmp0.tu; frame_verts[g0].tv = tmp0.tv;
+					frame_verts[g1].tu = tmp1.tu; frame_verts[g1].tv = tmp1.tv;
+					frame_verts[g2].tu = tmp2.tu; frame_verts[g2].tv = tmp2.tv;
 				}
 
 				face_i_count += 3;
 			}
 
 			v_start += num_verts_per_poly;
+		}
+
+		// 3. Normalize normals and Gram-Schmidt orthogonalize tangents
+		for (int v = 0; v < total_num_verts; v++) {
+			float nx = frame_verts[v].nx;
+			float ny = frame_verts[v].ny;
+			float nz = frame_verts[v].nz;
+
+			float len = sqrtf(nx * nx + ny * ny + nz * nz);
+			if (len > 0.00001f) {
+				nx /= len; ny /= len; nz /= len;
+			} else {
+				nx = ny = nz = 0.0f;
+			}
+			frame_verts[v].nx = nx;
+			frame_verts[v].ny = ny;
+			frame_verts[v].nz = nz;
+
+			float tanX = frame_verts[v].nmx;
+			float tanY = frame_verts[v].nmy;
+			float tanZ = frame_verts[v].nmz;
+
+			float dot = tanX * nx + tanY * ny + tanZ * nz;
+			tanX -= nx * dot;
+			tanY -= ny * dot;
+			tanZ -= nz * dot;
+
+			len = sqrtf(tanX * tanX + tanY * tanY + tanZ * tanZ);
+			if (len > 0.00001f) {
+				tanX /= len; tanY /= len; tanZ /= len;
+			} else {
+				float ax = (fabsf(nx) > 0.9f) ? 0.0f : 1.0f;
+				float ay = 0.0f;
+				float az = (fabsf(nz) > 0.9f) ? 0.0f : 1.0f;
+				tanX = ay * nz - az * ny;
+				tanY = az * nx - ax * nz;
+				tanZ = ax * ny - ay * nx;
+				len = sqrtf(tanX * tanX + tanY * tanY + tanZ * tanZ);
+				if (len > 0.00001f) {
+					tanX /= len; tanY /= len; tanZ /= len;
+				} else {
+					tanX = tanY = tanZ = 0.0f;
+				}
+			}
+			frame_verts[v].nmx = tanX;
+			frame_verts[v].nmy = tanY;
+			frame_verts[v].nmz = tanZ;
 		}
 	}
 }
@@ -435,7 +491,7 @@ void ComputeMD2ModelNormals(int pmodel_id) {
 			frame_verts[v].nmx = frame_verts[v].nmy = frame_verts[v].nmz = 0.0f;
 		}
 
-		// 2. Accumulate face normals and tangents matching PlayerToD3DVertList pattern
+		// 2. Accumulate face normals and tangents across triangles sharing a vertex index
 		int i_count = 0;
 		for (int i = 0; i < num_poly; i++) {
 			int num_verts_per_poly = pmdata[pmodel_id].num_vert[i];
@@ -470,30 +526,80 @@ void ComputeMD2ModelNormals(int pmodel_id) {
 					    pmdata[pmodel_id].t[i_count + j + 2]
 					);
 
-					// Assign directly to each vertex of this triangle (no smoothing accumulation)
-					frame_verts[idx0].nx = tmp0.nx;
-					frame_verts[idx0].ny = tmp0.ny;
-					frame_verts[idx0].nz = tmp0.nz;
-					frame_verts[idx1].nx = tmp0.nx;
-					frame_verts[idx1].ny = tmp0.ny;
-					frame_verts[idx1].nz = tmp0.nz;
-					frame_verts[idx2].nx = tmp0.nx;
-					frame_verts[idx2].ny = tmp0.ny;
-					frame_verts[idx2].nz = tmp0.nz;
+					frame_verts[idx0].nx += tmp0.nx;
+					frame_verts[idx0].ny += tmp0.ny;
+					frame_verts[idx0].nz += tmp0.nz;
+					frame_verts[idx1].nx += tmp0.nx;
+					frame_verts[idx1].ny += tmp0.ny;
+					frame_verts[idx1].nz += tmp0.nz;
+					frame_verts[idx2].nx += tmp0.nx;
+					frame_verts[idx2].ny += tmp0.ny;
+					frame_verts[idx2].nz += tmp0.nz;
 
-					frame_verts[idx0].nmx = tmp0.nmx;
-					frame_verts[idx0].nmy = tmp0.nmy;
-					frame_verts[idx0].nmz = tmp0.nmz;
-					frame_verts[idx1].nmx = tmp0.nmx;
-					frame_verts[idx1].nmy = tmp0.nmy;
-					frame_verts[idx1].nmz = tmp0.nmz;
-					frame_verts[idx2].nmx = tmp0.nmx;
-					frame_verts[idx2].nmy = tmp0.nmy;
-					frame_verts[idx2].nmz = tmp0.nmz;
+					frame_verts[idx0].nmx += tmp0.nmx;
+					frame_verts[idx0].nmy += tmp0.nmy;
+					frame_verts[idx0].nmz += tmp0.nmz;
+					frame_verts[idx1].nmx += tmp0.nmx;
+					frame_verts[idx1].nmy += tmp0.nmy;
+					frame_verts[idx1].nmz += tmp0.nmz;
+					frame_verts[idx2].nmx += tmp0.nmx;
+					frame_verts[idx2].nmy += tmp0.nmy;
+					frame_verts[idx2].nmz += tmp0.nmz;
+
+					frame_verts[idx0].tu = tmp0.tu; frame_verts[idx0].tv = tmp0.tv;
+					frame_verts[idx1].tu = tmp1.tu; frame_verts[idx1].tv = tmp1.tv;
+					frame_verts[idx2].tu = tmp2.tu; frame_verts[idx2].tv = tmp2.tv;
 				}
 			}
 
 			i_count += num_verts_per_poly;
+		}
+
+		// 3. Normalize normals and Gram-Schmidt orthogonalize tangents
+		for (int v = 0; v < num_verts; v++) {
+			float nx = frame_verts[v].nx;
+			float ny = frame_verts[v].ny;
+			float nz = frame_verts[v].nz;
+
+			float len = sqrtf(nx * nx + ny * ny + nz * nz);
+			if (len > 0.00001f) {
+				nx /= len; ny /= len; nz /= len;
+			} else {
+				nx = ny = nz = 0.0f;
+			}
+			frame_verts[v].nx = nx;
+			frame_verts[v].ny = ny;
+			frame_verts[v].nz = nz;
+
+			float tanX = frame_verts[v].nmx;
+			float tanY = frame_verts[v].nmy;
+			float tanZ = frame_verts[v].nmz;
+
+			float dot = tanX * nx + tanY * ny + tanZ * nz;
+			tanX -= nx * dot;
+			tanY -= ny * dot;
+			tanZ -= nz * dot;
+
+			len = sqrtf(tanX * tanX + tanY * tanY + tanZ * tanZ);
+			if (len > 0.00001f) {
+				tanX /= len; tanY /= len; tanZ /= len;
+			} else {
+				float ax = (fabsf(nx) > 0.9f) ? 0.0f : 1.0f;
+				float ay = 0.0f;
+				float az = (fabsf(nz) > 0.9f) ? 0.0f : 1.0f;
+				tanX = ay * nz - az * ny;
+				tanY = az * nx - ax * nz;
+				tanZ = ax * ny - ay * nx;
+				len = sqrtf(tanX * tanX + tanY * tanY + tanZ * tanZ);
+				if (len > 0.00001f) {
+					tanX /= len; tanY /= len; tanZ /= len;
+				} else {
+					tanX = tanY = tanZ = 0.0f;
+				}
+			}
+			frame_verts[v].nmx = tanX;
+			frame_verts[v].nmy = tanY;
+			frame_verts[v].nmz = tanZ;
 		}
 	}
 }
