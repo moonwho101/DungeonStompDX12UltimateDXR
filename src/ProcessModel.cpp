@@ -429,25 +429,33 @@ void Compute3DSModelNormals(int pmodel_id) {
 					    pmdata[pmodel_id].t[face_i_count + 1],
 					    pmdata[pmodel_id].t[face_i_count + 2]);
 
-					frame_verts[g0].nx = tmp0.nx;
-					frame_verts[g0].ny = tmp0.ny;
-					frame_verts[g0].nz = tmp0.nz;
-					frame_verts[g1].nx = tmp0.nx;
-					frame_verts[g1].ny = tmp0.ny;
-					frame_verts[g1].nz = tmp0.nz;
-					frame_verts[g2].nx = tmp0.nx;
-					frame_verts[g2].ny = tmp0.ny;
-					frame_verts[g2].nz = tmp0.nz;
+					// 3DS winding order correction: negate face normal and tangent so they point outward
+					//tmp0.nx = -tmp0.nx;
+					//tmp0.ny = -tmp0.ny;
+					//tmp0.nz = -tmp0.nz;
+					//tmp0.nmx = -tmp0.nmx;
+					//tmp0.nmy = -tmp0.nmy;
+					//tmp0.nmz = -tmp0.nmz;
 
-					frame_verts[g0].nmx = tmp0.nmx;
-					frame_verts[g0].nmy = tmp0.nmy;
-					frame_verts[g0].nmz = tmp0.nmz;
-					frame_verts[g1].nmx = tmp0.nmx;
-					frame_verts[g1].nmy = tmp0.nmy;
-					frame_verts[g1].nmz = tmp0.nmz;
-					frame_verts[g2].nmx = tmp0.nmx;
-					frame_verts[g2].nmy = tmp0.nmy;
-					frame_verts[g2].nmz = tmp0.nmz;
+					frame_verts[g0].nx += tmp0.nx;
+					frame_verts[g0].ny += tmp0.ny;
+					frame_verts[g0].nz += tmp0.nz;
+					frame_verts[g1].nx += tmp0.nx;
+					frame_verts[g1].ny += tmp0.ny;
+					frame_verts[g1].nz += tmp0.nz;
+					frame_verts[g2].nx += tmp0.nx;
+					frame_verts[g2].ny += tmp0.ny;
+					frame_verts[g2].nz += tmp0.nz;
+
+					frame_verts[g0].nmx += tmp0.nmx;
+					frame_verts[g0].nmy += tmp0.nmy;
+					frame_verts[g0].nmz += tmp0.nmz;
+					frame_verts[g1].nmx += tmp0.nmx;
+					frame_verts[g1].nmy += tmp0.nmy;
+					frame_verts[g1].nmz += tmp0.nmz;
+					frame_verts[g2].nmx += tmp0.nmx;
+					frame_verts[g2].nmy += tmp0.nmy;
+					frame_verts[g2].nmz += tmp0.nmz;
 				}
 
 				face_i_count += 3;
@@ -455,6 +463,8 @@ void Compute3DSModelNormals(int pmodel_id) {
 
 			v_start += num_verts_per_poly;
 		}
+
+	
 
 		// 3. Generate tangents using MikkTSpace
 		SMikkTSpaceInterface mikkInterface = {};
