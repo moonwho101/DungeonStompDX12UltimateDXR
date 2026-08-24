@@ -177,7 +177,7 @@ void CalculateVertNormalAndTangent(VERT &vertex1, VERT &vertex2, VERT &vertex3, 
 	} else {
 		nx = ny = nz = 0.0f;
 	}
-	
+
 	vertex1.nx = vertex2.nx = vertex3.nx = nx;
 	vertex1.ny = vertex2.ny = vertex3.ny = ny;
 	vertex1.nz = vertex2.nz = vertex3.nz = nz;
@@ -191,7 +191,7 @@ void CalculateVertNormalAndTangent(VERT &vertex1, VERT &vertex2, VERT &vertex3, 
 
 	float result = (tuVector[0] * tvVector[1] - tuVector[1] * tvVector[0]);
 
-	if ( result == 0 ) { //fabs(result) < 1e-6f
+	if (result == 0) { // fabs(result) < 1e-6f
 		// Pick ANY vector not parallel to the normal
 		float ax = (fabs(nx) > 0.9f) ? 0.0f : 1.0f;
 		float ay = 0.0f;
@@ -214,7 +214,6 @@ void CalculateVertNormalAndTangent(VERT &vertex1, VERT &vertex2, VERT &vertex3, 
 		vertex1.nmz = vertex2.nmz = vertex3.nmz = tanZ;
 		return;
 	}
-
 
 	float den = 1.0f / result;
 
@@ -244,7 +243,7 @@ void CalculateVertNormalAndTangent(VERT &vertex1, VERT &vertex2, VERT &vertex3, 
 
 void SmoothVertArrayNoHash(VERT *verts, int num_verts, float smooth_threshold) {
 	const float epsilon = 0.0001f;
-	
+
 	std::vector<uint8_t> tracked(num_verts, 0);
 
 	for (int i = 0; i < num_verts; i++) {
@@ -314,7 +313,7 @@ struct ThreeDSMikkUserData {
 };
 
 static int ThreeDSMikk_GetNumFaces(const SMikkTSpaceContext *pContext) {
-	auto *userData = static_cast<ThreeDSMikkUserData*>(pContext->m_pUserData);
+	auto *userData = static_cast<ThreeDSMikkUserData *>(pContext->m_pUserData);
 	return userData->total_faces;
 }
 
@@ -323,17 +322,17 @@ static int ThreeDSMikk_GetNumVerticesOfFace(const SMikkTSpaceContext *pContext, 
 }
 
 static void ThreeDSMikk_GetPosition(const SMikkTSpaceContext *pContext, float fvPosOut[], const int iFace, const int iVert) {
-	auto *userData = static_cast<ThreeDSMikkUserData*>(pContext->m_pUserData);
+	auto *userData = static_cast<ThreeDSMikkUserData *>(pContext->m_pUserData);
 	int corner_idx = iFace * 3 + iVert;
 	int global_v = userData->corner_to_global_v[corner_idx];
 	const VERT &v = userData->frame_verts[global_v];
 	fvPosOut[0] = v.x;
-	fvPosOut[1] = v.y;
-	fvPosOut[2] = v.z;
+	fvPosOut[1] = v.z;
+	fvPosOut[2] = v.y;
 }
 
 static void ThreeDSMikk_GetNormal(const SMikkTSpaceContext *pContext, float fvNormOut[], const int iFace, const int iVert) {
-	auto *userData = static_cast<ThreeDSMikkUserData*>(pContext->m_pUserData);
+	auto *userData = static_cast<ThreeDSMikkUserData *>(pContext->m_pUserData);
 	int corner_idx = iFace * 3 + iVert;
 	int global_v = userData->corner_to_global_v[corner_idx];
 	const VERT &v = userData->frame_verts[global_v];
@@ -343,15 +342,15 @@ static void ThreeDSMikk_GetNormal(const SMikkTSpaceContext *pContext, float fvNo
 }
 
 static void ThreeDSMikk_GetTexCoord(const SMikkTSpaceContext *pContext, float fvTexcOut[], const int iFace, const int iVert) {
-	auto *userData = static_cast<ThreeDSMikkUserData*>(pContext->m_pUserData);
+	auto *userData = static_cast<ThreeDSMikkUserData *>(pContext->m_pUserData);
 	int corner_idx = iFace * 3 + iVert;
 	const VERT &t = pmdata[userData->pmodel_id].t[corner_idx];
 	fvTexcOut[0] = t.x * pmdata[userData->pmodel_id].skx;
-	fvTexcOut[1] = t.y * pmdata[userData->pmodel_id].sky;
+	fvTexcOut[1] = 1.0f - (t.y * pmdata[userData->pmodel_id].sky);
 }
 
 static void ThreeDSMikk_SetTSpaceBasic(const SMikkTSpaceContext *pContext, const float fvTangent[], const float fSign, const int iFace, const int iVert) {
-	auto *userData = static_cast<ThreeDSMikkUserData*>(pContext->m_pUserData);
+	auto *userData = static_cast<ThreeDSMikkUserData *>(pContext->m_pUserData);
 	int corner_idx = iFace * 3 + iVert;
 	int global_v = userData->corner_to_global_v[corner_idx];
 	userData->frame_verts[global_v].nmx = fvTangent[0];
@@ -430,13 +429,25 @@ void Compute3DSModelNormals(int pmodel_id) {
 					    pmdata[pmodel_id].t[face_i_count + 1],
 					    pmdata[pmodel_id].t[face_i_count + 2]);
 
-					frame_verts[g0].nx += tmp0.nx; frame_verts[g0].ny += tmp0.ny; frame_verts[g0].nz += tmp0.nz;
-					frame_verts[g1].nx += tmp0.nx; frame_verts[g1].ny += tmp0.ny; frame_verts[g1].nz += tmp0.nz;
-					frame_verts[g2].nx += tmp0.nx; frame_verts[g2].ny += tmp0.ny; frame_verts[g2].nz += tmp0.nz;
+					frame_verts[g0].nx = tmp0.nx;
+					frame_verts[g0].ny = tmp0.ny;
+					frame_verts[g0].nz = tmp0.nz;
+					frame_verts[g1].nx = tmp0.nx;
+					frame_verts[g1].ny = tmp0.ny;
+					frame_verts[g1].nz = tmp0.nz;
+					frame_verts[g2].nx = tmp0.nx;
+					frame_verts[g2].ny = tmp0.ny;
+					frame_verts[g2].nz = tmp0.nz;
 
-					frame_verts[g0].nmx += tmp0.nmx; frame_verts[g0].nmy += tmp0.nmy; frame_verts[g0].nmz += tmp0.nmz;
-					frame_verts[g1].nmx += tmp0.nmx; frame_verts[g1].nmy += tmp0.nmy; frame_verts[g1].nmz += tmp0.nmz;
-					frame_verts[g2].nmx += tmp0.nmx; frame_verts[g2].nmy += tmp0.nmy; frame_verts[g2].nmz += tmp0.nmz;
+					frame_verts[g0].nmx = tmp0.nmx;
+					frame_verts[g0].nmy = tmp0.nmy;
+					frame_verts[g0].nmz = tmp0.nmz;
+					frame_verts[g1].nmx = tmp0.nmx;
+					frame_verts[g1].nmy = tmp0.nmy;
+					frame_verts[g1].nmz = tmp0.nmz;
+					frame_verts[g2].nmx = tmp0.nmx;
+					frame_verts[g2].nmy = tmp0.nmy;
+					frame_verts[g2].nmz = tmp0.nmz;
 				}
 
 				face_i_count += 3;
@@ -457,7 +468,7 @@ void Compute3DSModelNormals(int pmodel_id) {
 		ThreeDSMikkUserData userData;
 		userData.pmodel_id = pmodel_id;
 		userData.frame_verts = frame_verts;
-		userData.total_faces = pmdata[pmodel_id].num_faces;
+		userData.total_faces = face_i_count / 3;
 		userData.corner_to_global_v = corner_to_global_v.data();
 
 		SMikkTSpaceContext mikkContext = {};
@@ -475,7 +486,7 @@ struct MD2MikkUserData {
 };
 
 static int MD2Mikk_GetNumFaces(const SMikkTSpaceContext *pContext) {
-	auto *userData = static_cast<MD2MikkUserData*>(pContext->m_pUserData);
+	auto *userData = static_cast<MD2MikkUserData *>(pContext->m_pUserData);
 	return userData->total_triangles;
 }
 
@@ -484,7 +495,7 @@ static int MD2Mikk_GetNumVerticesOfFace(const SMikkTSpaceContext *pContext, cons
 }
 
 static void MD2Mikk_GetPosition(const SMikkTSpaceContext *pContext, float fvPosOut[], const int iFace, const int iVert) {
-	auto *userData = static_cast<MD2MikkUserData*>(pContext->m_pUserData);
+	auto *userData = static_cast<MD2MikkUserData *>(pContext->m_pUserData);
 	int corner_idx = iFace * 3 + iVert;
 	int v_idx = pmdata[userData->pmodel_id].f[corner_idx];
 	const VERT &v = userData->frame_verts[v_idx];
@@ -494,7 +505,7 @@ static void MD2Mikk_GetPosition(const SMikkTSpaceContext *pContext, float fvPosO
 }
 
 static void MD2Mikk_GetNormal(const SMikkTSpaceContext *pContext, float fvNormOut[], const int iFace, const int iVert) {
-	auto *userData = static_cast<MD2MikkUserData*>(pContext->m_pUserData);
+	auto *userData = static_cast<MD2MikkUserData *>(pContext->m_pUserData);
 	int corner_idx = iFace * 3 + iVert;
 	int v_idx = pmdata[userData->pmodel_id].f[corner_idx];
 	const VERT &v = userData->frame_verts[v_idx];
@@ -504,7 +515,7 @@ static void MD2Mikk_GetNormal(const SMikkTSpaceContext *pContext, float fvNormOu
 }
 
 static void MD2Mikk_GetTexCoord(const SMikkTSpaceContext *pContext, float fvTexcOut[], const int iFace, const int iVert) {
-	auto *userData = static_cast<MD2MikkUserData*>(pContext->m_pUserData);
+	auto *userData = static_cast<MD2MikkUserData *>(pContext->m_pUserData);
 	int corner_idx = iFace * 3 + iVert;
 	const VERT &t = pmdata[userData->pmodel_id].t[corner_idx];
 	fvTexcOut[0] = t.x * pmdata[userData->pmodel_id].skx;
@@ -512,7 +523,7 @@ static void MD2Mikk_GetTexCoord(const SMikkTSpaceContext *pContext, float fvTexc
 }
 
 static void MD2Mikk_SetTSpaceBasic(const SMikkTSpaceContext *pContext, const float fvTangent[], const float fSign, const int iFace, const int iVert) {
-	auto *userData = static_cast<MD2MikkUserData*>(pContext->m_pUserData);
+	auto *userData = static_cast<MD2MikkUserData *>(pContext->m_pUserData);
 	int corner_idx = iFace * 3 + iVert;
 	int v_idx = pmdata[userData->pmodel_id].f[corner_idx];
 	userData->frame_verts[v_idx].nmx = fvTangent[0];
@@ -584,8 +595,7 @@ void ComputeMD2ModelNormals(int pmodel_id) {
 					    tmp0, tmp1, tmp2,
 					    pmdata[pmodel_id].t[i_count + j + 0],
 					    pmdata[pmodel_id].t[i_count + j + 1],
-					    pmdata[pmodel_id].t[i_count + j + 2]
-					);
+					    pmdata[pmodel_id].t[i_count + j + 2]);
 
 					frame_verts[idx0].nx += tmp0.nx;
 					frame_verts[idx0].ny += tmp0.ny;
@@ -651,7 +661,7 @@ void Smooth3DSModelNormals(int pmodel_id) {
 		if (!frame_verts)
 			continue;
 
-		SmoothVertArrayNoHash(frame_verts, total_num_verts,0.6f);
+		SmoothVertArrayNoHash(frame_verts, total_num_verts, 0.6f);
 	}
 }
 
@@ -704,7 +714,7 @@ struct ObjectMikkUserData {
 };
 
 static int ObjectMikk_GetNumFaces(const SMikkTSpaceContext *pContext) {
-	auto *userData = static_cast<ObjectMikkUserData*>(pContext->m_pUserData);
+	auto *userData = static_cast<ObjectMikkUserData *>(pContext->m_pUserData);
 	return userData->total_faces;
 }
 
@@ -713,7 +723,7 @@ static int ObjectMikk_GetNumVerticesOfFace(const SMikkTSpaceContext *pContext, c
 }
 
 static void ObjectMikk_GetPosition(const SMikkTSpaceContext *pContext, float fvPosOut[], const int iFace, const int iVert) {
-	auto *userData = static_cast<ObjectMikkUserData*>(pContext->m_pUserData);
+	auto *userData = static_cast<ObjectMikkUserData *>(pContext->m_pUserData);
 	int idx = userData->start_cnt + iFace * 3 + iVert;
 	const D3DVERTEX2 &v = userData->verts[idx];
 	fvPosOut[0] = v.x;
@@ -722,7 +732,7 @@ static void ObjectMikk_GetPosition(const SMikkTSpaceContext *pContext, float fvP
 }
 
 static void ObjectMikk_GetNormal(const SMikkTSpaceContext *pContext, float fvNormOut[], const int iFace, const int iVert) {
-	auto *userData = static_cast<ObjectMikkUserData*>(pContext->m_pUserData);
+	auto *userData = static_cast<ObjectMikkUserData *>(pContext->m_pUserData);
 	int idx = userData->start_cnt + iFace * 3 + iVert;
 	const D3DVERTEX2 &v = userData->verts[idx];
 	fvNormOut[0] = v.nx;
@@ -731,7 +741,7 @@ static void ObjectMikk_GetNormal(const SMikkTSpaceContext *pContext, float fvNor
 }
 
 static void ObjectMikk_GetTexCoord(const SMikkTSpaceContext *pContext, float fvTexcOut[], const int iFace, const int iVert) {
-	auto *userData = static_cast<ObjectMikkUserData*>(pContext->m_pUserData);
+	auto *userData = static_cast<ObjectMikkUserData *>(pContext->m_pUserData);
 	int idx = userData->start_cnt + iFace * 3 + iVert;
 	const D3DVERTEX2 &v = userData->verts[idx];
 	fvTexcOut[0] = v.tu;
@@ -739,7 +749,7 @@ static void ObjectMikk_GetTexCoord(const SMikkTSpaceContext *pContext, float fvT
 }
 
 static void ObjectMikk_SetTSpaceBasic(const SMikkTSpaceContext *pContext, const float fvTangent[], const float fSign, const int iFace, const int iVert) {
-	auto *userData = static_cast<ObjectMikkUserData*>(pContext->m_pUserData);
+	auto *userData = static_cast<ObjectMikkUserData *>(pContext->m_pUserData);
 	int idx = userData->start_cnt + iFace * 3 + iVert;
 	userData->verts[idx].nmx = fvTangent[0];
 	userData->verts[idx].nmy = fvTangent[1];
