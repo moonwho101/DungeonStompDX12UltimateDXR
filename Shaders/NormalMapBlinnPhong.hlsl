@@ -285,13 +285,23 @@ float3 NormalSampleToWorldSpace(float3 normalMapSample, float3 unitNormalW, floa
 
 	// Build orthonormal basis.
 	float3 N = unitNormalW;
-	float3 T = normalize(tangentW - dot(tangentW, N)*N);
+	float3 T = tangentW - dot(tangentW, N)*N;
+	float lenT = length(T);
+	if (lenT > 1e-5f)
+	{
+		T /= lenT;
+	}
+	else
+	{
+		float3 vAx = (abs(N.x) > 0.9f) ? float3(0.0f, 1.0f, 0.0f) : float3(1.0f, 0.0f, 0.0f);
+		T = normalize(cross(vAx, N));
+	}
 	float3 B = cross(N, T);
 
 	float3x3 TBN = float3x3(T, B, N);
 
 	// Transform from tangent space to world space.
-	float3 bumpedNormalW = mul(normalT, TBN);
+	float3 bumpedNormalW = normalize(mul(normalT, TBN));
 
 	return bumpedNormalW;
 }
