@@ -328,8 +328,8 @@ static void ThreeDSMikk_GetPosition(const SMikkTSpaceContext *pContext, float fv
 	int global_v = userData->corner_to_global_v[corner_idx];
 	const VERT &v = userData->frame_verts[global_v];
 	fvPosOut[0] = v.x;
-	fvPosOut[1] = v.y;
-	fvPosOut[2] = v.z;
+	fvPosOut[1] = v.z;
+	fvPosOut[2] = v.y;
 }
 
 static void ThreeDSMikk_GetNormal(const SMikkTSpaceContext *pContext, float fvNormOut[], const int iFace, const int iVert) {
@@ -347,7 +347,7 @@ static void ThreeDSMikk_GetTexCoord(const SMikkTSpaceContext *pContext, float fv
 	int corner_idx = iFace * 3 + iVert;
 	const VERT &t = pmdata[userData->pmodel_id].t[corner_idx];
 	fvTexcOut[0] = t.x * pmdata[userData->pmodel_id].skx;
-	fvTexcOut[1] = t.y * pmdata[userData->pmodel_id].sky;
+	fvTexcOut[1] = 1.0f - (t.y * pmdata[userData->pmodel_id].sky);
 }
 
 static void ThreeDSMikk_SetTSpaceBasic(const SMikkTSpaceContext *pContext, const float fvTangent[], const float fSign, const int iFace, const int iVert) {
@@ -457,7 +457,7 @@ void Compute3DSModelNormals(int pmodel_id) {
 		ThreeDSMikkUserData userData;
 		userData.pmodel_id = pmodel_id;
 		userData.frame_verts = frame_verts;
-		userData.total_faces = pmdata[pmodel_id].num_faces;
+		userData.total_faces = face_i_count / 3;
 		userData.corner_to_global_v = corner_to_global_v.data();
 
 		SMikkTSpaceContext mikkContext = {};
