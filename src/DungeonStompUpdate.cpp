@@ -41,11 +41,11 @@ bool enableDXR = false;
 bool enableDXRKey = false;
 
 // DXR debug stats (updated each frame when DXR is active)
-int gDXRTriangleCount  = 0;
-int gDXRAliasCount     = 0;
-int gDXRVertexCount    = 0;
-int gDXROutputWidth    = 0;
-int gDXROutputHeight   = 0;
+int gDXRTriangleCount = 0;
+int gDXRAliasCount = 0;
+int gDXRVertexCount = 0;
+int gDXROutputWidth = 0;
+int gDXROutputHeight = 0;
 
 extern int trueplayernum;
 extern PLAYER *player_list;
@@ -123,12 +123,13 @@ void DungeonStompApp::Update(const GameTimer &gt) {
 		UpdateObjectCBs(gt);
 		UpdateMaterialCBs(gt);
 		UpdateShadowTransform(gt, 0);
-		UpdateMainPassCB(gt);
 		UpdateSsaoCB(gt);
 		UpdateShadowPassCB(gt);
 		DisplayPlayerCaption();
 	}
-	
+
+	UpdateMainPassCB(gt);
+
 	UpdateDungeon(gt);
 }
 
@@ -241,7 +242,7 @@ void DungeonStompApp::UpdateCamera(const GameTimer &gt) {
 
 		float sinPitch, cosPitch, sinYaw, cosYaw;
 		XMScalarSinCos(&sinPitch, &cosPitch, newangle * k);
-		XMScalarSinCos(&sinYaw,   &cosYaw,   angy * k);
+		XMScalarSinCos(&sinYaw, &cosYaw, angy * k);
 
 		newspot2.x = newspot.x + cameradist * sinPitch * sinYaw;
 		newspot2.y = newspot.y + cameradist * cosPitch;
@@ -787,10 +788,10 @@ void DungeonStompApp::UpdateDungeon(const GameTimer &gt) {
 		}
 		// Update DXR debug stats
 		gDXRTriangleCount = (int)totalTriangles;
-		gDXRAliasCount    = number_of_tex_aliases;
-		gDXRVertexCount   = (int)mDXRHelper->GetVertexCount();
-		gDXROutputWidth   = (int)mDXRHelper->GetOutputWidth();
-		gDXROutputHeight  = (int)mDXRHelper->GetOutputHeight();
+		gDXRAliasCount = number_of_tex_aliases;
+		gDXRVertexCount = (int)mDXRHelper->GetVertexCount();
+		gDXROutputWidth = (int)mDXRHelper->GetOutputWidth();
+		gDXROutputHeight = (int)mDXRHelper->GetOutputHeight();
 
 		// Upload primitive alias indices to DXR (reusing texture indices buffer)
 		mDXRHelper->UpdatePrimitiveTextureIndices(md3dDevice.Get(), primitiveTextureIndices.data(), totalTriangles);
@@ -831,8 +832,8 @@ void DungeonStompApp::UpdateDungeon(const GameTimer &gt) {
 		    LightContainer,
 		    MaxLights,
 		    gt.TotalTime(),
-		    0.0f,    // metallic (deprecated, now per-alias)
-		    0.001f,  // rayConeSpreadAngle
+		    0.0f,   // metallic (deprecated, now per-alias)
+		    0.001f, // rayConeSpreadAngle
 		    outside);
 	}
 }
