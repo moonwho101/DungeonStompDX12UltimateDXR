@@ -430,12 +430,12 @@ void Compute3DSModelNormals(int pmodel_id) {
 					    pmdata[pmodel_id].t[face_i_count + 2]);
 
 					// 3DS winding order correction: negate face normal and tangent so they point outward
-					//tmp0.nx = -tmp0.nx;
-					//tmp0.ny = -tmp0.ny;
-					//tmp0.nz = -tmp0.nz;
-					//tmp0.nmx = -tmp0.nmx;
-					//tmp0.nmy = -tmp0.nmy;
-					//tmp0.nmz = -tmp0.nmz;
+					// tmp0.nx = -tmp0.nx;
+					// tmp0.ny = -tmp0.ny;
+					// tmp0.nz = -tmp0.nz;
+					// tmp0.nmx = -tmp0.nmx;
+					// tmp0.nmy = -tmp0.nmy;
+					// tmp0.nmz = -tmp0.nmz;
 
 					frame_verts[g0].nx += tmp0.nx;
 					frame_verts[g0].ny += tmp0.ny;
@@ -656,7 +656,6 @@ void ComputeMD2ModelNormals(int pmodel_id) {
 			}
 		}
 
-
 		// 3. Generate tangents using MikkTSpace
 		SMikkTSpaceInterface mikkInterface = {};
 		mikkInterface.m_getNumFaces = MD2Mikk_GetNumFaces;
@@ -677,6 +676,91 @@ void ComputeMD2ModelNormals(int pmodel_id) {
 
 		genTangSpaceDefault(&mikkContext);
 	}
+}
+
+struct ObDataMikkUserData {
+	int obj_idx;
+	int total_triangles;
+};
+
+static int ObDataMikk_GetNumFaces(const SMikkTSpaceContext *pContext) {
+	auto *userData = static_cast<ObDataMikkUserData *>(pContext->m_pUserData);
+	return userData->total_triangles;
+}
+
+static int ObDataMikk_GetNumVerticesOfFace(const SMikkTSpaceContext *pContext, const int iFace) {
+	return 3;
+}
+
+static void ObDataMikk_GetPosition(const SMikkTSpaceContext *pContext, float fvPosOut[], const int iFace, const int iVert) {
+	auto *userData = static_cast<ObDataMikkUserData *>(pContext->m_pUserData);
+	int v_idx = iFace * 3 + iVert;
+	const VERT &v = obdata[userData->obj_idx].v[v_idx];
+	fvPosOut[0] = v.x;
+	fvPosOut[1] = v.y;
+	fvPosOut[2] = v.z;
+}
+
+static void ObDataMikk_GetNormal(const SMikkTSpaceContext *pContext, float fvNormOut[], const int iFace, const int iVert) {
+	auto *userData = static_cast<ObDataMikkUserData *>(pContext->m_pUserData);
+	int v_idx = iFace * 3 + iVert;
+	const VERT &v = obdata[userData->obj_idx].v[v_idx];
+	fvNormOut[0] = v.nx;
+	fvNormOut[1] = v.ny;
+	fvNormOut[2] = v.nz;
+}
+
+static void ObDataMikk_GetTexCoord(const SMikkTSpaceContext *pContext, float fvTexcOut[], const int iFace, const int iVert) {
+	auto *userData = static_cast<ObDataMikkUserData *>(pContext->m_pUserData);
+	int v_idx = iFace * 3 + iVert;
+	const VERT &t = obdata[userData->obj_idx].t[v_idx];
+	fvTexcOut[0] = t.x;
+	fvTexcOut[1] = t.y;
+}
+
+static void ObDataMikk_SetTSpaceBasic(const SMikkTSpaceContext *pContext, const float fvTangent[], const float fSign, const int iFace, const int iVert) {
+	auto *userData = static_cast<ObDataMikkUserData *>(pContext->m_pUserData);
+	int v_idx = iFace * 3 + iVert;
+	obdata[userData->obj_idx].v[v_idx].nmx = fvTangent[0];
+	obdata[userData->obj_idx].v[v_idx].nmy = fvTangent[1];
+	obdata[userData->obj_idx].v[v_idx].nmz = fvTangent[2];
+}
+
+void ComputeObDataNormals(int obj_idx) {
+	if (obj_idx < 0)
+		return;
+
+	int v_count = num_vert_per_object[obj_idx];
+	if (v_count < 3)
+		return;
+
+	for (int v_i = 0; v_i + 2 < v_count; v_i += 3) {
+		CalculateVertNormalAndTangent(
+		    obdata[obj_idx].v[v_i],
+		    obdata[obj_idx].v[v_i + 1],
+		    obdata[obj_idx].v[v_i + 2],
+		    obdata[obj_idx].t[v_i],
+		    obdata[obj_idx].t[v_i + 1],
+		    obdata[obj_idx].t[v_i + 2]);
+	}
+
+	SMikkTSpaceInterface mikkInterface = {};
+	mikkInterface.m_getNumFaces = ObDataMikk_GetNumFaces;
+	mikkInterface.m_getNumVerticesOfFace = ObDataMikk_GetNumVerticesOfFace;
+	mikkInterface.m_getPosition = ObDataMikk_GetPosition;
+	mikkInterface.m_getNormal = ObDataMikk_GetNormal;
+	mikkInterface.m_getTexCoord = ObDataMikk_GetTexCoord;
+	mikkInterface.m_setTSpaceBasic = ObDataMikk_SetTSpaceBasic;
+
+	ObDataMikkUserData userData;
+	userData.obj_idx = obj_idx;
+	userData.total_triangles = v_count / 3;
+
+	SMikkTSpaceContext mikkContext = {};
+	mikkContext.m_pInterface = &mikkInterface;
+	mikkContext.m_pUserData = &userData;
+
+	genTangSpaceDefault(&mikkContext);
 }
 
 void Smooth3DSModelNormals(int pmodel_id) {
@@ -947,29 +1031,6 @@ void ObjectToD3DVertList(int ob_type, float angle, int oblist_index) {
 	// if (ob_type == 121 || ob_type == 169 || ob_type == 170 || ob_type == 58 || strstr(oblist[oblist_index].name, "door") != NULL) {
 	//     SmoothNormals(start_cnt);
 	// }
-
-	// Generate tangents using MikkTSpace
-	int total_verts = cnt - start_cnt;
-	if (total_verts >= 3) {
-		SMikkTSpaceInterface mikkInterface = {};
-		mikkInterface.m_getNumFaces = ObjectMikk_GetNumFaces;
-		mikkInterface.m_getNumVerticesOfFace = ObjectMikk_GetNumVerticesOfFace;
-		mikkInterface.m_getPosition = ObjectMikk_GetPosition;
-		mikkInterface.m_getNormal = ObjectMikk_GetNormal;
-		mikkInterface.m_getTexCoord = ObjectMikk_GetTexCoord;
-		mikkInterface.m_setTSpaceBasic = ObjectMikk_SetTSpaceBasic;
-
-		ObjectMikkUserData userData;
-		userData.verts = src_v;
-		userData.start_cnt = start_cnt;
-		userData.total_faces = total_verts / 3;
-
-		SMikkTSpaceContext mikkContext = {};
-		mikkContext.m_pInterface = &mikkInterface;
-		mikkContext.m_pUserData = &userData;
-
-		genTangSpaceDefault(&mikkContext);
-	}
 }
 
 void DrawBoundingBox() {

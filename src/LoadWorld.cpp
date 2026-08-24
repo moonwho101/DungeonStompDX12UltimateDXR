@@ -59,8 +59,7 @@ char g_model_filename[256];
 float monx, mony, monz;
 int totalmod;
 int outside = 0;
-int largedungeon =0;
-
+int largedungeon = 0;
 
 extern int usespell;
 extern struct gametext gtext[200];
@@ -155,7 +154,7 @@ BOOL CLoadWorld::LoadWorldMap(char *filename) {
 	int bufc2 = 0;
 	int loop1 = 0;
 
-	int addflame=0;
+	int addflame = 0;
 
 	// oblist = new OBJECTLIST[1000];
 
@@ -202,7 +201,6 @@ BOOL CLoadWorld::LoadWorldMap(char *filename) {
 				else
 					addanewplayer = 1;
 			}
-
 
 			if (strstr(p, "!flamesnohit") != NULL) {
 				addflame = 1;
@@ -689,7 +687,6 @@ BOOL CLoadWorld::LoadObjectData(char *filename) {
 			obdata[object_id].t[vert_count + 2].x = TexMap[texture].tu[2];
 			obdata[object_id].t[vert_count + 2].y = TexMap[texture].tv[2];
 
-
 			poly_count++;
 			command_error = FALSE;
 		}
@@ -906,19 +903,9 @@ BOOL CLoadWorld::LoadObjectData(char *filename) {
 	}
 	fclose(fp);
 
-	// Calculate normal and tangent for each triangle of every object in obdata
+	// Calculate normal and tangent for each triangle of every object in obdata using MikkTSpace
 	for (int obj_idx = 0; obj_idx < obdata_length; obj_idx++) {
-		int v_count = num_vert_per_object[obj_idx];
-		for (int v_i = 0; v_i + 2 < v_count; v_i += 3) {
-			CalculateVertNormalAndTangent(
-				obdata[obj_idx].v[v_i],
-				obdata[obj_idx].v[v_i + 1],
-				obdata[obj_idx].v[v_i + 2],
-				obdata[obj_idx].t[v_i],
-				obdata[obj_idx].t[v_i + 1],
-				obdata[obj_idx].t[v_i + 2]
-			);
-		}
+		ComputeObDataNormals(obj_idx);
 	}
 
 	//_itoa_s(obdata_length, buffer, _countof(buffer), 10);
@@ -2127,7 +2114,6 @@ int load_level(char *filename) {
 		your_missle[i].blood = 0;
 		your_missle[i].bouncemax = 0;
 		your_missle[i].bounce = 0;
-
 	}
 
 	strcpy_s(level, levelname);
