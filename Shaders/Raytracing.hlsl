@@ -192,11 +192,21 @@ float3 NormalSampleToWorldSpace(float3 normalMapSample, float3 unitNormalW, floa
     
     // Build orthonormal TBN basis
 	float3 N = unitNormalW;
-	float3 T = normalize(tangentW - dot(tangentW, N) * N);
+	float3 T = tangentW - dot(tangentW, N) * N;
+	float lenT = length(T);
+	if (lenT > 1e-5f)
+	{
+		T /= lenT;
+	}
+	else
+	{
+		float3 vAx = (abs(N.x) > 0.9f) ? float3(0.0f, 1.0f, 0.0f) : float3(1.0f, 0.0f, 0.0f);
+		T = normalize(cross(vAx, N));
+	}
 	float3 B = cross(N, T);
 	float3x3 TBN = float3x3(T, B, N);
     
-	return mul(normalT, TBN);
+	return normalize(mul(normalT, TBN));
 }
 
 //=============================================================================
@@ -559,15 +569,28 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
     // Interpolate vertex attributes
 	float3 N = normalize(v0.Normal * bary.x + v1.Normal * bary.y + v2.Normal * bary.z);
 	float2 texCoord = v0.TexC * bary.x + v1.TexC * bary.y + v2.TexC * bary.z;
-	float3 T = normalize(v0.TangentU * bary.x + v1.TangentU * bary.y + v2.TangentU * bary.z);
+	float3 T = v0.TangentU * bary.x + v1.TangentU * bary.y + v2.TangentU * bary.z;
+	float lenT = length(T);
+	if (lenT > 1e-5f)
+	{
+		T /= lenT;
+	}
+	else
+	{
+		float3 vAx = (abs(N.x) > 0.9f) ? float3(0.0f, 1.0f, 0.0f) : float3(1.0f, 0.0f, 0.0f);
+		T = normalize(cross(vAx, N));
+	}
     
     // Hit position and ray direction
 	float3 hitPos = WorldRayOrigin() + WorldRayDirection() * RayTCurrent();
 	float3 rayDir = WorldRayDirection();
     
-    // Ensure normal faces the camera
+    // Ensure normal and tangent face the camera
 	if (dot(N, -rayDir) < 0.0f)
+	{
 		N = -N;
+		T = -T;
+	}
     
     // View direction
 	float3 V = normalize(gCameraPos - hitPos);
@@ -612,6 +635,12 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
         
 		float3 normalMapSample = gTextures[NonUniformResourceIndex((uint) normalMapIndex)].SampleLevel(gSampler, texCoord, normalMip).rgb;
 		N = normalize(NormalSampleToWorldSpace(normalMapSample, N, T));
+	}
+
+	// Ensure perturbed/interpolated normal N does not bend away from view direction V to prevent black rim artifacts
+	if (dot(N, V) < 0.001f)
+	{
+		N = normalize(N - V * (dot(N, V) - 0.001f));
 	}
     
 	float4 texSample = float4(0.5f, 0.5f, 0.5f, 1.0f);

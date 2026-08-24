@@ -328,8 +328,8 @@ static void ThreeDSMikk_GetPosition(const SMikkTSpaceContext *pContext, float fv
 	int global_v = userData->corner_to_global_v[corner_idx];
 	const VERT &v = userData->frame_verts[global_v];
 	fvPosOut[0] = v.x;
-	fvPosOut[1] = v.y;
-	fvPosOut[2] = v.z;
+	fvPosOut[1] = v.z;
+	fvPosOut[2] = v.y;
 }
 
 static void ThreeDSMikk_GetNormal(const SMikkTSpaceContext *pContext, float fvNormOut[], const int iFace, const int iVert) {
@@ -347,7 +347,7 @@ static void ThreeDSMikk_GetTexCoord(const SMikkTSpaceContext *pContext, float fv
 	int corner_idx = iFace * 3 + iVert;
 	const VERT &t = pmdata[userData->pmodel_id].t[corner_idx];
 	fvTexcOut[0] = t.x * pmdata[userData->pmodel_id].skx;
-	fvTexcOut[1] = t.y * pmdata[userData->pmodel_id].sky;
+	fvTexcOut[1] = 1.0f - (t.y * pmdata[userData->pmodel_id].sky);
 }
 
 static void ThreeDSMikk_SetTSpaceBasic(const SMikkTSpaceContext *pContext, const float fvTangent[], const float fSign, const int iFace, const int iVert) {
@@ -430,6 +430,10 @@ void Compute3DSModelNormals(int pmodel_id) {
 					    pmdata[pmodel_id].t[face_i_count + 1],
 					    pmdata[pmodel_id].t[face_i_count + 2]);
 
+					// 3DS winding order correction: negate face normal and tangent so they point outward
+					tmp0.nx = -tmp0.nx; tmp0.ny = -tmp0.ny; tmp0.nz = -tmp0.nz;
+					tmp0.nmx = -tmp0.nmx; tmp0.nmy = -tmp0.nmy; tmp0.nmz = -tmp0.nmz;
+
 					frame_verts[g0].nx += tmp0.nx; frame_verts[g0].ny += tmp0.ny; frame_verts[g0].nz += tmp0.nz;
 					frame_verts[g1].nx += tmp0.nx; frame_verts[g1].ny += tmp0.ny; frame_verts[g1].nz += tmp0.nz;
 					frame_verts[g2].nx += tmp0.nx; frame_verts[g2].ny += tmp0.ny; frame_verts[g2].nz += tmp0.nz;
@@ -445,6 +449,18 @@ void Compute3DSModelNormals(int pmodel_id) {
 			v_start += num_verts_per_poly;
 		}
 
+		// Normalize accumulated vertex normals before MikkTSpace
+		for (int v = 0; v < total_num_verts; v++) {
+			float len = sqrtf(frame_verts[v].nx * frame_verts[v].nx +
+			                  frame_verts[v].ny * frame_verts[v].ny +
+			                  frame_verts[v].nz * frame_verts[v].nz);
+			if (len > 1e-6f) {
+				frame_verts[v].nx /= len;
+				frame_verts[v].ny /= len;
+				frame_verts[v].nz /= len;
+			}
+		}
+
 		// 3. Generate tangents using MikkTSpace
 		SMikkTSpaceInterface mikkInterface = {};
 		mikkInterface.m_getNumFaces = ThreeDSMikk_GetNumFaces;
@@ -457,7 +473,7 @@ void Compute3DSModelNormals(int pmodel_id) {
 		ThreeDSMikkUserData userData;
 		userData.pmodel_id = pmodel_id;
 		userData.frame_verts = frame_verts;
-		userData.total_faces = pmdata[pmodel_id].num_faces;
+		userData.total_faces = face_i_count / 3;
 		userData.corner_to_global_v = corner_to_global_v.data();
 
 		SMikkTSpaceContext mikkContext = {};
