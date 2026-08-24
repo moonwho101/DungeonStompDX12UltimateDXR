@@ -679,6 +679,92 @@ void ComputeMD2ModelNormals(int pmodel_id) {
 	}
 }
 
+struct ObDataMikkUserData {
+	int obj_idx;
+	int total_triangles;
+};
+
+static int ObDataMikk_GetNumFaces(const SMikkTSpaceContext *pContext) {
+	auto *userData = static_cast<ObDataMikkUserData *>(pContext->m_pUserData);
+	return userData->total_triangles;
+}
+
+static int ObDataMikk_GetNumVerticesOfFace(const SMikkTSpaceContext *pContext, const int iFace) {
+	return 3;
+}
+
+static void ObDataMikk_GetPosition(const SMikkTSpaceContext *pContext, float fvPosOut[], const int iFace, const int iVert) {
+	auto *userData = static_cast<ObDataMikkUserData *>(pContext->m_pUserData);
+	int v_idx = iFace * 3 + iVert;
+	const VERT &v = obdata[userData->obj_idx].v[v_idx];
+	fvPosOut[0] = v.x;
+	fvPosOut[1] = v.y;
+	fvPosOut[2] = v.z;
+}
+
+static void ObDataMikk_GetNormal(const SMikkTSpaceContext *pContext, float fvNormOut[], const int iFace, const int iVert) {
+	auto *userData = static_cast<ObDataMikkUserData *>(pContext->m_pUserData);
+	int v_idx = iFace * 3 + iVert;
+	const VERT &v = obdata[userData->obj_idx].v[v_idx];
+	fvNormOut[0] = v.nx;
+	fvNormOut[1] = v.ny;
+	fvNormOut[2] = v.nz;
+}
+
+static void ObDataMikk_GetTexCoord(const SMikkTSpaceContext *pContext, float fvTexcOut[], const int iFace, const int iVert) {
+	auto *userData = static_cast<ObDataMikkUserData *>(pContext->m_pUserData);
+	int v_idx = iFace * 3 + iVert;
+	const VERT &t = obdata[userData->obj_idx].t[v_idx];
+	fvTexcOut[0] = t.x;
+	fvTexcOut[1] = t.y;
+}
+
+static void ObDataMikk_SetTSpaceBasic(const SMikkTSpaceContext *pContext, const float fvTangent[], const float fSign, const int iFace, const int iVert) {
+	auto *userData = static_cast<ObDataMikkUserData *>(pContext->m_pUserData);
+	int v_idx = iFace * 3 + iVert;
+	obdata[userData->obj_idx].v[v_idx].nmx = fvTangent[0];
+	obdata[userData->obj_idx].v[v_idx].nmy = fvTangent[1];
+	obdata[userData->obj_idx].v[v_idx].nmz = fvTangent[2];
+}
+
+void ComputeObDataNormals(int obj_idx) {
+	if (obj_idx < 0)
+		return;
+
+	int v_count = num_vert_per_object[obj_idx];
+	if (v_count < 3)
+		return;
+
+	for (int v_i = 0; v_i + 2 < v_count; v_i += 3) {
+		CalculateVertNormalAndTangent(
+			obdata[obj_idx].v[v_i],
+			obdata[obj_idx].v[v_i + 1],
+			obdata[obj_idx].v[v_i + 2],
+			obdata[obj_idx].t[v_i],
+			obdata[obj_idx].t[v_i + 1],
+			obdata[obj_idx].t[v_i + 2]
+		);
+	}
+
+	SMikkTSpaceInterface mikkInterface = {};
+	mikkInterface.m_getNumFaces = ObDataMikk_GetNumFaces;
+	mikkInterface.m_getNumVerticesOfFace = ObDataMikk_GetNumVerticesOfFace;
+	mikkInterface.m_getPosition = ObDataMikk_GetPosition;
+	mikkInterface.m_getNormal = ObDataMikk_GetNormal;
+	mikkInterface.m_getTexCoord = ObDataMikk_GetTexCoord;
+	mikkInterface.m_setTSpaceBasic = ObDataMikk_SetTSpaceBasic;
+
+	ObDataMikkUserData userData;
+	userData.obj_idx = obj_idx;
+	userData.total_triangles = v_count / 3;
+
+	SMikkTSpaceContext mikkContext = {};
+	mikkContext.m_pInterface = &mikkInterface;
+	mikkContext.m_pUserData = &userData;
+
+	genTangSpaceDefault(&mikkContext);
+}
+
 void Smooth3DSModelNormals(int pmodel_id) {
 	if (pmodel_id < 0)
 		return;
@@ -811,11 +897,6 @@ void ObjectToD3DVertList(int ob_type, float angle, int oblist_index) {
 		int fan_cnt = cnt;
 		int ctext;
 
-		// Reset mx/my/mz only for used vertices
-		for (int v = 0; v < num_vert; v++) {
-			mx[v] = my[v] = mz[v] = 0.0f;
-		}
-
 		// Texture selection
 		if (strstr(oblist[oblist_index].name, "!") != NULL) {
 			ObjectsToDraw[number_of_polys_per_frame].texture = oblist[oblist_index].monstertexture;
@@ -855,22 +936,6 @@ void ObjectToD3DVertList(int ob_type, float angle, int oblist_index) {
 		    -sine, 0.0f, cosine, 0.0f,
 		    0.0f, 0.0f, 0.0f, 1.0f);
 
-		// Vertex transformation and texture coordinates
-		for (int vert_cnt = 0; vert_cnt < num_vert; vert_cnt++) {
-			const auto &v = obdata[ob_type].v[ob_vert_count];
-			const auto &t = obdata[ob_type].t[ob_vert_count];
-
-			tx[vert_cnt] = t.x;
-			ty[vert_cnt] = t.y;
-
-			mx[vert_cnt] = wx + (v.x * cosine - v.z * sine);
-			my[vert_cnt] = wy + v.y;
-			mz[vert_cnt] = wz + (v.x * sine + v.z * cosine);
-
-			ob_vert_count++;
-			g_ob_vert_count++;
-		}
-
 		verts_per_poly[number_of_polys_per_frame] = num_vert;
 		ObjectsToDraw[number_of_polys_per_frame].vertsperpoly = num_vert;
 		ObjectsToDraw[number_of_polys_per_frame].srcstart = cnt;
@@ -879,15 +944,20 @@ void ObjectToD3DVertList(int ob_type, float angle, int oblist_index) {
 
 		// Texture mapping branch
 		bool use_texmap = obdata[ob_type].use_texmap[w] != FALSE;
-		int vert_base = ob_vert_count - num_vert;
-		for (int i = 0; i < num_vert; i++) {
-			const auto &v = obdata[ob_type].v[vert_base + i];
 
-			src_v[cnt].x = D3DVAL(mx[i]);
-			src_v[cnt].y = D3DVAL(my[i]);
-			src_v[cnt].z = D3DVAL(mz[i]);
-			src_v[cnt].tu = D3DVAL(use_texmap ? TexMap[ctext].tu[i] : tx[i]);
-			src_v[cnt].tv = D3DVAL(use_texmap ? TexMap[ctext].tv[i] : ty[i]);
+		for (int i = 0; i < num_vert; i++) {
+			const auto &v = obdata[ob_type].v[ob_vert_count];
+			const auto &t = obdata[ob_type].t[ob_vert_count];
+
+			float rx = wx + (v.x * cosine - v.z * sine);
+			float ry = wy + v.y;
+			float rz = wz + (v.x * sine + v.z * cosine);
+
+			src_v[cnt].x = D3DVAL(rx);
+			src_v[cnt].y = D3DVAL(ry);
+			src_v[cnt].z = D3DVAL(rz);
+			src_v[cnt].tu = D3DVAL(use_texmap ? TexMap[ctext].tu[i] : t.x);
+			src_v[cnt].tv = D3DVAL(use_texmap ? TexMap[ctext].tv[i] : t.y);
 			src_v[cnt].CastShadow = 0;
 
 			src_collide[cnt] = objectcollide == 1 ? 1 : 0;
@@ -911,6 +981,8 @@ void ObjectToD3DVertList(int ob_type, float angle, int oblist_index) {
 			src_v[cnt].nmy = ft.y;
 			src_v[cnt].nmz = ft.z;
 
+			ob_vert_count++;
+			g_ob_vert_count++;
 			cnt++;
 		}
 
