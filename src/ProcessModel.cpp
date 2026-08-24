@@ -780,7 +780,7 @@ void Smooth3DSModelNormals(int pmodel_id) {
 		if (!frame_verts)
 			continue;
 
-		SmoothVertArrayNoHash(frame_verts, total_num_verts, 0.4f);
+		SmoothVertArrayNoHash(frame_verts, total_num_verts, 0.45f);
 	}
 }
 
