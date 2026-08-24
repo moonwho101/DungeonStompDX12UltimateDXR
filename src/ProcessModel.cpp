@@ -464,7 +464,17 @@ void Compute3DSModelNormals(int pmodel_id) {
 			v_start += num_verts_per_poly;
 		}
 
-	
+		// Normalize accumulated vertex normals before MikkTSpace
+		for (int v = 0; v < total_num_verts; v++) {
+			float len = sqrtf(frame_verts[v].nx * frame_verts[v].nx +
+			                  frame_verts[v].ny * frame_verts[v].ny +
+			                  frame_verts[v].nz * frame_verts[v].nz);
+			if (len > 1e-6f) {
+				frame_verts[v].nx /= len;
+				frame_verts[v].ny /= len;
+				frame_verts[v].nz /= len;
+			}
+		}
 
 		// 3. Generate tangents using MikkTSpace
 		SMikkTSpaceInterface mikkInterface = {};
@@ -631,6 +641,21 @@ void ComputeMD2ModelNormals(int pmodel_id) {
 
 			i_count += num_verts_per_poly;
 		}
+
+		// 2.5 Normalize accumulated vertex normals
+		for (int v = 0; v < num_verts; v++) {
+			float nx = frame_verts[v].nx;
+			float ny = frame_verts[v].ny;
+			float nz = frame_verts[v].nz;
+
+			float len = sqrtf(nx * nx + ny * ny + nz * nz);
+			if (len > 0.00001f) {
+				frame_verts[v].nx = nx / len;
+				frame_verts[v].ny = ny / len;
+				frame_verts[v].nz = nz / len;
+			}
+		}
+
 
 		// 3. Generate tangents using MikkTSpace
 		SMikkTSpaceInterface mikkInterface = {};
