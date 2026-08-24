@@ -109,6 +109,7 @@ Dungeon Stomp DX12 Ultimate DXR features a modern ray tracing implementation usi
 **Textures & Materials:**
 - **130+ textures** with DDS mipmap chains
 - **Normal maps** with specular in alpha channel
+- **MikkTSpace tangent generation** — standard tangent space computation across 3DS, MD2, and DAT world objects
 - **Cube maps** for dynamic skybox reflections
 - **28+ PBR materials** with tuned roughness and metallic values
 - **Alpha transparency & alpha testing**
@@ -221,7 +222,8 @@ The compiled binary is output to the `bin/` directory.
 | `src/DungeonStompRender.cpp` | Main rendering pipeline |
 | `src/DungeonStompUpdate.cpp` | Per-frame game update loop |
 | `src/GameLogic.cpp` | Monster AI, damage, combat logic |
-| `src/LoadWorld.cpp` | Level loading & world initialization |
+| `src/LoadWorld.cpp` | Level loading & world object data loading |
+| `src/ProcessModel.cpp` | Model/object vertex transformations & MikkTSpace normal/tangent generation |
 | `src/ParticleSystem.cpp` | CPU particle emitter system |
 | `src/VRSHelper.cpp` | Variable Rate Shading setup & tier detection |
 | `src/ImportMD2.cpp` | Animated MD2 model importer |
