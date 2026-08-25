@@ -175,7 +175,10 @@ void CalculateVertNormalAndTangent(VERT &vertex1, VERT &vertex2, VERT &vertex3, 
 		ny /= length;
 		nz /= length;
 	} else {
-		nx = ny = nz = 0.0f;
+		// Default fallback normal for degenerate triangles
+		nx = 0.0f;
+		ny = 1.0f;
+		nz = 0.0f;
 	}
 
 	vertex1.nx = vertex2.nx = vertex3.nx = nx;
@@ -191,11 +194,11 @@ void CalculateVertNormalAndTangent(VERT &vertex1, VERT &vertex2, VERT &vertex3, 
 
 	float result = (tuVector[0] * tvVector[1] - tuVector[1] * tvVector[0]);
 
-	if (result == 0) { // fabs(result) < 1e-6f
+	if (fabsf(result) < 1e-12f) {
 		// Pick ANY vector not parallel to the normal
-		float ax = (fabs(nx) > 0.9f) ? 0.0f : 1.0f;
+		float ax = (fabsf(nx) > 0.9f) ? 0.0f : 1.0f;
 		float ay = 0.0f;
-		float az = (fabs(nz) > 0.9f) ? 0.0f : 1.0f;
+		float az = (fabsf(nz) > 0.9f) ? 0.0f : 1.0f;
 
 		// Cross to get a tangent perpendicular to the normal
 		float tanX = ay * nz - az * ny;
@@ -207,6 +210,10 @@ void CalculateVertNormalAndTangent(VERT &vertex1, VERT &vertex2, VERT &vertex3, 
 			tanX /= len;
 			tanY /= len;
 			tanZ /= len;
+		} else {
+			tanX = 1.0f;
+			tanY = 0.0f;
+			tanZ = 0.0f;
 		}
 
 		vertex1.nmx = vertex2.nmx = vertex3.nmx = tanX;
@@ -233,7 +240,25 @@ void CalculateVertNormalAndTangent(VERT &vertex1, VERT &vertex2, VERT &vertex3, 
 		tanY /= length;
 		tanZ /= length;
 	} else {
-		tanX = tanY = tanZ = 0.0f;
+		// Pick a vector not parallel to normal
+		float ax = (fabsf(nx) > 0.9f) ? 0.0f : 1.0f;
+		float ay = 0.0f;
+		float az = (fabsf(nz) > 0.9f) ? 0.0f : 1.0f;
+
+		tanX = ay * nz - az * ny;
+		tanY = az * nx - ax * nz;
+		tanZ = ax * ny - ay * nx;
+
+		float len = sqrtf(tanX * tanX + tanY * tanY + tanZ * tanZ);
+		if (len > 0.00001f) {
+			tanX /= len;
+			tanY /= len;
+			tanZ /= len;
+		} else {
+			tanX = 1.0f;
+			tanY = 0.0f;
+			tanZ = 0.0f;
+		}
 	}
 
 	vertex1.nmx = vertex2.nmx = vertex3.nmx = tanX;
@@ -473,6 +498,10 @@ void Compute3DSModelNormals(int pmodel_id) {
 				frame_verts[v].nx /= len;
 				frame_verts[v].ny /= len;
 				frame_verts[v].nz /= len;
+			} else {
+				frame_verts[v].nx = 0.0f;
+				frame_verts[v].ny = 1.0f;
+				frame_verts[v].nz = 0.0f;
 			}
 		}
 
@@ -496,6 +525,7 @@ void Compute3DSModelNormals(int pmodel_id) {
 		mikkContext.m_pUserData = &userData;
 
 		genTangSpaceDefault(&mikkContext);
+
 	}
 }
 
@@ -653,6 +683,10 @@ void ComputeMD2ModelNormals(int pmodel_id) {
 				frame_verts[v].nx = nx / len;
 				frame_verts[v].ny = ny / len;
 				frame_verts[v].nz = nz / len;
+			} else {
+				frame_verts[v].nx = 0.0f;
+				frame_verts[v].ny = 1.0f;
+				frame_verts[v].nz = 0.0f;
 			}
 		}
 
@@ -675,6 +709,8 @@ void ComputeMD2ModelNormals(int pmodel_id) {
 		mikkContext.m_pUserData = &userData;
 
 		genTangSpaceDefault(&mikkContext);
+
+		
 	}
 }
 
@@ -761,6 +797,8 @@ void ComputeObDataNormals(int obj_idx) {
 	mikkContext.m_pUserData = &userData;
 
 	genTangSpaceDefault(&mikkContext);
+
+	// Post-check tangents and normals for ObData
 }
 
 void Smooth3DSModelNormals(int pmodel_id) {
@@ -780,7 +818,7 @@ void Smooth3DSModelNormals(int pmodel_id) {
 		if (!frame_verts)
 			continue;
 
-		SmoothVertArrayNoHash(frame_verts, total_num_verts, 0.45f);
+		SmoothVertArrayNoHash(frame_verts, total_num_verts, 0.4f);
 	}
 }
 
@@ -980,8 +1018,13 @@ void ObjectToD3DVertList(int ob_type, float angle, int oblist_index) {
 			XMVECTOR nVec = XMVectorSet(v.nx, v.ny, v.nz, 0.0f);
 			XMVECTOR tVec = XMVectorSet(v.nmx, v.nmy, v.nmz, 0.0f);
 
-			XMVECTOR rotN = XMVector3Normalize(XMVector3TransformNormal(nVec, rotMat));
-			XMVECTOR rotT = XMVector3Normalize(XMVector3TransformNormal(tVec, rotMat));
+			XMVECTOR rotN = XMVector3TransformNormal(nVec, rotMat);
+			float nLen = XMVectorGetX(XMVector3Length(rotN));
+			rotN = (nLen > 1e-5f) ? XMVectorScale(rotN, 1.0f / nLen) : XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+
+			XMVECTOR rotT = XMVector3TransformNormal(tVec, rotMat);
+			float tLen = XMVectorGetX(XMVector3Length(rotT));
+			rotT = (tLen > 1e-5f) ? XMVectorScale(rotT, 1.0f / tLen) : XMVectorSet(1.0f, 0.0f, 0.0f, 0.0f);
 
 			XMFLOAT3 fn, ft;
 			XMStoreFloat3(&fn, rotN);
@@ -1239,8 +1282,13 @@ void PlayerToD3DVertList(int pmodel_id, int curr_frame, float angle, int texture
 			XMVECTOR nVec = XMVectorSet(nx, ny, nz, 0.0f);
 			XMVECTOR tVec = XMVectorSet(nmx, nmy, nmz, 0.0f);
 
-			XMVECTOR rotN = XMVector3Normalize(XMVector3TransformNormal(nVec, rotMat));
-			XMVECTOR rotT = XMVector3Normalize(XMVector3TransformNormal(tVec, rotMat));
+			XMVECTOR rotN = XMVector3TransformNormal(nVec, rotMat);
+			float nLen = XMVectorGetX(XMVector3Length(rotN));
+			rotN = (nLen > 1e-5f) ? XMVectorScale(rotN, 1.0f / nLen) : XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+
+			XMVECTOR rotT = XMVector3TransformNormal(tVec, rotMat);
+			float tLen = XMVectorGetX(XMVector3Length(rotT));
+			rotT = (tLen > 1e-5f) ? XMVectorScale(rotT, 1.0f / tLen) : XMVectorSet(1.0f, 0.0f, 0.0f, 0.0f);
 
 			XMFLOAT3 fn, ft;
 			XMStoreFloat3(&fn, rotN);
@@ -2418,8 +2466,13 @@ void PlayerToD3DIndexedVertList(int pmodel_id, int curr_frame, float angle, int 
 				XMVECTOR nVec = XMVectorSet(vert.nx, vert.ny, vert.nz, 0.0f);
 				XMVECTOR tVec = XMVectorSet(vert.nmx, vert.nmy, vert.nmz, 0.0f);
 
-				XMVECTOR rotN = XMVector3Normalize(XMVector3TransformNormal(nVec, rotMat));
-				XMVECTOR rotT = XMVector3Normalize(XMVector3TransformNormal(tVec, rotMat));
+				XMVECTOR rotN = XMVector3TransformNormal(nVec, rotMat);
+				float nLen = XMVectorGetX(XMVector3Length(rotN));
+				rotN = (nLen > 1e-5f) ? XMVectorScale(rotN, 1.0f / nLen) : XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+
+				XMVECTOR rotT = XMVector3TransformNormal(tVec, rotMat);
+				float tLen = XMVectorGetX(XMVector3Length(rotT));
+				rotT = (tLen > 1e-5f) ? XMVectorScale(rotT, 1.0f / tLen) : XMVectorSet(1.0f, 0.0f, 0.0f, 0.0f);
 
 				XMFLOAT3 fn, ft;
 				XMStoreFloat3(&fn, rotN);
