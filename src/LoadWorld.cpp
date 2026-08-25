@@ -669,25 +669,48 @@ BOOL CLoadWorld::LoadObjectData(char *filename) {
 			command_error = FALSE;
 		}
 
+		auto is_obdata_deg_tri = [&](const VERT &v0, const VERT &v1, const VERT &v2) -> bool {
+			float e1x = v1.x - v0.x;
+			float e1y = v1.y - v0.y;
+			float e1z = v1.z - v0.z;
+
+			float e2x = v2.x - v0.x;
+			float e2y = v2.y - v0.y;
+			float e2z = v2.z - v0.z;
+
+			float nx = e1y * e2z - e1z * e2y;
+			float ny = e1z * e2x - e1x * e2z;
+			float nz = e1x * e2y - e1y * e2x;
+
+			float lenSq = nx * nx + ny * ny + nz * nz;
+			return lenSq < 1e-10f;
+		};
+
 		if (strcmp(s, "TRI") == 0) {
 			for (i = 0; i < 3; i++) {
-				ReadObDataVert(fp, object_id, vert_count, dat_scale);
-				vert_count++;
+				ReadObDataVert(fp, object_id, vert_count + i, dat_scale);
 			}
 
-			obdata[object_id].use_texmap[poly_count] = TRUE;
-			obdata[object_id].tex[poly_count] = texture;
-			obdata[object_id].num_vert[poly_count] = 3;
-			obdata[object_id].poly_cmd[poly_count] = D3DPT_TRIANGLELIST; // POLY_CMD_TRI;
+			VERT tv0 = obdata[object_id].v[vert_count + 0];
+			VERT tv1 = obdata[object_id].v[vert_count + 1];
+			VERT tv2 = obdata[object_id].v[vert_count + 2];
 
-			obdata[object_id].t[vert_count + 0].x = TexMap[texture].tu[0];
-			obdata[object_id].t[vert_count + 0].y = TexMap[texture].tv[0];
-			obdata[object_id].t[vert_count + 1].x = TexMap[texture].tu[1];
-			obdata[object_id].t[vert_count + 1].y = TexMap[texture].tv[1];
-			obdata[object_id].t[vert_count + 2].x = TexMap[texture].tu[2];
-			obdata[object_id].t[vert_count + 2].y = TexMap[texture].tv[2];
+			if (!is_obdata_deg_tri(tv0, tv1, tv2)) {
+				obdata[object_id].t[vert_count + 0].x = TexMap[texture].tu[0];
+				obdata[object_id].t[vert_count + 0].y = TexMap[texture].tv[0];
+				obdata[object_id].t[vert_count + 1].x = TexMap[texture].tu[1];
+				obdata[object_id].t[vert_count + 1].y = TexMap[texture].tv[1];
+				obdata[object_id].t[vert_count + 2].x = TexMap[texture].tu[2];
+				obdata[object_id].t[vert_count + 2].y = TexMap[texture].tv[2];
 
-			poly_count++;
+				obdata[object_id].use_texmap[poly_count] = TRUE;
+				obdata[object_id].tex[poly_count] = texture;
+				obdata[object_id].num_vert[poly_count] = 3;
+				obdata[object_id].poly_cmd[poly_count] = D3DPT_TRIANGLELIST;
+
+				vert_count += 3;
+				poly_count++;
+			}
 			command_error = FALSE;
 		}
 
@@ -698,49 +721,58 @@ BOOL CLoadWorld::LoadObjectData(char *filename) {
 				qv[i] = obdata[object_id].v[vert_count + i];
 			}
 
-			obdata[object_id].v[vert_count + 0] = qv[0];
-			obdata[object_id].v[vert_count + 1] = qv[1];
-			obdata[object_id].v[vert_count + 2] = qv[3];
+			VERT tri_v[2][3];
+			VERT tri_t[2][3];
 
-			obdata[object_id].v[vert_count + 3] = qv[2];
-			obdata[object_id].v[vert_count + 4] = qv[3];
-			obdata[object_id].v[vert_count + 5] = qv[1];
+			tri_v[0][0] = qv[0]; tri_t[0][0].x = TexMap[texture].tu[0]; tri_t[0][0].y = TexMap[texture].tv[0];
+			tri_v[0][1] = qv[1]; tri_t[0][1].x = TexMap[texture].tu[1]; tri_t[0][1].y = TexMap[texture].tv[1];
+			tri_v[0][2] = qv[3]; tri_t[0][2].x = TexMap[texture].tu[2]; tri_t[0][2].y = TexMap[texture].tv[2];
 
-			obdata[object_id].t[vert_count + 0].x = TexMap[texture].tu[0];
-			obdata[object_id].t[vert_count + 0].y = TexMap[texture].tv[0];
-			obdata[object_id].t[vert_count + 1].x = TexMap[texture].tu[1];
-			obdata[object_id].t[vert_count + 1].y = TexMap[texture].tv[1];
-			obdata[object_id].t[vert_count + 2].x = TexMap[texture].tu[2];
-			obdata[object_id].t[vert_count + 2].y = TexMap[texture].tv[2];
+			tri_v[1][0] = qv[2]; tri_t[1][0].x = TexMap[texture].tu[3]; tri_t[1][0].y = TexMap[texture].tv[3];
+			tri_v[1][1] = qv[3]; tri_t[1][1].x = TexMap[texture].tu[2]; tri_t[1][1].y = TexMap[texture].tv[2];
+			tri_v[1][2] = qv[1]; tri_t[1][2].x = TexMap[texture].tu[1]; tri_t[1][2].y = TexMap[texture].tv[1];
 
-			obdata[object_id].t[vert_count + 3].x = TexMap[texture].tu[3];
-			obdata[object_id].t[vert_count + 3].y = TexMap[texture].tv[3];
-			obdata[object_id].t[vert_count + 4].x = TexMap[texture].tu[2];
-			obdata[object_id].t[vert_count + 4].y = TexMap[texture].tv[2];
-			obdata[object_id].t[vert_count + 5].x = TexMap[texture].tu[1];
-			obdata[object_id].t[vert_count + 5].y = TexMap[texture].tv[1];
+			int emitted = 0;
+			for (int t_idx = 0; t_idx < 2; t_idx++) {
+				if (!is_obdata_deg_tri(tri_v[t_idx][0], tri_v[t_idx][1], tri_v[t_idx][2])) {
+					obdata[object_id].v[vert_count + emitted + 0] = tri_v[t_idx][0];
+					obdata[object_id].t[vert_count + emitted + 0] = tri_t[t_idx][0];
+					obdata[object_id].v[vert_count + emitted + 1] = tri_v[t_idx][1];
+					obdata[object_id].t[vert_count + emitted + 1] = tri_t[t_idx][1];
+					obdata[object_id].v[vert_count + emitted + 2] = tri_v[t_idx][2];
+					obdata[object_id].t[vert_count + emitted + 2] = tri_t[t_idx][2];
+					emitted += 3;
+				}
+			}
 
-			vert_count += 6;
-
-			obdata[object_id].use_texmap[poly_count] = FALSE;
-			obdata[object_id].tex[poly_count] = texture;
-			obdata[object_id].num_vert[poly_count] = 6;
-			obdata[object_id].poly_cmd[poly_count] = D3DPT_TRIANGLELIST;
-			poly_count++;
+			if (emitted > 0) {
+				obdata[object_id].use_texmap[poly_count] = FALSE;
+				obdata[object_id].tex[poly_count] = texture;
+				obdata[object_id].num_vert[poly_count] = emitted;
+				obdata[object_id].poly_cmd[poly_count] = D3DPT_TRIANGLELIST;
+				vert_count += emitted;
+				poly_count++;
+			}
 			command_error = FALSE;
 		}
 
 		if (strcmp(s, "TRITEX") == 0) {
 			for (i = 0; i < 3; i++) {
-				ReadObDataVertEx(fp, object_id, vert_count, dat_scale);
-				vert_count++;
+				ReadObDataVertEx(fp, object_id, vert_count + i, dat_scale);
 			}
 
-			obdata[object_id].use_texmap[poly_count] = FALSE;
-			obdata[object_id].tex[poly_count] = texture;
-			obdata[object_id].num_vert[poly_count] = 3;
-			obdata[object_id].poly_cmd[poly_count] = D3DPT_TRIANGLELIST; // POLY_CMD_TRI_TEX;
-			poly_count++;
+			VERT tv0 = obdata[object_id].v[vert_count + 0];
+			VERT tv1 = obdata[object_id].v[vert_count + 1];
+			VERT tv2 = obdata[object_id].v[vert_count + 2];
+
+			if (!is_obdata_deg_tri(tv0, tv1, tv2)) {
+				obdata[object_id].use_texmap[poly_count] = FALSE;
+				obdata[object_id].tex[poly_count] = texture;
+				obdata[object_id].num_vert[poly_count] = 3;
+				obdata[object_id].poly_cmd[poly_count] = D3DPT_TRIANGLELIST;
+				vert_count += 3;
+				poly_count++;
+			}
 			command_error = FALSE;
 		}
 
@@ -752,32 +784,42 @@ BOOL CLoadWorld::LoadObjectData(char *filename) {
 				qt[i] = obdata[object_id].t[vert_count + i];
 			}
 
-			obdata[object_id].v[vert_count + 0] = qv[0];
-			obdata[object_id].t[vert_count + 0] = qt[0];
-			obdata[object_id].v[vert_count + 1] = qv[1];
-			obdata[object_id].t[vert_count + 1] = qt[1];
-			obdata[object_id].v[vert_count + 2] = qv[3];
-			obdata[object_id].t[vert_count + 2] = qt[3];
+			VERT tri_v[2][3];
+			VERT tri_t[2][3];
 
-			obdata[object_id].v[vert_count + 3] = qv[2];
-			obdata[object_id].t[vert_count + 3] = qt[2];
-			obdata[object_id].v[vert_count + 4] = qv[3];
-			obdata[object_id].t[vert_count + 4] = qt[3];
-			obdata[object_id].v[vert_count + 5] = qv[1];
-			obdata[object_id].t[vert_count + 5] = qt[1];
+			tri_v[0][0] = qv[0]; tri_t[0][0] = qt[0];
+			tri_v[0][1] = qv[1]; tri_t[0][1] = qt[1];
+			tri_v[0][2] = qv[3]; tri_t[0][2] = qt[3];
 
-			vert_count += 6;
+			tri_v[1][0] = qv[2]; tri_t[1][0] = qt[2];
+			tri_v[1][1] = qv[3]; tri_t[1][1] = qt[3];
+			tri_v[1][2] = qv[1]; tri_t[1][2] = qt[1];
 
-			obdata[object_id].use_texmap[poly_count] = FALSE;
-			obdata[object_id].tex[poly_count] = texture;
-			obdata[object_id].num_vert[poly_count] = 6;
-			obdata[object_id].poly_cmd[poly_count] = D3DPT_TRIANGLELIST;
-			poly_count++;
+			int emitted = 0;
+			for (int t_idx = 0; t_idx < 2; t_idx++) {
+				if (!is_obdata_deg_tri(tri_v[t_idx][0], tri_v[t_idx][1], tri_v[t_idx][2])) {
+					obdata[object_id].v[vert_count + emitted + 0] = tri_v[t_idx][0];
+					obdata[object_id].t[vert_count + emitted + 0] = tri_t[t_idx][0];
+					obdata[object_id].v[vert_count + emitted + 1] = tri_v[t_idx][1];
+					obdata[object_id].t[vert_count + emitted + 1] = tri_t[t_idx][1];
+					obdata[object_id].v[vert_count + emitted + 2] = tri_v[t_idx][2];
+					obdata[object_id].t[vert_count + emitted + 2] = tri_t[t_idx][2];
+					emitted += 3;
+				}
+			}
+
+			if (emitted > 0) {
+				obdata[object_id].use_texmap[poly_count] = FALSE;
+				obdata[object_id].tex[poly_count] = texture;
+				obdata[object_id].num_vert[poly_count] = emitted;
+				obdata[object_id].poly_cmd[poly_count] = D3DPT_TRIANGLELIST;
+				vert_count += emitted;
+				poly_count++;
+			}
 			command_error = FALSE;
 		}
 
 		if (strcmp(s, "TRI_STRIP") == 0) {
-			// Get numbers of verts in triangle strip
 			fscanf_s(fp, "%s", &p, 256);
 			num_v = atoi(p);
 
@@ -790,46 +832,45 @@ BOOL CLoadWorld::LoadObjectData(char *filename) {
 				st[i] = obdata[object_id].t[vert_count + i];
 			}
 
-			int tri_verts = 0;
+			int emitted = 0;
 			for (i = 0; i < num_v - 2; i++) {
+				VERT tv[3], tt[3];
 				if (i % 2 == 0) {
-					obdata[object_id].v[vert_count + tri_verts] = sv[i];
-					obdata[object_id].t[vert_count + tri_verts] = st[i];
-					tri_verts++;
-					obdata[object_id].v[vert_count + tri_verts] = sv[i + 1];
-					obdata[object_id].t[vert_count + tri_verts] = st[i + 1];
-					tri_verts++;
-					obdata[object_id].v[vert_count + tri_verts] = sv[i + 2];
-					obdata[object_id].t[vert_count + tri_verts] = st[i + 2];
-					tri_verts++;
+					tv[0] = sv[i];     tt[0] = st[i];
+					tv[1] = sv[i + 1]; tt[1] = st[i + 1];
+					tv[2] = sv[i + 2]; tt[2] = st[i + 2];
 				} else {
-					obdata[object_id].v[vert_count + tri_verts] = sv[i + 2];
-					obdata[object_id].t[vert_count + tri_verts] = st[i + 2];
-					tri_verts++;
-					obdata[object_id].v[vert_count + tri_verts] = sv[i + 1];
-					obdata[object_id].t[vert_count + tri_verts] = st[i + 1];
-					tri_verts++;
-					obdata[object_id].v[vert_count + tri_verts] = sv[i];
-					obdata[object_id].t[vert_count + tri_verts] = st[i];
-					tri_verts++;
+					tv[0] = sv[i + 2]; tt[0] = st[i + 2];
+					tv[1] = sv[i + 1]; tt[1] = st[i + 1];
+					tv[2] = sv[i];     tt[2] = st[i];
+				}
+
+				if (!is_obdata_deg_tri(tv[0], tv[1], tv[2])) {
+					obdata[object_id].v[vert_count + emitted + 0] = tv[0];
+					obdata[object_id].t[vert_count + emitted + 0] = tt[0];
+					obdata[object_id].v[vert_count + emitted + 1] = tv[1];
+					obdata[object_id].t[vert_count + emitted + 1] = tt[1];
+					obdata[object_id].v[vert_count + emitted + 2] = tv[2];
+					obdata[object_id].t[vert_count + emitted + 2] = tt[2];
+					emitted += 3;
 				}
 			}
 
 			delete[] sv;
 			delete[] st;
 
-			vert_count += tri_verts;
-
-			obdata[object_id].use_texmap[poly_count] = FALSE;
-			obdata[object_id].tex[poly_count] = texture;
-			obdata[object_id].num_vert[poly_count] = tri_verts;
-			obdata[object_id].poly_cmd[poly_count] = D3DPT_TRIANGLELIST;
-			poly_count++;
+			if (emitted > 0) {
+				obdata[object_id].use_texmap[poly_count] = FALSE;
+				obdata[object_id].tex[poly_count] = texture;
+				obdata[object_id].num_vert[poly_count] = emitted;
+				obdata[object_id].poly_cmd[poly_count] = D3DPT_TRIANGLELIST;
+				vert_count += emitted;
+				poly_count++;
+			}
 			command_error = FALSE;
 		}
 
 		if (strcmp(s, "TRI_FAN") == 0) {
-			// Get numbers of verts in triangle fan
 			fscanf_s(fp, "%s", &p, 256);
 			num_v = atoi(p);
 
@@ -842,29 +883,35 @@ BOOL CLoadWorld::LoadObjectData(char *filename) {
 				st[i] = obdata[object_id].t[vert_count + i];
 			}
 
-			int tri_verts = 0;
+			int emitted = 0;
 			for (i = 0; i < num_v - 2; i++) {
-				obdata[object_id].v[vert_count + tri_verts] = sv[0];
-				obdata[object_id].t[vert_count + tri_verts] = st[0];
-				tri_verts++;
-				obdata[object_id].v[vert_count + tri_verts] = sv[i + 1];
-				obdata[object_id].t[vert_count + tri_verts] = st[i + 1];
-				tri_verts++;
-				obdata[object_id].v[vert_count + tri_verts] = sv[i + 2];
-				obdata[object_id].t[vert_count + tri_verts] = st[i + 2];
-				tri_verts++;
+				VERT tv[3], tt[3];
+				tv[0] = sv[0];     tt[0] = st[0];
+				tv[1] = sv[i + 1]; tt[1] = st[i + 1];
+				tv[2] = sv[i + 2]; tt[2] = st[i + 2];
+
+				if (!is_obdata_deg_tri(tv[0], tv[1], tv[2])) {
+					obdata[object_id].v[vert_count + emitted + 0] = tv[0];
+					obdata[object_id].t[vert_count + emitted + 0] = tt[0];
+					obdata[object_id].v[vert_count + emitted + 1] = tv[1];
+					obdata[object_id].t[vert_count + emitted + 1] = tt[1];
+					obdata[object_id].v[vert_count + emitted + 2] = tv[2];
+					obdata[object_id].t[vert_count + emitted + 2] = tt[2];
+					emitted += 3;
+				}
 			}
 
 			delete[] sv;
 			delete[] st;
 
-			vert_count += tri_verts;
-
-			obdata[object_id].use_texmap[poly_count] = FALSE;
-			obdata[object_id].tex[poly_count] = texture;
-			obdata[object_id].num_vert[poly_count] = tri_verts;
-			obdata[object_id].poly_cmd[poly_count] = D3DPT_TRIANGLELIST;
-			poly_count++;
+			if (emitted > 0) {
+				obdata[object_id].use_texmap[poly_count] = FALSE;
+				obdata[object_id].tex[poly_count] = texture;
+				obdata[object_id].num_vert[poly_count] = emitted;
+				obdata[object_id].poly_cmd[poly_count] = D3DPT_TRIANGLELIST;
+				vert_count += emitted;
+				poly_count++;
+			}
 			command_error = FALSE;
 		}
 

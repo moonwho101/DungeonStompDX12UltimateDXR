@@ -131,6 +131,57 @@ BOOL ImportMD2_GLCMD(char *filename, int texture_alias, int pmodel_id, float sca
 	pmdata[pmodel_id].texture_list = new int[glc_cnt];
 	pmdata[pmodel_id].t = new VERT[total_tri_verts];
 
+	// Pre-read frame 0 vertex positions to enable geometric degeneracy checking
+	std::vector<VERT> frame0_verts(header.num_verts);
+	if (header.num_frames > 0) {
+		fseek(fp, (UINT)header.offset_frames, SEEK_SET);
+		float f0_scale[3], f0_trans[3];
+		char f0_name[16];
+		fread(f0_scale, sizeof(float), 3, fp);
+		fread(f0_trans, sizeof(float), 3, fp);
+		fread(f0_name, 1, 16, fp);
+
+		std::vector<MD2VERTEX> f0_raw(header.num_verts);
+		fread(f0_raw.data(), sizeof(MD2VERTEX), header.num_verts, fp);
+
+		for (j = 0; j < header.num_verts; j++) {
+			frame0_verts[j].x = scale * (f0_scale[0] * f0_raw[j].v[0] + f0_trans[0]);
+			frame0_verts[j].y = scale * (f0_scale[1] * f0_raw[j].v[1] + f0_trans[1]);
+			frame0_verts[j].z = scale * (f0_scale[2] * f0_raw[j].v[2] + f0_trans[2]);
+		}
+	}
+
+	auto is_md2_deg_tri = [&](int raw_i0, int raw_i1, int raw_i2) -> bool {
+		if (raw_i0 == raw_i1 || raw_i1 == raw_i2 || raw_i2 == raw_i0) {
+			return true;
+		}
+		if (raw_i0 >= 0 && raw_i0 < header.num_verts &&
+		    raw_i1 >= 0 && raw_i1 < header.num_verts &&
+		    raw_i2 >= 0 && raw_i2 < header.num_verts) {
+			const VERT &v0 = frame0_verts[raw_i0];
+			const VERT &v1 = frame0_verts[raw_i1];
+			const VERT &v2 = frame0_verts[raw_i2];
+
+			float e1x = v1.x - v0.x;
+			float e1y = v1.y - v0.y;
+			float e1z = v1.z - v0.z;
+
+			float e2x = v2.x - v0.x;
+			float e2y = v2.y - v0.y;
+			float e2z = v2.z - v0.z;
+
+			float nx = e1y * e2z - e1z * e2y;
+			float ny = e1z * e2x - e1x * e2z;
+			float nz = e1x * e2y - e1y * e2x;
+
+			float lenSq = nx * nx + ny * ny + nz * nz;
+			if (lenSq < 1e-10f) {
+				return true;
+			}
+		}
+		return false;
+	};
+
 	// load GL Commands into pmdata structure as triangle lists and split vertices at UV seams
 
 	cnt = 0;
@@ -161,6 +212,10 @@ BOOL ImportMD2_GLCMD(char *filename, int texture_alias, int pmodel_id, float sca
 					idx2 = glv_offset + j;
 				}
 
+				if (is_md2_deg_tri(glv[idx0].index, glv[idx1].index, glv[idx2].index)) {
+					continue;
+				}
+
 				int u0 = get_or_add_unique_vert(glv[idx0].index, glv[idx0].s, glv[idx0].t);
 				pmdata[pmodel_id].f[cnt] = u0;
 				pmdata[pmodel_id].t[cnt].x = glv[idx0].s * header.skinwidth;
@@ -189,6 +244,10 @@ BOOL ImportMD2_GLCMD(char *filename, int texture_alias, int pmodel_id, float sca
 				int idx0 = glv_offset;
 				int idx1 = glv_offset + j + 1;
 				int idx2 = glv_offset + j + 2;
+
+				if (is_md2_deg_tri(glv[idx0].index, glv[idx1].index, glv[idx2].index)) {
+					continue;
+				}
 
 				int u0 = get_or_add_unique_vert(glv[idx0].index, glv[idx0].s, glv[idx0].t);
 				pmdata[pmodel_id].f[cnt] = u0;
@@ -252,8 +311,8 @@ BOOL ImportMD2_GLCMD(char *filename, int texture_alias, int pmodel_id, float sca
 	pmdata[pmodel_id].num_verts_per_frame = total_unique_verts;
 
 	pmdata[pmodel_id].num_polys_per_frame = glc_cnt;
-	pmdata[pmodel_id].num_faces = glc_cnt;
-	pmdata[pmodel_id].num_verts = cnt; // glv_cnt; // cnt;
+	pmdata[pmodel_id].num_faces = cnt / 3;
+	pmdata[pmodel_id].num_verts = cnt;
 	pmdata[pmodel_id].scale = scale;
 	fclose(fp);
 
