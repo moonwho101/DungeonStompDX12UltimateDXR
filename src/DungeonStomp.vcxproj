@@ -173,6 +173,7 @@
     <ClCompile Include="GameLogic.cpp" />
     <ClCompile Include="Import3DS.cpp" />
     <ClCompile Include="ImportMD2.cpp" />
+    <ClCompile Include="mikktspace.cpp" />
     <ClCompile Include="DungeonStomp.cpp" />
     <ClCompile Include="DungeonStompUpdate.cpp" />
     <ClCompile Include="DungeonStompRender.cpp" />
@@ -211,6 +212,7 @@
     <ClInclude Include="GlobalSettings.hpp" />
     <ClInclude Include="Import3DS.hpp" />
     <ClInclude Include="ImportMD2.hpp" />
+    <ClInclude Include="mikktspace.h" />
     <ClInclude Include="LoadWorld.hpp" />
     <ClInclude Include="Missle.hpp" />
     <ClInclude Include="ParticleSystem.hpp" />

@@ -11,7 +11,6 @@
 
 using namespace DirectX;
 
-
 #define SPOT_LIGHT_SOURCE 1
 #define DIRECTIONAL_LIGHT_SOURCE 2
 #define POINT_LIGHT_SOURCE 3
@@ -71,6 +70,9 @@ typedef struct vert_typ {
 	float x;
 	float y;
 	float z;
+	float nx, ny, nz;
+	float nmx, nmy, nmz;
+	float tu, tv;
 
 } VERT, *vert_ptr;
 
@@ -285,13 +287,13 @@ typedef struct objectdata_typ {
 	// v and t are vertices -
 	//  everything else polygones
 
-	VERT v[2900]; // 6000
-	VERT t[2900]; // 6000 //2200
-	int f[2900];
-	int num_vert[1600];
-	D3DPRIMITIVETYPE poly_cmd[1600];
+	VERT v[6000]; // 6000
+	VERT t[6000]; // 6000 //2200
+	int f[6000];
+	int num_vert[6000];
+	D3DPRIMITIVETYPE poly_cmd[6000];
 	int tex[1600];
-	BOOL use_texmap[1600];
+	BOOL use_texmap[6000];
 	char name[256];
 	VERT connection[4];
 	char typedesc[255];
@@ -516,7 +518,6 @@ CONST float QVALUE = 0.3333333333333f;
 void DrawMonsters();
 void DrawModel();
 void DrawItems(float fElapsedTime);
-void DrawIndexedItems(int fakel, int vert_index);
 void UpdateWorld(float fElapsedTime);
 int random_num(int num);
 void PrintMessage(HWND hwnd, char *message1, char *message2, int message_mode);
@@ -553,5 +554,11 @@ int MakeDice();
 std::wstring charToWChar(const char *text);
 int GetNextFramePlayer();
 void TriggerLandingDip(float amount);
+void CalculateVertNormalAndTangent(VERT &vertex1, VERT &vertex2, VERT &vertex3, const VERT &tex1, const VERT &tex2, const VERT &tex3);
+void Compute3DSModelNormals(int pmodel_id);
+void ComputeMD2ModelNormals(int pmodel_id);
+void ComputeObDataNormals(int obj_idx);
+void Smooth3DSModelNormals(int pmodel_id);
+void SmoothMD2ModelNormals(int pmodel_id);
 
 #endif // __WORLD_H__

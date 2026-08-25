@@ -2,6 +2,8 @@
 #include <io.h>
 #include <fcntl.h>
 #include <windows.h>
+#include <vector>
+#include <math.h>
 #include "world.hpp"
 #include "ImportMD2.hpp"
 
@@ -95,84 +97,159 @@ BOOL ImportMD2_GLCMD(char *filename, int texture_alias, int pmodel_id, float sca
 
 	// PrintMessage(NULL, "verts = ", buffer, LOGFILE_ONLY);
 
-	// allocate memory dynamically
-
-	pmdata[pmodel_id].w = new VERT *[header.num_frames];
-
-	for (i = 0; i < header.num_frames; i++)
-		pmdata[pmodel_id].w[i] = new VERT[header.num_verts];
-
-	pmdata[pmodel_id].f = new int[glv_cnt];
-	pmdata[pmodel_id].num_vert = new int[header.num_verts];
-	pmdata[pmodel_id].poly_cmd = new D3DPRIMITIVETYPE[glc_cnt];
-	pmdata[pmodel_id].texture_list = new int[glc_cnt];
-	pmdata[pmodel_id].t = new VERT[glv_cnt];
-
-	int mem = 0;
-	mem += (sizeof(VERT) * header.num_verts * header.num_frames);
-	mem += (sizeof(short) * glv_cnt);
-	mem += (sizeof(short) * header.num_verts);
-	mem += (sizeof(short) * glc_cnt);
-	mem += (sizeof(short) * glc_cnt);
-	mem += (sizeof(VERT) * glv_cnt);
-
-	mem = mem / 1024;
-
-	_itoa_s(mem, buffer, _countof(buffer), 10);
-	strcat_s(buffer, " KB\n");
-	// PrintMessage(NULL, "Memory allocated = ", buffer, LOGFILE_ONLY);
-
-	// load GL Commands into pmdata structure
-
-	cnt = 0;
-
+	// Calculate total vertices when converted to triangle lists
+	int total_tri_verts = 0;
 	for (i = 0; i < glc_cnt; i++) {
-		if (glc[i] == 0) {
-			// PrintMessage(NULL, "ERROR MD2 GL COMMAND DATA", NULL, LOGFILE_ONLY);
-			return FALSE;
-		}
-
-		if (glc[i] < 0)
-			pmdata[pmodel_id].poly_cmd[i] = D3DPT_TRIANGLEFAN;
-
-		if (glc[i] > 0)
-			pmdata[pmodel_id].poly_cmd[i] = D3DPT_TRIANGLESTRIP;
-
-		pmdata[pmodel_id].texture_list[i] = texture_alias;
-
-		glnum_verts = abs(glc[i]);
-		pmdata[pmodel_id].num_vert[i] = glnum_verts;
-
-		for (j = 0; j < glnum_verts; j++) {
-			pmdata[pmodel_id].f[cnt] = glv[cnt].index;
-
-			pmdata[pmodel_id].t[cnt].x = glv[cnt].s * header.skinwidth;
-			pmdata[pmodel_id].t[cnt].y = glv[cnt].t * header.skinheight;
-
-			cnt++;
+		int glverts = abs(glc[i]);
+		if (glverts >= 3) {
+			total_tri_verts += (glverts - 2) * 3;
 		}
 	}
 
-	// read vertices for all frames
+	struct UniqueMD2Vert {
+		int old_index;
+		float s;
+		float t;
+	};
 
+	std::vector<UniqueMD2Vert> unique_verts;
+	auto get_or_add_unique_vert = [&](int old_index, float s, float t) -> int {
+		for (size_t u = 0; u < unique_verts.size(); u++) {
+			if (unique_verts[u].old_index == old_index &&
+			    fabsf(unique_verts[u].s - s) < 1e-5f &&
+			    fabsf(unique_verts[u].t - t) < 1e-5f) {
+				return (int)u;
+			}
+		}
+		unique_verts.push_back({ old_index, s, t });
+		return (int)(unique_verts.size() - 1);
+	};
+
+	pmdata[pmodel_id].f = new int[total_tri_verts];
+	pmdata[pmodel_id].num_vert = new int[glc_cnt];
+	pmdata[pmodel_id].poly_cmd = new D3DPRIMITIVETYPE[glc_cnt];
+	pmdata[pmodel_id].texture_list = new int[glc_cnt];
+	pmdata[pmodel_id].t = new VERT[total_tri_verts];
+
+	// load GL Commands into pmdata structure as triangle lists and split vertices at UV seams
+
+	cnt = 0;
+	int glv_offset = 0;
+
+	for (i = 0; i < glc_cnt; i++) {
+		if (glc[i] == 0) {
+			return FALSE;
+		}
+
+		pmdata[pmodel_id].poly_cmd[i] = D3DPT_TRIANGLELIST;
+		pmdata[pmodel_id].texture_list[i] = texture_alias;
+
+		glnum_verts = abs(glc[i]);
+
+		if (glc[i] > 0) {
+			// Triangle Strip decomposition into Triangle List
+			int tri_cnt = 0;
+			for (j = 0; j < glnum_verts - 2; j++) {
+				int idx0, idx1, idx2;
+				if (j % 2 == 0) {
+					idx0 = glv_offset + j;
+					idx1 = glv_offset + j + 1;
+					idx2 = glv_offset + j + 2;
+				} else {
+					idx0 = glv_offset + j + 2;
+					idx1 = glv_offset + j + 1;
+					idx2 = glv_offset + j;
+				}
+
+				int u0 = get_or_add_unique_vert(glv[idx0].index, glv[idx0].s, glv[idx0].t);
+				pmdata[pmodel_id].f[cnt] = u0;
+				pmdata[pmodel_id].t[cnt].x = glv[idx0].s * header.skinwidth;
+				pmdata[pmodel_id].t[cnt].y = glv[idx0].t * header.skinheight;
+				cnt++;
+
+				int u1 = get_or_add_unique_vert(glv[idx1].index, glv[idx1].s, glv[idx1].t);
+				pmdata[pmodel_id].f[cnt] = u1;
+				pmdata[pmodel_id].t[cnt].x = glv[idx1].s * header.skinwidth;
+				pmdata[pmodel_id].t[cnt].y = glv[idx1].t * header.skinheight;
+				cnt++;
+
+				int u2 = get_or_add_unique_vert(glv[idx2].index, glv[idx2].s, glv[idx2].t);
+				pmdata[pmodel_id].f[cnt] = u2;
+				pmdata[pmodel_id].t[cnt].x = glv[idx2].s * header.skinwidth;
+				pmdata[pmodel_id].t[cnt].y = glv[idx2].t * header.skinheight;
+				cnt++;
+
+				tri_cnt += 3;
+			}
+			pmdata[pmodel_id].num_vert[i] = tri_cnt;
+		} else {
+			// Triangle Fan decomposition into Triangle List
+			int tri_cnt = 0;
+			for (j = 0; j < glnum_verts - 2; j++) {
+				int idx0 = glv_offset;
+				int idx1 = glv_offset + j + 1;
+				int idx2 = glv_offset + j + 2;
+
+				int u0 = get_or_add_unique_vert(glv[idx0].index, glv[idx0].s, glv[idx0].t);
+				pmdata[pmodel_id].f[cnt] = u0;
+				pmdata[pmodel_id].t[cnt].x = glv[idx0].s * header.skinwidth;
+				pmdata[pmodel_id].t[cnt].y = glv[idx0].t * header.skinheight;
+				cnt++;
+
+				int u1 = get_or_add_unique_vert(glv[idx1].index, glv[idx1].s, glv[idx1].t);
+				pmdata[pmodel_id].f[cnt] = u1;
+				pmdata[pmodel_id].t[cnt].x = glv[idx1].s * header.skinwidth;
+				pmdata[pmodel_id].t[cnt].y = glv[idx1].t * header.skinheight;
+				cnt++;
+
+				int u2 = get_or_add_unique_vert(glv[idx2].index, glv[idx2].s, glv[idx2].t);
+				pmdata[pmodel_id].f[cnt] = u2;
+				pmdata[pmodel_id].t[cnt].x = glv[idx2].s * header.skinwidth;
+				pmdata[pmodel_id].t[cnt].y = glv[idx2].t * header.skinheight;
+				cnt++;
+
+				tri_cnt += 3;
+			}
+			pmdata[pmodel_id].num_vert[i] = tri_cnt;
+		}
+
+		glv_offset += glnum_verts;
+	}
+
+	int total_unique_verts = (int)unique_verts.size();
+
+	// allocate frame memory dynamically based on unique vertices after UV seam splitting
+	pmdata[pmodel_id].w = new VERT *[header.num_frames];
+	for (i = 0; i < header.num_frames; i++) {
+		pmdata[pmodel_id].w[i] = new VERT[total_unique_verts];
+	}
+
+	// read vertices for all frames
 	fseek(fp, (UINT)header.offset_frames, SEEK_SET);
+
+	std::vector<MD2VERTEX> raw_bverts(header.num_verts);
 
 	for (frame_num = 0; frame_num < header.num_frames; frame_num++) {
 		fread(bscale, sizeof(float), 3, fp);
 		fread(translate, sizeof(float), 3, fp);
 		fread(name, 1, 16, fp);
 
-		// strcpy_s(frame_list[frame_num].framename, name );
+		for (j = 0; j < header.num_verts; j++) {
+			fread(&raw_bverts[j], sizeof(MD2VERTEX), 1, fp);
+		}
 
-		for (j = 0; j < header.num_verts; j++) // VERTS
-		{
-			fread(&bverts, sizeof(MD2VERTEX), 1, fp);
-
-			pmdata[pmodel_id].w[frame_num][j].x = scale * (bscale[0] * bverts.v[0] + translate[0]);
-			pmdata[pmodel_id].w[frame_num][j].y = scale * (bscale[1] * bverts.v[1] + translate[1]);
-			pmdata[pmodel_id].w[frame_num][j].z = scale * (bscale[2] * bverts.v[2] + translate[2]);
+		for (j = 0; j < total_unique_verts; j++) {
+			int old_idx = unique_verts[j].old_index;
+			const MD2VERTEX &bv = raw_bverts[old_idx];
+			pmdata[pmodel_id].w[frame_num][j].x = scale * (bscale[0] * bv.v[0] + translate[0]);
+			pmdata[pmodel_id].w[frame_num][j].y = scale * (bscale[1] * bv.v[1] + translate[1]);
+			pmdata[pmodel_id].w[frame_num][j].z = scale * (bscale[2] * bv.v[2] + translate[2]);
+			pmdata[pmodel_id].w[frame_num][j].tu = unique_verts[j].s * header.skinwidth;
+			pmdata[pmodel_id].w[frame_num][j].tv = unique_verts[j].t * header.skinheight;
 		}
 	}
+
+	pmdata[pmodel_id].num_verts_per_frame = total_unique_verts;
 
 	pmdata[pmodel_id].num_polys_per_frame = glc_cnt;
 	pmdata[pmodel_id].num_faces = glc_cnt;
@@ -186,6 +263,9 @@ BOOL ImportMD2_GLCMD(char *filename, int texture_alias, int pmodel_id, float sca
 	pmdata[pmodel_id].sky = (float)1 / header.skinheight;
 	pmdata[pmodel_id].num_frames = header.num_frames;
 	pmdata[pmodel_id].use_indexed_primitive = FALSE;
+
+	ComputeMD2ModelNormals(pmodel_id);
+	SmoothMD2ModelNormals(pmodel_id);
 
 	return TRUE;
 }

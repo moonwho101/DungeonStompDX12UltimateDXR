@@ -6,6 +6,7 @@
 #include "GameLogic.hpp"
 #include "Missle.hpp"
 #include "../Common/MathHelper.h"
+#include "mikktspace.h"
 #include <cstddef>
 #include <functional>
 #include <unordered_map>
@@ -150,6 +151,706 @@ void CalculateTangentBinormal(D3DVERTEX2 &vertex1, D3DVERTEX2 &vertex2, D3DVERTE
 	vertex1.nmz = vertex2.nmz = vertex3.nmz = tangent.z;
 }
 
+void CalculateVertNormalAndTangent(VERT &vertex1, VERT &vertex2, VERT &vertex3, const VERT &tex1, const VERT &tex2, const VERT &tex3) {
+	float vector1[3], vector2[3];
+	float tuVector[2], tvVector[2];
+
+	// Calculate the two vectors for this face.
+	vector1[0] = vertex2.x - vertex1.x;
+	vector1[1] = vertex2.y - vertex1.y;
+	vector1[2] = vertex2.z - vertex1.z;
+
+	vector2[0] = vertex3.x - vertex1.x;
+	vector2[1] = vertex3.y - vertex1.y;
+	vector2[2] = vertex3.z - vertex1.z;
+
+	// Calculate surface normal (vector1 x vector2)
+	float nx = vector1[1] * vector2[2] - vector1[2] * vector2[1];
+	float ny = vector1[2] * vector2[0] - vector1[0] * vector2[2];
+	float nz = vector1[0] * vector2[1] - vector1[1] * vector2[0];
+
+	float length = sqrtf(nx * nx + ny * ny + nz * nz);
+	if (length > 0.00001f) {
+		nx /= length;
+		ny /= length;
+		nz /= length;
+	} else {
+		// Default fallback normal for degenerate triangles
+		nx = 0.0f;
+		ny = 1.0f;
+		nz = 0.0f;
+	}
+
+	vertex1.nx = vertex2.nx = vertex3.nx = nx;
+	vertex1.ny = vertex2.ny = vertex3.ny = ny;
+	vertex1.nz = vertex2.nz = vertex3.nz = nz;
+
+	// Calculate texture space vectors
+	tuVector[0] = tex2.x - tex1.x;
+	tvVector[0] = -(tex2.y - tex1.y);
+
+	tuVector[1] = tex3.x - tex1.x;
+	tvVector[1] = -(tex3.y - tex1.y);
+
+	float result = (tuVector[0] * tvVector[1] - tuVector[1] * tvVector[0]);
+
+	if (fabsf(result) < 1e-12f) {
+		// Pick ANY vector not parallel to the normal
+		float ax = (fabsf(nx) > 0.9f) ? 0.0f : 1.0f;
+		float ay = 0.0f;
+		float az = (fabsf(nz) > 0.9f) ? 0.0f : 1.0f;
+
+		// Cross to get a tangent perpendicular to the normal
+		float tanX = ay * nz - az * ny;
+		float tanY = az * nx - ax * nz;
+		float tanZ = ax * ny - ay * nx;
+
+		float len = sqrtf(tanX * tanX + tanY * tanY + tanZ * tanZ);
+		if (len > 0.00001f) {
+			tanX /= len;
+			tanY /= len;
+			tanZ /= len;
+		} else {
+			tanX = 1.0f;
+			tanY = 0.0f;
+			tanZ = 0.0f;
+		}
+
+		vertex1.nmx = vertex2.nmx = vertex3.nmx = tanX;
+		vertex1.nmy = vertex2.nmy = vertex3.nmy = tanY;
+		vertex1.nmz = vertex2.nmz = vertex3.nmz = tanZ;
+		return;
+	}
+
+	float den = 1.0f / result;
+
+	float tanX = (tvVector[1] * vector1[0] - tvVector[0] * vector2[0]) * den;
+	float tanY = (tvVector[1] * vector1[1] - tvVector[0] * vector2[1]) * den;
+	float tanZ = (tvVector[1] * vector1[2] - tvVector[0] * vector2[2]) * den;
+
+	// Gram-Schmidt orthogonalization: ensure Tangent is orthogonal to Normal
+	float dot = tanX * nx + tanY * ny + tanZ * nz;
+	tanX -= nx * dot;
+	tanY -= ny * dot;
+	tanZ -= nz * dot;
+
+	length = sqrtf(tanX * tanX + tanY * tanY + tanZ * tanZ);
+	if (length > 0.00001f) {
+		tanX /= length;
+		tanY /= length;
+		tanZ /= length;
+	} else {
+		// Pick a vector not parallel to normal
+		float ax = (fabsf(nx) > 0.9f) ? 0.0f : 1.0f;
+		float ay = 0.0f;
+		float az = (fabsf(nz) > 0.9f) ? 0.0f : 1.0f;
+
+		tanX = ay * nz - az * ny;
+		tanY = az * nx - ax * nz;
+		tanZ = ax * ny - ay * nx;
+
+		float len = sqrtf(tanX * tanX + tanY * tanY + tanZ * tanZ);
+		if (len > 0.00001f) {
+			tanX /= len;
+			tanY /= len;
+			tanZ /= len;
+		} else {
+			tanX = 1.0f;
+			tanY = 0.0f;
+			tanZ = 0.0f;
+		}
+	}
+
+	vertex1.nmx = vertex2.nmx = vertex3.nmx = tanX;
+	vertex1.nmy = vertex2.nmy = vertex3.nmy = tanY;
+	vertex1.nmz = vertex2.nmz = vertex3.nmz = tanZ;
+}
+
+void SmoothVertArrayNoHash(VERT *verts, int num_verts, float smooth_threshold) {
+	const float epsilon = 0.0001f;
+
+	std::vector<uint8_t> tracked(num_verts, 0);
+
+	for (int i = 0; i < num_verts; i++) {
+		if (tracked[i] == 0) {
+			float x = verts[i].x;
+			float y = verts[i].y;
+			float z = verts[i].z;
+
+			XMVECTOR ni = XMVectorSet(verts[i].nx, verts[i].ny, verts[i].nz, 0.0f);
+
+			std::vector<int> shared;
+			shared.push_back(i);
+
+			for (int j = i + 1; j < num_verts; j++) {
+				if (tracked[j] == 0) {
+					if (fabsf(verts[j].x - x) < epsilon &&
+					    fabsf(verts[j].y - y) < epsilon &&
+					    fabsf(verts[j].z - z) < epsilon) {
+
+						XMVECTOR nj = XMVectorSet(verts[j].nx, verts[j].ny, verts[j].nz, 0.0f);
+						float dot = XMVectorGetX(XMVector3Dot(ni, nj));
+
+						if (dot > smooth_threshold) {
+							shared.push_back(j);
+						}
+					}
+				}
+			}
+
+			if (shared.size() > 1) {
+				XMVECTOR sumN = XMVectorZero();
+				XMVECTOR sumT = XMVectorZero();
+
+				for (int idx : shared) {
+					sumN = XMVectorAdd(sumN, XMVectorSet(verts[idx].nx, verts[idx].ny, verts[idx].nz, 0.0f));
+					sumT = XMVectorAdd(sumT, XMVectorSet(verts[idx].nmx, verts[idx].nmy, verts[idx].nmz, 0.0f));
+				}
+
+				XMVECTOR avgN = XMVector3Normalize(sumN);
+				XMVECTOR avgT = XMVector3Normalize(XMVectorSubtract(sumT, XMVectorMultiply(avgN, XMVector3Dot(avgN, sumT))));
+
+				XMFLOAT3 fN, fT;
+				XMStoreFloat3(&fN, avgN);
+				XMStoreFloat3(&fT, avgT);
+
+				for (int idx : shared) {
+					verts[idx].nx = fN.x;
+					verts[idx].ny = fN.y;
+					verts[idx].nz = fN.z;
+					verts[idx].nmx = fT.x;
+					verts[idx].nmy = fT.y;
+					verts[idx].nmz = fT.z;
+					tracked[idx] = 1;
+				}
+			} else {
+				tracked[i] = 1;
+			}
+		}
+	}
+}
+
+struct ThreeDSMikkUserData {
+	int pmodel_id;
+	VERT *frame_verts;
+	int total_faces;
+	const int *corner_to_global_v;
+};
+
+static int ThreeDSMikk_GetNumFaces(const SMikkTSpaceContext *pContext) {
+	auto *userData = static_cast<ThreeDSMikkUserData *>(pContext->m_pUserData);
+	return userData->total_faces;
+}
+
+static int ThreeDSMikk_GetNumVerticesOfFace(const SMikkTSpaceContext *pContext, const int iFace) {
+	return 3;
+}
+
+static void ThreeDSMikk_GetPosition(const SMikkTSpaceContext *pContext, float fvPosOut[], const int iFace, const int iVert) {
+	auto *userData = static_cast<ThreeDSMikkUserData *>(pContext->m_pUserData);
+	int corner_idx = iFace * 3 + iVert;
+	int global_v = userData->corner_to_global_v[corner_idx];
+	const VERT &v = userData->frame_verts[global_v];
+	fvPosOut[0] = v.x;
+	fvPosOut[1] = v.z;
+	fvPosOut[2] = v.y;
+}
+
+static void ThreeDSMikk_GetNormal(const SMikkTSpaceContext *pContext, float fvNormOut[], const int iFace, const int iVert) {
+	auto *userData = static_cast<ThreeDSMikkUserData *>(pContext->m_pUserData);
+	int corner_idx = iFace * 3 + iVert;
+	int global_v = userData->corner_to_global_v[corner_idx];
+	const VERT &v = userData->frame_verts[global_v];
+	fvNormOut[0] = v.nx;
+	fvNormOut[1] = v.ny;
+	fvNormOut[2] = v.nz;
+}
+
+static void ThreeDSMikk_GetTexCoord(const SMikkTSpaceContext *pContext, float fvTexcOut[], const int iFace, const int iVert) {
+	auto *userData = static_cast<ThreeDSMikkUserData *>(pContext->m_pUserData);
+	int corner_idx = iFace * 3 + iVert;
+	const VERT &t = pmdata[userData->pmodel_id].t[corner_idx];
+	fvTexcOut[0] = t.x * pmdata[userData->pmodel_id].skx;
+	fvTexcOut[1] = 1.0f - (t.y * pmdata[userData->pmodel_id].sky);
+}
+
+static void ThreeDSMikk_SetTSpaceBasic(const SMikkTSpaceContext *pContext, const float fvTangent[], const float fSign, const int iFace, const int iVert) {
+	auto *userData = static_cast<ThreeDSMikkUserData *>(pContext->m_pUserData);
+	int corner_idx = iFace * 3 + iVert;
+	int global_v = userData->corner_to_global_v[corner_idx];
+	userData->frame_verts[global_v].nmx = fvTangent[0];
+	userData->frame_verts[global_v].nmy = fvTangent[1];
+	userData->frame_verts[global_v].nmz = fvTangent[2];
+}
+
+void Compute3DSModelNormals(int pmodel_id) {
+	if (pmodel_id < 0)
+		return;
+
+	int num_frames = pmdata[pmodel_id].num_frames;
+	if (num_frames <= 0)
+		return;
+
+	int total_num_verts = pmdata[pmodel_id].num_verts;
+	int num_poly = pmdata[pmodel_id].num_polys_per_frame;
+
+	if (total_num_verts <= 0 || num_poly <= 0)
+		return;
+
+	for (int frame_num = 0; frame_num < num_frames; frame_num++) {
+		VERT *frame_verts = pmdata[pmodel_id].w[frame_num];
+		if (!frame_verts)
+			continue;
+
+		// 1. Reset vertex normals and tangents to zero
+		for (int v = 0; v < total_num_verts; v++) {
+			frame_verts[v].nx = frame_verts[v].ny = frame_verts[v].nz = 0.0f;
+			frame_verts[v].nmx = frame_verts[v].nmy = frame_verts[v].nmz = 0.0f;
+		}
+
+		// 2. Compute face normals and tangents per object and assign directly
+		std::vector<int> corner_to_global_v(pmdata[pmodel_id].num_faces * 3, 0);
+		int v_start = 0;
+		int face_i_count = 0;
+
+		for (int i = 0; i < num_poly; i++) {
+			const int num_verts_per_poly = pmdata[pmodel_id].num_verts_per_object[i];
+			const int num_faces_per_poly = pmdata[pmodel_id].num_faces_per_object[i];
+
+			for (int j = 0; j < num_faces_per_poly; j++) {
+				int idx0 = pmdata[pmodel_id].f[face_i_count + 0];
+				int idx1 = pmdata[pmodel_id].f[face_i_count + 1];
+				int idx2 = pmdata[pmodel_id].f[face_i_count + 2];
+
+				int g0 = v_start + idx0;
+				int g1 = v_start + idx1;
+				int g2 = v_start + idx2;
+
+				corner_to_global_v[face_i_count + 0] = g0;
+				corner_to_global_v[face_i_count + 1] = g1;
+				corner_to_global_v[face_i_count + 2] = g2;
+
+				if (g0 >= 0 && g0 < total_num_verts &&
+				    g1 >= 0 && g1 < total_num_verts &&
+				    g2 >= 0 && g2 < total_num_verts) {
+
+					VERT tmp0, tmp1, tmp2;
+
+					tmp0.x = frame_verts[g0].x;
+					tmp0.y = frame_verts[g0].z;
+					tmp0.z = frame_verts[g0].y;
+
+					tmp1.x = frame_verts[g1].x;
+					tmp1.y = frame_verts[g1].z;
+					tmp1.z = frame_verts[g1].y;
+
+					tmp2.x = frame_verts[g2].x;
+					tmp2.y = frame_verts[g2].z;
+					tmp2.z = frame_verts[g2].y;
+
+					CalculateVertNormalAndTangent(
+					    tmp0, tmp1, tmp2,
+					    pmdata[pmodel_id].t[face_i_count + 0],
+					    pmdata[pmodel_id].t[face_i_count + 1],
+					    pmdata[pmodel_id].t[face_i_count + 2]);
+
+					// 3DS winding order correction: negate face normal and tangent so they point outward
+					// tmp0.nx = -tmp0.nx;
+					// tmp0.ny = -tmp0.ny;
+					// tmp0.nz = -tmp0.nz;
+					// tmp0.nmx = -tmp0.nmx;
+					// tmp0.nmy = -tmp0.nmy;
+					// tmp0.nmz = -tmp0.nmz;
+
+					frame_verts[g0].nx += tmp0.nx;
+					frame_verts[g0].ny += tmp0.ny;
+					frame_verts[g0].nz += tmp0.nz;
+					frame_verts[g1].nx += tmp0.nx;
+					frame_verts[g1].ny += tmp0.ny;
+					frame_verts[g1].nz += tmp0.nz;
+					frame_verts[g2].nx += tmp0.nx;
+					frame_verts[g2].ny += tmp0.ny;
+					frame_verts[g2].nz += tmp0.nz;
+
+					frame_verts[g0].nmx += tmp0.nmx;
+					frame_verts[g0].nmy += tmp0.nmy;
+					frame_verts[g0].nmz += tmp0.nmz;
+					frame_verts[g1].nmx += tmp0.nmx;
+					frame_verts[g1].nmy += tmp0.nmy;
+					frame_verts[g1].nmz += tmp0.nmz;
+					frame_verts[g2].nmx += tmp0.nmx;
+					frame_verts[g2].nmy += tmp0.nmy;
+					frame_verts[g2].nmz += tmp0.nmz;
+				}
+
+				face_i_count += 3;
+			}
+
+			v_start += num_verts_per_poly;
+		}
+
+		// Normalize accumulated vertex normals before MikkTSpace
+		for (int v = 0; v < total_num_verts; v++) {
+			float len = sqrtf(frame_verts[v].nx * frame_verts[v].nx +
+			                  frame_verts[v].ny * frame_verts[v].ny +
+			                  frame_verts[v].nz * frame_verts[v].nz);
+			if (len > 1e-6f) {
+				frame_verts[v].nx /= len;
+				frame_verts[v].ny /= len;
+				frame_verts[v].nz /= len;
+			} else {
+				frame_verts[v].nx = 0.0f;
+				frame_verts[v].ny = 1.0f;
+				frame_verts[v].nz = 0.0f;
+			}
+		}
+
+		// 3. Generate tangents using MikkTSpace
+		SMikkTSpaceInterface mikkInterface = {};
+		mikkInterface.m_getNumFaces = ThreeDSMikk_GetNumFaces;
+		mikkInterface.m_getNumVerticesOfFace = ThreeDSMikk_GetNumVerticesOfFace;
+		mikkInterface.m_getPosition = ThreeDSMikk_GetPosition;
+		mikkInterface.m_getNormal = ThreeDSMikk_GetNormal;
+		mikkInterface.m_getTexCoord = ThreeDSMikk_GetTexCoord;
+		mikkInterface.m_setTSpaceBasic = ThreeDSMikk_SetTSpaceBasic;
+
+		ThreeDSMikkUserData userData;
+		userData.pmodel_id = pmodel_id;
+		userData.frame_verts = frame_verts;
+		userData.total_faces = face_i_count / 3;
+		userData.corner_to_global_v = corner_to_global_v.data();
+
+		SMikkTSpaceContext mikkContext = {};
+		mikkContext.m_pInterface = &mikkInterface;
+		mikkContext.m_pUserData = &userData;
+
+		genTangSpaceDefault(&mikkContext);
+
+	}
+}
+
+struct MD2MikkUserData {
+	int pmodel_id;
+	VERT *frame_verts;
+	int total_triangles;
+};
+
+static int MD2Mikk_GetNumFaces(const SMikkTSpaceContext *pContext) {
+	auto *userData = static_cast<MD2MikkUserData *>(pContext->m_pUserData);
+	return userData->total_triangles;
+}
+
+static int MD2Mikk_GetNumVerticesOfFace(const SMikkTSpaceContext *pContext, const int iFace) {
+	return 3;
+}
+
+static void MD2Mikk_GetPosition(const SMikkTSpaceContext *pContext, float fvPosOut[], const int iFace, const int iVert) {
+	auto *userData = static_cast<MD2MikkUserData *>(pContext->m_pUserData);
+	int corner_idx = iFace * 3 + iVert;
+	int v_idx = pmdata[userData->pmodel_id].f[corner_idx];
+	const VERT &v = userData->frame_verts[v_idx];
+	fvPosOut[0] = v.x;
+	fvPosOut[1] = v.y;
+	fvPosOut[2] = v.z;
+}
+
+static void MD2Mikk_GetNormal(const SMikkTSpaceContext *pContext, float fvNormOut[], const int iFace, const int iVert) {
+	auto *userData = static_cast<MD2MikkUserData *>(pContext->m_pUserData);
+	int corner_idx = iFace * 3 + iVert;
+	int v_idx = pmdata[userData->pmodel_id].f[corner_idx];
+	const VERT &v = userData->frame_verts[v_idx];
+	fvNormOut[0] = v.nx;
+	fvNormOut[1] = v.ny;
+	fvNormOut[2] = v.nz;
+}
+
+static void MD2Mikk_GetTexCoord(const SMikkTSpaceContext *pContext, float fvTexcOut[], const int iFace, const int iVert) {
+	auto *userData = static_cast<MD2MikkUserData *>(pContext->m_pUserData);
+	int corner_idx = iFace * 3 + iVert;
+	const VERT &t = pmdata[userData->pmodel_id].t[corner_idx];
+	fvTexcOut[0] = t.x * pmdata[userData->pmodel_id].skx;
+	fvTexcOut[1] = t.y * pmdata[userData->pmodel_id].sky;
+}
+
+static void MD2Mikk_SetTSpaceBasic(const SMikkTSpaceContext *pContext, const float fvTangent[], const float fSign, const int iFace, const int iVert) {
+	auto *userData = static_cast<MD2MikkUserData *>(pContext->m_pUserData);
+	int corner_idx = iFace * 3 + iVert;
+	int v_idx = pmdata[userData->pmodel_id].f[corner_idx];
+	userData->frame_verts[v_idx].nmx = fvTangent[0];
+	userData->frame_verts[v_idx].nmy = fvTangent[1];
+	userData->frame_verts[v_idx].nmz = fvTangent[2];
+}
+
+void ComputeMD2ModelNormals(int pmodel_id) {
+	if (pmodel_id < 0)
+		return;
+
+	int num_frames = pmdata[pmodel_id].num_frames;
+	if (num_frames <= 0)
+		return;
+
+	int num_poly = pmdata[pmodel_id].num_polys_per_frame;
+	int num_indices = pmdata[pmodel_id].num_verts; // total face vertex count
+	if (num_poly <= 0 || num_indices < 3)
+		return;
+
+	int max_v_idx = 0;
+	for (int i = 0; i < num_indices; i++) {
+		if (pmdata[pmodel_id].f[i] > max_v_idx) {
+			max_v_idx = pmdata[pmodel_id].f[i];
+		}
+	}
+	int num_verts = max_v_idx + 1;
+
+	for (int frame_num = 0; frame_num < num_frames; frame_num++) {
+		VERT *frame_verts = pmdata[pmodel_id].w[frame_num];
+		if (!frame_verts)
+			continue;
+
+		// 1. Reset vertex normals and tangents to zero
+		for (int v = 0; v < num_verts; v++) {
+			frame_verts[v].nx = frame_verts[v].ny = frame_verts[v].nz = 0.0f;
+			frame_verts[v].nmx = frame_verts[v].nmy = frame_verts[v].nmz = 0.0f;
+		}
+
+		// 2. Calculate face/vertex normals
+		int i_count = 0;
+		for (int i = 0; i < num_poly; i++) {
+			int num_verts_per_poly = pmdata[pmodel_id].num_vert[i];
+
+			for (int j = 0; j + 2 < num_verts_per_poly; j += 3) {
+				int idx0 = pmdata[pmodel_id].f[i_count + j + 0];
+				int idx1 = pmdata[pmodel_id].f[i_count + j + 1];
+				int idx2 = pmdata[pmodel_id].f[i_count + j + 2];
+
+				if (idx0 >= 0 && idx0 < num_verts &&
+				    idx1 >= 0 && idx1 < num_verts &&
+				    idx2 >= 0 && idx2 < num_verts) {
+
+					VERT tmp0, tmp1, tmp2;
+
+					tmp0.x = frame_verts[idx0].x;
+					tmp0.y = frame_verts[idx0].z;
+					tmp0.z = frame_verts[idx0].y;
+
+					tmp1.x = frame_verts[idx1].x;
+					tmp1.y = frame_verts[idx1].z;
+					tmp1.z = frame_verts[idx1].y;
+
+					tmp2.x = frame_verts[idx2].x;
+					tmp2.y = frame_verts[idx2].z;
+					tmp2.z = frame_verts[idx2].y;
+
+					CalculateVertNormalAndTangent(
+					    tmp0, tmp1, tmp2,
+					    pmdata[pmodel_id].t[i_count + j + 0],
+					    pmdata[pmodel_id].t[i_count + j + 1],
+					    pmdata[pmodel_id].t[i_count + j + 2]);
+
+					frame_verts[idx0].nx += tmp0.nx;
+					frame_verts[idx0].ny += tmp0.ny;
+					frame_verts[idx0].nz += tmp0.nz;
+					frame_verts[idx1].nx += tmp0.nx;
+					frame_verts[idx1].ny += tmp0.ny;
+					frame_verts[idx1].nz += tmp0.nz;
+					frame_verts[idx2].nx += tmp0.nx;
+					frame_verts[idx2].ny += tmp0.ny;
+					frame_verts[idx2].nz += tmp0.nz;
+
+					frame_verts[idx0].nmx += tmp0.nmx;
+					frame_verts[idx0].nmy += tmp0.nmy;
+					frame_verts[idx0].nmz += tmp0.nmz;
+					frame_verts[idx1].nmx += tmp0.nmx;
+					frame_verts[idx1].nmy += tmp0.nmy;
+					frame_verts[idx1].nmz += tmp0.nmz;
+					frame_verts[idx2].nmx += tmp0.nmx;
+					frame_verts[idx2].nmy += tmp0.nmy;
+					frame_verts[idx2].nmz += tmp0.nmz;
+				}
+			}
+
+			i_count += num_verts_per_poly;
+		}
+
+		// 2.5 Normalize accumulated vertex normals
+		for (int v = 0; v < num_verts; v++) {
+			float nx = frame_verts[v].nx;
+			float ny = frame_verts[v].ny;
+			float nz = frame_verts[v].nz;
+
+			float len = sqrtf(nx * nx + ny * ny + nz * nz);
+			if (len > 0.00001f) {
+				frame_verts[v].nx = nx / len;
+				frame_verts[v].ny = ny / len;
+				frame_verts[v].nz = nz / len;
+			} else {
+				frame_verts[v].nx = 0.0f;
+				frame_verts[v].ny = 1.0f;
+				frame_verts[v].nz = 0.0f;
+			}
+		}
+
+		// 3. Generate tangents using MikkTSpace
+		SMikkTSpaceInterface mikkInterface = {};
+		mikkInterface.m_getNumFaces = MD2Mikk_GetNumFaces;
+		mikkInterface.m_getNumVerticesOfFace = MD2Mikk_GetNumVerticesOfFace;
+		mikkInterface.m_getPosition = MD2Mikk_GetPosition;
+		mikkInterface.m_getNormal = MD2Mikk_GetNormal;
+		mikkInterface.m_getTexCoord = MD2Mikk_GetTexCoord;
+		mikkInterface.m_setTSpaceBasic = MD2Mikk_SetTSpaceBasic;
+
+		MD2MikkUserData userData;
+		userData.pmodel_id = pmodel_id;
+		userData.frame_verts = frame_verts;
+		userData.total_triangles = num_indices / 3;
+
+		SMikkTSpaceContext mikkContext = {};
+		mikkContext.m_pInterface = &mikkInterface;
+		mikkContext.m_pUserData = &userData;
+
+		genTangSpaceDefault(&mikkContext);
+
+		
+	}
+}
+
+struct ObDataMikkUserData {
+	int obj_idx;
+	int total_triangles;
+};
+
+static int ObDataMikk_GetNumFaces(const SMikkTSpaceContext *pContext) {
+	auto *userData = static_cast<ObDataMikkUserData *>(pContext->m_pUserData);
+	return userData->total_triangles;
+}
+
+static int ObDataMikk_GetNumVerticesOfFace(const SMikkTSpaceContext *pContext, const int iFace) {
+	return 3;
+}
+
+static void ObDataMikk_GetPosition(const SMikkTSpaceContext *pContext, float fvPosOut[], const int iFace, const int iVert) {
+	auto *userData = static_cast<ObDataMikkUserData *>(pContext->m_pUserData);
+	int v_idx = iFace * 3 + iVert;
+	const VERT &v = obdata[userData->obj_idx].v[v_idx];
+	fvPosOut[0] = v.x;
+	fvPosOut[1] = v.y;
+	fvPosOut[2] = v.z;
+}
+
+static void ObDataMikk_GetNormal(const SMikkTSpaceContext *pContext, float fvNormOut[], const int iFace, const int iVert) {
+	auto *userData = static_cast<ObDataMikkUserData *>(pContext->m_pUserData);
+	int v_idx = iFace * 3 + iVert;
+	const VERT &v = obdata[userData->obj_idx].v[v_idx];
+	fvNormOut[0] = v.nx;
+	fvNormOut[1] = v.ny;
+	fvNormOut[2] = v.nz;
+}
+
+static void ObDataMikk_GetTexCoord(const SMikkTSpaceContext *pContext, float fvTexcOut[], const int iFace, const int iVert) {
+	auto *userData = static_cast<ObDataMikkUserData *>(pContext->m_pUserData);
+	int v_idx = iFace * 3 + iVert;
+	const VERT &t = obdata[userData->obj_idx].t[v_idx];
+	fvTexcOut[0] = t.x;
+	fvTexcOut[1] = t.y;
+}
+
+static void ObDataMikk_SetTSpaceBasic(const SMikkTSpaceContext *pContext, const float fvTangent[], const float fSign, const int iFace, const int iVert) {
+	auto *userData = static_cast<ObDataMikkUserData *>(pContext->m_pUserData);
+	int v_idx = iFace * 3 + iVert;
+	obdata[userData->obj_idx].v[v_idx].nmx = fvTangent[0];
+	obdata[userData->obj_idx].v[v_idx].nmy = fvTangent[1];
+	obdata[userData->obj_idx].v[v_idx].nmz = fvTangent[2];
+}
+
+void ComputeObDataNormals(int obj_idx) {
+	if (obj_idx < 0)
+		return;
+
+	int v_count = num_vert_per_object[obj_idx];
+	if (v_count < 3)
+		return;
+
+	for (int v_i = 0; v_i + 2 < v_count; v_i += 3) {
+		CalculateVertNormalAndTangent(
+		    obdata[obj_idx].v[v_i],
+		    obdata[obj_idx].v[v_i + 1],
+		    obdata[obj_idx].v[v_i + 2],
+		    obdata[obj_idx].t[v_i],
+		    obdata[obj_idx].t[v_i + 1],
+		    obdata[obj_idx].t[v_i + 2]);
+	}
+
+	SMikkTSpaceInterface mikkInterface = {};
+	mikkInterface.m_getNumFaces = ObDataMikk_GetNumFaces;
+	mikkInterface.m_getNumVerticesOfFace = ObDataMikk_GetNumVerticesOfFace;
+	mikkInterface.m_getPosition = ObDataMikk_GetPosition;
+	mikkInterface.m_getNormal = ObDataMikk_GetNormal;
+	mikkInterface.m_getTexCoord = ObDataMikk_GetTexCoord;
+	mikkInterface.m_setTSpaceBasic = ObDataMikk_SetTSpaceBasic;
+
+	ObDataMikkUserData userData;
+	userData.obj_idx = obj_idx;
+	userData.total_triangles = v_count / 3;
+
+	SMikkTSpaceContext mikkContext = {};
+	mikkContext.m_pInterface = &mikkInterface;
+	mikkContext.m_pUserData = &userData;
+
+	genTangSpaceDefault(&mikkContext);
+
+	// Post-check tangents and normals for ObData
+}
+
+void Smooth3DSModelNormals(int pmodel_id) {
+	if (pmodel_id < 0)
+		return;
+
+	int num_frames = pmdata[pmodel_id].num_frames;
+	if (num_frames <= 0)
+		return;
+
+	int total_num_verts = pmdata[pmodel_id].num_verts;
+	if (total_num_verts <= 0)
+		return;
+
+	for (int frame_num = 0; frame_num < num_frames; frame_num++) {
+		VERT *frame_verts = pmdata[pmodel_id].w[frame_num];
+		if (!frame_verts)
+			continue;
+
+		SmoothVertArrayNoHash(frame_verts, total_num_verts, 0.4f);
+	}
+}
+
+void SmoothMD2ModelNormals(int pmodel_id) {
+	if (pmodel_id < 0)
+		return;
+
+	int num_frames = pmdata[pmodel_id].num_frames;
+	if (num_frames <= 0)
+		return;
+
+	int num_indices = pmdata[pmodel_id].num_verts; // for MD2 models, num_verts stores total triangle list indices
+	if (num_indices < 3)
+		return;
+
+	int max_v_idx = 0;
+	for (int i = 0; i < num_indices; i++) {
+		if (pmdata[pmodel_id].f[i] > max_v_idx) {
+			max_v_idx = pmdata[pmodel_id].f[i];
+		}
+	}
+	int num_verts = max_v_idx + 1;
+
+	for (int frame_num = 0; frame_num < num_frames; frame_num++) {
+		VERT *frame_verts = pmdata[pmodel_id].w[frame_num];
+		if (!frame_verts)
+			continue;
+
+		SmoothVertArrayNoHash(frame_verts, num_verts, 0.2f);
+	}
+}
+
 bool ObjectHasShadow(int object_id) {
 
 	if (object_id == -99 || object_id == -111 || object_id == -1) {
@@ -161,6 +862,55 @@ bool ObjectHasShadow(int object_id) {
 	}
 
 	return false;
+}
+
+struct ObjectMikkUserData {
+	D3DVERTEX2 *verts;
+	int start_cnt;
+	int total_faces;
+};
+
+static int ObjectMikk_GetNumFaces(const SMikkTSpaceContext *pContext) {
+	auto *userData = static_cast<ObjectMikkUserData *>(pContext->m_pUserData);
+	return userData->total_faces;
+}
+
+static int ObjectMikk_GetNumVerticesOfFace(const SMikkTSpaceContext *pContext, const int iFace) {
+	return 3;
+}
+
+static void ObjectMikk_GetPosition(const SMikkTSpaceContext *pContext, float fvPosOut[], const int iFace, const int iVert) {
+	auto *userData = static_cast<ObjectMikkUserData *>(pContext->m_pUserData);
+	int idx = userData->start_cnt + iFace * 3 + iVert;
+	const D3DVERTEX2 &v = userData->verts[idx];
+	fvPosOut[0] = v.x;
+	fvPosOut[1] = v.y;
+	fvPosOut[2] = v.z;
+}
+
+static void ObjectMikk_GetNormal(const SMikkTSpaceContext *pContext, float fvNormOut[], const int iFace, const int iVert) {
+	auto *userData = static_cast<ObjectMikkUserData *>(pContext->m_pUserData);
+	int idx = userData->start_cnt + iFace * 3 + iVert;
+	const D3DVERTEX2 &v = userData->verts[idx];
+	fvNormOut[0] = v.nx;
+	fvNormOut[1] = v.ny;
+	fvNormOut[2] = v.nz;
+}
+
+static void ObjectMikk_GetTexCoord(const SMikkTSpaceContext *pContext, float fvTexcOut[], const int iFace, const int iVert) {
+	auto *userData = static_cast<ObjectMikkUserData *>(pContext->m_pUserData);
+	int idx = userData->start_cnt + iFace * 3 + iVert;
+	const D3DVERTEX2 &v = userData->verts[idx];
+	fvTexcOut[0] = v.tu;
+	fvTexcOut[1] = v.tv;
+}
+
+static void ObjectMikk_SetTSpaceBasic(const SMikkTSpaceContext *pContext, const float fvTangent[], const float fSign, const int iFace, const int iVert) {
+	auto *userData = static_cast<ObjectMikkUserData *>(pContext->m_pUserData);
+	int idx = userData->start_cnt + iFace * 3 + iVert;
+	userData->verts[idx].nmx = fvTangent[0];
+	userData->verts[idx].nmy = fvTangent[1];
+	userData->verts[idx].nmz = fvTangent[2];
 }
 
 void ObjectToD3DVertList(int ob_type, float angle, int oblist_index) {
@@ -220,6 +970,13 @@ void ObjectToD3DVertList(int ob_type, float angle, int oblist_index) {
 			sine = (float)sin(fDot * k);
 		}
 
+		// Rotation matrix for DirectX Math transformation of normals and tangents
+		XMMATRIX rotMat = XMMATRIX(
+		    cosine, 0.0f, sine, 0.0f,
+		    0.0f, 1.0f, 0.0f, 0.0f,
+		    -sine, 0.0f, cosine, 0.0f,
+		    0.0f, 0.0f, 0.0f, 1.0f);
+
 		// Vertex transformation and texture coordinates
 		for (int vert_cnt = 0; vert_cnt < num_vert; vert_cnt++) {
 			const auto &v = obdata[ob_type].v[ob_vert_count];
@@ -244,7 +1001,10 @@ void ObjectToD3DVertList(int ob_type, float angle, int oblist_index) {
 
 		// Texture mapping branch
 		bool use_texmap = obdata[ob_type].use_texmap[w] != FALSE;
+		int vert_base = ob_vert_count - num_vert;
 		for (int i = 0; i < num_vert; i++) {
+			const auto &v = obdata[ob_type].v[vert_base + i];
+
 			src_v[cnt].x = D3DVAL(mx[i]);
 			src_v[cnt].y = D3DVAL(my[i]);
 			src_v[cnt].z = D3DVAL(mz[i]);
@@ -254,28 +1014,31 @@ void ObjectToD3DVertList(int ob_type, float angle, int oblist_index) {
 
 			src_collide[cnt] = objectcollide == 1 ? 1 : 0;
 
-			// Calculate normal for first vertex
-			if (i == 0 && num_vert >= 3) {
-				XMFLOAT3 vw1{ D3DVAL(mx[i]), D3DVAL(my[i]), D3DVAL(mz[i]) };
-				XMFLOAT3 vw2{ D3DVAL(mx[i + 1]), D3DVAL(my[i + 1]), D3DVAL(mz[i + 1]) };
-				XMFLOAT3 vw3{ D3DVAL(mx[i + 2]), D3DVAL(my[i + 2]), D3DVAL(mz[i + 2]) };
+			// Transform normal and tangent from model using DirectX Math
+			XMVECTOR nVec = XMVectorSet(v.nx, v.ny, v.nz, 0.0f);
+			XMVECTOR tVec = XMVectorSet(v.nmx, v.nmy, v.nmz, 0.0f);
 
-				XMVECTOR vCross = XMVector3Cross(XMLoadFloat3(&vw1) - XMLoadFloat3(&vw2), XMLoadFloat3(&vw3) - XMLoadFloat3(&vw2));
-				XMFLOAT3 final2;
-				XMStoreFloat3(&final2, XMVector3Normalize(vCross));
-				workx = -final2.x;
-				worky = -final2.y;
-				workz = -final2.z;
-			}
+			XMVECTOR rotN = XMVector3TransformNormal(nVec, rotMat);
+			float nLen = XMVectorGetX(XMVector3Length(rotN));
+			rotN = (nLen > 1e-5f) ? XMVectorScale(rotN, 1.0f / nLen) : XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
 
-			src_v[cnt].nx = workx;
-			src_v[cnt].ny = worky;
-			src_v[cnt].nz = workz;
+			XMVECTOR rotT = XMVector3TransformNormal(tVec, rotMat);
+			float tLen = XMVectorGetX(XMVector3Length(rotT));
+			rotT = (tLen > 1e-5f) ? XMVectorScale(rotT, 1.0f / tLen) : XMVectorSet(1.0f, 0.0f, 0.0f, 0.0f);
+
+			XMFLOAT3 fn, ft;
+			XMStoreFloat3(&fn, rotN);
+			XMStoreFloat3(&ft, rotT);
+
+			src_v[cnt].nx = fn.x;
+			src_v[cnt].ny = fn.y;
+			src_v[cnt].nz = fn.z;
+
+			src_v[cnt].nmx = ft.x;
+			src_v[cnt].nmy = ft.y;
+			src_v[cnt].nmz = ft.z;
 
 			cnt++;
-
-			if (i == 2)
-				CalculateTangentBinormal(src_v[cnt - 3], src_v[cnt - 2], src_v[cnt - 1]);
 		}
 
 		ObjectsToDraw[number_of_polys_per_frame].vert_index = number_of_polys_per_frame;
@@ -410,12 +1173,34 @@ void PlayerToD3DVertList(int pmodel_id, int curr_frame, float angle, int texture
 		const int fan_cnt = cnt;
 		int triVertexCounter = 0;
 
+		XMMATRIX rotYaw = XMMATRIX(
+		    cosine, 0.0f, sine, 0.0f,
+		    0.0f, 1.0f, 0.0f, 0.0f,
+		    -sine, 0.0f, cosine, 0.0f,
+		    0.0f, 0.0f, 0.0f, 1.0f);
+
+		XMMATRIX rotMat;
+		if (weapondrop == 1 && fDot2 != 0.0f) {
+			const float cp = cosf(fDot2 * k);
+			const float sp = sinf(fDot2 * k);
+			XMMATRIX rotPitch = XMMATRIX(
+			    cp, -sp, 0.0f, 0.0f,
+			    sp, cp, 0.0f, 0.0f,
+			    0.0f, 0.0f, 1.0f, 0.0f,
+			    0.0f, 0.0f, 0.0f, 1.0f);
+			rotMat = rotPitch * rotYaw;
+		} else {
+			rotMat = rotYaw;
+		}
+
 		for (int j = 0; j < num_verts_per_poly; j++) {
 			const short v_index = pmdata[pmodel_id].f[i_count];
 
 			const vert_ptr tp = &pmdata[pmodel_id].w[curr_frame][v_index];
 
 			float x, y, z;
+			float nx, ny, nz, nmx, nmy, nmz;
+
 			if (nextFrame != -1) {
 				const vert_ptr tpNextFrame = &pmdata[pmodel_id].w[nextFrame][v_index];
 				const float t = (gametimerAnimation > 0.0f && gametimerAnimation < 1.0f) ? gametimerAnimation : 0.0f;
@@ -424,15 +1209,35 @@ void PlayerToD3DVertList(int pmodel_id, int curr_frame, float angle, int texture
 					x = tp->x + t * (tpNextFrame->x - tp->x);
 					z = tp->y + t * (tpNextFrame->y - tp->y);
 					y = tp->z + t * (tpNextFrame->z - tp->z);
+
+					nx = tp->nx + t * (tpNextFrame->nx - tp->nx);
+					ny = tp->ny + t * (tpNextFrame->ny - tp->ny);
+					nz = tp->nz + t * (tpNextFrame->nz - tp->nz);
+
+					nmx = tp->nmx + t * (tpNextFrame->nmx - tp->nmx);
+					nmy = tp->nmy + t * (tpNextFrame->nmy - tp->nmy);
+					nmz = tp->nmz + t * (tpNextFrame->nmz - tp->nmz);
 				} else {
 					x = tp->x;
 					z = tp->y;
 					y = tp->z;
+					nx = tp->nx;
+					ny = tp->ny;
+					nz = tp->nz;
+					nmx = tp->nmx;
+					nmy = tp->nmy;
+					nmz = tp->nmz;
 				}
 			} else {
 				x = tp->x;
 				z = tp->y;
 				y = tp->z;
+				nx = tp->nx;
+				ny = tp->ny;
+				nz = tp->nz;
+				nmx = tp->nmx;
+				nmy = tp->nmy;
+				nmz = tp->nmz;
 			}
 
 			if (weapondrop == 1) {
@@ -473,41 +1278,29 @@ void PlayerToD3DVertList(int pmodel_id, int curr_frame, float angle, int texture
 			src_v[cnt].CastShadow = 1;
 			src_collide[cnt] = 1;
 
-			// For triangle list streams, compute normal/tangent per tri as it forms
-			if (p_command == D3DPT_TRIANGLELIST) {
-				if (triVertexCounter == 2) {
-					D3DVERTEX2 &v1 = src_v[cnt - 2];
-					D3DVERTEX2 &v2 = src_v[cnt - 1];
-					D3DVERTEX2 &v3 = src_v[cnt];
+			// Transform normal and tangent from model using DirectX Math
+			XMVECTOR nVec = XMVectorSet(nx, ny, nz, 0.0f);
+			XMVECTOR tVec = XMVectorSet(nmx, nmy, nmz, 0.0f);
 
-					XMFLOAT3 p1{ v1.x, v1.y, v1.z };
-					XMFLOAT3 p2{ v2.x, v2.y, v2.z };
-					XMFLOAT3 p3{ v3.x, v3.y, v3.z };
+			XMVECTOR rotN = XMVector3TransformNormal(nVec, rotMat);
+			float nLen = XMVectorGetX(XMVector3Length(rotN));
+			rotN = (nLen > 1e-5f) ? XMVectorScale(rotN, 1.0f / nLen) : XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
 
-					XMVECTOR nrm = XMVector3Normalize(
-					    XMVector3Cross(XMLoadFloat3(&p1) - XMLoadFloat3(&p2),
-					                   XMLoadFloat3(&p3) - XMLoadFloat3(&p2)));
+			XMVECTOR rotT = XMVector3TransformNormal(tVec, rotMat);
+			float tLen = XMVectorGetX(XMVector3Length(rotT));
+			rotT = (tLen > 1e-5f) ? XMVectorScale(rotT, 1.0f / tLen) : XMVectorSet(1.0f, 0.0f, 0.0f, 0.0f);
 
-					XMFLOAT3 n3;
-					XMStoreFloat3(&n3, nrm);
+			XMFLOAT3 fn, ft;
+			XMStoreFloat3(&fn, rotN);
+			XMStoreFloat3(&ft, rotT);
 
-					// Keep current convention (positive normal)
-					v1.nx = n3.x;
-					v1.ny = n3.y;
-					v1.nz = n3.z;
-					v2.nx = n3.x;
-					v2.ny = n3.y;
-					v2.nz = n3.z;
-					v3.nx = n3.x;
-					v3.ny = n3.y;
-					v3.nz = n3.z;
+			src_v[cnt].nx = fn.x;
+			src_v[cnt].ny = fn.y;
+			src_v[cnt].nz = fn.z;
 
-					CalculateTangentBinormal(v1, v2, v3);
-					triVertexCounter = 0;
-				} else {
-					triVertexCounter++;
-				}
-			}
+			src_v[cnt].nmx = ft.x;
+			src_v[cnt].nmy = ft.y;
+			src_v[cnt].nmz = ft.z;
 
 			cnt++;
 			i_count++;
@@ -551,8 +1344,6 @@ void PlayerToD3DVertList(int pmodel_id, int curr_frame, float angle, int texture
 		number_of_polys_per_frame++;
 	}
 
-	// Keep smoothing for MD2
-	SmoothNormals(start_cnt);
 	return;
 }
 
@@ -1452,7 +2243,6 @@ void DrawItems(float fElapsedTime) {
 	float rotateSpeed = 100.0f * fElapsedTime;
 	const float pickupRiseSpeed = 350.0f; // world units per second
 
-
 	for (int i = 0; i < itemlistcount; i++) {
 		if (item_list[i].bIsPlayerValid == TRUE) {
 			bool pickupFxActive = (item_list[i].attackspeed > 0);
@@ -1588,155 +2378,142 @@ void DrawItems(float fElapsedTime) {
 }
 
 void PlayerToD3DIndexedVertList(int pmodel_id, int curr_frame, float angle, int texture_alias, int tex_flag, float xt, float yt, float zt, float fDot2) {
-	float qdist = 0.0f;
-
-	int num_poly;
-	int i_count, face_i_count;
-	float x, y, z;
-	float rx, ry, rz;
-	float tx, ty;
-
-	float wx = xt;
-	float wy = yt;
-	float wz = zt;
-
 	if (curr_frame >= pmdata[pmodel_id].num_frames)
 		curr_frame = 0;
 
-	// Use radians once
 	const float cosine = (float)cos(angle * k);
 	const float sine = (float)sin(angle * k);
 
-	i_count = 0;
-	face_i_count = 0;
+	const float wx = xt;
+	const float wy = yt;
+	const float wz = zt;
 
-	num_poly = pmdata[pmodel_id].num_polys_per_frame;
+	int i_count = 0;
+	int face_i_count = 0;
 
-	ObjectsToDraw[number_of_polys_per_frame].srcstart = cnt;
-	ObjectsToDraw[number_of_polys_per_frame].objectId = -1;
+	const int num_poly = pmdata[pmodel_id].num_polys_per_frame;
 
-	const int start_cnt = cnt;
+	XMMATRIX rotYaw = XMMATRIX(
+	    cosine, 0.0f, sine, 0.0f,
+	    0.0f, 1.0f, 0.0f, 0.0f,
+	    -sine, 0.0f, cosine, 0.0f,
+	    0.0f, 0.0f, 0.0f, 1.0f);
+
+	XMMATRIX rotMat;
+	if (fDot2 != 0.0f) {
+		const float cp = cosf(fDot2 * k);
+		const float sp = sinf(fDot2 * k);
+		XMMATRIX rotPitch = XMMATRIX(
+		    cp, -sp, 0.0f, 0.0f,
+		    sp, cp, 0.0f, 0.0f,
+		    0.0f, 0.0f, 1.0f, 0.0f,
+		    0.0f, 0.0f, 0.0f, 1.0f);
+		rotMat = rotPitch * rotYaw;
+	} else {
+		rotMat = rotYaw;
+	}
 
 	for (int i = 0; i < num_poly; i++) {
 		const int num_verts_per_poly = pmdata[pmodel_id].num_verts_per_object[i];
 		const int num_faces_per_poly = pmdata[pmodel_id].num_faces_per_object[i];
+		const int dwIndexCount = num_faces_per_poly * 3;
 
 		ObjectsToDraw[number_of_polys_per_frame].srcstart = cnt;
+		ObjectsToDraw[number_of_polys_per_frame].objectId = -1;
 
-		int triVertexCounter = 0;
+		for (int f = 0; f < num_faces_per_poly; f++) {
+			for (int c = 0; c < 3; c++) {
+				int local_v = pmdata[pmodel_id].f[face_i_count + c];
+				int global_v = i_count + local_v;
 
-		for (int j = 0; j < num_verts_per_poly; j++) {
-			// Read source vertex
-			x = pmdata[pmodel_id].w[curr_frame][i_count].x;
-			z = pmdata[pmodel_id].w[curr_frame][i_count].y;
-			y = pmdata[pmodel_id].w[curr_frame][i_count].z;
+				const auto &vert = pmdata[pmodel_id].w[curr_frame][global_v];
+				float x = vert.x;
+				float z = vert.y;
+				float y = vert.z;
 
-			// Apply optional pitch (fDot2) then yaw (angle)
-			if (fDot2 != 0.0f) {
-				float newx = (y * sinf(fDot2 * k) + x * cosf(fDot2 * k));
-				float newy = (y * cosf(fDot2 * k) - x * sinf(fDot2 * k));
-				float newz = z;
+				float rx, ry, rz;
 
-				// yaw
-				float yawx = (newx * cosine - newz * sine);
-				float yawy = newy;
-				float yawz = (newx * sine + newz * cosine);
+				if (fDot2 != 0.0f) {
+					float newx = (y * sinf(fDot2 * k) + x * cosf(fDot2 * k));
+					float newy = (y * cosf(fDot2 * k) - x * sinf(fDot2 * k));
+					float newz = z;
 
-				// roll is 0 in original code path
-				rx = yawx + wx;
-				ry = yawy + wy;
-				rz = yawz + wz;
-			} else {
-				// yaw only
-				rx = (x * cosine - z * sine) + wx;
-				ry = y + wy;
-				rz = (x * sine + z * cosine) + wz;
+					float yawx = (newx * cosine - newz * sine);
+					float yawy = newy;
+					float yawz = (newx * sine + newz * cosine);
+
+					rx = yawx + wx;
+					ry = yawy + wy;
+					rz = yawz + wz;
+				} else {
+					rx = (x * cosine - z * sine) + wx;
+					ry = y + wy;
+					rz = (x * sine + z * cosine) + wz;
+				}
+
+				float tx = pmdata[pmodel_id].t[face_i_count + c].x * pmdata[pmodel_id].skx;
+				float ty = pmdata[pmodel_id].t[face_i_count + c].y * pmdata[pmodel_id].sky;
+				ty = 1.0f - ty;
+
+				src_v[cnt].x = D3DVAL(rx);
+				src_v[cnt].y = D3DVAL(ry);
+				src_v[cnt].z = D3DVAL(rz);
+				src_v[cnt].tu = D3DVAL(tx);
+				src_v[cnt].tv = D3DVAL(ty);
+				src_v[cnt].CastShadow = 1;
+				src_collide[cnt] = 1;
+
+				XMVECTOR nVec = XMVectorSet(vert.nx, vert.ny, vert.nz, 0.0f);
+				XMVECTOR tVec = XMVectorSet(vert.nmx, vert.nmy, vert.nmz, 0.0f);
+
+				XMVECTOR rotN = XMVector3TransformNormal(nVec, rotMat);
+				float nLen = XMVectorGetX(XMVector3Length(rotN));
+				rotN = (nLen > 1e-5f) ? XMVectorScale(rotN, 1.0f / nLen) : XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+
+				XMVECTOR rotT = XMVector3TransformNormal(tVec, rotMat);
+				float tLen = XMVectorGetX(XMVector3Length(rotT));
+				rotT = (tLen > 1e-5f) ? XMVectorScale(rotT, 1.0f / tLen) : XMVectorSet(1.0f, 0.0f, 0.0f, 0.0f);
+
+				XMFLOAT3 fn, ft;
+				XMStoreFloat3(&fn, rotN);
+				XMStoreFloat3(&ft, rotT);
+
+				src_v[cnt].nx = fn.x;
+				src_v[cnt].ny = fn.y;
+				src_v[cnt].nz = fn.z;
+
+				src_v[cnt].nmx = ft.x;
+				src_v[cnt].nmy = ft.y;
+				src_v[cnt].nmz = ft.z;
+
+				cnt++;
 			}
-
-			// UVs (v flipped)
-			tx = pmdata[pmodel_id].t[i_count].x * pmdata[pmodel_id].skx;
-			ty = pmdata[pmodel_id].t[i_count].y * pmdata[pmodel_id].sky;
-			ty = 1.0f - ty;
-
-			// Write vertex
-			src_v[cnt].x = D3DVAL(rx);
-			src_v[cnt].y = D3DVAL(ry);
-			src_v[cnt].z = D3DVAL(rz);
-			src_v[cnt].tu = D3DVAL(tx);
-			src_v[cnt].tv = D3DVAL(ty);
-			src_v[cnt].CastShadow = 1;
-			src_collide[cnt] = 1;
-
-			// When a full triangle is present (streamed as list), compute normal and tangent
-			if (triVertexCounter == 2) {
-				const D3DVERTEX2 &v1 = src_v[cnt - 2];
-				const D3DVERTEX2 &v2 = src_v[cnt - 1];
-				const D3DVERTEX2 &v3 = src_v[cnt];
-
-				XMFLOAT3 p1{ v1.x, v1.y, v1.z };
-				XMFLOAT3 p2{ v2.x, v2.y, v2.z };
-				XMFLOAT3 p3{ v3.x, v3.y, v3.z };
-
-				XMVECTOR vDiff = XMLoadFloat3(&p1) - XMLoadFloat3(&p2);
-				XMVECTOR vDiff2 = XMLoadFloat3(&p3) - XMLoadFloat3(&p2);
-				XMVECTOR nrm = XMVector3Normalize(XMVector3Cross(vDiff, vDiff2));
-
-				XMFLOAT3 n3;
-				XMStoreFloat3(&n3, nrm);
-
-				// Original code uses flipped normal
-				const float nx = -n3.x, ny = -n3.y, nz = -n3.z;
-
-				src_v[cnt - 2].nx = nx;
-				src_v[cnt - 2].ny = ny;
-				src_v[cnt - 2].nz = nz;
-				src_v[cnt - 1].nx = nx;
-				src_v[cnt - 1].ny = ny;
-				src_v[cnt - 1].nz = nz;
-				src_v[cnt].nx = nx;
-				src_v[cnt].ny = ny;
-				src_v[cnt].nz = nz;
-
-				CalculateTangentBinormal(src_v[cnt - 2], src_v[cnt - 1], src_v[cnt]);
-
-				triVertexCounter = 0;
-			} else {
-				triVertexCounter++;
-			}
-
-			cnt++;
-			i_count++;
-		} // end for vertices
-
-		ObjectsToDraw[number_of_polys_per_frame].srcfstart = cnt_f;
-
-		// Copy indices for this poly
-		for (int j = 0; j < num_faces_per_poly * 3; j++) {
-			src_f[cnt_f++] = pmdata[pmodel_id].f[face_i_count++];
+			face_i_count += 3;
 		}
 
+		i_count += num_verts_per_poly;
+
+		int ctext = (tex_flag == USE_PLAYERS_SKIN) ? texture_alias : pmdata[pmodel_id].texture_list[i];
+
 		ObjectsToDraw[number_of_polys_per_frame].vert_index = number_of_polys_per_frame;
-		ObjectsToDraw[number_of_polys_per_frame].texture = texture_alias;
-		ObjectsToDraw[number_of_polys_per_frame].vertsperpoly = num_verts_per_poly;
+		ObjectsToDraw[number_of_polys_per_frame].texture = ctext;
+		ObjectsToDraw[number_of_polys_per_frame].vertsperpoly = dwIndexCount;
 		ObjectsToDraw[number_of_polys_per_frame].facesperpoly = num_faces_per_poly;
 
-		verts_per_poly[number_of_polys_per_frame] = num_verts_per_poly;
+		verts_per_poly[number_of_polys_per_frame] = dwIndexCount;
 		faces_per_poly[number_of_polys_per_frame] = num_faces_per_poly;
 
-		dp_command_index_mode[number_of_polys_per_frame] = USE_INDEXED_DP;
+		dp_command_index_mode[number_of_polys_per_frame] = USE_NON_INDEXED_DP;
 		dp_commands[number_of_polys_per_frame] = D3DPT_TRIANGLELIST;
 
 		num_triangles_in_scene += num_faces_per_poly;
-		num_verts_in_scene += num_verts_per_poly;
+		num_verts_in_scene += dwIndexCount;
 		num_dp_commands_in_scene++;
 
-		if (tex_flag == USE_PLAYERS_SKIN)
-			texture_list_buffer[number_of_polys_per_frame] = texture_alias;
-		else
-			texture_list_buffer[number_of_polys_per_frame] = pmdata[pmodel_id].texture_list[i];
+		texture_list_buffer[number_of_polys_per_frame] = ctext;
 
 		number_of_polys_per_frame++;
-	} // end for polys
+	}
 	return;
 }
 
