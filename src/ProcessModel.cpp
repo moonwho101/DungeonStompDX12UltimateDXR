@@ -381,6 +381,7 @@ static void ThreeDSMikk_SetTSpaceBasic(const SMikkTSpaceContext *pContext, const
 	userData->frame_verts[global_v].nmx = fvTangent[0];
 	userData->frame_verts[global_v].nmy = fvTangent[1];
 	userData->frame_verts[global_v].nmz = fvTangent[2];
+	userData->frame_verts[global_v].nmw = fSign;
 }
 
 void Compute3DSModelNormals(int pmodel_id) {
