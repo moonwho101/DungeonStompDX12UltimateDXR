@@ -267,64 +267,130 @@ void CalculateVertNormalAndTangent(VERT &vertex1, VERT &vertex2, VERT &vertex3, 
 }
 
 void SmoothVertArrayNoHash(VERT *verts, int num_verts, float smooth_threshold) {
+	if (num_verts <= 1)
+		return;
+
 	const float epsilon = 0.0001f;
+	const float inv_eps = 1.0f / epsilon;
 
-	std::vector<uint8_t> tracked(num_verts, 0);
+	// Spatial Hashing for O(N) performance
+	const size_t hash_size = 16384;
+	std::vector<int> head(hash_size, -1);
+	std::vector<int> next(num_verts, -1);
 
-	for (int i = 0; i < num_verts; i++) {
-		if (tracked[i] == 0) {
-			float x = verts[i].x;
-			float y = verts[i].y;
-			float z = verts[i].z;
+	for (int i = 0; i < num_verts; ++i) {
+		int64_t qx = (int64_t)floorf(verts[i].x * inv_eps);
+		int64_t qy = (int64_t)floorf(verts[i].y * inv_eps);
+		int64_t qz = (int64_t)floorf(verts[i].z * inv_eps);
 
-			XMVECTOR ni = XMVectorSet(verts[i].nx, verts[i].ny, verts[i].nz, 0.0f);
+		uint32_t h = (uint32_t)(((qx * 73856093) ^ (qy * 19349663) ^ (qz * 83492791)) & (hash_size - 1));
+		next[i] = head[h];
+		head[h] = i;
+	}
 
-			std::vector<int> shared;
-			shared.push_back(i);
+	std::vector<uint8_t> processed(num_verts, 0);
 
-			for (int j = i + 1; j < num_verts; j++) {
-				if (tracked[j] == 0) {
-					if (fabsf(verts[j].x - x) < epsilon &&
-					    fabsf(verts[j].y - y) < epsilon &&
-					    fabsf(verts[j].z - z) < epsilon) {
+	for (int i = 0; i < num_verts; ++i) {
+		if (processed[i])
+			continue;
 
-						XMVECTOR nj = XMVectorSet(verts[j].nx, verts[j].ny, verts[j].nz, 0.0f);
-						float dot = XMVectorGetX(XMVector3Dot(ni, nj));
+		float x = verts[i].x;
+		float y = verts[i].y;
+		float z = verts[i].z;
 
-						if (dot > smooth_threshold) {
-							shared.push_back(j);
+		int64_t base_qx = (int64_t)floorf(x * inv_eps);
+		int64_t base_qy = (int64_t)floorf(y * inv_eps);
+		int64_t base_qz = (int64_t)floorf(z * inv_eps);
+
+		std::vector<int> pos_group;
+
+		// Search 3x3x3 neighborhood of spatial grid cells to catch boundary-straddling vertices
+		for (int dx = -1; dx <= 1; ++dx) {
+			for (int dy = -1; dy <= 1; ++dy) {
+				for (int dz = -1; dz <= 1; ++dz) {
+					int64_t qx = base_qx + dx;
+					int64_t qy = base_qy + dy;
+					int64_t qz = base_qz + dz;
+
+					uint32_t h = (uint32_t)(((qx * 73856093) ^ (qy * 19349663) ^ (qz * 83492791)) & (hash_size - 1));
+					int entry = head[h];
+					while (entry != -1) {
+						if (!processed[entry]) {
+							if (fabsf(verts[entry].x - x) < epsilon &&
+							    fabsf(verts[entry].y - y) < epsilon &&
+							    fabsf(verts[entry].z - z) < epsilon) {
+								if (std::find(pos_group.begin(), pos_group.end(), entry) == pos_group.end()) {
+									pos_group.push_back(entry);
+								}
+							}
 						}
+						entry = next[entry];
 					}
 				}
 			}
+		}
 
-			if (shared.size() > 1) {
+		if (pos_group.empty())
+			continue;
+
+		// Smooth within position group based on dot threshold
+		std::vector<uint8_t> sub_proc(pos_group.size(), 0);
+
+		for (size_t j = 0; j < pos_group.size(); ++j) {
+			if (sub_proc[j])
+				continue;
+
+			int baseIdx = pos_group[j];
+			std::vector<int> smooth_group;
+			smooth_group.push_back(baseIdx);
+			sub_proc[j] = 1;
+
+			XMVECTOR ni = XMVectorSet(verts[baseIdx].nx, verts[baseIdx].ny, verts[baseIdx].nz, 0.0f);
+
+			for (size_t k = j + 1; k < pos_group.size(); ++k) {
+				if (sub_proc[k])
+					continue;
+
+				int testIdx = pos_group[k];
+				XMVECTOR nj = XMVectorSet(verts[testIdx].nx, verts[testIdx].ny, verts[testIdx].nz, 0.0f);
+
+				if (XMVectorGetX(XMVector3Dot(ni, nj)) > smooth_threshold) {
+					smooth_group.push_back(testIdx);
+					sub_proc[k] = 1;
+				}
+			}
+
+			if (smooth_group.size() > 1) {
 				XMVECTOR sumN = XMVectorZero();
 				XMVECTOR sumT = XMVectorZero();
 
-				for (int idx : shared) {
+				for (int idx : smooth_group) {
 					sumN = XMVectorAdd(sumN, XMVectorSet(verts[idx].nx, verts[idx].ny, verts[idx].nz, 0.0f));
 					sumT = XMVectorAdd(sumT, XMVectorSet(verts[idx].nmx, verts[idx].nmy, verts[idx].nmz, 0.0f));
 				}
 
-				XMVECTOR avgN = XMVector3Normalize(sumN);
-				XMVECTOR avgT = XMVector3Normalize(XMVectorSubtract(sumT, XMVectorMultiply(avgN, XMVector3Dot(avgN, sumT))));
+				float lenSqN = XMVectorGetX(XMVector3LengthSq(sumN));
+				XMVECTOR avgN = (lenSqN > 1e-10f) ? XMVector3Normalize(sumN) : XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+
+				XMVECTOR orthT = XMVectorSubtract(sumT, XMVectorMultiply(avgN, XMVector3Dot(avgN, sumT)));
+				float lenSqT = XMVectorGetX(XMVector3LengthSq(orthT));
+				XMVECTOR avgT = (lenSqT > 1e-10f) ? XMVector3Normalize(orthT) : XMVectorSet(1.0f, 0.0f, 0.0f, 0.0f);
 
 				XMFLOAT3 fN, fT;
 				XMStoreFloat3(&fN, avgN);
 				XMStoreFloat3(&fT, avgT);
 
-				for (int idx : shared) {
+				for (int idx : smooth_group) {
 					verts[idx].nx = fN.x;
 					verts[idx].ny = fN.y;
 					verts[idx].nz = fN.z;
 					verts[idx].nmx = fT.x;
 					verts[idx].nmy = fT.y;
 					verts[idx].nmz = fT.z;
-					tracked[idx] = 1;
+					processed[idx] = 1;
 				}
 			} else {
-				tracked[i] = 1;
+				processed[baseIdx] = 1;
 			}
 		}
 	}
@@ -381,6 +447,7 @@ static void ThreeDSMikk_SetTSpaceBasic(const SMikkTSpaceContext *pContext, const
 	userData->frame_verts[global_v].nmx = fvTangent[0];
 	userData->frame_verts[global_v].nmy = fvTangent[1];
 	userData->frame_verts[global_v].nmz = fvTangent[2];
+	userData->frame_verts[global_v].nmw = fSign;
 }
 
 void Compute3DSModelNormals(int pmodel_id) {
@@ -579,6 +646,7 @@ static void MD2Mikk_SetTSpaceBasic(const SMikkTSpaceContext *pContext, const flo
 	userData->frame_verts[v_idx].nmx = fvTangent[0];
 	userData->frame_verts[v_idx].nmy = fvTangent[1];
 	userData->frame_verts[v_idx].nmz = fvTangent[2];
+	userData->frame_verts[v_idx].nmw = fSign;
 }
 
 void ComputeMD2ModelNormals(int pmodel_id) {
@@ -760,6 +828,7 @@ static void ObDataMikk_SetTSpaceBasic(const SMikkTSpaceContext *pContext, const 
 	obdata[userData->obj_idx].v[v_idx].nmx = fvTangent[0];
 	obdata[userData->obj_idx].v[v_idx].nmy = fvTangent[1];
 	obdata[userData->obj_idx].v[v_idx].nmz = fvTangent[2];
+	obdata[userData->obj_idx].v[v_idx].nmw = fSign;
 }
 
 void ComputeObDataNormals(int obj_idx) {
@@ -911,6 +980,7 @@ static void ObjectMikk_SetTSpaceBasic(const SMikkTSpaceContext *pContext, const 
 	userData->verts[idx].nmx = fvTangent[0];
 	userData->verts[idx].nmy = fvTangent[1];
 	userData->verts[idx].nmz = fvTangent[2];
+	userData->verts[idx].nmw = fSign;
 }
 
 void ObjectToD3DVertList(int ob_type, float angle, int oblist_index) {
@@ -1037,6 +1107,7 @@ void ObjectToD3DVertList(int ob_type, float angle, int oblist_index) {
 			src_v[cnt].nmx = ft.x;
 			src_v[cnt].nmy = ft.y;
 			src_v[cnt].nmz = ft.z;
+			src_v[cnt].nmw = v.nmw;
 
 			cnt++;
 		}
@@ -1239,6 +1310,7 @@ void PlayerToD3DVertList(int pmodel_id, int curr_frame, float angle, int texture
 				nmy = tp->nmy;
 				nmz = tp->nmz;
 			}
+			float nmw = tp->nmw;
 
 			if (weapondrop == 1) {
 				y -= 40.0f;
@@ -1301,6 +1373,7 @@ void PlayerToD3DVertList(int pmodel_id, int curr_frame, float angle, int texture
 			src_v[cnt].nmx = ft.x;
 			src_v[cnt].nmy = ft.y;
 			src_v[cnt].nmz = ft.z;
+			src_v[cnt].nmw = nmw;
 
 			cnt++;
 			i_count++;
@@ -2485,6 +2558,7 @@ void PlayerToD3DIndexedVertList(int pmodel_id, int curr_frame, float angle, int 
 				src_v[cnt].nmx = ft.x;
 				src_v[cnt].nmy = ft.y;
 				src_v[cnt].nmz = ft.z;
+				src_v[cnt].nmw = vert.nmw;
 
 				cnt++;
 			}

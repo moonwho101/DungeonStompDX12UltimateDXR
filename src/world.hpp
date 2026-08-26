@@ -71,7 +71,7 @@ typedef struct vert_typ {
 	float y;
 	float z;
 	float nx, ny, nz;
-	float nmx, nmy, nmz;
+	float nmx, nmy, nmz, nmw;
 	float tu, tv;
 
 } VERT, *vert_ptr;
@@ -429,6 +429,10 @@ typedef struct _D3DVERTEX2 {
 	union {
 		D3DVALUE nmz;
 		D3DVALUE dvNMZ;
+	};
+	union {
+		D3DVALUE nmw;
+		D3DVALUE dvNMW;
 	};
 
 	float weight;
