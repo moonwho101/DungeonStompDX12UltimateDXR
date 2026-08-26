@@ -820,7 +820,7 @@ BOOL Import3DS(char *filename, int pmodel_id, float scale) {
 
 	pmdata[pmodel_id].num_polys_per_frame = total_num_objects;
 	pmdata[pmodel_id].num_faces = total_valid_faces;
-	pmdata[pmodel_id].num_verts = cnt;
+	pmdata[pmodel_id].num_verts = total_num_verts;
 	pmdata[pmodel_id].num_frames = total_num_frames;
 
 	pmdata[pmodel_id].skx = 1;
