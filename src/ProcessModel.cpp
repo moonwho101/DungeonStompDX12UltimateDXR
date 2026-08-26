@@ -151,9 +151,8 @@ void CalculateTangentBinormal(D3DVERTEX2 &vertex1, D3DVERTEX2 &vertex2, D3DVERTE
 	vertex1.nmz = vertex2.nmz = vertex3.nmz = tangent.z;
 }
 
-void CalculateVertNormalAndTangent(VERT &vertex1, VERT &vertex2, VERT &vertex3, const VERT &tex1, const VERT &tex2, const VERT &tex3) {
+void CalculateVertNormal(VERT &vertex1, VERT &vertex2, VERT &vertex3, const VERT &tex1, const VERT &tex2, const VERT &tex3) {
 	float vector1[3], vector2[3];
-	float tuVector[2], tvVector[2];
 
 	// Calculate the two vectors for this face.
 	vector1[0] = vertex2.x - vertex1.x;
@@ -185,85 +184,10 @@ void CalculateVertNormalAndTangent(VERT &vertex1, VERT &vertex2, VERT &vertex3, 
 	vertex1.ny = vertex2.ny = vertex3.ny = ny;
 	vertex1.nz = vertex2.nz = vertex3.nz = nz;
 
-	// Calculate texture space vectors
-	tuVector[0] = tex2.x - tex1.x;
-	tvVector[0] = -(tex2.y - tex1.y);
-
-	tuVector[1] = tex3.x - tex1.x;
-	tvVector[1] = -(tex3.y - tex1.y);
-
-	float result = (tuVector[0] * tvVector[1] - tuVector[1] * tvVector[0]);
-
-	if (fabsf(result) < 1e-12f) {
-		// Pick ANY vector not parallel to the normal
-		float ax = (fabsf(nx) > 0.9f) ? 0.0f : 1.0f;
-		float ay = 0.0f;
-		float az = (fabsf(nz) > 0.9f) ? 0.0f : 1.0f;
-
-		// Cross to get a tangent perpendicular to the normal
-		float tanX = ay * nz - az * ny;
-		float tanY = az * nx - ax * nz;
-		float tanZ = ax * ny - ay * nx;
-
-		float len = sqrtf(tanX * tanX + tanY * tanY + tanZ * tanZ);
-		if (len > 0.00001f) {
-			tanX /= len;
-			tanY /= len;
-			tanZ /= len;
-		} else {
-			tanX = 1.0f;
-			tanY = 0.0f;
-			tanZ = 0.0f;
-		}
-
-		vertex1.nmx = vertex2.nmx = vertex3.nmx = tanX;
-		vertex1.nmy = vertex2.nmy = vertex3.nmy = tanY;
-		vertex1.nmz = vertex2.nmz = vertex3.nmz = tanZ;
-		return;
-	}
-
-	float den = 1.0f / result;
-
-	float tanX = (tvVector[1] * vector1[0] - tvVector[0] * vector2[0]) * den;
-	float tanY = (tvVector[1] * vector1[1] - tvVector[0] * vector2[1]) * den;
-	float tanZ = (tvVector[1] * vector1[2] - tvVector[0] * vector2[2]) * den;
-
-	// Gram-Schmidt orthogonalization: ensure Tangent is orthogonal to Normal
-	float dot = tanX * nx + tanY * ny + tanZ * nz;
-	tanX -= nx * dot;
-	tanY -= ny * dot;
-	tanZ -= nz * dot;
-
-	length = sqrtf(tanX * tanX + tanY * tanY + tanZ * tanZ);
-	if (length > 0.00001f) {
-		tanX /= length;
-		tanY /= length;
-		tanZ /= length;
-	} else {
-		// Pick a vector not parallel to normal
-		float ax = (fabsf(nx) > 0.9f) ? 0.0f : 1.0f;
-		float ay = 0.0f;
-		float az = (fabsf(nz) > 0.9f) ? 0.0f : 1.0f;
-
-		tanX = ay * nz - az * ny;
-		tanY = az * nx - ax * nz;
-		tanZ = ax * ny - ay * nx;
-
-		float len = sqrtf(tanX * tanX + tanY * tanY + tanZ * tanZ);
-		if (len > 0.00001f) {
-			tanX /= len;
-			tanY /= len;
-			tanZ /= len;
-		} else {
-			tanX = 1.0f;
-			tanY = 0.0f;
-			tanZ = 0.0f;
-		}
-	}
-
-	vertex1.nmx = vertex2.nmx = vertex3.nmx = tanX;
-	vertex1.nmy = vertex2.nmy = vertex3.nmy = tanY;
-	vertex1.nmz = vertex2.nmz = vertex3.nmz = tanZ;
+	// mkktspace will set these later, but we need to initialize them to avoid uninitialized values
+	vertex1.nmx = vertex2.nmx = vertex3.nmx = 0.0f;
+	vertex1.nmy = vertex2.nmy = vertex3.nmy = 0.0f;
+	vertex1.nmz = vertex2.nmz = vertex3.nmz = 0.0f;
 }
 
 void SmoothVertArrayNoHash(VERT *verts, int num_verts, float smooth_threshold) {
@@ -448,7 +372,7 @@ void Compute3DSModelNormals(int pmodel_id) {
 					tmp2.y = frame_verts[g2].z;
 					tmp2.z = frame_verts[g2].y;
 
-					CalculateVertNormalAndTangent(
+					CalculateVertNormal(
 					    tmp0, tmp1, tmp2,
 					    pmdata[pmodel_id].t[face_i_count + 0],
 					    pmdata[pmodel_id].t[face_i_count + 1],
@@ -641,7 +565,7 @@ void ComputeMD2ModelNormals(int pmodel_id) {
 					tmp2.y = frame_verts[idx2].z;
 					tmp2.z = frame_verts[idx2].y;
 
-					CalculateVertNormalAndTangent(
+					CalculateVertNormal(
 					    tmp0, tmp1, tmp2,
 					    pmdata[pmodel_id].t[i_count + j + 0],
 					    pmdata[pmodel_id].t[i_count + j + 1],
@@ -771,7 +695,7 @@ void ComputeObDataNormals(int obj_idx) {
 		return;
 
 	for (int v_i = 0; v_i + 2 < v_count; v_i += 3) {
-		CalculateVertNormalAndTangent(
+		CalculateVertNormal(
 		    obdata[obj_idx].v[v_i],
 		    obdata[obj_idx].v[v_i + 1],
 		    obdata[obj_idx].v[v_i + 2],

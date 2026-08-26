@@ -554,7 +554,7 @@ int MakeDice();
 std::wstring charToWChar(const char *text);
 int GetNextFramePlayer();
 void TriggerLandingDip(float amount);
-void CalculateVertNormalAndTangent(VERT &vertex1, VERT &vertex2, VERT &vertex3, const VERT &tex1, const VERT &tex2, const VERT &tex3);
+void CalculateVertNormal(VERT &vertex1, VERT &vertex2, VERT &vertex3, const VERT &tex1, const VERT &tex2, const VERT &tex3);
 void Compute3DSModelNormals(int pmodel_id);
 void ComputeMD2ModelNormals(int pmodel_id);
 void ComputeObDataNormals(int obj_idx);

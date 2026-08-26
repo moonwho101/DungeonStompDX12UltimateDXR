@@ -14,7 +14,6 @@ GUNLIST *your_gun;
 BOOL ImportMD2_GLCMD(char *filename, int texture_alias, int pmodel_id, float scale) {
 	FILE *fp;
 	MD2HEADER header;
-	MD2VERTEX bverts;
 	float bscale[3];
 	float translate[3];
 	char name[16];
