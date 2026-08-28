@@ -41,8 +41,10 @@ static float GetCosAngle(const float v1[3], const float v2[3]) {
 	float fLen2 = sqrtf(v2[0] * v2[0] + v2[1] * v2[1] + v2[2] * v2[2]);
 	if (fLen1 > 1e-6f && fLen2 > 1e-6f) {
 		float fCos = fDot / (fLen1 * fLen2);
-		if (fCos > 1.0f) fCos = 1.0f;
-		if (fCos < -1.0f) fCos = -1.0f;
+		if (fCos > 1.0f)
+			fCos = 1.0f;
+		if (fCos < -1.0f)
+			fCos = -1.0f;
 		return fCos;
 	}
 	return 1.0f;
@@ -59,11 +61,11 @@ static void Normalize(float v[3]) {
 	}
 }
 
-tbool genTangSpaceDefault(const SMikkTSpaceContext * pContext) {
+tbool genTangSpaceDefault(const SMikkTSpaceContext *pContext) {
 	return genTangSpace(pContext, 180.0f);
 }
 
-tbool genTangSpace(const SMikkTSpaceContext * pContext, const float fAngularThreshold) {
+tbool genTangSpace(const SMikkTSpaceContext *pContext, const float fAngularThreshold) {
 	if (pContext == NULL || pContext->m_pInterface == NULL)
 		return false;
 
@@ -142,9 +144,14 @@ tbool genTangSpace(const SMikkTSpaceContext * pContext, const float fAngularThre
 			SCorner c;
 			c.iFace = f;
 			c.iVert = v;
-			c.pos[0] = pos[v][0]; c.pos[1] = pos[v][1]; c.pos[2] = pos[v][2];
-			c.norm[0] = norm[v][0]; c.norm[1] = norm[v][1]; c.norm[2] = norm[v][2];
-			c.tex[0] = tex[v][0]; c.tex[1] = tex[v][1];
+			c.pos[0] = pos[v][0];
+			c.pos[1] = pos[v][1];
+			c.pos[2] = pos[v][2];
+			c.norm[0] = norm[v][0];
+			c.norm[1] = norm[v][1];
+			c.norm[2] = norm[v][2];
+			c.tex[0] = tex[v][0];
+			c.tex[1] = tex[v][1];
 
 			if (fabsf(fDet) <= 1e-12f) {
 				// Degenerate UVs fallback: pick arbitrary vector orthogonal to normal
@@ -184,7 +191,8 @@ tbool genTangSpace(const SMikkTSpaceContext * pContext, const float fAngularThre
 	std::vector<SWeldGroup> weldGroups;
 
 	for (int i = 0; i < iTotalCorners; ++i) {
-		if (cornerToWeldGroup[i] != -1) continue;
+		if (cornerToWeldGroup[i] != -1)
+			continue;
 
 		SWeldGroup group;
 		group.corners.push_back(i);
@@ -192,7 +200,8 @@ tbool genTangSpace(const SMikkTSpaceContext * pContext, const float fAngularThre
 		cornerToWeldGroup[i] = iGroupIdx;
 
 		for (int j = i + 1; j < iTotalCorners; ++j) {
-			if (cornerToWeldGroup[j] != -1) continue;
+			if (cornerToWeldGroup[j] != -1)
+				continue;
 
 			if (fabsf(corners[j].pos[0] - corners[i].pos[0]) < epsilon &&
 			    fabsf(corners[j].pos[1] - corners[i].pos[1]) < epsilon &&

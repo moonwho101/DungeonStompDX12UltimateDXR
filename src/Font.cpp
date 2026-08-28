@@ -84,14 +84,14 @@ extern bool enablePlayerHUD;
 extern bool enableOnscreenDebug;
 
 // GPU info populated once at device creation (d3dApp.cpp → InitDirect3D)
-char   gGpuName[256]               = "Unknown";
-SIZE_T gGpuVramMB                  = 0;
-char   gGpuFeatureLevel[16]        = "?";
-char   gGpuShaderModel[16]         = "?";
-bool   gGpuVRSSupported            = false;
-bool   gGpuMeshShaderSupported     = false;
-bool   gGpuSamplerFeedbackSupported = false;
-bool   gGpuTearingSupported        = false;
+char gGpuName[256] = "Unknown";
+SIZE_T gGpuVramMB = 0;
+char gGpuFeatureLevel[16] = "?";
+char gGpuShaderModel[16] = "?";
+bool gGpuVRSSupported = false;
+bool gGpuMeshShaderSupported = false;
+bool gGpuSamplerFeedbackSupported = false;
+bool gGpuTearingSupported = false;
 
 Font LoadFont(LPCWSTR filename, int windowWidth, int windowHeight) {
 	std::wifstream fs;
@@ -281,7 +281,7 @@ void DungeonStompApp::RenderRectangle(Font font, int index, int textureid, XMFLO
 	                     fc->height * scale.y);
 
 	rectangleActive[index] = true;
-	rectangleTexId[index]  = textureid;
+	rectangleTexId[index] = textureid;
 }
 
 void DungeonStompApp::FlushRectangles() {
@@ -526,185 +526,255 @@ void DungeonStompApp::DisplayHud() {
 	}
 
 	if (enableOnscreenDebug) {
-		const float    lx  = 0.65f;
-		const float    vx  = 0.79f;
-		const float    rh  = 0.022f;
-		const XMFLOAT2 sc  = { 0.30f, 0.30f };
+		const float lx = 0.65f;
+		const float vx = 0.79f;
+		const float rh = 0.022f;
+		const XMFLOAT2 sc = { 0.30f, 0.30f };
 		const XMFLOAT2 pad = { 0.5f, 0.0f };
-		const XMFLOAT4 hdr = { 1.0f, 1.0f, 0.0f, 1.0f };  // yellow  - section headers
-		const XMFLOAT4 lbl = { 0.7f, 0.7f, 0.7f, 1.0f };  // gray    - labels
-		const XMFLOAT4 val = { 0.0f, 1.0f, 1.0f, 1.0f };  // cyan    - values
+		const XMFLOAT4 hdr = { 1.0f, 1.0f, 0.0f, 1.0f }; // yellow  - section headers
+		const XMFLOAT4 lbl = { 0.7f, 0.7f, 0.7f, 1.0f }; // gray    - labels
+		const XMFLOAT4 val = { 0.0f, 1.0f, 1.0f, 1.0f }; // cyan    - values
 
 		float y = 0.02f;
 
 		// --- RENDER ---
 		sprintf_s(junk, "[ RENDER ]");
-		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, hdr); y += rh;
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, hdr);
+		y += rh;
 
-		sprintf_s(junk, "polys");  RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "polys");
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
 		sprintf_s(junk, "%d", number_of_polys_per_frame);
-		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh;
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val);
+		y += rh;
 
-		sprintf_s(junk, "tris");   RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "tris");
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
 		sprintf_s(junk, "%d", num_triangles_in_scene);
-		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh;
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val);
+		y += rh;
 
-		sprintf_s(junk, "verts");  RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "verts");
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
 		sprintf_s(junk, "%d", num_verts_in_scene);
-		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh;
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val);
+		y += rh;
 
-		sprintf_s(junk, "dpcmds"); RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "dpcmds");
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
 		sprintf_s(junk, "%d", num_dp_commands_in_scene);
-		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh * 2;
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val);
+		y += rh * 2;
 
 		// --- SCENE ---
 		sprintf_s(junk, "[ SCENE ]");
-		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, hdr); y += rh;
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, hdr);
+		y += rh;
 
-		sprintf_s(junk, "monsters"); RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "monsters");
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
 		sprintf_s(junk, "%d", num_monsters);
-		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh;
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val);
+		y += rh;
 
-		sprintf_s(junk, "items");  RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "items");
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
 		sprintf_s(junk, "%d", itemlistcount);
-		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh;
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val);
+		y += rh;
 
-		sprintf_s(junk, "objects"); RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "objects");
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
 		sprintf_s(junk, "%d", oblist_length);
-		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh;
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val);
+		y += rh;
 
-		sprintf_s(junk, "vis cnt"); RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "vis cnt");
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
 		sprintf_s(junk, "%d", cnt);
-		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh * 2;
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val);
+		y += rh * 2;
 
 		// --- CAMERA ---
 		sprintf_s(junk, "[ CAMERA ]");
-		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, hdr); y += rh;
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, hdr);
+		y += rh;
 
-		sprintf_s(junk, "x");      RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "x");
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
 		sprintf_s(junk, "%.1f", mEyePos.x);
-		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh;
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val);
+		y += rh;
 
-		sprintf_s(junk, "y");      RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "y");
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
 		sprintf_s(junk, "%.1f", mEyePos.y);
-		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh;
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val);
+		y += rh;
 
-		sprintf_s(junk, "z");      RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "z");
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
 		sprintf_s(junk, "%.1f", mEyePos.z);
-		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh;
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val);
+		y += rh;
 
-		sprintf_s(junk, "yaw");    RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "yaw");
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
 		sprintf_s(junk, "%.1f", (float)angy);
-		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh;
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val);
+		y += rh;
 
-		sprintf_s(junk, "pitch");  RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "pitch");
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
 		sprintf_s(junk, "%.1f", (float)look_up_ang);
-		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh;
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val);
+		y += rh;
 
-		//sprintf_s(junk, "speed");  RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
-		//sprintf_s(junk, "%.1f", currentspeed);
-		//RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh;
+		// sprintf_s(junk, "speed");  RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		// sprintf_s(junk, "%.1f", currentspeed);
+		// RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh;
 
-		sprintf_s(junk, "collide"); RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "collide");
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
 		sprintf_s(junk, "%d", lastcollide);
-		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh * 2;
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val);
+		y += rh * 2;
 
 		// --- DXR ---
 		sprintf_s(junk, "[ DXR ]");
-		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, hdr); y += rh;
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, hdr);
+		y += rh;
 
-		sprintf_s(junk, "status"); RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "status");
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
 		sprintf_s(junk, "%s", enableDXR ? "ON" : "OFF");
 		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad,
-		           enableDXR ? XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f) : XMFLOAT4(1.0f, 0.3f, 0.3f, 1.0f)); y += rh;
+		           enableDXR ? XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f) : XMFLOAT4(1.0f, 0.3f, 0.3f, 1.0f));
+		y += rh;
 
-		sprintf_s(junk, "outdoor"); RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "outdoor");
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
 		sprintf_s(junk, "%s", outside ? "YES" : "NO");
-		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh;
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val);
+		y += rh;
 
-		sprintf_s(junk, "output"); RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "output");
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
 		sprintf_s(junk, "%dx%d", gDXROutputWidth, gDXROutputHeight);
-		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh;
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val);
+		y += rh;
 
-		sprintf_s(junk, "tris");   RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "tris");
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
 		sprintf_s(junk, "%d", gDXRTriangleCount);
-		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh;
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val);
+		y += rh;
 
-		sprintf_s(junk, "verts");  RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "verts");
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
 		sprintf_s(junk, "%d", gDXRVertexCount);
-		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh;
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val);
+		y += rh;
 
-		sprintf_s(junk, "aliases"); RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "aliases");
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
 		sprintf_s(junk, "%d", gDXRAliasCount);
-		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh * 2;
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val);
+		y += rh * 2;
 
 		// --- PERF ---
 		sprintf_s(junk, "[ PERF ]");
-		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, hdr); y += rh;
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, hdr);
+		y += rh;
 
-		sprintf_s(junk, "fps");    RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "fps");
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
 		sprintf_s(junk, "%d", (int)gFps);
-		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh;
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val);
+		y += rh;
 
-		sprintf_s(junk, "ms/frm"); RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "ms/frm");
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
 		sprintf_s(junk, "%.2f", gMspf);
-		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh;
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val);
+		y += rh;
 
-		sprintf_s(junk, "res");    RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "res");
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
 		sprintf_s(junk, "%dx%d", gDXROutputWidth, gDXROutputHeight);
-		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh;
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val);
+		y += rh;
 
-		sprintf_s(junk, "vsync");  RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "vsync");
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
 		sprintf_s(junk, "%s", enableVsync ? "ON" : "OFF");
 		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad,
-		           enableVsync ? XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f) : XMFLOAT4(1.0f, 0.6f, 0.0f, 1.0f)); y += rh * 2;
+		           enableVsync ? XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f) : XMFLOAT4(1.0f, 0.6f, 0.0f, 1.0f));
+		y += rh * 2;
 
 		// --- GPU ---
 		sprintf_s(junk, "[ GPU ]");
-		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, hdr); y += rh;
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, hdr);
+		y += rh;
 
-		sprintf_s(junk, "name");   RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "name");
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
 		// Truncate long GPU names to fit the column
 		char gpuShort[24];
 		strncpy_s(gpuShort, gGpuName, 23);
 		gpuShort[23] = '\0';
-		RenderText(arialFont, charToWChar(gpuShort), XMFLOAT2(vx, y), sc, pad, val); y += rh;
+		RenderText(arialFont, charToWChar(gpuShort), XMFLOAT2(vx, y), sc, pad, val);
+		y += rh;
 
-		sprintf_s(junk, "vram");   RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "vram");
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
 		sprintf_s(junk, "%zu MB", gGpuVramMB);
-		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val); y += rh;
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad, val);
+		y += rh;
 
-		sprintf_s(junk, "fl");     RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
-		RenderText(arialFont, charToWChar(gGpuFeatureLevel), XMFLOAT2(vx, y), sc, pad, val); y += rh;
+		sprintf_s(junk, "fl");
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		RenderText(arialFont, charToWChar(gGpuFeatureLevel), XMFLOAT2(vx, y), sc, pad, val);
+		y += rh;
 
-		sprintf_s(junk, "shader m"); RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
-		RenderText(arialFont, charToWChar(gGpuShaderModel), XMFLOAT2(vx, y), sc, pad, val); y += rh;
+		sprintf_s(junk, "shader m");
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		RenderText(arialFont, charToWChar(gGpuShaderModel), XMFLOAT2(vx, y), sc, pad, val);
+		y += rh;
 
-		sprintf_s(junk, "vrs");    RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "vrs");
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
 		sprintf_s(junk, "%s", gGpuVRSSupported ? "YES" : "NO");
 		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad,
-		           gGpuVRSSupported ? val : XMFLOAT4(1.0f, 0.3f, 0.3f, 1.0f)); y += rh;
+		           gGpuVRSSupported ? val : XMFLOAT4(1.0f, 0.3f, 0.3f, 1.0f));
+		y += rh;
 
-		sprintf_s(junk, "mesh sh"); RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "mesh sh");
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
 		sprintf_s(junk, "%s", gGpuMeshShaderSupported ? "YES" : "NO");
 		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad,
-		           gGpuMeshShaderSupported ? val : XMFLOAT4(1.0f, 0.3f, 0.3f, 1.0f)); y += rh;
+		           gGpuMeshShaderSupported ? val : XMFLOAT4(1.0f, 0.3f, 0.3f, 1.0f));
+		y += rh;
 
-		sprintf_s(junk, "samp fb"); RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "samp fb");
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
 		sprintf_s(junk, "%s", gGpuSamplerFeedbackSupported ? "YES" : "NO");
 		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad,
-		           gGpuSamplerFeedbackSupported ? val : XMFLOAT4(1.0f, 0.3f, 0.3f, 1.0f)); y += rh;
+		           gGpuSamplerFeedbackSupported ? val : XMFLOAT4(1.0f, 0.3f, 0.3f, 1.0f));
+		y += rh;
 
-		sprintf_s(junk, "tearing"); RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
+		sprintf_s(junk, "tearing");
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, lbl);
 		sprintf_s(junk, "%s", gGpuTearingSupported ? "YES" : "NO");
 		RenderText(arialFont, charToWChar(junk), XMFLOAT2(vx, y), sc, pad,
-		           gGpuTearingSupported ? val : XMFLOAT4(1.0f, 0.3f, 0.3f, 1.0f));y += rh;
+		           gGpuTearingSupported ? val : XMFLOAT4(1.0f, 0.3f, 0.3f, 1.0f));
+		y += rh;
 
-		//stop last char flickers
+		// stop last char flickers
 		sprintf_s(junk, "  ");
-		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, hdr); y += rh;				   
+		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, hdr);
+		y += rh;
 	}
-
 }
 
 void DungeonStompApp::ScanMod(float fElapsedTime) {

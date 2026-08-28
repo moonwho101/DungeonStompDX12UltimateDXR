@@ -24,19 +24,19 @@ struct ShaderRecord {
 
 // DXR constants matching shader cbuffer
 struct DXRSceneConstants {
-	DirectX::XMFLOAT4X4 InvView;      // full inverse view matrix; translation is present, but shader code uses only the float3x3 rotation part where needed
+	DirectX::XMFLOAT4X4 InvView; // full inverse view matrix; translation is present, but shader code uses only the float3x3 rotation part where needed
 	DirectX::XMFLOAT3 CameraPosition;
-	float ProjScaleX;                 // proj[0][0] = 1/(tan(fovY/2)*aspect)
+	float ProjScaleX; // proj[0][0] = 1/(tan(fovY/2)*aspect)
 	DirectX::XMFLOAT4 AmbientLight;
 	Light Lights[MaxLights];
 	UINT NumLights;
 	float TotalTime;
-	float ProjScaleY;                 // proj[1][1] = 1/tan(fovY/2)
+	float ProjScaleY; // proj[1][1] = 1/tan(fovY/2)
 	float Metallic;
 	// Ray cone spread angle for mip level estimation: 2*tan(fovY/2)/screenHeight
 	float RayConeSpreadAngle;
-	int Outside;     // 1 = outdoor level, 0 = indoor dungeon
-	float Pad1[2];   // keep 16-byte alignment
+	int Outside;   // 1 = outdoor level, 0 = indoor dungeon
+	float Pad1[2]; // keep 16-byte alignment
 };
 
 struct DXRMaterialData {
@@ -116,10 +116,18 @@ class DXRHelper {
 	}
 
 	// Debug stats
-	UINT GetOutputWidth()    const { return mWidth; }
-	UINT GetOutputHeight()   const { return mHeight; }
-	UINT GetVertexCount()    const { return mCurrentVertexCount; }
-	UINT GetTextureCount()   const { return mTextureCount; }
+	UINT GetOutputWidth() const {
+		return mWidth;
+	}
+	UINT GetOutputHeight() const {
+		return mHeight;
+	}
+	UINT GetVertexCount() const {
+		return mCurrentVertexCount;
+	}
+	UINT GetTextureCount() const {
+		return mTextureCount;
+	}
 
   private:
 	void CreateRaytracingOutputResource(ID3D12Device *device, UINT width, UINT height, DXGI_FORMAT format);
