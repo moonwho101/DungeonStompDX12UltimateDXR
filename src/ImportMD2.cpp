@@ -26,8 +26,8 @@ BOOL ImportMD2_GLCMD(char *filename, int texture_alias, int pmodel_id, float sca
 	int num_glverts_per_command;
 	float f;
 	char buf[256], buffer[256], buffer2[256];
-	GLVERT glv[2000];
-	int glc[2000];
+	GLVERT glv[50000];
+	int glc[50000];
 	int glv_cnt;
 	int glc_cnt;
 
