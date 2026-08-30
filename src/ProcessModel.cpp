@@ -1004,6 +1004,7 @@ void PlayerToD3DVertList(int pmodel_id, int curr_frame, float angle, int texture
 
 	// Indexed 3DS models: forward to indexed path with the correct frame
 	if (pmdata[pmodel_id].use_indexed_primitive == TRUE) {
+		angle = fixangle(angle + 90.0f, 0);
 		PlayerToD3DIndexedVertList(pmodel_id, curr_frame, angle, texture_alias, tex_flag, xt, yt, zt, fDot2);
 		return;
 	}
