@@ -769,13 +769,7 @@ BOOL Import3DS(char *filename, int pmodel_id, float scale) {
 	pmdata[pmodel_id].tex_alias = 7;
 	pmdata[pmodel_id].use_indexed_primitive = TRUE;
 
-
 	Compute3DSModelNormals(pmodel_id);
-	Smooth3DSModelNormals(pmodel_id);
-
-	ReleaseTempMemory();
-
-	// Write_pmdata_debugfile(m_hWnd, pmodel_id);
 
 	return TRUE;
 }
@@ -1273,10 +1267,6 @@ void ProcessMasterScale(FILE *fp) {
 		fprintf(logfile, "MASTER_SCALE %f\n", master_scale);
 }
 
-// RELEASE AND DEBUG ROUTINES
-
-void ReleaseTempMemory() {
-}
 
 void PrintLogFile(FILE *logfile, char *commmand) {
 

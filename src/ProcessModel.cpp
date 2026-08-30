@@ -395,16 +395,6 @@ void Compute3DSModelNormals(int pmodel_id) {
 					frame_verts[g2].nx += tmp0.nx;
 					frame_verts[g2].ny += tmp0.ny;
 					frame_verts[g2].nz += tmp0.nz;
-
-					frame_verts[g0].nmx += tmp0.nmx;
-					frame_verts[g0].nmy += tmp0.nmy;
-					frame_verts[g0].nmz += tmp0.nmz;
-					frame_verts[g1].nmx += tmp0.nmx;
-					frame_verts[g1].nmy += tmp0.nmy;
-					frame_verts[g1].nmz += tmp0.nmz;
-					frame_verts[g2].nmx += tmp0.nmx;
-					frame_verts[g2].nmy += tmp0.nmy;
-					frame_verts[g2].nmz += tmp0.nmz;
 				}
 
 				face_i_count += 3;
@@ -428,6 +418,9 @@ void Compute3DSModelNormals(int pmodel_id) {
 				frame_verts[v].nz = 0.0f;
 			}
 		}
+
+		// Smooth accumulated normals BEFORE MikkTSpace generates tangents based on them
+		SmoothVertArrayNoHash(frame_verts, total_num_verts, 0.4f);
 
 		// 3. Generate tangents using MikkTSpace
 		SMikkTSpaceInterface mikkInterface = {};
@@ -580,16 +573,6 @@ void ComputeMD2ModelNormals(int pmodel_id) {
 					frame_verts[idx2].nx += tmp0.nx;
 					frame_verts[idx2].ny += tmp0.ny;
 					frame_verts[idx2].nz += tmp0.nz;
-
-					frame_verts[idx0].nmx += tmp0.nmx;
-					frame_verts[idx0].nmy += tmp0.nmy;
-					frame_verts[idx0].nmz += tmp0.nmz;
-					frame_verts[idx1].nmx += tmp0.nmx;
-					frame_verts[idx1].nmy += tmp0.nmy;
-					frame_verts[idx1].nmz += tmp0.nmz;
-					frame_verts[idx2].nmx += tmp0.nmx;
-					frame_verts[idx2].nmy += tmp0.nmy;
-					frame_verts[idx2].nmz += tmp0.nmz;
 				}
 			}
 
@@ -613,6 +596,9 @@ void ComputeMD2ModelNormals(int pmodel_id) {
 				frame_verts[v].nz = 0.0f;
 			}
 		}
+
+		// Smooth accumulated normals BEFORE MikkTSpace generates tangents based on them
+		SmoothVertArrayNoHash(frame_verts, num_verts, 0.2f);
 
 		// 3. Generate tangents using MikkTSpace
 		SMikkTSpaceInterface mikkInterface = {};
@@ -723,56 +709,6 @@ void ComputeObDataNormals(int obj_idx) {
 	genTangSpaceDefault(&mikkContext);
 
 	// Post-check tangents and normals for ObData
-}
-
-void Smooth3DSModelNormals(int pmodel_id) {
-	if (pmodel_id < 0)
-		return;
-
-	int num_frames = pmdata[pmodel_id].num_frames;
-	if (num_frames <= 0)
-		return;
-
-	int total_num_verts = pmdata[pmodel_id].num_verts;
-	if (total_num_verts <= 0)
-		return;
-
-	for (int frame_num = 0; frame_num < num_frames; frame_num++) {
-		VERT *frame_verts = pmdata[pmodel_id].w[frame_num];
-		if (!frame_verts)
-			continue;
-
-		SmoothVertArrayNoHash(frame_verts, total_num_verts, 0.4f);
-	}
-}
-
-void SmoothMD2ModelNormals(int pmodel_id) {
-	if (pmodel_id < 0)
-		return;
-
-	int num_frames = pmdata[pmodel_id].num_frames;
-	if (num_frames <= 0)
-		return;
-
-	int num_indices = pmdata[pmodel_id].num_verts; // for MD2 models, num_verts stores total triangle list indices
-	if (num_indices < 3)
-		return;
-
-	int max_v_idx = 0;
-	for (int i = 0; i < num_indices; i++) {
-		if (pmdata[pmodel_id].f[i] > max_v_idx) {
-			max_v_idx = pmdata[pmodel_id].f[i];
-		}
-	}
-	int num_verts = max_v_idx + 1;
-
-	for (int frame_num = 0; frame_num < num_frames; frame_num++) {
-		VERT *frame_verts = pmdata[pmodel_id].w[frame_num];
-		if (!frame_verts)
-			continue;
-
-		SmoothVertArrayNoHash(frame_verts, num_verts, 0.2f);
-	}
 }
 
 bool ObjectHasShadow(int object_id) {

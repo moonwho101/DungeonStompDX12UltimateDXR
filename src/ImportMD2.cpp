@@ -323,7 +323,6 @@ BOOL ImportMD2_GLCMD(char *filename, int texture_alias, int pmodel_id, float sca
 	pmdata[pmodel_id].use_indexed_primitive = FALSE;
 
 	ComputeMD2ModelNormals(pmodel_id);
-	SmoothMD2ModelNormals(pmodel_id);
 
 	return TRUE;
 }
