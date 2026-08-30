@@ -706,7 +706,7 @@ BOOL Import3DS(char *filename, int pmodel_id, float scale) {
 			y = scale * pmdata[pmodel_id].w[frame_num][i].y;
 			z = scale * pmdata[pmodel_id].w[frame_num][i].z;
 
-			angle = 0;
+			angle = -45.0f * 0.0174532925f;
 
 			tx = x * (float)cos(angle) + z * (float)sin(angle);
 			ty = y;
