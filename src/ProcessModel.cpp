@@ -224,27 +224,20 @@ void SmoothVertArrayNoHash(VERT *verts, int num_verts, float smooth_threshold) {
 
 			if (shared.size() > 1) {
 				XMVECTOR sumN = XMVectorZero();
-				XMVECTOR sumT = XMVectorZero();
 
 				for (int idx : shared) {
 					sumN = XMVectorAdd(sumN, XMVectorSet(verts[idx].nx, verts[idx].ny, verts[idx].nz, 0.0f));
-					sumT = XMVectorAdd(sumT, XMVectorSet(verts[idx].nmx, verts[idx].nmy, verts[idx].nmz, 0.0f));
 				}
 
 				XMVECTOR avgN = XMVector3Normalize(sumN);
-				XMVECTOR avgT = XMVector3Normalize(XMVectorSubtract(sumT, XMVectorMultiply(avgN, XMVector3Dot(avgN, sumT))));
 
-				XMFLOAT3 fN, fT;
+				XMFLOAT3 fN;
 				XMStoreFloat3(&fN, avgN);
-				XMStoreFloat3(&fT, avgT);
 
 				for (int idx : shared) {
 					verts[idx].nx = fN.x;
 					verts[idx].ny = fN.y;
 					verts[idx].nz = fN.z;
-					verts[idx].nmx = fT.x;
-					verts[idx].nmy = fT.y;
-					verts[idx].nmz = fT.z;
 					tracked[idx] = 1;
 				}
 			} else {
