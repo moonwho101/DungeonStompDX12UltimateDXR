@@ -191,61 +191,33 @@ void CalculateVertNormal(VERT &vertex1, VERT &vertex2, VERT &vertex3, const VERT
 }
 
 void SmoothVertArrayNoHash(VERT *verts, int num_verts, float smooth_threshold) {
-	if (num_verts <= 0)
-		return;
-
 	const float epsilon = 0.0001f;
-	const float inv_eps = 1.0f / epsilon;
-
-	// Spatial hash keyed on quantized position so we only compare vertices that can
-	// possibly be within epsilon of each other, avoiding an O(num_verts^2) scan.
-	std::unordered_map<int64_t, std::vector<int>> buckets;
-	buckets.reserve(num_verts * 2);
-
-	for (int i = 0; i < num_verts; i++) {
-		int64_t qx = (int64_t)(verts[i].x * inv_eps);
-		int64_t qy = (int64_t)(verts[i].y * inv_eps);
-		int64_t qz = (int64_t)(verts[i].z * inv_eps);
-		int64_t key = (qx * 73856093) ^ (qy * 19349663) ^ (qz * 83492791);
-		buckets[key].push_back(i);
-	}
 
 	std::vector<uint8_t> tracked(num_verts, 0);
-	std::vector<int> shared;
 
-	for (auto &entry : buckets) {
-		std::vector<int> &bucket = entry.second;
-
-		for (size_t bi = 0; bi < bucket.size(); bi++) {
-			int i = bucket[bi];
-			if (tracked[i])
-				continue;
-
+	for (int i = 0; i < num_verts; i++) {
+		if (tracked[i] == 0) {
 			float x = verts[i].x;
 			float y = verts[i].y;
 			float z = verts[i].z;
 
 			XMVECTOR ni = XMVectorSet(verts[i].nx, verts[i].ny, verts[i].nz, 0.0f);
 
-			shared.clear();
+			std::vector<int> shared;
 			shared.push_back(i);
-			tracked[i] = 1;
 
-			for (size_t bj = bi + 1; bj < bucket.size(); bj++) {
-				int j = bucket[bj];
-				if (tracked[j])
-					continue;
+			for (int j = i + 1; j < num_verts; j++) {
+				if (tracked[j] == 0) {
+					if (fabsf(verts[j].x - x) < epsilon &&
+					    fabsf(verts[j].y - y) < epsilon &&
+					    fabsf(verts[j].z - z) < epsilon) {
 
-				if (fabsf(verts[j].x - x) < epsilon &&
-				    fabsf(verts[j].y - y) < epsilon &&
-				    fabsf(verts[j].z - z) < epsilon) {
+						XMVECTOR nj = XMVectorSet(verts[j].nx, verts[j].ny, verts[j].nz, 0.0f);
+						float dot = XMVectorGetX(XMVector3Dot(ni, nj));
 
-					XMVECTOR nj = XMVectorSet(verts[j].nx, verts[j].ny, verts[j].nz, 0.0f);
-					float dot = XMVectorGetX(XMVector3Dot(ni, nj));
-
-					if (dot > smooth_threshold) {
-						shared.push_back(j);
-						tracked[j] = 1;
+						if (dot > smooth_threshold) {
+							shared.push_back(j);
+						}
 					}
 				}
 			}
@@ -266,7 +238,10 @@ void SmoothVertArrayNoHash(VERT *verts, int num_verts, float smooth_threshold) {
 					verts[idx].nx = fN.x;
 					verts[idx].ny = fN.y;
 					verts[idx].nz = fN.z;
+					tracked[idx] = 1;
 				}
+			} else {
+				tracked[i] = 1;
 			}
 		}
 	}
@@ -293,11 +268,9 @@ static void ThreeDSMikk_GetPosition(const SMikkTSpaceContext *pContext, float fv
 	int corner_idx = iFace * 3 + iVert;
 	int global_v = userData->corner_to_global_v[corner_idx];
 	const VERT &v = userData->frame_verts[global_v];
-	// Must match ThreeDSMikk_GetNormal's coordinate frame (no axis swap) or the
-	// derived tangent basis will be skewed relative to the true surface normal.
 	fvPosOut[0] = v.x;
-	fvPosOut[1] = v.y;
-	fvPosOut[2] = v.z;
+	fvPosOut[1] = v.z;
+	fvPosOut[2] = v.y;
 }
 
 static void ThreeDSMikk_GetNormal(const SMikkTSpaceContext *pContext, float fvNormOut[], const int iFace, const int iVert) {
@@ -381,16 +354,16 @@ void Compute3DSModelNormals(int pmodel_id) {
 					VERT tmp0, tmp1, tmp2;
 
 					tmp0.x = frame_verts[g0].x;
-					tmp0.y = frame_verts[g0].y;
-					tmp0.z = frame_verts[g0].z;
+					tmp0.y = frame_verts[g0].z;
+					tmp0.z = frame_verts[g0].y;
 
 					tmp1.x = frame_verts[g1].x;
-					tmp1.y = frame_verts[g1].y;
-					tmp1.z = frame_verts[g1].z;
+					tmp1.y = frame_verts[g1].z;
+					tmp1.z = frame_verts[g1].y;
 
 					tmp2.x = frame_verts[g2].x;
-					tmp2.y = frame_verts[g2].y;
-					tmp2.z = frame_verts[g2].z;
+					tmp2.y = frame_verts[g2].z;
+					tmp2.z = frame_verts[g2].y;
 
 					CalculateVertNormal(
 					    tmp0, tmp1, tmp2,
@@ -398,11 +371,13 @@ void Compute3DSModelNormals(int pmodel_id) {
 					    pmdata[pmodel_id].t[face_i_count + 1],
 					    pmdata[pmodel_id].t[face_i_count + 2]);
 
-					// 3DS face indices are wound opposite to CalculateVertNormal's CCW assumption;
-					// flip so the accumulated normal points outward (nmx/y/z are still 0 here, MikkTSpace fills them in below).
-					tmp0.nx = -tmp0.nx;
-					tmp0.ny = -tmp0.ny;
-					tmp0.nz = -tmp0.nz;
+					// 3DS winding order correction: negate face normal and tangent so they point outward
+					// tmp0.nx = -tmp0.nx;
+					// tmp0.ny = -tmp0.ny;
+					// tmp0.nz = -tmp0.nz;
+					// tmp0.nmx = -tmp0.nmx;
+					// tmp0.nmy = -tmp0.nmy;
+					// tmp0.nmz = -tmp0.nmz;
 
 					frame_verts[g0].nx += tmp0.nx;
 					frame_verts[g0].ny += tmp0.ny;
@@ -565,29 +540,22 @@ void ComputeMD2ModelNormals(int pmodel_id) {
 					VERT tmp0, tmp1, tmp2;
 
 					tmp0.x = frame_verts[idx0].x;
-					tmp0.y = frame_verts[idx0].y;
-					tmp0.z = frame_verts[idx0].z;
+					tmp0.y = frame_verts[idx0].z;
+					tmp0.z = frame_verts[idx0].y;
 
 					tmp1.x = frame_verts[idx1].x;
-					tmp1.y = frame_verts[idx1].y;
-					tmp1.z = frame_verts[idx1].z;
+					tmp1.y = frame_verts[idx1].z;
+					tmp1.z = frame_verts[idx1].y;
 
 					tmp2.x = frame_verts[idx2].x;
-					tmp2.y = frame_verts[idx2].y;
-					tmp2.z = frame_verts[idx2].z;
-					
+					tmp2.y = frame_verts[idx2].z;
+					tmp2.z = frame_verts[idx2].y;
 
 					CalculateVertNormal(
 					    tmp0, tmp1, tmp2,
 					    pmdata[pmodel_id].t[i_count + j + 0],
 					    pmdata[pmodel_id].t[i_count + j + 1],
 					    pmdata[pmodel_id].t[i_count + j + 2]);
-
-					// MD2 GL-command face indices are wound opposite to CalculateVertNormal's CCW assumption;
-					// flip so the accumulated normal points outward (nmx/y/z are still 0 here, MikkTSpace fills them in below).
-					tmp0.nx = -tmp0.nx;
-					tmp0.ny = -tmp0.ny;
-					tmp0.nz = -tmp0.nz;
 
 					frame_verts[idx0].nx += tmp0.nx;
 					frame_verts[idx0].ny += tmp0.ny;
@@ -747,6 +715,55 @@ bool ObjectHasShadow(int object_id) {
 	}
 
 	return false;
+}
+
+struct ObjectMikkUserData {
+	D3DVERTEX2 *verts;
+	int start_cnt;
+	int total_faces;
+};
+
+static int ObjectMikk_GetNumFaces(const SMikkTSpaceContext *pContext) {
+	auto *userData = static_cast<ObjectMikkUserData *>(pContext->m_pUserData);
+	return userData->total_faces;
+}
+
+static int ObjectMikk_GetNumVerticesOfFace(const SMikkTSpaceContext *pContext, const int iFace) {
+	return 3;
+}
+
+static void ObjectMikk_GetPosition(const SMikkTSpaceContext *pContext, float fvPosOut[], const int iFace, const int iVert) {
+	auto *userData = static_cast<ObjectMikkUserData *>(pContext->m_pUserData);
+	int idx = userData->start_cnt + iFace * 3 + iVert;
+	const D3DVERTEX2 &v = userData->verts[idx];
+	fvPosOut[0] = v.x;
+	fvPosOut[1] = v.y;
+	fvPosOut[2] = v.z;
+}
+
+static void ObjectMikk_GetNormal(const SMikkTSpaceContext *pContext, float fvNormOut[], const int iFace, const int iVert) {
+	auto *userData = static_cast<ObjectMikkUserData *>(pContext->m_pUserData);
+	int idx = userData->start_cnt + iFace * 3 + iVert;
+	const D3DVERTEX2 &v = userData->verts[idx];
+	fvNormOut[0] = v.nx;
+	fvNormOut[1] = v.ny;
+	fvNormOut[2] = v.nz;
+}
+
+static void ObjectMikk_GetTexCoord(const SMikkTSpaceContext *pContext, float fvTexcOut[], const int iFace, const int iVert) {
+	auto *userData = static_cast<ObjectMikkUserData *>(pContext->m_pUserData);
+	int idx = userData->start_cnt + iFace * 3 + iVert;
+	const D3DVERTEX2 &v = userData->verts[idx];
+	fvTexcOut[0] = v.tu;
+	fvTexcOut[1] = v.tv;
+}
+
+static void ObjectMikk_SetTSpaceBasic(const SMikkTSpaceContext *pContext, const float fvTangent[], const float fSign, const int iFace, const int iVert) {
+	auto *userData = static_cast<ObjectMikkUserData *>(pContext->m_pUserData);
+	int idx = userData->start_cnt + iFace * 3 + iVert;
+	userData->verts[idx].nmx = fvTangent[0];
+	userData->verts[idx].nmy = fvTangent[1];
+	userData->verts[idx].nmz = fvTangent[2];
 }
 
 void ObjectToD3DVertList(int ob_type, float angle, int oblist_index) {
@@ -1047,33 +1064,33 @@ void PlayerToD3DVertList(int pmodel_id, int curr_frame, float angle, int texture
 					y = tp->z + t * (tpNextFrame->z - tp->z);
 
 					nx = tp->nx + t * (tpNextFrame->nx - tp->nx);
-					nz = tp->ny + t * (tpNextFrame->ny - tp->ny);
-					ny = tp->nz + t * (tpNextFrame->nz - tp->nz);
+					ny = tp->ny + t * (tpNextFrame->ny - tp->ny);
+					nz = tp->nz + t * (tpNextFrame->nz - tp->nz);
 
 					nmx = tp->nmx + t * (tpNextFrame->nmx - tp->nmx);
-					nmz = tp->nmy + t * (tpNextFrame->nmy - tp->nmy);
-					nmy = tp->nmz + t * (tpNextFrame->nmz - tp->nmz);
+					nmy = tp->nmy + t * (tpNextFrame->nmy - tp->nmy);
+					nmz = tp->nmz + t * (tpNextFrame->nmz - tp->nmz);
 				} else {
 					x = tp->x;
 					z = tp->y;
 					y = tp->z;
 					nx = tp->nx;
-					nz = tp->ny;
-					ny = tp->nz;
+					ny = tp->ny;
+					nz = tp->nz;
 					nmx = tp->nmx;
-					nmz = tp->nmy;
-					nmy = tp->nmz;
+					nmy = tp->nmy;
+					nmz = tp->nmz;
 				}
 			} else {
 				x = tp->x;
 				z = tp->y;
 				y = tp->z;
 				nx = tp->nx;
-				nz = tp->ny;
-				ny = tp->nz;
+				ny = tp->ny;
+				nz = tp->nz;
 				nmx = tp->nmx;
-				nmz = tp->nmy;
-				nmy = tp->nmz;
+				nmy = tp->nmy;
+				nmz = tp->nmz;
 			}
 
 			if (weapondrop == 1) {
@@ -2299,10 +2316,8 @@ void PlayerToD3DIndexedVertList(int pmodel_id, int curr_frame, float angle, int 
 				src_v[cnt].CastShadow = 1;
 				src_collide[cnt] = 1;
 
-				// Swap y/z the same way position was swapped above, so the normal/tangent
-				// share the same basis before the rotation matrix is applied.
-				XMVECTOR nVec = XMVectorSet(vert.nx, vert.nz, vert.ny, 0.0f);
-				XMVECTOR tVec = XMVectorSet(vert.nmx, vert.nmz, vert.nmy, 0.0f);
+				XMVECTOR nVec = XMVectorSet(vert.nx, vert.ny, vert.nz, 0.0f);
+				XMVECTOR tVec = XMVectorSet(vert.nmx, vert.nmy, vert.nmz, 0.0f);
 
 				XMVECTOR rotN = XMVector3TransformNormal(nVec, rotMat);
 				float nLen = XMVectorGetX(XMVector3Length(rotN));
