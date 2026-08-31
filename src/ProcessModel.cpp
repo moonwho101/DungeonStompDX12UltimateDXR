@@ -224,21 +224,27 @@ void SmoothVertArrayNoHash(VERT *verts, int num_verts, float smooth_threshold) {
 
 			if (shared.size() > 1) {
 				XMVECTOR sumN = XMVectorZero();
+				XMVECTOR sumT = XMVectorZero();
 
 				for (int idx : shared) {
 					sumN = XMVectorAdd(sumN, XMVectorSet(verts[idx].nx, verts[idx].ny, verts[idx].nz, 0.0f));
+					sumT = XMVectorAdd(sumT, XMVectorSet(verts[idx].nmx, verts[idx].nmy, verts[idx].nmz, 0.0f));
 				}
 
 				XMVECTOR avgN = XMVector3Normalize(sumN);
+				XMVECTOR avgT = XMVector3Normalize(XMVectorSubtract(sumT, XMVectorMultiply(avgN, XMVector3Dot(avgN, sumT))));
 
-				XMFLOAT3 fN;
+				XMFLOAT3 fN, fT;
 				XMStoreFloat3(&fN, avgN);
-
+				XMStoreFloat3(&fT, avgT);
 
 				for (int idx : shared) {
 					verts[idx].nx = fN.x;
 					verts[idx].ny = fN.y;
 					verts[idx].nz = fN.z;
+					verts[idx].nmx = fT.x;
+					verts[idx].nmy = fT.y;
+					verts[idx].nmz = fT.z;
 					tracked[idx] = 1;
 				}
 			} else {
@@ -270,8 +276,8 @@ static void ThreeDSMikk_GetPosition(const SMikkTSpaceContext *pContext, float fv
 	int global_v = userData->corner_to_global_v[corner_idx];
 	const VERT &v = userData->frame_verts[global_v];
 	fvPosOut[0] = v.x;
-	fvPosOut[1] = v.y;
-	fvPosOut[2] = v.z;
+	fvPosOut[1] = v.z;
+	fvPosOut[2] = v.y;
 }
 
 static void ThreeDSMikk_GetNormal(const SMikkTSpaceContext *pContext, float fvNormOut[], const int iFace, const int iVert) {
@@ -355,16 +361,16 @@ void Compute3DSModelNormals(int pmodel_id) {
 					VERT tmp0, tmp1, tmp2;
 
 					tmp0.x = frame_verts[g0].x;
-					tmp0.y = frame_verts[g0].y;
-					tmp0.z = frame_verts[g0].z;
+					tmp0.y = frame_verts[g0].z;
+					tmp0.z = frame_verts[g0].y;
 
 					tmp1.x = frame_verts[g1].x;
-					tmp1.y = frame_verts[g1].y;
-					tmp1.z = frame_verts[g1].z;
+					tmp1.y = frame_verts[g1].z;
+					tmp1.z = frame_verts[g1].y;
 
 					tmp2.x = frame_verts[g2].x;
-					tmp2.y = frame_verts[g2].y;
-					tmp2.z = frame_verts[g2].z;
+					tmp2.y = frame_verts[g2].z;
+					tmp2.z = frame_verts[g2].y;
 
 					CalculateVertNormal(
 					    tmp0, tmp1, tmp2,
@@ -436,6 +442,7 @@ void Compute3DSModelNormals(int pmodel_id) {
 		mikkContext.m_pUserData = &userData;
 
 		genTangSpaceDefault(&mikkContext);
+
 	}
 }
 
@@ -612,6 +619,8 @@ void ComputeMD2ModelNormals(int pmodel_id) {
 		mikkContext.m_pUserData = &userData;
 
 		genTangSpaceDefault(&mikkContext);
+
+		
 	}
 }
 
@@ -995,7 +1004,6 @@ void PlayerToD3DVertList(int pmodel_id, int curr_frame, float angle, int texture
 
 	// Indexed 3DS models: forward to indexed path with the correct frame
 	if (pmdata[pmodel_id].use_indexed_primitive == TRUE) {
-		angle = fixangle(angle+90.0f,0);
 		PlayerToD3DIndexedVertList(pmodel_id, curr_frame, angle, texture_alias, tex_flag, xt, yt, zt, fDot2);
 		return;
 	}
@@ -1340,9 +1348,9 @@ void SmoothNormalsNoHash(int start_cnt) {
 	const float epsilon = 0.0001f;
 	const float smooth_threshold = 0.4f; // approx 60 degrees. 0.7f is 45 deg. 0.5f is more aggressive.
 
-	// 0.707: Smooths up to 45� (Common default for most models).
-	// 0.500: Smooths up to 60�.
-	// 0.000: Smooths up to 90� (Everything up to a perfect right angle will be smoothed).
+	// 0.707: Smooths up to 45  (Common default for most models).
+	// 0.500: Smooths up to 60 .
+	// 0.000: Smooths up to 90  (Everything up to a perfect right angle will be smoothed).
 
 	for (int i = start_cnt; i < cnt; i++) {
 		tracknormal[i] = 0;
@@ -2280,8 +2288,8 @@ void PlayerToD3DIndexedVertList(int pmodel_id, int curr_frame, float angle, int 
 
 				const auto &vert = pmdata[pmodel_id].w[curr_frame][global_v];
 				float x = vert.x;
-				float y = vert.y;
-				float z = vert.z;
+				float z = vert.y;
+				float y = vert.z;
 
 				float rx, ry, rz;
 

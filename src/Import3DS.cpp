@@ -564,15 +564,12 @@ BOOL Import3DS(char *filename, int pmodel_id, float scale) {
 
 	for (frame_num = 0; frame_num < total_num_frames; frame_num++) {
 
+		// fix this part swapped 0 1 2 to 0 2 1 see below
+		// should be  1 0 2
 		for (i = 0; i < total_num_verts; i++) {
-			float x = fverts[i][0];
-			float y = fverts[i][1];
-			float z = fverts[i][2];
-
-			// 3DS (RH Z-up) -> D3D (LH Y-up)
-			pmdata[pmodel_id].w[frame_num][i].x = x;
-			pmdata[pmodel_id].w[frame_num][i].y = z;
-			pmdata[pmodel_id].w[frame_num][i].z = -y;
+			pmdata[pmodel_id].w[frame_num][i].x = fverts[i][1];
+			pmdata[pmodel_id].w[frame_num][i].y = fverts[i][0];
+			pmdata[pmodel_id].w[frame_num][i].z = fverts[i][2];
 		}
 	}
 
@@ -1269,6 +1266,7 @@ void ProcessMasterScale(FILE *fp) {
 	if (bEnable3dsLogfile)
 		fprintf(logfile, "MASTER_SCALE %f\n", master_scale);
 }
+
 
 void PrintLogFile(FILE *logfile, char *commmand) {
 
