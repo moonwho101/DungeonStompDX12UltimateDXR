@@ -66,7 +66,7 @@ void DungeonStompApp::Draw(const GameTimer &gt) {
 	// Reusing the command list reuses memory.
 	ThrowIfFailed(mCommandList->Reset(cmdListAlloc.Get(), mPSOs["opaque"].Get()));
 
-	ProcessLights11();
+	//ProcessLights11();
 
 	ID3D12DescriptorHeap *descriptorHeaps[] = { mSrvDescriptorHeap.Get() };
 	mCommandList->SetDescriptorHeaps(1, descriptorHeaps);
