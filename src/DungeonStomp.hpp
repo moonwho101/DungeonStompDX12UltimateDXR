@@ -115,7 +115,6 @@ class DungeonStompApp : public D3DApp {
 	void DisplayHud();
 	void DisplayPlayerCaption();
 	void DrawDungeon(ID3D12GraphicsCommandList *cmdList, const std::vector<RenderItem *> &ritems, BOOL isAlpha, bool isTorch = false, bool normalMap = false);
-	void BuildDrawBuckets();
 	void SetTextureNormalMap();
 	void SetTextureNormalMapEmpty();
 	void DrawSceneToShadowMap(const GameTimer &gt);

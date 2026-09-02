@@ -68,9 +68,6 @@ void DungeonStompApp::Draw(const GameTimer &gt) {
 
 	//ProcessLights11();
 
-	// Single scan of this frame's objects instead of one scan per DrawDungeon pass.
-	BuildDrawBuckets();
-
 	ID3D12DescriptorHeap *descriptorHeaps[] = { mSrvDescriptorHeap.Get() };
 	mCommandList->SetDescriptorHeaps(1, descriptorHeaps);
 
@@ -492,60 +489,6 @@ void DungeonStompApp::DrawRenderItems(ID3D12GraphicsCommandList *cmdList, const 
 	return;
 }
 
-namespace {
-// Per-frame draw buckets: built once (BuildDrawBuckets) by scanning ObjectsToDraw a single time,
-// so the 4 DrawDungeon passes (opaque/normalMap/alpha/torch) each iterate only their own subset
-// instead of every pass re-scanning all number_of_polys_per_frame objects.
-int gOpaqueBucket[MAX_NUM_QUADS];
-int gNormalMapBucket[MAX_NUM_QUADS];
-int gAlphaBucket[MAX_NUM_QUADS];
-int gTorchBucket[MAX_NUM_QUADS];
-int gOpaqueBucketCount = 0;
-int gNormalMapBucketCount = 0;
-int gAlphaBucketCount = 0;
-int gTorchBucketCount = 0;
-} // namespace
-
-void DungeonStompApp::BuildDrawBuckets() {
-	gOpaqueBucketCount = 0;
-	gNormalMapBucketCount = 0;
-	gAlphaBucketCount = 0;
-	gTorchBucketCount = 0;
-
-	for (int currentObject = 0; currentObject < number_of_polys_per_frame; currentObject++) {
-		int i = ObjectsToDraw[currentObject].vert_index;
-		int texture_alias_number = texture_list_buffer[i];
-
-		if (texture_alias_number == 104) {
-			TexMap[texture_alias_number].is_alpha_texture = 1;
-		}
-
-		if (TexMap[texture_alias_number].is_alpha_texture) {
-			int texture_number = TexMap[texture_alias_number].texture;
-			bool isTorchRangeTexture =
-			    (texture_number >= 94 && texture_number <= 101) ||
-			    (texture_number >= 288 && texture_number <= 295) ||
-			    (texture_number >= 278 && texture_number <= 287) ||
-			    (texture_number >= 205 && texture_number <= 209) ||
-			    (texture_number == 378);
-
-			if (isTorchRangeTexture) {
-				gTorchBucket[gTorchBucketCount++] = currentObject;
-			} else {
-				// Matches the original per-frame logic: non-range alpha textures kept
-				// drawing in both the alpha and torch passes since neither branch
-				// cleared their draw flag.
-				gAlphaBucket[gAlphaBucketCount++] = currentObject;
-				gTorchBucket[gTorchBucketCount++] = currentObject;
-			}
-		} else if (TexMap[texture_alias_number].normalmaptextureid == -1) {
-			gOpaqueBucket[gOpaqueBucketCount++] = currentObject;
-		} else {
-			gNormalMapBucket[gNormalMapBucketCount++] = currentObject;
-		}
-	}
-}
-
 void DungeonStompApp::DrawDungeon(ID3D12GraphicsCommandList *cmdList, const std::vector<RenderItem *> &ritems, BOOL isAlpha, bool isTorch, bool normalMap) {
 
 	auto ri = ritems[0];
@@ -558,22 +501,8 @@ void DungeonStompApp::DrawDungeon(ID3D12GraphicsCommandList *cmdList, const std:
 
 	bool draw = true;
 
-	const int *bucket;
-	int bucketCount;
-
-	if (isAlpha) {
-		bucket = isTorch ? gTorchBucket : gAlphaBucket;
-		bucketCount = isTorch ? gTorchBucketCount : gAlphaBucketCount;
-	} else if (normalMap) {
-		bucket = gNormalMapBucket;
-		bucketCount = gNormalMapBucketCount;
-	} else {
-		bucket = gOpaqueBucket;
-		bucketCount = gOpaqueBucketCount;
-	}
-
-	for (int bucketIdx = 0; bucketIdx < bucketCount; bucketIdx++) {
-		int currentObject = bucket[bucketIdx];
+	int currentObject = 0;
+	for (currentObject = 0; currentObject < number_of_polys_per_frame; currentObject++) {
 		int i = ObjectsToDraw[currentObject].vert_index;
 		int vert_index = ObjectsToDraw[currentObject].srcstart;
 		int fperpoly = ObjectsToDraw[currentObject].srcfstart;
@@ -584,7 +513,36 @@ void DungeonStompApp::DrawDungeon(ID3D12GraphicsCommandList *cmdList, const std:
 
 		int normal_map_texture = TexMap[texture_alias_number].normalmaptextureid;
 
+		if (texture_alias_number == 104) {
+			TexMap[texture_alias_number].is_alpha_texture = 1;
+		}
+
 		draw = true;
+
+		if (isAlpha) {
+			if (texture_number >= 94 && texture_number <= 101 ||
+			    texture_number >= 289 - 1 && texture_number <= 296 - 1 ||
+			    texture_number >= 279 - 1 && texture_number <= 288 - 1 ||
+			    texture_number >= 206 - 1 && texture_number <= 210 - 1 ||
+			    texture_number == 378) {
+
+				if (isAlpha && !isTorch) {
+					draw = false;
+				}
+
+				if (isAlpha && isTorch) {
+					draw = true;
+				}
+			}
+		}
+
+		if (normal_map_texture == -1 && normalMap) {
+			draw = false;
+		}
+
+		if (!normalMap && normal_map_texture != -1) {
+			draw = false;
+		}
 
 		int oid = 0;
 
@@ -702,18 +660,11 @@ void DungeonStompApp::ProcessLights11() {
 	// 012345678901234567890123456
 	// DPPPPPPPPPPPMMMMCSSSSSSSSSS
 	// XXXXXXXX    XX  XXXXX
-	const int kMaxPointLights = 16;
-	const int kMaxSpotLights = 10;
-	const float kSpotLightRange = 2500.0f;
-	const float kSpotLightRangeSq = kSpotLightRange * kSpotLightRange;
 
-	int pointObj[kMaxPointLights];
-	float pointDistSq[kMaxPointLights];
-	int pointCount = 0;
-
-	int spotObj[kMaxSpotLights];
-	float spotDistSq[kMaxSpotLights];
-	int spotCount = 0;
+	int sort[MAX_OBJECTLIGHTS];
+	float dist[MAX_OBJECTLIGHTS];
+	int obj[MAX_OBJECTLIGHTS];
+	int temp;
 
 	for (int i = 0; i < MaxLights; i++) {
 		LightContainer[i].Strength = { 1.0f, 1.0f, 1.0f };
@@ -728,63 +679,45 @@ void DungeonStompApp::ProcessLights11() {
 	LightContainer[0].Strength = { 0.15f, 0.15f, 0.15f };
 	LightContainer[0].Direction = mRotatedLightDirections[0];
 
-	// Find nearest active lights in one pass (sorted insert into bounded arrays).
+	int dcount = 0;
+	// Find lights
 	for (int q = 0; q < oblist_length; q++) {
-		if (oblist[q].type != 6 || oblist[q].light_source == nullptr) {
-			continue;
+		int ob_type = oblist[q].type;
+		float qdist = FastDistance(m_vEyePt.x - oblist[q].x,
+		                           m_vEyePt.y - oblist[q].y,
+		                           m_vEyePt.z - oblist[q].z);
+		// if (ob_type == 57)
+		if (ob_type == 6 && oblist[q].light_source->command == 900)
+		// if (ob_type == 6 && qdist < 2500 && oblist[q].light_source->command == 900)
+		{
+			dist[dcount] = qdist;
+			sort[dcount] = dcount;
+			obj[dcount] = q;
+			dcount++;
 		}
-
-		float dx = m_vEyePt.x - oblist[q].x;
-		float dy = m_vEyePt.y - oblist[q].y;
-		float dz = m_vEyePt.z - oblist[q].z;
-		float qdistSq = dx * dx + dy * dy + dz * dz;
-
-		if (oblist[q].light_source->command == 900) {
-			int insertAt = pointCount;
-			if (pointCount == kMaxPointLights && qdistSq >= pointDistSq[pointCount - 1]) {
-				insertAt = -1;
-			}
-			if (insertAt != -1) {
-				if (pointCount < kMaxPointLights) {
-					pointCount++;
-				}
-				insertAt = pointCount - 1;
-				while (insertAt > 0 && qdistSq < pointDistSq[insertAt - 1]) {
-					if (insertAt < kMaxPointLights) {
-						pointDistSq[insertAt] = pointDistSq[insertAt - 1];
-						pointObj[insertAt] = pointObj[insertAt - 1];
-					}
-					insertAt--;
-				}
-				pointDistSq[insertAt] = qdistSq;
-				pointObj[insertAt] = q;
-			}
-		} else if (oblist[q].light_source->command == 1 && qdistSq < kSpotLightRangeSq) {
-			int insertAt = spotCount;
-			if (spotCount == kMaxSpotLights && qdistSq >= spotDistSq[spotCount - 1]) {
-				insertAt = -1;
-			}
-			if (insertAt != -1) {
-				if (spotCount < kMaxSpotLights) {
-					spotCount++;
-				}
-				insertAt = spotCount - 1;
-				while (insertAt > 0 && qdistSq < spotDistSq[insertAt - 1]) {
-					if (insertAt < kMaxSpotLights) {
-						spotDistSq[insertAt] = spotDistSq[insertAt - 1];
-						spotObj[insertAt] = spotObj[insertAt - 1];
-					}
-					insertAt--;
-				}
-				spotDistSq[insertAt] = qdistSq;
-				spotObj[insertAt] = q;
+	}
+	// sorting - ASCENDING ORDER
+	for (int i = 0; i < dcount; i++) {
+		for (int j = i + 1; j < dcount; j++) {
+			if (dist[sort[i]] > dist[sort[j]]) {
+				temp = sort[i];
+				sort[i] = sort[j];
+				sort[j] = temp;
 			}
 		}
 	}
 
-	for (int i = 0; i < pointCount; i++) {
-		int q = pointObj[i];
-		float adjust = 0.0f;
+	if (dcount > 16) {
+		dcount = 16;
+	}
+
+	for (int i = 0; i < dcount; i++) {
+		int q = obj[sort[i]];
+		float dist2 = dist[sort[i]];
+
+		int angle = (int)oblist[q].rot_angle;
+		int ob_type = oblist[q].type;
+		float adjust =0.0f;
 		//+1 because 0 is reserved for directional light
 		LightContainer[i + 1].Strength = { 9.0f, 9.0f, 9.0f };
 		LightContainer[i + 1].Position = DirectX::XMFLOAT3{ oblist[q].x, oblist[q].y + 43.0f, oblist[q].z };
@@ -796,6 +729,8 @@ void DungeonStompApp::ProcessLights11() {
 	for (int misslecount = 0; misslecount < MAX_MISSLE; misslecount++) {
 		if (your_missle[misslecount].active == 1) {
 			if (count < 4) {
+
+				float r = MathHelper::RandF(10.0f, 100.0f);
 
 				LightContainer[12 + count].Position = DirectX::XMFLOAT3{ your_missle[misslecount].x, your_missle[misslecount].y, your_missle[misslecount].z };
 				LightContainer[12 + count].Strength = DirectX::XMFLOAT3{ 0.0f, 0.0f, 1.0f };
@@ -847,8 +782,44 @@ void DungeonStompApp::ProcessLights11() {
 		}
 	}
 
-	for (int i = 0; i < spotCount; i++) {
-		int q = spotObj[i];
+	count = 0;
+	dcount = 0;
+
+	// Find lights SPOT
+	for (int q = 0; q < oblist_length; q++) {
+		int ob_type = oblist[q].type;
+		float qdist = FastDistance(m_vEyePt.x - oblist[q].x,
+		                           m_vEyePt.y - oblist[q].y,
+		                           m_vEyePt.z - oblist[q].z);
+		// if (ob_type == 6)
+		if (ob_type == 6 && qdist < 2500 && oblist[q].light_source->command == 1) {
+			dist[dcount] = qdist;
+			sort[dcount] = dcount;
+			obj[dcount] = q;
+			dcount++;
+		}
+	}
+
+	// sorting - ASCENDING ORDER
+	for (int i = 0; i < dcount; i++) {
+		for (int j = i + 1; j < dcount; j++) {
+			if (dist[sort[i]] > dist[sort[j]]) {
+				temp = sort[i];
+				sort[i] = sort[j];
+				sort[j] = temp;
+			}
+		}
+	}
+
+	if (dcount > 10) {
+		dcount = 10;
+	}
+
+	for (int i = 0; i < dcount; i++) {
+		int q = obj[sort[i]];
+		float dist2 = dist[sort[i]];
+		int angle = (int)oblist[q].rot_angle;
+		int ob_type = oblist[q].type;
 		float adjust = 0.0f;
 		LightContainer[i + 17].Position = DirectX::XMFLOAT3{ oblist[q].x, oblist[q].y + 0.0f, oblist[q].z };
 		LightContainer[i + 17].Strength = DirectX::XMFLOAT3{ (float)oblist[q].light_source->rcolour + adjust, (float)oblist[q].light_source->gcolour + adjust, (float)oblist[q].light_source->bcolour + adjust };

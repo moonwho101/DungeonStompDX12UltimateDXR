@@ -9,7 +9,6 @@
 #include "Dice.hpp"
 #include <timeapi.h>
 #include <DirectXMath.h>
-#include <unordered_map>
 #include "CameraBob.hpp"
 #include "ParticleSystem.hpp"
 using namespace DirectX;
@@ -785,30 +784,6 @@ void WakeUpMonsters() {
 	int angle = 0;
 	monstercount = 0;
 
-	// The level generator tags every non-wall entity (monsters AND plain items like coins/
-	// weapons/scrolls) with the same oblist name "!monster1", so this loop's monsterid lookup
-	// below can run for thousands of objects per frame. Linear-scanning monster_list/item_list/
-	// player_list2 (each up to MAX_NUM_MONSTERS/MAX_NUM_ITEMS/MAX_NUM_3DS = 5000) per object made
-	// this O(oblist_length * list_size). Build id->index maps once per frame instead, so each
-	// lookup below is O(1).
-	std::unordered_map<int, int> monsterIndexById;
-	monsterIndexById.reserve(num_monsters * 2);
-	for (int idx = 0; idx < num_monsters; idx++) {
-		monsterIndexById[monster_list[idx].monsterid] = idx;
-	}
-
-	std::unordered_map<int, int> itemIndexById;
-	itemIndexById.reserve(itemlistcount * 2);
-	for (int idx = 0; idx < itemlistcount; idx++) {
-		itemIndexById[item_list[idx].monsterid] = idx;
-	}
-
-	std::unordered_map<int, int> player2IndexById;
-	player2IndexById.reserve(num_players2 * 2);
-	for (int idx = 0; idx < num_players2; idx++) {
-		player2IndexById[player_list2[idx].monsterid] = idx;
-	}
-
 	for (int q = 0; q < oblist_length; q++) {
 
 		float wx = oblist[q].x;
@@ -828,44 +803,47 @@ void WakeUpMonsters() {
 		//		ObjectToD3DVertList(ob_type, angle, q);
 		// }
 
+		int montry = 0;
+
 		if (strcmp(oblist[q].name, "!monster1") == 0 && oblist[q].monstertexture > 0 && monsterenable == 1) {
 
-			auto found = monsterIndexById.find(oblist[q].monsterid);
-			if (found != monsterIndexById.end()) {
-				int montry = found->second;
+			for (montry = 0; montry < num_monsters; montry++) {
+				if (oblist[q].monsterid == monster_list[montry].monsterid) {
+					qdist = FastDistance(
+					    player_list[trueplayernum].x - monster_list[montry].x,
+					    player_list[trueplayernum].y - monster_list[montry].y,
+					    player_list[trueplayernum].z - monster_list[montry].z);
 
-				qdist = FastDistance(
-				    player_list[trueplayernum].x - monster_list[montry].x,
-				    player_list[trueplayernum].y - monster_list[montry].y,
-				    player_list[trueplayernum].z - monster_list[montry].z);
+					monster_list[montry].dist = qdist;
 
-				monster_list[montry].dist = qdist;
+					if (qdist < (numberofsquares * monsterdist) / 2) {
+						wx = monster_list[montry].x;
+						wy = monster_list[montry].y;
+						wz = monster_list[montry].z;
 
-				if (qdist < (numberofsquares * monsterdist) / 2) {
-					wx = monster_list[montry].x;
-					wy = monster_list[montry].y;
-					wz = monster_list[montry].z;
+						D3DVECTOR work1;
 
-					D3DVECTOR work1;
+						work1.x = monster_list[montry].x;
+						work1.y = monster_list[montry].y;
+						work1.z = monster_list[montry].z;
 
-					work1.x = monster_list[montry].x;
-					work1.y = monster_list[montry].y;
-					work1.z = monster_list[montry].z;
+						monsteron = SceneInBox(work1);
 
-					monsteron = SceneInBox(work1);
+						if (monsteron) {
+							monstertype[monstercount] = 0;
+							monsterobject[monstercount] = (int)monster_list[montry].model_id;
+							monsterangle[monstercount] = monster_list[montry].rot_angle;
+							monstercull[monstercount] = oblist[q].monsterid;
+							monstercount++;
+							monster_list[montry].volume = 100 - (int)((100 * qdist) / ((numberofsquares * monsterdist) / 2));
+							if (monster_list[montry].volume > 100)
+								monster_list[montry].volume = 100;
 
-					if (monsteron) {
-						monstertype[monstercount] = 0;
-						monsterobject[monstercount] = (int)monster_list[montry].model_id;
-						monsterangle[monstercount] = monster_list[montry].rot_angle;
-						monstercull[monstercount] = oblist[q].monsterid;
-						monstercount++;
-						monster_list[montry].volume = 100 - (int)((100 * qdist) / ((numberofsquares * monsterdist) / 2));
-						if (monster_list[montry].volume > 100)
-							monster_list[montry].volume = 100;
+							if (monster_list[montry].volume < 10)
+								monster_list[montry].volume = 10;
+						}
 
-						if (monster_list[montry].volume < 10)
-							monster_list[montry].volume = 10;
+						break;
 					}
 				}
 			}
@@ -874,11 +852,8 @@ void WakeUpMonsters() {
 		if (strcmp(oblist[q].name, "!monster1") == 0 && oblist[q].monstertexture == -1 && monsterenable == 1) {
 
 			// 3ds monster
-			auto found = itemIndexById.find(oblist[q].monsterid);
-			if (found != itemIndexById.end()) {
-				int montry = found->second;
-
-				if (item_list[montry].bIsPlayerAlive == TRUE) {
+			for (montry = 0; montry < itemlistcount; montry++) {
+				if (oblist[q].monsterid == item_list[montry].monsterid && item_list[montry].bIsPlayerAlive == TRUE) {
 					qdist = FastDistance(
 					    player_list[trueplayernum].x - item_list[montry].x,
 					    player_list[trueplayernum].y - item_list[montry].y,
@@ -905,6 +880,8 @@ void WakeUpMonsters() {
 							monstercull[monstercount] = oblist[q].monsterid;
 							monstercount++;
 						}
+
+						break;
 					}
 				}
 			}
@@ -912,36 +889,36 @@ void WakeUpMonsters() {
 
 		if (strcmp(oblist[q].name, "!monster1") == 0 && oblist[q].monstertexture == 0 && monsterenable == 1) {
 
-			auto found = player2IndexById.find(oblist[q].monsterid);
-			if (found != player2IndexById.end()) {
-				int montry = found->second;
+			for (montry = 0; montry < num_players2; montry++) {
+				if (oblist[q].monsterid == player_list2[montry].monsterid) {
+					qdist = FastDistance(
+					    player_list[trueplayernum].x - player_list2[montry].x,
+					    player_list[trueplayernum].y - player_list2[montry].y,
+					    player_list[trueplayernum].z - player_list2[montry].z);
+					player_list2[montry].dist = qdist;
 
-				qdist = FastDistance(
-				    player_list[trueplayernum].x - player_list2[montry].x,
-				    player_list[trueplayernum].y - player_list2[montry].y,
-				    player_list[trueplayernum].z - player_list2[montry].z);
-				player_list2[montry].dist = qdist;
+					if (qdist < (numberofsquares * monsterdist) / 2) {
+						wx = player_list2[montry].x;
+						wy = player_list2[montry].y;
+						wz = player_list2[montry].z;
 
-				if (qdist < (numberofsquares * monsterdist) / 2) {
-					wx = player_list2[montry].x;
-					wy = player_list2[montry].y;
-					wz = player_list2[montry].z;
+						D3DVECTOR work1;
 
-					D3DVECTOR work1;
+						work1.x = player_list2[montry].x;
+						work1.y = player_list2[montry].y;
+						work1.z = player_list2[montry].z;
+						int monsteron;
 
-					work1.x = player_list2[montry].x;
-					work1.y = player_list2[montry].y;
-					work1.z = player_list2[montry].z;
-					int monsteron;
+						monsteron = SceneInBox(work1);
 
-					monsteron = SceneInBox(work1);
-
-					if (monsteron) {
-						monstertype[monstercount] = 1;
-						monsterobject[monstercount] = player_list2[montry].model_id;
-						monsterangle[monstercount] = player_list2[montry].rot_angle;
-						monstercull[monstercount] = oblist[q].monsterid;
-						monstercount++;
+						if (monsteron) {
+							monstertype[monstercount] = 1;
+							monsterobject[monstercount] = player_list2[montry].model_id;
+							monsterangle[monstercount] = player_list2[montry].rot_angle;
+							monstercull[monstercount] = oblist[q].monsterid;
+							monstercount++;
+						}
+						break;
 					}
 				}
 			}
