@@ -2,6 +2,7 @@
 // DungeonStompApp_Render.cpp by Mark Longo (C) 2026 All Rights Reserved.
 //***************************************************************************************
 
+#include <algorithm>
 #include "../Common/d3dApp.h"
 #include "../Common/MathHelper.h"
 #include "FrameResource.h"
@@ -66,7 +67,7 @@ void DungeonStompApp::Draw(const GameTimer &gt) {
 	// Reusing the command list reuses memory.
 	ThrowIfFailed(mCommandList->Reset(cmdListAlloc.Get(), mPSOs["opaque"].Get()));
 
-	//ProcessLights11();
+	// ProcessLights11();
 
 	ID3D12DescriptorHeap *descriptorHeaps[] = { mSrvDescriptorHeap.Get() };
 	mCommandList->SetDescriptorHeaps(1, descriptorHeaps);
@@ -89,18 +90,18 @@ void DungeonStompApp::Draw(const GameTimer &gt) {
 		drawingSSAO = false;
 
 		mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-			mDepthStencilBuffer.Get(),
-			D3D12_RESOURCE_STATE_DEPTH_WRITE,
-			D3D12_RESOURCE_STATE_GENERIC_READ));
+		                                     mDepthStencilBuffer.Get(),
+		                                     D3D12_RESOURCE_STATE_DEPTH_WRITE,
+		                                     D3D12_RESOURCE_STATE_GENERIC_READ));
 
 		// Compute SSAO.
 		mCommandList->SetGraphicsRootSignature(mSsaoRootSignature.Get());
 		mSsao->ComputeSsao(mCommandList.Get(), mCurrFrameResource, 3);
 
 		mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-			mDepthStencilBuffer.Get(),
-			D3D12_RESOURCE_STATE_GENERIC_READ,
-			D3D12_RESOURCE_STATE_DEPTH_WRITE));
+		                                     mDepthStencilBuffer.Get(),
+		                                     D3D12_RESOURCE_STATE_GENERIC_READ,
+		                                     D3D12_RESOURCE_STATE_DEPTH_WRITE));
 	}
 
 	// Main rendering pass.
@@ -682,30 +683,20 @@ void DungeonStompApp::ProcessLights11() {
 	int dcount = 0;
 	// Find lights
 	for (int q = 0; q < oblist_length; q++) {
-		int ob_type = oblist[q].type;
-		float qdist = FastDistance(m_vEyePt.x - oblist[q].x,
-		                           m_vEyePt.y - oblist[q].y,
-		                           m_vEyePt.z - oblist[q].z);
-		// if (ob_type == 57)
-		if (ob_type == 6 && oblist[q].light_source->command == 900)
-		// if (ob_type == 6 && qdist < 2500 && oblist[q].light_source->command == 900)
-		{
-			dist[dcount] = qdist;
-			sort[dcount] = dcount;
-			obj[dcount] = q;
-			dcount++;
-		}
-	}
-	// sorting - ASCENDING ORDER
-	for (int i = 0; i < dcount; i++) {
-		for (int j = i + 1; j < dcount; j++) {
-			if (dist[sort[i]] > dist[sort[j]]) {
-				temp = sort[i];
-				sort[i] = sort[j];
-				sort[j] = temp;
+		if (oblist[q].type == 6 && oblist[q].light_source->command == 900) {
+			float qdist = FastDistance(m_vEyePt.x - oblist[q].x,
+			                           m_vEyePt.y - oblist[q].y,
+			                           m_vEyePt.z - oblist[q].z);
+			if (qdist < 2500.0f && dcount < MAX_OBJECTLIGHTS) {
+				dist[dcount] = qdist;
+				sort[dcount] = dcount;
+				obj[dcount] = q;
+				dcount++;
 			}
 		}
 	}
+	// sorting - ASCENDING ORDER
+	std::sort(sort, sort + dcount, [&](int a, int b) { return dist[a] < dist[b]; });
 
 	if (dcount > 16) {
 		dcount = 16;
@@ -717,7 +708,7 @@ void DungeonStompApp::ProcessLights11() {
 
 		int angle = (int)oblist[q].rot_angle;
 		int ob_type = oblist[q].type;
-		float adjust =0.0f;
+		float adjust = 0.0f;
 		//+1 because 0 is reserved for directional light
 		LightContainer[i + 1].Strength = { 9.0f, 9.0f, 9.0f };
 		LightContainer[i + 1].Position = DirectX::XMFLOAT3{ oblist[q].x, oblist[q].y + 43.0f, oblist[q].z };
@@ -787,29 +778,21 @@ void DungeonStompApp::ProcessLights11() {
 
 	// Find lights SPOT
 	for (int q = 0; q < oblist_length; q++) {
-		int ob_type = oblist[q].type;
-		float qdist = FastDistance(m_vEyePt.x - oblist[q].x,
-		                           m_vEyePt.y - oblist[q].y,
-		                           m_vEyePt.z - oblist[q].z);
-		// if (ob_type == 6)
-		if (ob_type == 6 && qdist < 2500 && oblist[q].light_source->command == 1) {
-			dist[dcount] = qdist;
-			sort[dcount] = dcount;
-			obj[dcount] = q;
-			dcount++;
+		if (oblist[q].type == 6 && oblist[q].light_source->command == 1) {
+			float qdist = FastDistance(m_vEyePt.x - oblist[q].x,
+			                           m_vEyePt.y - oblist[q].y,
+			                           m_vEyePt.z - oblist[q].z);
+			if (qdist < 2500.0f && dcount < MAX_OBJECTLIGHTS) {
+				dist[dcount] = qdist;
+				sort[dcount] = dcount;
+				obj[dcount] = q;
+				dcount++;
+			}
 		}
 	}
 
 	// sorting - ASCENDING ORDER
-	for (int i = 0; i < dcount; i++) {
-		for (int j = i + 1; j < dcount; j++) {
-			if (dist[sort[i]] > dist[sort[j]]) {
-				temp = sort[i];
-				sort[i] = sort[j];
-				sort[j] = temp;
-			}
-		}
-	}
+	std::sort(sort, sort + dcount, [&](int a, int b) { return dist[a] < dist[b]; });
 
 	if (dcount > 10) {
 		dcount = 10;
