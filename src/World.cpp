@@ -480,8 +480,12 @@ void UpdateWorld(float fElapsedTime) {
 				objectcollide = 0;
 			}
 
+			// Skip expensive vertex transforms for objects outside the forward view box.
 			if (qdist < distance) {
-				ObjectToD3DVertList(ob_type, angle, q);
+				D3DVECTOR obPos = { oblist[q].x, oblist[q].y, oblist[q].z };
+				if (SceneInBox(obPos)) {
+					ObjectToD3DVertList(ob_type, angle, q);
+				}
 			}
 		}
 	}
