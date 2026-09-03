@@ -197,8 +197,8 @@ class DungeonStompApp : public D3DApp {
 	UINT8 *rectangleVBGPUAddress[MaxRectangle];
 	D3D12_VERTEX_BUFFER_VIEW rectangleVertexBufferView[MaxRectangle]; // a view for our text vertex buffer
 
-	bool  rectangleActive[MaxRectangle]  = {};
-	int   rectangleTexId[MaxRectangle]   = {};
+	bool rectangleActive[MaxRectangle] = {};
+	int rectangleTexId[MaxRectangle] = {};
 
 	std::unique_ptr<ShadowMap> mShadowMap;
 	std::unique_ptr<Ssao> mSsao;

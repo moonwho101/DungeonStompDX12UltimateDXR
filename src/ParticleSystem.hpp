@@ -4,45 +4,45 @@
 // Supports spinning billboards, air drag, per-type size curves, and multiple
 // effect types (hit, critical, fire, sparks, magic).
 
-#define DS_MAX_EMITTERS  16   // simultaneous burst emitters
-#define DS_MAX_PARTICLES 48   // particles per emitter
+#define DS_MAX_EMITTERS 16  // simultaneous burst emitters
+#define DS_MAX_PARTICLES 48 // particles per emitter
 
 // Effect category — controls physics tuning, size curve, and texture selection.
 enum DSEmitterType {
-    EMITTER_HIT,       // blood / impact burst (normal hit)
-    EMITTER_CRITICAL,  // large blood burst    (critical hit)
-    EMITTER_FIRE,      // upward fire cone     (torches, lava splatter)
-    EMITTER_SPARKS,    // high-speed sparks    (metal-on-metal)
-    EMITTER_MAGIC,     // magical ring swirl   (spell impact)
+	EMITTER_HIT,      // blood / impact burst (normal hit)
+	EMITTER_CRITICAL, // large blood burst    (critical hit)
+	EMITTER_FIRE,     // upward fire cone     (torches, lava splatter)
+	EMITTER_SPARKS,   // high-speed sparks    (metal-on-metal)
+	EMITTER_MAGIC,    // magical ring swirl   (spell impact)
 };
 
 // A single simulated particle.
 struct DSParticle {
-    float x,  y,  z;    // world-space position
-    float vx, vy, vz;   // velocity (units / second)
-    float life;          // remaining lifetime (seconds)
-    float maxLife;       // initial lifetime (seconds)
-    float size;          // billboard half-extent (world units)
-    float spin;          // current billboard rotation angle (radians)
-    float spinRate;      // rotation speed (radians / second)
-    float drag;          // velocity damping coefficient (fraction / second)
+	float x, y, z;    // world-space position
+	float vx, vy, vz; // velocity (units / second)
+	float life;       // remaining lifetime (seconds)
+	float maxLife;    // initial lifetime (seconds)
+	float size;       // billboard half-extent (world units)
+	float spin;       // current billboard rotation angle (radians)
+	float spinRate;   // rotation speed (radians / second)
+	float drag;       // velocity damping coefficient (fraction / second)
 };
 
 // One burst emitter (spawned on a hit event).
 struct DSParticleEmitter {
-    bool          active;
-    DSEmitterType type;
-    int           particleCount;
-    DSParticle    particles[DS_MAX_PARTICLES];
+	bool active;
+	DSEmitterType type;
+	int particleCount;
+	DSParticle particles[DS_MAX_PARTICLES];
 };
 
 // ---- Hit type enum -------------------------------------------------------
 // Passed to DisplayDamage() to select the appropriate particle effect.
 enum DSHitType {
-    HIT_SWORD,      // melee weapon — blood burst
-    HIT_MISSILE,    // magic missile / generic projectile — sparks
-    HIT_FIREBALL,   // fire spell — fire cone bloom
-    HIT_LIGHTNING,  // lightning spell — magic ring swirl
+	HIT_SWORD,     // melee weapon — blood burst
+	HIT_MISSILE,   // magic missile / generic projectile — sparks
+	HIT_FIREBALL,  // fire spell — fire cone bloom
+	HIT_LIGHTNING, // lightning spell — magic ring swirl
 };
 
 // ---- Public API -----------------------------------------------------------
