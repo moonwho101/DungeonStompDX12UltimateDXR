@@ -29,8 +29,10 @@ def cstring(s):
 
 def parse_tritex_file(text):
     objects = []
-    current_obj = None
+    current_base_name = "OBJECT"
     current_tex = None
+    sub_obj_count = 0
+    current_obj = None
 
     lines = [l.rstrip() for l in text.splitlines()]
 
@@ -44,24 +46,40 @@ def parse_tritex_file(text):
 
         if line.startswith("OBJECT"):
             parts = line.split()
-            objname = parts[2] if len(parts) > 2 else parts[1]
-            current_obj = {
-                "name": objname,
-                "triangles": [],
-                "textures": []
-            }
-            objects.append(current_obj)
+            current_base_name = parts[2] if len(parts) > 2 else parts[1]
+            sub_obj_count = 0
+            current_obj = None
             i += 1
             continue
 
         if line.startswith("TEXTURE"):
             _, texname = line.split()
             current_tex = texname
-            current_obj["textures"].append(texname)
+
+            # Start a new sub-object whenever a new texture appears
+            obj_name = current_base_name if sub_obj_count == 0 else f"{current_base_name}_{sub_obj_count}"
+            sub_obj_count += 1
+
+            current_obj = {
+                "name": obj_name,
+                "texture": current_tex,
+                "triangles": []
+            }
+            objects.append(current_obj)
             i += 1
             continue
 
         if line.startswith("TRITEX"):
+            if current_obj is None:
+                obj_name = current_base_name if sub_obj_count == 0 else f"{current_base_name}_{sub_obj_count}"
+                sub_obj_count += 1
+                current_obj = {
+                    "name": obj_name,
+                    "texture": current_tex if current_tex else "default",
+                    "triangles": []
+                }
+                objects.append(current_obj)
+
             # Parse first vertex
             parts = line.split()
             v1 = tuple(map(float, parts[1:6]))
@@ -73,7 +91,7 @@ def parse_tritex_file(text):
             v2 = tuple(map(float, v2_line.split()))
             v3 = tuple(map(float, v3_line.split()))
 
-            current_obj["triangles"].append((current_tex, v1, v2, v3))
+            current_obj["triangles"].append((current_obj["texture"], v1, v2, v3))
 
             i += 3
             continue
@@ -118,35 +136,22 @@ def write_3ds(filename, objects):
         # Build unique texture list across all objects
         all_textures = []
         for obj in objects:
-            for t in obj["textures"]:
-                if t not in all_textures:
-                    all_textures.append(t)
+            tex = obj.get("texture")
+            if tex and tex not in all_textures:
+                all_textures.append(tex)
 
         mat_data = bytearray()
         for tex in all_textures:
             # EDIT_MATERIAL subchunk
             mat_sub = bytearray()
 
-            # MAT_NAME01
-            mat_name = tex  # use texture name as material name
-            mat_name_bytes = cstring(mat_name)
-            mat_sub_matname = mat_name_bytes
-            write_chunk_bytes = struct.pack  # just alias
-
             # MAT_NAME01 chunk
-            mat_sub_chunk = bytearray()
-            mat_sub_chunk += mat_name_bytes
-            write_chunk_bytes = struct.pack
-            # We'll wrap MAT_NAME01 properly:
-            buf = bytearray()
-            buf += mat_name_bytes
-            mat_sub += struct.pack('<HI', MAT_NAME01, 6 + len(buf)) + buf
+            mat_name_bytes = cstring(tex)
+            mat_sub += struct.pack('<HI', MAT_NAME01, 6 + len(mat_name_bytes)) + mat_name_bytes
 
             # TEXTURE_MAP + MAPPING_NAME
-            texmap_data = bytearray()
-            # MAPPING_NAME chunk inside TEXTURE_MAP
             mapname_bytes = cstring(tex)
-            texmap_data += struct.pack('<HI', MAPPING_NAME, 6 + len(mapname_bytes)) + mapname_bytes
+            texmap_data = struct.pack('<HI', MAPPING_NAME, 6 + len(mapname_bytes)) + mapname_bytes
 
             mat_sub += struct.pack('<HI', TEXTURE_MAP, 6 + len(texmap_data)) + texmap_data
 
@@ -157,8 +162,6 @@ def write_3ds(filename, objects):
 
         # --- Objects / meshes ---
         for obj in objects:
-            obj_data = bytearray()
-
             # NAMED_OBJECT
             name_bytes = cstring(obj["name"])
             named_obj_data = bytearray()
@@ -181,7 +184,18 @@ def write_3ds(filename, objects):
             flist += struct.pack('<H', len(faces))
             for (a, b, c) in faces:
                 flist += struct.pack('<HHH', a, b, c)
-                flist += struct.pack('<H', 0)  # face flags
+                flist += struct.pack('<H', 0x0007)  # face flags matching other 3ds generators
+
+            # TRIANGLE_MATERIAL (assign texture to faces in this mesh)
+            if obj.get("texture"):
+                matname = obj["texture"]
+                tm_data = bytearray()
+                tm_data += cstring(matname)
+                tm_data += struct.pack('<H', len(faces))
+                for i in range(len(faces)):
+                    tm_data += struct.pack('<H', i)
+                flist += struct.pack('<HI', TRIANGLE_MATERIAL, 6 + len(tm_data)) + tm_data
+
             mesh_data += struct.pack('<HI', TRIANGLE_FACELIST, 6 + len(flist)) + flist
 
             # TRIANGLE_MAPPINGCOORS
@@ -190,16 +204,6 @@ def write_3ds(filename, objects):
             for (u, v) in uvs:
                 mcoords += struct.pack('<ff', u, v)
             mesh_data += struct.pack('<HI', TRIANGLE_MAPPINGCOORS, 6 + len(mcoords)) + mcoords
-
-            # TRIANGLE_MATERIAL (assign first texture to all faces)
-            if obj["textures"]:
-                matname = obj["textures"][0]
-                tm_data = bytearray()
-                tm_data += cstring(matname)
-                tm_data += struct.pack('<H', len(faces))
-                for i in range(len(faces)):
-                    tm_data += struct.pack('<H', i)
-                mesh_data += struct.pack('<HI', TRIANGLE_MATERIAL, 6 + len(tm_data)) + tm_data
 
             # Wrap TRIANGLE_MESH
             named_obj_data += struct.pack('<HI', TRIANGLE_MESH, 6 + len(mesh_data)) + mesh_data
