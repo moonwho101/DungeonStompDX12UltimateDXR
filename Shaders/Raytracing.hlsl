@@ -192,7 +192,22 @@ float3 NormalSampleToWorldSpace(float3 normalMapSample, float3 unitNormalW, floa
     
     // Build orthonormal TBN basis
 	float3 N = unitNormalW;
-	float3 T = normalize(tangentW - dot(tangentW, N) * N);
+    // Gram-Schmidt: re-orthogonalize tangent against normal.
+    // Guard against degenerate meshes where the tangent is zero or parallel to N
+    // (which would produce NaN after normalize). Fall back to an arbitrary
+    // perpendicular direction derived from N in that case.
+	float3 projT = tangentW - dot(tangentW, N) * N;
+	float3 T;
+	if (dot(projT, projT) > 1e-8f)
+	{
+		T = normalize(projT);
+	}
+	else
+	{
+		// Choose an axis that is not collinear with N, then project out N.
+		float3 axis = (abs(N.x) < 0.9f) ? float3(1.0f, 0.0f, 0.0f) : float3(0.0f, 1.0f, 0.0f);
+		T = normalize(axis - dot(axis, N) * N);
+	}
 	float3 B = cross(N, T);
 	float3x3 TBN = float3x3(T, B, N);
     
@@ -360,8 +375,10 @@ float TraceShadowRay(float3 origin, float3 direction, float maxDist)
 	RayDesc ray;
 	ray.Origin = origin;
 	ray.Direction = direction;
-	ray.TMin = 0.05f;
-	ray.TMax = max(0.05f, maxDist - 0.1f);
+    // Origin is already offset by SHADOW_BIAS along the surface normal;
+    // keep TMin tiny so we don't miss thin-wall occluders.
+	ray.TMin = 0.001f;
+	ray.TMax = max(0.001f, maxDist - 0.1f);
 
 	RayQuery < RAY_FLAG_SKIP_CLOSEST_HIT_SHADER | RAY_FLAG_FORCE_NON_OPAQUE > q;
 	q.TraceRayInline(gScene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, 0xFF, ray);
@@ -822,7 +839,8 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
 		RayDesc giRay;
 		giRay.Origin = hitPos + N * SHADOW_BIAS;
 		giRay.Direction = giDir;
-		giRay.TMin = 0.05f;
+        // Origin is already offset by SHADOW_BIAS; keep TMin small.
+		giRay.TMin = 0.001f;
 		giRay.TMax = GI_MAX_DIST;
 
 		TraceRay(gScene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, 0xFF, 0, 1, 0, giRay, giPayload);
