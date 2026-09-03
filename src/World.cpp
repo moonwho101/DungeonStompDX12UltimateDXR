@@ -481,7 +481,14 @@ void UpdateWorld(float fElapsedTime) {
 			}
 
 			if (qdist < distance) {
-				ObjectToD3DVertList(ob_type, angle, q);
+				D3DVECTOR work1;
+				work1.x = oblist[q].x;
+				work1.y = oblist[q].y;
+				work1.z = oblist[q].z;
+
+				if (SceneInBox(work1)) {
+					ObjectToD3DVertList(ob_type, angle, q);
+				}
 			}
 		}
 	}
