@@ -40,6 +40,11 @@ VertexOut VS(VertexIn vin)
 
 float4 PS(VertexOut pin) : SV_Target
 {
-	return gCubeMap.Sample(gsamLinearWrap, pin.PosL);
+	// Grow the vertical sample axis: for typical near-horizontal views the side cube
+	// faces dominate, so this widens the texture band sampled across the screen height,
+	// shrinking apparent feature size (farther away) instead of zooming in.
+	float3 dir = pin.PosL;
+	dir.y *= 1.0f;
+	return gCubeMap.Sample(gsamLinearWrap, dir);
 }
 
