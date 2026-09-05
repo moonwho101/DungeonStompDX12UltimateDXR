@@ -500,9 +500,15 @@ void RayGen()
 void Miss(inout RayPayload payload)
 {
 	float3 rayDir = WorldRayDirection();
-    
+
+    // Grow the vertical sample axis: for typical near-horizontal views the side cube
+    // faces dominate, so this widens the texture band sampled across the screen height,
+    // shrinking apparent feature size (farther away) instead of zooming in.
+	float3 skyDir = rayDir;
+	skyDir.y *= 1.0f;
+
     // Sample the sunset cube map for the sky (always used for GI bounces)
-	float3 skyColor = gCubeMap.SampleLevel(gSampler, rayDir, 0).rgb;
+	float3 skyColor = gCubeMap.SampleLevel(gSampler, skyDir, 0).rgb;
     
     // Apply atmospheric dungeon void vertical gradient to darken the lower part 
     // of the cube if it's too bright for a dungeon, but keep most of it.
