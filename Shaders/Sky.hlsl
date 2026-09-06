@@ -26,25 +26,22 @@ VertexOut VS(VertexIn vin)
 	// Use local vertex position as cubemap lookup vector.
 	vout.PosL = vin.PosL;
 	
-	// Transform to world space.
-	float4 posW = mul(float4(vin.PosL, 1.0f), gWorld);
+	// Transform local vertex position by world matrix (w=0.0 ignores translation).
+	float4 posW = mul(float4(vin.PosL, 0.0f), gWorld);
 
-	// Always center sky about camera.
-	posW.xyz += gEyePosW;
+	// Multiply by View matrix with w=0.0f to apply camera rotation ONLY,
+	// avoiding adding and subtracting gEyePosW in float32 which causes jitter at large coordinates.
+	float4 posV = mul(float4(posW.xyz, 0.0f), gView);
 
-	// Set z = w so that z/w = 1 (i.e., skydome always on far plane).
-	vout.PosH = mul(posW, gViewProj).xyww;
+	// Project view-space position to clip space and force z = w (skydome always on far plane).
+	vout.PosH = mul(float4(posV.xyz, 1.0f), gProj).xyww;
 	
 	return vout;
 }
 
 float4 PS(VertexOut pin) : SV_Target
 {
-	// Grow the vertical sample axis: for typical near-horizontal views the side cube
-	// faces dominate, so this widens the texture band sampled across the screen height,
-	// shrinking apparent feature size (farther away) instead of zooming in.
-	float3 dir = pin.PosL;
-	dir.y *= 1.0f;
+	float3 dir = normalize(pin.PosL);
 	return gCubeMap.Sample(gsamLinearWrap, dir);
 }
 
