@@ -2,7 +2,7 @@
 
 # Dungeon Stomp DX12 Ultimate DXR
 
-### A 3D Dungeon Crawler Powered by DirectX 12 Ultimate, DXR Ray Tracing & Physically Based Rendering
+### A Full 3D Dungeon Crawler Engine Showcase for DirectX 12 Ultimate & DXR
 
 [![License](https://img.shields.io/github/license/moonwho101/DungeonStompDX12UltimateDXR?style=flat-square)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows-blue?style=flat-square&logo=windows)](https://github.com/moonwho101/DungeonStompDX12UltimateDXR)
@@ -12,301 +12,181 @@
 
 ![Dungeon Stomp DX12 DXR](Textures/screenshot48.jpg)
 
-**A fully playable, open-source C++ game engine demo showcasing DirectX 12 Ultimate's most advanced features — DXR 1.1 inline ray tracing, Variable Rate Shading, PBR, and SSAO — wrapped in a classic dungeon crawler with 15 levels, 25+ monsters, and 30+ weapons.**
+**Most DXR samples stop at a spinning triangle or a Cornell box. Dungeon Stomp is a full, playable dungeon crawler engine that puts DirectX 12 Ultimate's headline features to work in a live production codebase — featuring DXR 1.1 inline ray tracing, PBR, Variable Rate Shading, and SSAO.**
 
-> If you find this project useful for learning DX12 or DXR, please consider giving it a ⭐ — it helps more developers discover it!
-
-[Download & Play](#quick-start) · [Screenshots](#screenshots) · [Build from Source](#build-from-source) · [Controls](#controls) · [Related Projects](#related-projects)
+[Play Now](#quick-start) · [Screenshots](#screenshots) · [Features](#features-at-a-glance) · [Build](#build-from-source) · [Controls](#controls)
 
 </div>
 
 ---
 
-## Why This Project?
+## ⚡ Quick Start
 
-Most DirectX 12 DXR tutorials stop at a spinning triangle or a Cornell box. **Dungeon Stomp DX12 Ultimate DXR** is a *fully playable game* that puts all of DX12 Ultimate's headline features to work together in a real production-style codebase:
+> **Play immediately** — pre-compiled binary included!
 
-- Inline DXR 1.1 ray tracing integrated into a live game render loop
-- PBR materials with ACES tone mapping driving in-game visuals
-- Variable Rate Shading adapting per-frame to real geometry
-- 40+ C++ source files you can read, modify, and learn from
+```bash
+git clone https://github.com/moonwho101/DungeonStompDX12UltimateDXR.git
+cd DungeonStompDX12UltimateDXR/bin
+DungeonStomp.exe
+```
 
-It's the DX12 learning resource that actually ships a game.
-
----
-
-## Highlights
-
-| | Feature | Details |
-|---|---|---|
-| **Ray Tracing** | DXR inline ray tracing | Real-time ray-traced shadows & global illumination |
-| **PBR** | Physically based rendering | Cook-Torrance BRDF with metallic workflow |
-| **Shading** | Variable Rate Shading | DX12 Ultimate adaptive performance |
-| **Shadows** | Shadow mapping + SSAO | Dynamic shadow casting with ambient occlusion |
-| **Levels** | 15 dungeon levels | Full campaign with level progression |
-| **Enemies** | 25+ monster types | AI with animated MD2 & 3DS models |
-| **Combat** | 30+ weapons & spells | Melee, ranged, and magic with projectile system |
-| **Audio** | XAudio2 sound engine | Monster voices, ambient loops, music |
+*Requirements: Windows 10/11 with a DirectX 12 GPU. A DXR-capable GPU (NVIDIA RTX / AMD RX 6000+ / Intel Arc) is recommended for ray tracing features.*
 
 ---
 
-## Ray Tracing (DXR) Support
+## ✨ Features at a Glance
 
-Dungeon Stomp DX12 Ultimate DXR features a modern ray tracing implementation using **DirectX 12 DXR**.
+### 🚀 Graphics & Engine (DX12 Ultimate)
+- **DXR 1.1 Inline Ray Tracing:** Pixel-perfect ray-traced shadow rays & global illumination.
+- **PBR Material Pipeline:** Cook-Torrance BRDF with metallic workflow, 28+ tuned materials, and ACES tone mapping.
+- **Variable Rate Shading (VRS):** Hardware-adaptive shading rates for enhanced performance.
+- **Dynamic Lighting & Effects:** 2048x2048 shadow maps, SSAO, 32 dynamic lights per scene, normal mapping & atmospheric fog.
+- **Engine Tech:** 3-frame buffered rendering, spatial culling, BMFont GPU text rendering, and XAudio2 sound engine.
 
-*   **Hardware Compatibility:** Fully supports **NVIDIA RTX**, **AMD Ray Tracing (RT)**, and **Intel Arc** DXR-capable GPUs.
-*   **Inline Ray Tracing (DXR 1.1):** This project leverages the **DirectX 12 Ultimate** feature set, specifically **DXR 1.1 Inline Ray Tracing**.
-*   **Shadow Rays:** The engine implements ray-traced **shadow rays** to calculate light visibility. This provides physically accurate, pixel-perfect dynamic shadows that correctly handle overlapping geometry and provide superior visual fidelity compared to standard shadow mapping.
-
----
-
-## Quick Start
-
-> **No build required** — a pre-built binary is included.
-
-1. **Clone** this repository:
-   ```
-   git clone https://github.com/moonwho101/DungeonStompDX12UltimateDXR.git
-   ```
-2. **Run** `bin/DungeonStomp.exe`
-3. **Stomp some dungeons!** *Breeyark!*
-
-> **Requirements:** Windows 10/11 with a DirectX 12-capable GPU. A DXR-capable GPU (NVIDIA RTX / AMD RX 6000+ / Intel Arc) is recommended for ray tracing features.
+### ⚔️ Complete Game Campaign
+- **15 Dungeon Levels:** Hand-crafted campaign levels + procedural seed-based dungeon generator.
+- **25+ Enemy Types:** Animated MD2 & 3DS monsters with AI, audio cues, and loot drops.
+- **30+ Weapons & Spells:** Melee, ranged, and magic missile projectile system (up to 100 active missiles).
+- **Classic RPG Mechanics:** Level progression, XP system, keys, swinging doors, and persistent save/load state (`F5`/`F6`).
 
 ---
 
-## Screenshots
+## 🖼️ Screenshots
 
 <div align="center">
 
-![Ray-traced dungeon scene](Textures/screenshot43.jpg)
+| Real-Time DXR Ray-Traced Shadows | Dynamic Combat Encounter |
+|:---:|:---:|
+| ![Ray-traced dungeon scene](Textures/screenshot43.jpg) | ![Combat encounter](Textures/screenshot42.jpg) |
 
-![Combat encounter](Textures/screenshot42.jpg)
+<details>
+<summary><b>📷 Click to view more screenshots</b></summary>
 
-|  |  |
+<br>
+
+| | |
 |---|---|
 | ![Screenshot](Textures/screenshot23.jpg) | ![Screenshot](Textures/screenshot22.jpg) |
 | ![Screenshot](Textures/screenshot25.jpg) | ![Screenshot](Textures/screenshot26.jpg) |
 
+</details>
+
 </div>
 
 ---
 
-## Rendering Features
+## 🎮 Controls
 
-**DirectX 12 Ultimate Pipeline:**
-- **DXR Ray Tracing** — inline ray tracing for realistic shadow rays and global illumination
-- **Variable Rate Shading (VRS)** — adaptive shading rate for performance optimization
-- **Physically Based Rendering** — full PBR material pipeline (diffuse albedo, Fresnel, roughness, metallicness)
-- **ACES Tone Mapping** — HDR to SDR with cinematic tone curve
+| Action | Input | Action | Input |
+|---|---|---|---|
+| **Move** | `W` `A` `S` `D` | **Cycle Weapons** | `Q` / `Z` or `Mouse Wheel` |
+| **Attack** | `Left Click` | **Load / Save** | `F5` / `F6` |
+| **Forward** | `Right Click` | **Fullscreen** | `Alt`+`Enter` / `F11` |
+| **Open Doors** | `Space` | **Debug HUD** | `F8` |
+| **Jump** | `E` | **Xbox Controller** | Supported (enabled in `DirectInput.cpp`) |
 
-**Lighting & Shadows:**
-- **Shadow Maps** (2048x2048) with dynamic shadow casting
-- **Screen Space Ambient Occlusion (SSAO)** for depth-based occlusion
-- **Up to 32 dynamic point/spot lights** per scene
-- **Atmospheric fog** with density-based effects
+<details>
+<summary><b>🔧 Developer & Feature Hotkeys (Click to expand)</b></summary>
 
-**Textures & Materials:**
-- **130+ textures** with DDS mipmap chains
-- **Normal maps** with specular in alpha channel
-- **Cube maps** for dynamic skybox reflections
-- **28+ PBR materials** with tuned roughness and metallic values
-- **Alpha transparency & alpha testing**
+<br>
 
-**Engine:**
-- **BMFont GPU text rendering** — fast bitmap font system (AngelCode Hiero format)
-- **Camera head bob** — dual sine-wave movement simulation
-- **3-frame buffered rendering** with frame resource management
-- **Bounding box culling** and spatial cell partitioning
+| Key | Graphics Toggle | Key | Developer / Gameplay Controls |
+|:---:|---|:---:|---|
+| `R` | Toggle DXR Ray Tracing | `G` | Toggle Noclip / Fly Mode (Numpad `+`/`-`) |
+| `T` | Toggle Variable Rate Shading | `X` | Add Experience Points |
+| `O` | Toggle SSAO | `K` | Unlock All Weapons & Spells |
+| `J` | Toggle Shadow Map | `]` / `[` | Jump to Next / Previous Level |
+| `N` | Toggle Normal Maps | `I` / `P` | Disable / Randomize Music |
+| `M` | View Shadow Map / SSAO Buffer | `B` | Toggle Camera Head Bob |
+| `V` | Toggle VSync | `H` | Toggle Player HUD |
 
----
-
-## Gameplay Features
-
-- **15 hand-crafted dungeon levels** with campaign progression
-- **25+ enemy types** — werewolves, demons, goblins, orcs, hydras, phantoms, and more
-- **30+ weapons & spells** with ammunition/magic point tracking
-- **Projectile system** — up to 100 simultaneous active missiles
-- **Interactive doors & keys** — swing mechanics, locked doors
-- **Treasure & loot** — gold drops from defeated enemies
-- **Experience & leveling** — XP-based progression system
-- **Save/Load** — persistent game state (F5/F6)
-- **XBOX controller support** (enable in `DirectInput.cpp`)
+</details>
 
 ---
 
-## Build from Source
+## 🛠️ Build from Source
 
-**Prerequisites:**
-- [Visual Studio 2022 Community](https://visualstudio.microsoft.com/) (or higher)
-- Windows SDK with DirectX 12 support
-- C++ Desktop Development workload
+**Prerequisites:** Visual Studio 2022 (with Desktop development with C++) & Windows 10/11 SDK.
 
-**Build:**
 ```powershell
 git clone https://github.com/moonwho101/DungeonStompDX12UltimateDXR.git
 cd DungeonStompDX12UltimateDXR
 msbuild src\DungeonStomp.sln /p:Configuration=Release /p:Platform=x64
 ```
 
-Or open `src/DungeonStomp.sln` in Visual Studio and build in **Release | x64** for best results.
-
-The compiled binary is output to the `bin/` directory.
+Or open `src/DungeonStomp.sln` in Visual Studio 2022 and build in **Release | x64**. Binary outputs to `bin/DungeonStomp.exe`.
 
 ---
-
-## Controls
-
-| Action | Input |
-|---|---|
-| Move | **W A S D** |
-| Jump | **E** |
-| Open doors | **Space** |
-| Attack | **Left mouse button** |
-| Move forward | **Right mouse button** |
-| Cycle weapons/spells | **Q / Z** or **Mouse wheel** |
-| Fullscreen | **Alt+Enter** or **F11** |
-| Load game | **F5** |
-| Save game | **F6** |
-| Debug screen | **F8** |
-
----
-
-## Debug & Developer Controls
 
 <details>
-<summary>Click to expand developer hotkeys</summary>
+<summary><b>📂 Repository Structure & Dungeon Generator</b></summary>
 
-| Key | Action |
-|---|---|
-| **R** | Toggle DXR (DirectX Raytracing) |
-| **T** | Toggle Variable Rate Shading |
-| **O** | Toggle SSAO |
-| **J** | Toggle Shadow Map |
-| **N** | Toggle Normal Map |
-| **M** | Show shadow map / SSAO texture |
-| **V** | Toggle VSync |
-| **B** | Toggle Camera head bob |
-| **H** | Toggle Player HUD |
-| **G** | Toggle gravity (Numpad +/- to fly up/down) |
-| **I** | Disable music |
-| **P** | Random music |
-| **X** | Give experience points |
-| **K** | Give all weapons and spells |
-| **]** | Next dungeon level |
-| **[** | Previous dungeon level |
+<br>
+
+### Key Directories
+- `bin/` — Pre-built executable, levels, sounds, and assets
+- `src/` — Engine & game logic source code (40+ C++ files)
+- `Shaders/` — HLSL shader code ([Shaders/Raytracing.hlsl](Shaders/Raytracing.hlsl), PBR, VRS, SSAO)
+- `Common/` — D3D12 helper framework (`d3dApp`, `GameTimer`, `MathHelper`)
+- `tools/` — Procedural dungeon generation scripts
+
+### Procedural Dungeon Generation
+Generate reproducible layout files replacing `bin/level1.map`:
+```bash
+cd tools
+python generate_dungeon.py          # Classic tileset
+python generate_dungeonNewObjects.py # Extended tileset
+```
 
 </details>
 
 ---
 
-## Project Structure
-
-```
-├── bin/            # Pre-built game binary & data files (levels, sounds, config)
-├── Common/         # D3D12 framework (d3dApp, GameTimer, GeometryGenerator, MathHelper)
-├── Models/         # 3DS & MD2 model assets
-├── Shaders/        # HLSL shaders (Raytracing, PBR, Shadows, SSAO, NormalMap, Sky)
-├── Sounds/         # Ambient loops & sound effects
-├── src/            # Game source code (40+ C++ files)
-├── Textures/       # 130+ textures (DDS, BMP) with normal maps
-└── Installer/      # Inno Setup installer script
-```
-
-**Key source files:**
-
-| File | Purpose |
-|---|---|
-| `src/DungeonStomp.cpp` | Application entry (`WinMain`) & D3D12 initialization |
-| `src/DungeonStompRender.cpp` | Main rendering pipeline |
-| `src/DungeonStompUpdate.cpp` | Per-frame game update loop |
-| `src/GameLogic.cpp` | Monster AI, damage, combat logic |
-| `src/LoadWorld.cpp` | Level loading & world initialization |
-| `src/ParticleSystem.cpp` | CPU particle emitter system |
-| `src/VRSHelper.cpp` | Variable Rate Shading setup & tier detection |
-| `src/ImportMD2.cpp` | Animated MD2 model importer |
-| `src/Import3DS.cpp` | 3DS model importer |
-| `src/DXRHelper.cpp` | DXR acceleration structures & ray tracing setup |
-| `Shaders/Raytracing.hlsl` | DXR shader with PBR & global illumination |
-
----
-## Generating Deterministic Dungeons
-
-The dungeon generator uses seed-based generation to create reproducible layouts. Using the same seed always produces the exact same rooms, corridors, and item locations. 
-
-### How to Run
-
-Execute the script from the `tools` directory to generate a new layout. This process replaces the existing `level1.map` file in your `bin` directory.
-The first is the classic tile set, the second is a newer green tile set.
-
-```sh
-cd tools
-python generate_dungeon.py
-```
-
-```sh
-cd tools
-python generate_dungeonNewObjects.py
-```
-
----
-
-## Related Projects
+## 🌐 Related Projects & Credits
 
 | Project | API |
 |---|---|
-| [Dungeon Stomp DirectX 12](https://github.com/moonwho101/DungeonStompDirectX12) | DirectX 12 (non-DXR) |
+| [Dungeon Stomp DX12](https://github.com/moonwho101/DungeonStompDirectX12) | DirectX 12 (Rasterization) |
 | [Dungeon Stomp Vulkan](https://github.com/moonwho101/DungeonStompVulkan) | Vulkan (WIP) |
-| [Dungeon Stomp DirectX 7](https://github.com/moonwho101/DungeonStomp) | DirectX 7 (classic) |
+| [Dungeon Stomp Classic](https://github.com/moonwho101/DungeonStomp) | DirectX 7 |
 
----
-
-## Credits
-
-### Reference
-- *"Introduction to 3D Game Programming with DirectX 12"* by Frank Luna
-
-### MD2 Model Authors
-
-Dungeon Stomp would not have been possible without the amazing MD2 models made by the following authors:
+*Engine architecture builds upon concepts from "Introduction to 3D Game Programming with DirectX 12" by Frank Luna.*
 
 <details>
-<summary>Click to expand full model credits</summary>
+<summary><b>🎨 MD2 Model Author Credits</b></summary>
 
-| Model | Author |
-|---|---|
-| ALPHA Werewolf | Andrew "ALPHAwolf" Gilmour |
-| Bauul | Evil Bastard |
-| Centaur | Scarecrow |
-| Bug (Q2) | Tatey |
-| Corpse | Neuralstasis |
-| Demoness (Succubus) | Pascal "Firebrandt" Jurock |
-| Dragon Knight | Michael "Magarnigal" Mellor |
-| Fulimo | Tim |
-| Goblin | Conrad |
-| Grey | RichB |
-| Hellspawn | Alcor |
-| Hueteotl | Evil Bastard |
-| Hydralisk | warlord |
-| Ichabod | Adam Ward (Gixter) |
-| Imp | Paul Interrante & Brad Grace |
-| Insect | Joe "Ebola" Woodrell |
-| Morbo/Brawn | Rowan Crawford (Sumaleth) |
-| Necromancer | Raven Software |
-| Necromicus | Jade Moffatt Jones |
-| Ogre | Didier "The Doctor" Savanah |
-| Ogro | Michael "Magarnigal" Mellor |
-| Orc | Boogieman |
-| Perelith Knight | James Green |
-| Phantom | Burnt Kona |
-| Purgatori | Tom Colby |
-| Rider | Blake |
-| Sorcerer | E. Villiers |
-| Tentacle | Marcus Lutz |
-| Troll | Thargar |
-| Werewolf | Brian Yee |
-| Winter's Faerie | Evil Bastard |
-| Wraith | Burnt Kona |
+<br>
+
+Special thanks to the authors of the classic MD2 models featured in Dungeon Stomp:
+
+- **ALPHA Werewolf** — Andrew "ALPHAwolf" Gilmour
+- **Bauul, Hueteotl, Winter's Faerie** — Evil Bastard
+- **Centaur** — Scarecrow
+- **Bug (Q2)** — Tatey
+- **Corpse** — Neuralstasis
+- **Demoness (Succubus)** — Pascal "Firebrandt" Jurock
+- **Dragon Knight, Ogro** — Michael "Magarnigal" Mellor
+- **Fulimo** — Tim
+- **Goblin** — Conrad
+- **Grey** — RichB
+- **Hellspawn** — Alcor
+- **Hydralisk** — warlord
+- **Ichabod** — Adam Ward (Gixter)
+- **Imp** — Paul Interrante & Brad Grace
+- **Insect** — Joe "Ebola" Woodrell
+- **Morbo/Brawn** — Rowan Crawford (Sumaleth)
+- **Necromancer** — Raven Software
+- **Necromicus** — Jade Moffatt Jones
+- **Ogre** — Didier "The Doctor" Savanah
+- **Orc** — Boogieman
+- **Perelith Knight** — James Green
+- **Phantom, Wraith** — Burnt Kona
+- **Purgatori** — Tom Colby
+- **Rider** — Blake
+- **Sorcerer** — E. Villiers
+- **Tentacle** — Marcus Lutz
+- **Troll** — Thargar
+- **Werewolf** — Brian Yee
 
 </details>
 
@@ -320,9 +200,9 @@ This project is open source. See the [LICENSE](LICENSE) file for details.
 
 <div align="center">
 
-**Happy Dungeon Stomping — Breeyark!**
+**Happy Dungeon Stomping — Breeyark! ⚔️**
 
-*If this project helped you learn DX12 or DXR, or you just think it's cool — drop a* ⭐ *star above. It takes one second and helps other developers find this resource.*
+*If you find this project useful for learning DirectX 12 or DXR, please drop a ⭐ star above!*
 
 [![Star this repo](https://img.shields.io/github/stars/moonwho101/DungeonStompDX12UltimateDXR?style=social)](https://github.com/moonwho101/DungeonStompDX12UltimateDXR/stargazers)
 
