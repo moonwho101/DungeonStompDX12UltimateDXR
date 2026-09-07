@@ -780,9 +780,14 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
 
     out_file = os.path.join(os.path.dirname(__file__), '..', 'bin', 'level1.map')
     with open(out_file, 'w') as f:
+        links = []
+        obj_id = 0
+
         f.write("OBJECT startpos\n")
         f.write(f"CO_ORDINATES {start_x:.6f} 0.000000 {start_z:.6f}\n")
         f.write("ROT_ANGLE 90\n")
+        links.append({'x': start_x, 'z': start_z, 'rot': 90, 'id': obj_id})
+        obj_id += 1
 
         for p in placed:
             if p['name'] in ('left_curve', 'right_curve'):
@@ -790,6 +795,8 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
             f.write(f"OBJECT {p['name']}\n")
             f.write(f"CO_ORDINATES {p['x']:.6f} {p.get('y', 0.0):.6f} {p['z']:.6f}\n")
             f.write(f"ROT_ANGLE {p['rot']}\n")
+            links.append({'x': p['x'], 'z': p['z'], 'rot': p['rot'], 'id': obj_id})
+            obj_id += 1
 
         for e in entities:
             t = e['type']
@@ -798,18 +805,26 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                 f.write(f"OBJECT !wall0-240-320\n")
                 f.write(f"CO_ORDINATES {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}\n")
                 f.write(f"ROT_ANGLE {e['rot']} 0 {e['name']} {e['id']} 0\n")
+                links.append({'x': e['x'], 'z': e['z'], 'rot': e['rot'], 'id': obj_id})
+                obj_id += 1
             elif t == 'torch':
                 f.write(f"OBJECT torch\n")
                 f.write(f"CO_ORDINATES {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}\n")
                 f.write(f"ROT_ANGLE {e['rot']}\n")
+                links.append({'x': e['x'], 'z': e['z'], 'rot': e['rot'], 'id': obj_id})
+                obj_id += 1
             elif t == '!flamesnohit':
                 f.write(f"OBJECT !flamesnohit\n")
                 f.write(f"CO_ORDINATES {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}\n")
                 f.write(f"ROT_ANGLE {e['rot']} 0 {e['name']} {e['state']} 0\n")
+                links.append({'x': e['x'], 'z': e['z'], 'rot': e['rot'], 'id': obj_id})
+                obj_id += 1
             elif t == 'lamp_post':
                 f.write(f"OBJECT lamp_post\n")
                 f.write(f"CO_ORDINATES {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}\n")
                 f.write(f"ROT_ANGLE {e['rot']}\n")
+                links.append({'x': e['x'], 'z': e['z'], 'rot': e['rot'], 'id': obj_id})
+                obj_id += 1
 
             elif t == 'LIGHT_SOURCE':
                 # Use the direction stored at spawn time for determinism
@@ -825,37 +840,57 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                 f.write(f"OBJECT {t}\n")
                 f.write(f"CO_ORDINATES {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}\n")
                 f.write(f"ROT_ANGLE {e['rot']}\n")
+                links.append({'x': e['x'], 'z': e['z'], 'rot': e['rot'], 'id': obj_id})
+                obj_id += 1
             elif t.startswith('door'):
                 f.write(f"OBJECT {t}\n")
                 f.write(f"CO_ORDINATES {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}\n")
                 # preserve state field (secret doors use state=2)
                 f.write(f"ROT_ANGLE {e['rot']} {e['state']}\n")
+                links.append({'x': e['x'], 'z': e['z'], 'rot': e['rot'], 'id': obj_id})
+                obj_id += 1
             elif t == 'slope_stairs':
                 f.write(f"OBJECT slope_stairs\n")
                 f.write(f"CO_ORDINATES {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}\n")
                 f.write(f"ROT_ANGLE {e['rot']}\n")
+                links.append({'x': e['x'], 'z': e['z'], 'rot': e['rot'], 'id': obj_id})
+                obj_id += 1
             elif t in ('left_curve_road', 'right_curve_road'):
                 f.write(f"OBJECT {t}\n")
                 f.write(f"CO_ORDINATES {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}\n")
                 f.write(f"ROT_ANGLE {e['rot']}\n")
+                links.append({'x': e['x'], 'z': e['z'], 'rot': e['rot'], 'id': obj_id})
+                obj_id += 1
             elif t in ('!flarenohit'):                
                 f.write(f"OBJECT {t}\n")
                 f.write(f"CO_ORDINATES {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}\n")
                 f.write(f"ROT_ANGLE {e['rot']} 3 {e.get('name','')} {e.get('id',0)} {e.get('state',0)}\n")
+                links.append({'x': e['x'], 'z': e['z'], 'rot': e['rot'], 'id': obj_id})
+                obj_id += 1
             elif t == '!monster1':
                 # Wall torches - use torch2 as object type in ROT_ANGLE line
                 f.write(f"OBJECT !monster1\n")
                 f.write(f"CO_ORDINATES {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}\n")
                 f.write(f"ROT_ANGLE {e['rot']} torch2 {e.get('name','0')} {e.get('id',0)} 0\n")
+                links.append({'x': e['x'], 'z': e['z'], 'rot': e['rot'], 'id': obj_id})
+                obj_id += 1
             else:
                 # Default handler for treasures, monsters, and misc items
                 f.write(f"OBJECT !monster1\n")
                 f.write(f"CO_ORDINATES {e['x']:.6f} {e['y']:.6f} {e['z']:.6f}\n")
                 f.write(f"ROT_ANGLE {e['rot']} {t} {e.get('name','')} {e.get('id',0)} {e.get('state',0)}\n")
+                links.append({'x': e['x'], 'z': e['z'], 'rot': e['rot'], 'id': obj_id})
+                obj_id += 1
 
         f.write("OBJECT text\n")
         f.write("CO_ORDINATES 2020.000000 0.000000 1020.000000\n")
         f.write("ROT_ANGLE 0 largedungeon\n")
+        links.append({'x': 2020.0, 'z': 1020.0, 'rot': 0, 'id': obj_id})
+        obj_id += 1
+
+        for link in links:
+            f.write(f"LINK {link['x']:.6f} {link['z']:.6f} {int(link['rot'])} {link['id']}\n")
+
         f.write("END_FILE\n")
 
     num_walls = sum(1 for e in entities if e['type'] == 'wall')
