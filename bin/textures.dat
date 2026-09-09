@@ -1656,7 +1656,7 @@ AddTexture  ..\Textures\Dungeon02\entrance09.dds
 Alias  551  entrance09           OPAQUE  WHOLE  stonemain
 
 AddTexture  ..\Textures\Dungeon02\grid.dds
-Alias  552  grid           OPAQUE  WHOLE  stonemain
+Alias  552  grid           OPAQUE  WHOLE  metal
 
 AddTexture  ..\Textures\Dungeon02\walls.dds
 Alias  553  walls           OPAQUE  WHOLE  stonemain
