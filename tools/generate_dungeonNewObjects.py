@@ -320,6 +320,41 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                             placed_new = True
                             print(f"Placed {cand_name} at ({Ox:.1f}, {Oy:.1f}, {Oz:.1f}) [Rot: {ang}]")
 
+                            if cand_name in ('CROSSING01', 'CROSSING02', 'CROSSING03'):
+                                for c_ext in cand_exits:
+                                    if random.random() < 0.40:
+                                        lx, lz = c_ext['pos']
+                                        out_dir = c_ext['out']
+
+                                        if out_dir == DIR_S:
+                                            base_door_rot = 0
+                                        elif out_dir == DIR_E:
+                                            base_door_rot = 90
+                                        elif out_dir == DIR_N:
+                                            base_door_rot = 180
+                                        elif out_dir == DIR_W:
+                                            base_door_rot = 270
+                                        else:
+                                            base_door_rot = 0
+
+                                        door_rot = (base_door_rot + ang) % 360
+                                        rx, rz = rotate(lx, lz, ang)
+                                        door_wx = Ox + rx
+                                        door_wy = Oy + c_ext.get('y', 0) + 75.0
+                                        door_wz = Oz + rz
+
+                                        entities.append({
+                                            'type': 'door55',
+                                            'name': '0',
+                                            'x': door_wx,
+                                            'y': door_wy,
+                                            'z': door_wz,
+                                            'rot': door_rot,
+                                            'id': entity_id_idx,
+                                            'state': -1
+                                        })
+                                        entity_id_idx += 1
+                                        print(f"  -> Added door55 to {cand_name} opening at ({door_wx:.1f}, {door_wy:.1f}, {door_wz:.1f}) [Rot: {door_rot}]")
 
                             if cand_name in ('ROOM05','CORRIDOR01','ROOM06'):
                                 # --- Add wall torches for CORRIDOR01 ---
