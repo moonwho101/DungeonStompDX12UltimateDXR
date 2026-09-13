@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
+#include <stdint.h>
 #include <vector>
 #include <algorithm>
 
@@ -180,6 +181,34 @@ tbool genTangSpace(const SMikkTSpaceContext * pContext, const float fAngularThre
 
 	// 2. Spatial welding and smooth group assignment based on position, normal, texcoord, and angular threshold
 	const float epsilon = 1e-4f;
+	const float inv_cell = 1000.0f; // cell size = 0.001f (10x epsilon)
+
+	size_t hash_size = 1;
+	while (hash_size < (size_t)iTotalCorners * 2) {
+		hash_size <<= 1;
+	}
+	if (hash_size < 1024) hash_size = 1024;
+
+	std::vector<int> head(hash_size, -1);
+	std::vector<int> next(iTotalCorners, -1);
+
+	auto hash3d = [](int64_t qx, int64_t qy, int64_t qz) -> uint32_t {
+		uint64_t uqx = (uint64_t)qx;
+		uint64_t uqy = (uint64_t)qy;
+		uint64_t uqz = (uint64_t)qz;
+		return (uint32_t)((uqx * 73856093ULL) ^ (uqy * 19349663ULL) ^ (uqz * 83492791ULL));
+	};
+
+	for (int i = 0; i < iTotalCorners; ++i) {
+		int64_t qx = (int64_t)floorf(corners[i].pos[0] * inv_cell);
+		int64_t qy = (int64_t)floorf(corners[i].pos[1] * inv_cell);
+		int64_t qz = (int64_t)floorf(corners[i].pos[2] * inv_cell);
+
+		uint32_t h = hash3d(qx, qy, qz) & (uint32_t)(hash_size - 1);
+		next[i] = head[h];
+		head[h] = i;
+	}
+
 	std::vector<int> cornerToWeldGroup(iTotalCorners, -1);
 	std::vector<SWeldGroup> weldGroups;
 
@@ -191,22 +220,35 @@ tbool genTangSpace(const SMikkTSpaceContext * pContext, const float fAngularThre
 		int iGroupIdx = (int)weldGroups.size();
 		cornerToWeldGroup[i] = iGroupIdx;
 
-		for (int j = i + 1; j < iTotalCorners; ++j) {
-			if (cornerToWeldGroup[j] != -1) continue;
+		int64_t qx = (int64_t)floorf(corners[i].pos[0] * inv_cell);
+		int64_t qy = (int64_t)floorf(corners[i].pos[1] * inv_cell);
+		int64_t qz = (int64_t)floorf(corners[i].pos[2] * inv_cell);
 
-			if (fabsf(corners[j].pos[0] - corners[i].pos[0]) < epsilon &&
-			    fabsf(corners[j].pos[1] - corners[i].pos[1]) < epsilon &&
-			    fabsf(corners[j].pos[2] - corners[i].pos[2]) < epsilon &&
-			    fabsf(corners[j].norm[0] - corners[i].norm[0]) < epsilon &&
-			    fabsf(corners[j].norm[1] - corners[i].norm[1]) < epsilon &&
-			    fabsf(corners[j].norm[2] - corners[i].norm[2]) < epsilon &&
-			    fabsf(corners[j].tex[0] - corners[i].tex[0]) < epsilon &&
-			    fabsf(corners[j].tex[1] - corners[i].tex[1]) < epsilon) {
+		for (int dz = -1; dz <= 1; ++dz) {
+			for (int dy = -1; dy <= 1; ++dy) {
+				for (int dx = -1; dx <= 1; ++dx) {
+					uint32_t h = hash3d(qx + dx, qy + dy, qz + dz) & (uint32_t)(hash_size - 1);
+					int j = head[h];
+					while (j != -1) {
+						if (j > i && cornerToWeldGroup[j] == -1) {
+							if (fabsf(corners[j].pos[0] - corners[i].pos[0]) < epsilon &&
+							    fabsf(corners[j].pos[1] - corners[i].pos[1]) < epsilon &&
+							    fabsf(corners[j].pos[2] - corners[i].pos[2]) < epsilon &&
+							    fabsf(corners[j].norm[0] - corners[i].norm[0]) < epsilon &&
+							    fabsf(corners[j].norm[1] - corners[i].norm[1]) < epsilon &&
+							    fabsf(corners[j].norm[2] - corners[i].norm[2]) < epsilon &&
+							    fabsf(corners[j].tex[0] - corners[i].tex[0]) < epsilon &&
+							    fabsf(corners[j].tex[1] - corners[i].tex[1]) < epsilon) {
 
-				float fCosN = GetCosAngle(triangles[corners[i].iFace].faceNorm, triangles[corners[j].iFace].faceNorm);
-				if (fCosN >= fThresCos) {
-					group.corners.push_back(j);
-					cornerToWeldGroup[j] = iGroupIdx;
+								float fCosN = GetCosAngle(triangles[corners[i].iFace].faceNorm, triangles[corners[j].iFace].faceNorm);
+								if (fCosN >= fThresCos) {
+									group.corners.push_back(j);
+									cornerToWeldGroup[j] = iGroupIdx;
+								}
+							}
+						}
+						j = next[j];
+					}
 				}
 			}
 		}
