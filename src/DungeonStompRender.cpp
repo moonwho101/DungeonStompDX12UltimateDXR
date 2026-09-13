@@ -35,6 +35,7 @@ extern int number_of_polys_per_frame;
 extern POLY_SORT ObjectsToDraw[MAX_NUM_QUADS];
 extern int *verts_per_poly;
 extern bool enableVsync;
+extern bool enableGui;
 extern bool enableNormalmap;
 extern Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> mSrvDescriptorHeap;
 
@@ -229,7 +230,7 @@ void DungeonStompApp::Draw(const GameTimer &gt) {
 	}
 
 	// Render ImGui UI overlay as a final pass over the preserved back buffer
-	if (mImguiSrvHeap && enableOnscreenDebug) {
+	if (mImguiSrvHeap && enableGui) {
 		ImGui_ImplDX12_NewFrame();
 		ImGui_ImplWin32_NewFrame();
 		ImGui::NewFrame();

@@ -42,6 +42,10 @@ bool enableOnscreenDebug = false;
 bool enableOnscreenDebugKey = false;
 bool enableDXR = false;
 bool enableDXRKey = false;
+bool enableGui = false;
+bool enableGuiKey = false;
+
+
 
 // DXR debug stats (updated each frame when DXR is active)
 int gDXRTriangleCount = 0;
@@ -92,7 +96,7 @@ void UpdateWorld(float fElapsedTime);
 void DungeonStompApp::Update(const GameTimer &gt) {
 	float t = gt.DeltaTime();
 
-	if (!enableOnscreenDebug)
+	if (!enableGui)
 		UpdateControls();
 
 	FrameMove(0.0f, t);
@@ -414,13 +418,22 @@ void DungeonStompApp::OnKeyboardInput(const GameTimer &gt) {
 		enableOnscreenDebug = !enableOnscreenDebug;
 		sprintf_s(gActionMessage, "Onscreen Debug %s", enableOnscreenDebug ? "Enabled" : "Disabled");
 		UpdateScrollList(0, 255, 255);
+	});
 
-		if (enableOnscreenDebug) {
+	// F9: Imgui
+	handleToggleKey(VK_F9, enableGuiKey, []() {
+		enableGui = !enableGui;
+		sprintf_s(gActionMessage, "Onscreen Debug %s", enableGui ? "Enabled" : "Disabled");
+		UpdateScrollList(0, 255, 255);
+
+		if (enableGui) {
 			ShowCursor(TRUE);
 		} else {
 			ShowCursor(FALSE);
 		}
 	});
+
+
 
 	// R: DirectX Raytracing (DXR)
 	handleToggleKey('R', enableDXRKey, [this]() {
