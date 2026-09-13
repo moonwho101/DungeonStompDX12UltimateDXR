@@ -14,6 +14,9 @@
 #include "DungeonStomp.hpp"
 #include "Ssao.h"
 #include "CameraBob.hpp"
+#include "imgui/imgui.h"
+#include "imgui/imgui_impl_win32.h"
+#include "imgui/imgui_impl_dx12.h"
 
 using namespace DirectX;
 

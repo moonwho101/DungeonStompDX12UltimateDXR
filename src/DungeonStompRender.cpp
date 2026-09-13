@@ -227,7 +227,7 @@ void DungeonStompApp::Draw(const GameTimer &gt) {
 		mCommandList->EndRenderPass();
 	}
 
-	// Render ImGui UI overlay
+	// Render ImGui UI overlay as a final pass over the preserved back buffer
 	if (mImguiSrvHeap) {
 		ImGui_ImplDX12_NewFrame();
 		ImGui_ImplWin32_NewFrame();
@@ -237,9 +237,24 @@ void DungeonStompApp::Draw(const GameTimer &gt) {
 
 		ImGui::Render();
 
-		ID3D12DescriptorHeap *imguiHeaps[] = { mImguiSrvHeap.Get() };
-		mCommandList->SetDescriptorHeaps(1, imguiHeaps);
-		ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), mCommandList.Get());
+		ImDrawData *drawData = ImGui::GetDrawData();
+		if (drawData && drawData->CmdListsCount > 0) {
+			D3D12_RENDER_PASS_RENDER_TARGET_DESC imguiRtDesc = {};
+			imguiRtDesc.cpuDescriptor = CurrentBackBufferView();
+			imguiRtDesc.BeginningAccess.Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_PRESERVE;
+			imguiRtDesc.EndingAccess.Type = D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_PRESERVE;
+
+			mCommandList->BeginRenderPass(1, &imguiRtDesc, nullptr, D3D12_RENDER_PASS_FLAG_NONE);
+
+			ID3D12DescriptorHeap *imguiHeaps[] = { mImguiSrvHeap.Get() };
+			mCommandList->SetDescriptorHeaps(1, imguiHeaps);
+			ImGui_ImplDX12_RenderDrawData(drawData, mCommandList.Get());
+
+			mCommandList->EndRenderPass();
+
+			ID3D12DescriptorHeap *srvHeaps[] = { mSrvDescriptorHeap.Get() };
+			mCommandList->SetDescriptorHeaps(1, srvHeaps);
+		}
 	}
 
 	// Indicate a state transition on the resource usage.

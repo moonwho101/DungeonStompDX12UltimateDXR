@@ -1825,6 +1825,7 @@ void DungeonStompApp::InitImGui() {
 	ImGuiIO &io = ImGui::GetIO();
 	(void)io;
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+	io.MouseDrawCursor = true;
 
 	// Custom Awesome Theme (Slate Glass + Cyberpunk Accents)
 	ImGuiStyle &style = ImGui::GetStyle();
