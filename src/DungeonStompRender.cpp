@@ -15,6 +15,9 @@
 #include "Ssao.h"
 #include "VRSHelper.h"
 #include "DXRHelper.h"
+#include "imgui/imgui.h"
+#include "imgui/imgui_impl_win32.h"
+#include "imgui/imgui_impl_dx12.h"
 
 using namespace DirectX;
 
@@ -222,6 +225,21 @@ void DungeonStompApp::Draw(const GameTimer &gt) {
 		}
 
 		mCommandList->EndRenderPass();
+	}
+
+	// Render ImGui UI overlay
+	if (mImguiSrvHeap) {
+		ImGui_ImplDX12_NewFrame();
+		ImGui_ImplWin32_NewFrame();
+		ImGui::NewFrame();
+
+		RenderImGuiTogglePanel();
+
+		ImGui::Render();
+
+		ID3D12DescriptorHeap *imguiHeaps[] = { mImguiSrvHeap.Get() };
+		mCommandList->SetDescriptorHeaps(1, imguiHeaps);
+		ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), mCommandList.Get());
 	}
 
 	// Indicate a state transition on the resource usage.

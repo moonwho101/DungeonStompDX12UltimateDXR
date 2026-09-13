@@ -13,6 +13,7 @@
 #include "ProcessModel.hpp"
 #include "Dice.hpp"
 #include "CameraBob.hpp"
+#include "imgui/imgui.h"
 using Microsoft::WRL::ComPtr;
 using namespace DirectX;
 using namespace DirectX::PackedVector;
@@ -82,6 +83,10 @@ extern int gDXROutputHeight;
 extern bool enableVsync;
 extern bool enablePlayerHUD;
 extern bool enableOnscreenDebug;
+extern bool enableCameraBob;
+extern bool enableNormalmap;
+extern bool enableShadowmapFeature;
+extern bool enableVRS;
 
 // GPU info populated once at device creation (d3dApp.cpp → InitDirect3D)
 char   gGpuName[256]               = "Unknown";
@@ -705,6 +710,127 @@ void DungeonStompApp::DisplayHud() {
 		RenderText(arialFont, charToWChar(junk), XMFLOAT2(lx, y), sc, pad, hdr); y += rh;				   
 	}
 
+}
+
+void DungeonStompApp::RenderImGuiTogglePanel() {
+	if (drawingShadowMap || drawingSSAO)
+		return;
+
+	ImGui::SetNextWindowPos(ImVec2(15.0f, 15.0f), ImGuiCond_FirstUseEver);
+	ImGui::SetNextWindowSize(ImVec2(330.0f, 380.0f), ImGuiCond_FirstUseEver);
+
+	ImGuiWindowFlags flags = ImGuiWindowFlags_AlwaysAutoResize;
+	if (ImGui::Begin("Engine Settings & Toggles", nullptr, flags)) {
+
+		ImGui::TextColored(ImVec4(0.2f, 0.85f, 1.0f, 1.0f), "Dungeon Stomp DX12 Ultimate");
+		ImGui::Separator();
+		ImGui::Spacing();
+
+		if (ImGui::TreeNodeEx("Graphics & Features", ImGuiTreeNodeFlags_DefaultOpen)) {
+			// Shadow Overlay
+			bool shadowOverlay = (displayShadowMap != 0);
+			if (ImGui::Checkbox("Shadow Overlay [M]", &shadowOverlay)) {
+				displayShadowMap = shadowOverlay ? 1 : 0;
+				sprintf_s(gActionMessage, "Shadow Overlay %s", displayShadowMap ? "Enabled" : "Disabled");
+				UpdateScrollList(0, 255, 255);
+			}
+
+			// SSAO Effect
+			if (ImGui::Checkbox("SSAO Effect [O]", &enableSSao)) {
+				sprintf_s(gActionMessage, "SSAO %s", enableSSao ? "Enabled" : "Disabled");
+				UpdateScrollList(0, 255, 255);
+			}
+
+			// Normal Mapping
+			if (ImGui::Checkbox("Normal Mapping [N]", &enableNormalmap)) {
+				if (enableNormalmap) {
+					SetTextureNormalMap();
+				} else {
+					SetTextureNormalMapEmpty();
+				}
+				sprintf_s(gActionMessage, "Normal Map %s", enableNormalmap ? "Enabled" : "Disabled");
+				UpdateScrollList(0, 255, 255);
+			}
+
+			// Shadow Maps
+			if (ImGui::Checkbox("Shadow Maps [J]", &enableShadowmapFeature)) {
+				sprintf_s(gActionMessage, "Shadowmap Feature %s", enableShadowmapFeature ? "Enabled" : "Disabled");
+				UpdateScrollList(0, 255, 255);
+			}
+
+			// Variable Rate Shading (VRS)
+			bool vrsSupported = mVRSHelper.IsSupported();
+			if (!vrsSupported) ImGui::BeginDisabled();
+			if (ImGui::Checkbox("VRS Shading [T]", &enableVRS)) {
+				if (enableVRS && vrsSupported) {
+					sprintf_s(gActionMessage, "Variable Rate Shading Enabled");
+				} else {
+					enableVRS = false;
+					sprintf_s(gActionMessage, "VRS Not Supported on this GPU");
+				}
+				UpdateScrollList(0, 255, 255);
+			}
+			if (!vrsSupported) {
+				ImGui::EndDisabled();
+				ImGui::SameLine();
+				ImGui::TextDisabled("(Unsupported)");
+			}
+
+			// DXR Raytracing
+			if (!mDXRInitialized) ImGui::BeginDisabled();
+			if (ImGui::Checkbox("DXR Raytracing [R]", &enableDXR)) {
+				if (enableDXR && mDXRInitialized) {
+					sprintf_s(gActionMessage, "DirectX Raytracing Enabled");
+				} else {
+					enableDXR = false;
+					sprintf_s(gActionMessage, "DXR Not Supported on this GPU");
+				}
+				UpdateScrollList(0, 255, 255);
+			}
+			if (!mDXRInitialized) {
+				ImGui::EndDisabled();
+				ImGui::SameLine();
+				ImGui::TextDisabled("(Unsupported)");
+			}
+
+			ImGui::TreePop();
+		}
+
+		ImGui::Spacing();
+
+		if (ImGui::TreeNodeEx("System & Display", ImGuiTreeNodeFlags_DefaultOpen)) {
+			// VSync Lock
+			if (ImGui::Checkbox("VSync Lock [V]", &enableVsync)) {
+				sprintf_s(gActionMessage, "VSync %s", enableVsync ? "Enabled" : "Disabled");
+				UpdateScrollList(0, 255, 255);
+			}
+
+			// Camera Headbob
+			if (ImGui::Checkbox("Camera Headbob [B]", &enableCameraBob)) {
+				sprintf_s(gActionMessage, "Camera Bob %s", enableCameraBob ? "Enabled" : "Disabled");
+				UpdateScrollList(0, 255, 255);
+			}
+
+			// Player HUD
+			if (ImGui::Checkbox("Player HUD [H]", &enablePlayerHUD)) {
+				sprintf_s(gActionMessage, "Player HUD %s", enablePlayerHUD ? "Enabled" : "Disabled");
+				UpdateScrollList(0, 255, 255);
+			}
+
+			// Debug Stats
+			if (ImGui::Checkbox("Debug Stats [F8]", &enableOnscreenDebug)) {
+				sprintf_s(gActionMessage, "Onscreen Debug %s", enableOnscreenDebug ? "Enabled" : "Disabled");
+				UpdateScrollList(0, 255, 255);
+			}
+
+			ImGui::TreePop();
+		}
+
+		ImGui::Spacing();
+		ImGui::Separator();
+		ImGui::TextDisabled("Use mouse or hotkeys [M,O,N,J,T,R,V,B,H,F8]");
+	}
+	ImGui::End();
 }
 
 void DungeonStompApp::ScanMod(float fElapsedTime) {
