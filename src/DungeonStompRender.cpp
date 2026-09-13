@@ -15,6 +15,9 @@
 #include "Ssao.h"
 #include "VRSHelper.h"
 #include "DXRHelper.h"
+#include "imgui/imgui.h"
+#include "imgui/imgui_impl_win32.h"
+#include "imgui/imgui_impl_dx12.h"
 
 using namespace DirectX;
 
@@ -23,6 +26,7 @@ extern bool enableSSao;
 extern bool drawingSSAO;
 extern bool enableVRS;
 extern bool enablePlayerHUD;
+extern bool enableOnscreenDebug;
 extern int cnt;
 extern int trueplayernum;
 extern bool drawingShadowMap;
@@ -31,6 +35,7 @@ extern int number_of_polys_per_frame;
 extern POLY_SORT ObjectsToDraw[MAX_NUM_QUADS];
 extern int *verts_per_poly;
 extern bool enableVsync;
+extern bool enableGui;
 extern bool enableNormalmap;
 extern Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> mSrvDescriptorHeap;
 
@@ -222,6 +227,36 @@ void DungeonStompApp::Draw(const GameTimer &gt) {
 		}
 
 		mCommandList->EndRenderPass();
+	}
+
+	// Render ImGui UI overlay as a final pass over the preserved back buffer
+	if (mImguiSrvHeap && enableGui) {
+		ImGui_ImplDX12_NewFrame();
+		ImGui_ImplWin32_NewFrame();
+		ImGui::NewFrame();
+
+		RenderImGuiTogglePanel();
+
+		ImGui::Render();
+
+		ImDrawData *drawData = ImGui::GetDrawData();
+		if (drawData && drawData->CmdListsCount > 0) {
+			D3D12_RENDER_PASS_RENDER_TARGET_DESC imguiRtDesc = {};
+			imguiRtDesc.cpuDescriptor = CurrentBackBufferView();
+			imguiRtDesc.BeginningAccess.Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_PRESERVE;
+			imguiRtDesc.EndingAccess.Type = D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_PRESERVE;
+
+			mCommandList->BeginRenderPass(1, &imguiRtDesc, nullptr, D3D12_RENDER_PASS_FLAG_NONE);
+
+			ID3D12DescriptorHeap *imguiHeaps[] = { mImguiSrvHeap.Get() };
+			mCommandList->SetDescriptorHeaps(1, imguiHeaps);
+			ImGui_ImplDX12_RenderDrawData(drawData, mCommandList.Get());
+
+			mCommandList->EndRenderPass();
+
+			ID3D12DescriptorHeap *srvHeaps[] = { mSrvDescriptorHeap.Get() };
+			mCommandList->SetDescriptorHeaps(1, srvHeaps);
+		}
 	}
 
 	// Indicate a state transition on the resource usage.

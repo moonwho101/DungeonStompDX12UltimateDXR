@@ -14,6 +14,9 @@
 #include "DungeonStomp.hpp"
 #include "Ssao.h"
 #include "CameraBob.hpp"
+#include "imgui/imgui.h"
+#include "imgui/imgui_impl_win32.h"
+#include "imgui/imgui_impl_dx12.h"
 
 using namespace DirectX;
 
@@ -39,6 +42,10 @@ bool enableOnscreenDebug = false;
 bool enableOnscreenDebugKey = false;
 bool enableDXR = false;
 bool enableDXRKey = false;
+bool enableGui = false;
+bool enableGuiKey = false;
+
+
 
 // DXR debug stats (updated each frame when DXR is active)
 int gDXRTriangleCount = 0;
@@ -88,7 +95,10 @@ void UpdateWorld(float fElapsedTime);
 
 void DungeonStompApp::Update(const GameTimer &gt) {
 	float t = gt.DeltaTime();
-	UpdateControls();
+
+	if (!enableGui)
+		UpdateControls();
+
 	FrameMove(0.0f, t);
 	UpdateWorld(t);
 	OnKeyboardInput(gt);
@@ -327,158 +337,106 @@ void DungeonStompApp::OnKeyboardInput(const GameTimer &gt) {
 		}
 	}
 
-	if (GetAsyncKeyState('M') && !displayShadowMapKeyPress) {
-		if (displayShadowMap)
-			displayShadowMap = 0;
-		else
-			displayShadowMap = 1;
-	}
-
-	if (GetAsyncKeyState('M')) {
-		displayShadowMapKeyPress = 1;
-	} else {
-		displayShadowMapKeyPress = 0;
-	}
-
-	if (GetAsyncKeyState('O') && !enableSSaoKey) {
-		if (enableSSao) {
-			enableSSao = 0;
-			strcpy_s(gActionMessage, "SSAO Disabled");
-			UpdateScrollList(0, 255, 255);
-		} else {
-			strcpy_s(gActionMessage, "SSAO Enabled");
-			UpdateScrollList(0, 255, 255);
-			enableSSao = 1;
+	auto handleToggleKey = [](int vKey, auto &keyState, auto onToggle) {
+		bool isDown = (GetAsyncKeyState(vKey) & 0x8000) != 0;
+		if (isDown && !keyState) {
+			onToggle();
 		}
-	}
+		keyState = isDown ? 1 : 0;
+	};
 
-	if (GetAsyncKeyState('O')) {
-		enableSSaoKey = 1;
-	} else {
-		enableSSaoKey = 0;
-	}
-
-	if (GetAsyncKeyState('B') && !enableCameraBobKey) {
-		if (enableCameraBob) {
-			enableCameraBob = false;
-			strcpy_s(gActionMessage, "Camera bob Disabled");
-			UpdateScrollList(0, 255, 255);
-		} else {
-			strcpy_s(gActionMessage, "Camera bob Enabled");
-			UpdateScrollList(0, 255, 255);
-			enableCameraBob = true;
-		}
-	}
-
-	if (GetAsyncKeyState('B')) {
-		enableCameraBobKey = 1;
-	} else {
-		enableCameraBobKey = 0;
-	}
-
-	if (GetAsyncKeyState('N') && !enableNormalmapKey) {
-		if (enableNormalmap) {
-			enableNormalmap = false;
-			SetTextureNormalMapEmpty();
-			strcpy_s(gActionMessage, "Normal map Disabled");
-			UpdateScrollList(0, 255, 255);
-		} else {
-			SetTextureNormalMap();
-			strcpy_s(gActionMessage, "Normal map Enabled");
-			UpdateScrollList(0, 255, 255);
-			enableNormalmap = true;
-		}
-	}
-
-	if (GetAsyncKeyState('N')) {
-		enableNormalmapKey = 1;
-	} else {
-		enableNormalmapKey = 0;
-	}
-
-	if (GetAsyncKeyState('V') && !enableVsyncKey) {
-		if (enableVsync) {
-			enableVsync = false;
-			strcpy_s(gActionMessage, "VSync Disabled");
-			UpdateScrollList(0, 255, 255);
-		} else {
-			strcpy_s(gActionMessage, "VSync Enabled");
-			UpdateScrollList(0, 255, 255);
-			enableVsync = true;
-		}
-	}
-
-	if (GetAsyncKeyState('V')) {
-		enableVsyncKey = 1;
-	} else {
-		enableVsyncKey = 0;
-	}
-
-	if (GetAsyncKeyState('J') && !enableShadowmapFeatureKey) {
-		enableShadowmapFeature = !enableShadowmapFeature;
-		if (enableShadowmapFeature) {
-			strcpy_s(gActionMessage, "Shadowmap Feature Enabled");
-		} else {
-			strcpy_s(gActionMessage, "Shadowmap Feature Disabled");
-		}
+	// M: Shadow Map Overlay
+	handleToggleKey('M', displayShadowMapKeyPress, []() {
+		displayShadowMap = displayShadowMap ? 0 : 1;
+		sprintf_s(gActionMessage, "Shadow Overlay %s", displayShadowMap ? "Enabled" : "Disabled");
 		UpdateScrollList(0, 255, 255);
-	}
-	if (GetAsyncKeyState('J')) {
-		enableShadowmapFeatureKey = true;
-	} else {
-		enableShadowmapFeatureKey = false;
-	}
+	});
 
-	if (GetAsyncKeyState('T') && !enableVRSKey) {
+	// O: SSAO
+	handleToggleKey('O', enableSSaoKey, []() {
+		enableSSao = !enableSSao;
+		sprintf_s(gActionMessage, "SSAO %s", enableSSao ? "Enabled" : "Disabled");
+		UpdateScrollList(0, 255, 255);
+	});
+
+	// B: Camera Bob
+	handleToggleKey('B', enableCameraBobKey, []() {
+		enableCameraBob = !enableCameraBob;
+		sprintf_s(gActionMessage, "Camera Bob %s", enableCameraBob ? "Enabled" : "Disabled");
+		UpdateScrollList(0, 255, 255);
+	});
+
+	// N: Normal Map
+	handleToggleKey('N', enableNormalmapKey, [this]() {
+		enableNormalmap = !enableNormalmap;
+		if (enableNormalmap) {
+			SetTextureNormalMap();
+		} else {
+			SetTextureNormalMapEmpty();
+		}
+		sprintf_s(gActionMessage, "Normal Map %s", enableNormalmap ? "Enabled" : "Disabled");
+		UpdateScrollList(0, 255, 255);
+	});
+
+	// V: VSync
+	handleToggleKey('V', enableVsyncKey, []() {
+		enableVsync = !enableVsync;
+		sprintf_s(gActionMessage, "VSync %s", enableVsync ? "Enabled" : "Disabled");
+		UpdateScrollList(0, 255, 255);
+	});
+
+	// J: Shadowmap Feature
+	handleToggleKey('J', enableShadowmapFeatureKey, []() {
+		enableShadowmapFeature = !enableShadowmapFeature;
+		sprintf_s(gActionMessage, "Shadowmap Feature %s", enableShadowmapFeature ? "Enabled" : "Disabled");
+		UpdateScrollList(0, 255, 255);
+	});
+
+	// T: Variable Rate Shading (VRS)
+	handleToggleKey('T', enableVRSKey, [this]() {
 		enableVRS = !enableVRS;
 		if (enableVRS && mVRSHelper.IsSupported()) {
-			strcpy_s(gActionMessage, "Variable Rate Shading Enabled");
+			sprintf_s(gActionMessage, "Variable Rate Shading Enabled");
 		} else if (!mVRSHelper.IsSupported()) {
 			enableVRS = false;
-			strcpy_s(gActionMessage, "VRS Not Supported on this GPU");
+			sprintf_s(gActionMessage, "VRS Not Supported on this GPU");
 		} else {
-			strcpy_s(gActionMessage, "Variable Rate Shading Disabled");
+			sprintf_s(gActionMessage, "Variable Rate Shading Disabled");
 		}
 		UpdateScrollList(0, 255, 255);
-	}
-	if (GetAsyncKeyState('T')) {
-		enableVRSKey = true;
-	} else {
-		enableVRSKey = false;
-	}
+	});
 
-	if (GetAsyncKeyState('H') && !enablePlayerHUDKey) {
+	// H: Player HUD
+	handleToggleKey('H', enablePlayerHUDKey, []() {
 		enablePlayerHUD = !enablePlayerHUD;
-		if (enablePlayerHUD) {
-			strcpy_s(gActionMessage, "Player HUD Enabled");
-		} else {
-			strcpy_s(gActionMessage, "Player HUD Disabled");
-		}
+		sprintf_s(gActionMessage, "Player HUD %s", enablePlayerHUD ? "Enabled" : "Disabled");
 		UpdateScrollList(0, 255, 255);
-	}
-	if (GetAsyncKeyState('H')) {
-		enablePlayerHUDKey = true;
-	} else {
-		enablePlayerHUDKey = false;
-	}
+	});
 
-	if (GetAsyncKeyState(VK_F8) && !enableOnscreenDebugKey) {
+	// F8: Onscreen Debug
+	handleToggleKey(VK_F8, enableOnscreenDebugKey, []() {
 		enableOnscreenDebug = !enableOnscreenDebug;
-		if (enableOnscreenDebug) {
-			strcpy_s(gActionMessage, "Onscreen Debug Enabled");
-		} else {
-			strcpy_s(gActionMessage, "Onscreen Debug Disabled");
-		}
+		sprintf_s(gActionMessage, "Onscreen Debug %s", enableOnscreenDebug ? "Enabled" : "Disabled");
 		UpdateScrollList(0, 255, 255);
-	}
-	if (GetAsyncKeyState(VK_F8)) {
-		enableOnscreenDebugKey = true;
-	} else {
-		enableOnscreenDebugKey = false;
-	}
+	});
 
-	// DXR toggle ('R' key)
-	if (GetAsyncKeyState('R') && !enableDXRKey) {
+	// F9: Imgui
+	handleToggleKey(VK_F9, enableGuiKey, []() {
+		enableGui = !enableGui;
+		sprintf_s(gActionMessage, "Onscreen Debug %s", enableGui ? "Enabled" : "Disabled");
+		UpdateScrollList(0, 255, 255);
+
+		if (enableGui) {
+			ShowCursor(TRUE);
+		} else {
+			ShowCursor(FALSE);
+		}
+	});
+
+
+
+	// R: DirectX Raytracing (DXR)
+	handleToggleKey('R', enableDXRKey, [this]() {
 		enableDXR = !enableDXR;
 		if (enableDXR && mDXRInitialized) {
 			strcpy_s(gActionMessage, "DirectX Raytracing Enabled");
@@ -489,12 +447,7 @@ void DungeonStompApp::OnKeyboardInput(const GameTimer &gt) {
 			strcpy_s(gActionMessage, "DirectX Raytracing Disabled");
 		}
 		UpdateScrollList(0, 255, 255);
-	}
-	if (GetAsyncKeyState('R')) {
-		enableDXRKey = true;
-	} else {
-		enableDXRKey = false;
-	}
+	});
 }
 
 void DungeonStompApp::UpdateMaterialCBs(const GameTimer &gt) {

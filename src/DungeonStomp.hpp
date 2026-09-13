@@ -113,6 +113,9 @@ class DungeonStompApp : public D3DApp {
 	void SetDungeonText();
 	void ScanMod(float fElapsedTime);
 	void DisplayHud();
+	void RenderTogglePanel();
+	void RenderImGuiTogglePanel();
+	void InitImGui();
 	void DisplayPlayerCaption();
 	void DrawDungeon(ID3D12GraphicsCommandList *cmdList, const std::vector<RenderItem *> &ritems, BOOL isAlpha, bool isTorch = false, bool normalMap = false);
 	void SetTextureNormalMap();
@@ -205,6 +208,8 @@ class DungeonStompApp : public D3DApp {
 	VRSHelper mVRSHelper;
 	std::unique_ptr<DXRHelper> mDXRHelper;
 	bool mDXRInitialized = false;
+
+	ComPtr<ID3D12DescriptorHeap> mImguiSrvHeap = nullptr;
 
 	DirectX::BoundingSphere mSceneBounds;
 

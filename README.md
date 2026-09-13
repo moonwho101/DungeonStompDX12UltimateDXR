@@ -82,7 +82,7 @@ DungeonStomp.exe
 | **Move** | `W` `A` `S` `D` | **Cycle Weapons** | `Q` / `Z` or `Mouse Wheel` |
 | **Attack** | `Left Click` | **Load / Save** | `F5` / `F6` |
 | **Forward** | `Right Click` | **Fullscreen** | `Alt`+`Enter` / `F11` |
-| **Open Doors** | `Space` | **Debug HUD** | `F8` |
+| **Open Doors** | `Space` | **Debug HUD / GUI** | `F8 / F9` |
 | **Jump** | `E` | **Xbox Controller** | Supported (enabled in `DirectInput.cpp`) |
 
 <details>

@@ -18,6 +18,9 @@
 #include "CameraBob.hpp"
 #include "VRSHelper.h"
 #include "DXRHelper.h"
+#include "imgui/imgui.h"
+#include "imgui/imgui_impl_win32.h"
+#include "imgui/imgui_impl_dx12.h"
 
 using Microsoft::WRL::ComPtr;
 using namespace DirectX;
@@ -90,8 +93,12 @@ DungeonStompApp::DungeonStompApp(HINSTANCE hInstance)
 }
 
 DungeonStompApp::~DungeonStompApp() {
-	if (md3dDevice != nullptr)
+	if (md3dDevice != nullptr) {
 		FlushCommandQueue();
+		ImGui_ImplDX12_Shutdown();
+		ImGui_ImplWin32_Shutdown();
+		ImGui::DestroyContext();
+	}
 }
 
 bool DungeonStompApp::Initialize() {
@@ -166,6 +173,8 @@ bool DungeonStompApp::Initialize() {
 	ThrowIfFailed(mCommandList->Close());
 	ID3D12CommandList *cmdsLists[] = { mCommandList.Get() };
 	mCommandQueue->ExecuteCommandLists(_countof(cmdsLists), cmdsLists);
+
+	InitImGui();
 
 	// Set the Text Buffer
 	textVertexBufferView.BufferLocation = textVertexBuffer->GetGPUVirtualAddress();
@@ -1800,4 +1809,66 @@ void DungeonStompApp::SetTextureNormalMapEmpty() {
 	for (int i = 0; i < number_of_tex_aliases; i++) {
 		TexMap[i].normalmaptextureid = -1;
 	}
+}
+
+void DungeonStompApp::InitImGui() {
+	// Create ImGui SRV Heap
+	D3D12_DESCRIPTOR_HEAP_DESC imguiSrvDesc = {};
+	imguiSrvDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	imguiSrvDesc.NumDescriptors = 1;
+	imguiSrvDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	ThrowIfFailed(md3dDevice->CreateDescriptorHeap(&imguiSrvDesc, IID_PPV_ARGS(&mImguiSrvHeap)));
+
+	// Setup Dear ImGui context
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGuiIO &io = ImGui::GetIO();
+	(void)io;
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+	io.MouseDrawCursor = true;
+
+	// Custom Awesome Theme (Slate Glass + Cyberpunk Accents)
+	ImGuiStyle &style = ImGui::GetStyle();
+	ImGui::StyleColorsDark();
+
+	style.WindowRounding = 8.0f;
+	style.FrameRounding = 5.0f;
+	style.PopupRounding = 5.0f;
+	style.ScrollbarRounding = 5.0f;
+	style.GrabRounding = 5.0f;
+	style.WindowBorderSize = 1.0f;
+	style.FrameBorderSize = 1.0f;
+
+	ImVec4 *colors = style.Colors;
+	colors[ImGuiCol_WindowBg]           = ImVec4(0.08f, 0.09f, 0.13f, 0.90f);
+	colors[ImGuiCol_Border]             = ImVec4(0.22f, 0.28f, 0.40f, 0.70f);
+	colors[ImGuiCol_FrameBg]            = ImVec4(0.14f, 0.17f, 0.24f, 0.80f);
+	colors[ImGuiCol_FrameBgHovered]     = ImVec4(0.22f, 0.28f, 0.40f, 0.90f);
+	colors[ImGuiCol_FrameBgActive]      = ImVec4(0.28f, 0.35f, 0.50f, 1.00f);
+	colors[ImGuiCol_TitleBg]            = ImVec4(0.10f, 0.13f, 0.20f, 1.00f);
+	colors[ImGuiCol_TitleBgActive]      = ImVec4(0.16f, 0.22f, 0.32f, 1.00f);
+	colors[ImGuiCol_CheckMark]          = ImVec4(0.20f, 0.98f, 0.55f, 1.00f);
+	colors[ImGuiCol_SliderGrab]         = ImVec4(0.20f, 0.82f, 1.00f, 1.00f);
+	colors[ImGuiCol_SliderGrabActive]   = ImVec4(0.40f, 0.92f, 1.00f, 1.00f);
+	colors[ImGuiCol_Button]             = ImVec4(0.16f, 0.22f, 0.32f, 0.85f);
+	colors[ImGuiCol_ButtonHovered]      = ImVec4(0.26f, 0.36f, 0.50f, 1.00f);
+	colors[ImGuiCol_ButtonActive]       = ImVec4(0.32f, 0.44f, 0.62f, 1.00f);
+	colors[ImGuiCol_Header]             = ImVec4(0.18f, 0.24f, 0.36f, 0.85f);
+	colors[ImGuiCol_HeaderHovered]      = ImVec4(0.28f, 0.38f, 0.54f, 1.00f);
+	colors[ImGuiCol_HeaderActive]       = ImVec4(0.34f, 0.46f, 0.65f, 1.00f);
+
+	// Setup Platform/Renderer backends
+	ImGui_ImplWin32_Init(mhMainWnd);
+
+	ImGui_ImplDX12_InitInfo initInfo = {};
+	initInfo.Device = md3dDevice.Get();
+	initInfo.CommandQueue = mCommandQueue.Get();
+	initInfo.NumFramesInFlight = gNumFrameResources;
+	initInfo.RTVFormat = mBackBufferFormat;
+	initInfo.DSVFormat = mDepthStencilFormat;
+	initInfo.SrvDescriptorHeap = mImguiSrvHeap.Get();
+	initInfo.LegacySingleSrvCpuDescriptor = mImguiSrvHeap->GetCPUDescriptorHandleForHeapStart();
+	initInfo.LegacySingleSrvGpuDescriptor = mImguiSrvHeap->GetGPUDescriptorHandleForHeapStart();
+
+	ImGui_ImplDX12_Init(&initInfo);
 }

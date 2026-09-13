@@ -4,6 +4,10 @@
 
 #include "d3dApp.h"
 #include <WindowsX.h>
+#include "../src/imgui/imgui.h"
+#include "../src/imgui/imgui_impl_win32.h"
+
+extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 // ---- DirectX 12 Agility SDK opt-in ----
 // These exports tell the D3D12 loader to use the Agility SDK runtime (D3D12Core.dll)
@@ -437,6 +441,9 @@ void D3DApp::OnResize() {
 }
 
 LRESULT D3DApp::MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+	if (ImGui_ImplWin32_WndProcHandler(hwnd, msg, wParam, lParam))
+		return true;
+
 	switch (msg) {
 	// WM_ACTIVATE is sent when the window is activated or deactivated.
 	// We pause the game when the window is deactivated and unpause it
