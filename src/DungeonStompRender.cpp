@@ -26,6 +26,7 @@ extern bool enableSSao;
 extern bool drawingSSAO;
 extern bool enableVRS;
 extern bool enablePlayerHUD;
+extern bool enableOnscreenDebug;
 extern int cnt;
 extern int trueplayernum;
 extern bool drawingShadowMap;
@@ -228,7 +229,7 @@ void DungeonStompApp::Draw(const GameTimer &gt) {
 	}
 
 	// Render ImGui UI overlay as a final pass over the preserved back buffer
-	if (mImguiSrvHeap) {
+	if (mImguiSrvHeap && enableOnscreenDebug) {
 		ImGui_ImplDX12_NewFrame();
 		ImGui_ImplWin32_NewFrame();
 		ImGui::NewFrame();

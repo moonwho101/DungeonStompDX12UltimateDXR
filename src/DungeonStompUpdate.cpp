@@ -91,7 +91,10 @@ void UpdateWorld(float fElapsedTime);
 
 void DungeonStompApp::Update(const GameTimer &gt) {
 	float t = gt.DeltaTime();
-	UpdateControls();
+
+	if (!enableOnscreenDebug)
+		UpdateControls();
+
 	FrameMove(0.0f, t);
 	UpdateWorld(t);
 	OnKeyboardInput(gt);
@@ -411,6 +414,12 @@ void DungeonStompApp::OnKeyboardInput(const GameTimer &gt) {
 		enableOnscreenDebug = !enableOnscreenDebug;
 		sprintf_s(gActionMessage, "Onscreen Debug %s", enableOnscreenDebug ? "Enabled" : "Disabled");
 		UpdateScrollList(0, 255, 255);
+
+		if (enableOnscreenDebug) {
+			ShowCursor(TRUE);
+		} else {
+			ShowCursor(FALSE);
+		}
 	});
 
 	// R: DirectX Raytracing (DXR)
