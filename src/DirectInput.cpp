@@ -231,24 +231,25 @@ VOID UpdateControls() {
 		// Read Keyboard input only
 		if (g_Keyboard_pdidDevice2) {
 			Controls.Escape = diks[DIK_ESCAPE] && 0x80;
-			Controls.bLeft = diks[DIK_A] && 0x80;
-			Controls.bRight = diks[DIK_D] && 0x80;
+			Controls.bLeft = 0;
+			Controls.bRight = 0;
 			Controls.bForward = diks[DIK_W] && 0x80;
 			Controls.bBackward = diks[DIK_S] && 0x80;
 			Controls.bUp = diks[DIK_NUMPADPLUS] && 0x80;
 			Controls.bDown = diks[DIK_NUMPADMINUS] && 0x80;
 			Controls.bHeadUp = diks[DIK_PGUP] && 0x80;
 			Controls.bHeadDown = diks[DIK_PGDN] && 0x80;
-			Controls.bStepLeft = diks[DIK_COMMA] && 0x80;
-			Controls.bStepRight = diks[DIK_PERIOD] && 0x80;
+			Controls.bStepLeft = diks[DIK_A] && 0x80;
+			Controls.bStepRight = diks[DIK_D] && 0x80;
 			Controls.bPrevWeap = diks[DIK_Z] && 0x80;
 			Controls.bNextWeap = diks[DIK_Q] && 0x80;
 			Controls.bInTalkMode = diks[DIK_SLASH] && 0x80;
-			Controls.opendoor = diks[DIK_SPACE] && 0x80;
+			Controls.opendoor = diks[DIK_E] && 0x80;
 			Controls.bFire2 = diks[DIK_END] && 0x80;
-			Controls.bCameraleft = diks[DIK_LSHIFT] && 0x80;
-			Controls.bCameraright = diks[DIK_RSHIFT] && 0x80;
-			Controls.missle = diks[DIK_E] && 0x80;
+			Controls.bCameraleft = 0;
+			Controls.bCameraright = 0;
+			Controls.bSprint = (diks[DIK_LSHIFT] && 0x80) || (diks[DIK_RSHIFT] && 0x80);
+			Controls.missle = diks[DIK_SPACE] && 0x80;
 			Controls.bFire = diks[DIK_RCONTROL] && 0x80;
 			Controls.spell = diks[DIK_RCONTROL] && 0x80;
 			Controls.xp = diks[DIK_X] && 0x80;
@@ -282,8 +283,8 @@ VOID UpdateControls() {
 				Controls.bHeadDown = dims.lY;
 
 			Controls.bFire = dims.rgbButtons[0] && 0x80;
-			Controls.opendoor = diks[DIK_SPACE] && 0x80;
-			Controls.bForward = dims.rgbButtons[1] && 0x80;
+			Controls.bFire2 = dims.rgbButtons[1] && 0x80;
+			Controls.opendoor = diks[DIK_E] && 0x80;
 
 			if (Controls.bForward == 0)
 				Controls.bForward = diks[DIK_W] && 0x80;
@@ -292,9 +293,11 @@ VOID UpdateControls() {
 			Controls.bStepRight = diks[DIK_D] && 0x80;
 
 			Controls.bBackward = diks[DIK_S] && 0x80;
-			Controls.spell = dims.rgbButtons[0] && 0x80;
+			if (dims.rgbButtons[1] && 0x80)
+				Controls.spell = 1;
 
-			Controls.missle = diks[DIK_E] && 0x80;
+			Controls.missle = diks[DIK_SPACE] && 0x80;
+			Controls.bSprint = (diks[DIK_LSHIFT] && 0x80) || (diks[DIK_RSHIFT] && 0x80);
 
 			// Mouse wheel: cycle weapons
 			if (dims.lZ > 0)
