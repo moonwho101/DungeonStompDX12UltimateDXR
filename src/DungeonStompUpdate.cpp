@@ -95,10 +95,7 @@ void UpdateWorld(float fElapsedTime);
 
 void DungeonStompApp::Update(const GameTimer &gt) {
 	float t = gt.DeltaTime();
-
-	if (!enableGui)
-		UpdateControls();
-
+	UpdateControls();
 	FrameMove(0.0f, t);
 	UpdateWorld(t);
 	OnKeyboardInput(gt);
@@ -423,7 +420,7 @@ void DungeonStompApp::OnKeyboardInput(const GameTimer &gt) {
 	// F9: Imgui
 	handleToggleKey(VK_F9, enableGuiKey, []() {
 		enableGui = !enableGui;
-		sprintf_s(gActionMessage, "Onscreen Debug %s", enableGui ? "Enabled" : "Disabled");
+		sprintf_s(gActionMessage, "Onscreen Debug GUI %s", enableGui ? "Enabled" : "Disabled");
 		UpdateScrollList(0, 255, 255);
 
 		if (enableGui) {

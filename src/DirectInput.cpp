@@ -22,6 +22,7 @@ void PlaySong();
 extern int damageinprogress;
 extern char gActionMessage[2048];
 extern int musicon;
+extern bool enableGui;
 int stopmusic = 0;
 int nextlevel = 0;
 
@@ -414,7 +415,8 @@ VOID UpdateControls() {
 				DelayKey2[i] = FALSE;
 		}
 
-		MovePlayer(&Controls);
+		if (!enableGui)
+			MovePlayer(&Controls);
 	}
 }
 
