@@ -63,6 +63,7 @@ class DungeonStompApp : public D3DApp {
 	float mLandingDip = 0.0f;
 	float mCurrentFov = 50.0f;
 	float mIdleSwayTime = 0.0f;
+	float mLastSwayY = 0.0f;
 
   private:
 	virtual void OnResize() override;
