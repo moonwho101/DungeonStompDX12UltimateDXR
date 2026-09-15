@@ -244,12 +244,12 @@ float3 PBRLightingUnified(
 	return (diffuse + specular) * lightStrength * NdotL * attenuation * shadowFactor;
 }
 
-float3 NormalSampleToWorldSpace(float3 normalMapSample, float3 unitNormalW, float3 tangentW)
+float3 NormalSampleToWorldSpace(float3 normalMapSample, float3 unitNormalW, float4 tangentW)
 {
 	float3 normalT = 2.0f * normalMapSample - 1.0f;
 	float3 N = unitNormalW;
-	float3 T = normalize(tangentW - dot(tangentW, N) * N);
-	float3 B = cross(N, T);
+	float3 T = normalize(tangentW.xyz - dot(tangentW.xyz, N) * N);
+	float3 B = normalize(cross(N, tangentW.xyz) * tangentW.w);
 	float3x3 TBN = float3x3(T, B, N);
 	float3 bumpedNormalW = mul(normalT, TBN);
 	return bumpedNormalW;
@@ -343,7 +343,7 @@ float4 PS(VertexOut pin) : SV_Target
 	float4 normalMapSample = float4(1.0f, 1.0f, 1.0f, 1.0f);
 
 	normalMapSample = gNormalMap.Sample(gsamAnisotropicWrap, pin.TexC);
-	bumpedNormalW = NormalSampleToWorldSpace(normalMapSample.rgb, norm, pin.TangentW);
+	bumpedNormalW = NormalSampleToWorldSpace(normalMapSample.rgb, norm, float4(pin.TangentW, 1.0f));
 
 
     // Eye vector
