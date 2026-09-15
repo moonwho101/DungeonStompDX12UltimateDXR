@@ -460,8 +460,8 @@ static void MD2Mikk_GetPosition(const SMikkTSpaceContext *pContext, float fvPosO
 	int v_idx = pmdata[userData->pmodel_id].f[corner_idx];
 	const VERT &v = userData->frame_verts[v_idx];
 	fvPosOut[0] = v.x;
-	fvPosOut[1] = v.y;
-	fvPosOut[2] = v.z;
+	fvPosOut[1] = v.z;
+	fvPosOut[2] = v.y;
 }
 
 static void MD2Mikk_GetNormal(const SMikkTSpaceContext *pContext, float fvNormOut[], const int iFace, const int iVert) {
@@ -1005,6 +1005,134 @@ void PlayerToD3DVertList(int pmodel_id, int curr_frame, float angle, int texture
 	if (curr_frame >= pmdata[pmodel_id].num_frames)
 		curr_frame = 0;
 
+	// Calculate MD2 model per-frame interpolated positions, normals, and tangents via MikkTSpace
+	int num_poly = pmdata[pmodel_id].num_polys_per_frame;
+	int num_indices = pmdata[pmodel_id].num_verts;
+	int num_verts = pmdata[pmodel_id].num_verts_per_frame;
+
+	if (num_verts <= 0) {
+		int max_v_idx = 0;
+		for (int i = 0; i < num_indices; i++) {
+			if (pmdata[pmodel_id].f[i] > max_v_idx) {
+				max_v_idx = pmdata[pmodel_id].f[i];
+			}
+		}
+		num_verts = max_v_idx + 1;
+	}
+
+	std::vector<VERT> lerped_verts(num_verts);
+
+	const float anim_t = (nextFrame != -1 && nextFrame >= 0 && nextFrame < pmdata[pmodel_id].num_frames && gametimerAnimation > 0.0f && gametimerAnimation < 1.0f) ? gametimerAnimation : 0.0f;
+
+	const VERT *curr_v = pmdata[pmodel_id].w[curr_frame];
+	const VERT *next_v = (anim_t > 0.0f) ? pmdata[pmodel_id].w[nextFrame] : nullptr;
+
+	for (int v = 0; v < num_verts; v++) {
+		if (anim_t > 0.0f && next_v) {
+			lerped_verts[v].x = curr_v[v].x + anim_t * (next_v[v].x - curr_v[v].x);
+			lerped_verts[v].y = curr_v[v].y + anim_t * (next_v[v].y - curr_v[v].y);
+			lerped_verts[v].z = curr_v[v].z + anim_t * (next_v[v].z - curr_v[v].z);
+		} else {
+			lerped_verts[v].x = curr_v[v].x;
+			lerped_verts[v].y = curr_v[v].y;
+			lerped_verts[v].z = curr_v[v].z;
+		}
+		lerped_verts[v].nx = lerped_verts[v].ny = lerped_verts[v].nz = 0.0f;
+		lerped_verts[v].nmx = lerped_verts[v].nmy = lerped_verts[v].nmz = 0.0f;
+	}
+
+	// 1. Calculate face/vertex normals on interpolated vertices
+	int face_i_count = 0;
+	for (int i = 0; i < num_poly; i++) {
+		int num_verts_per_poly = pmdata[pmodel_id].num_vert[i];
+
+		for (int j = 0; j + 2 < num_verts_per_poly; j += 3) {
+			int idx0 = pmdata[pmodel_id].f[face_i_count + j + 0];
+			int idx1 = pmdata[pmodel_id].f[face_i_count + j + 1];
+			int idx2 = pmdata[pmodel_id].f[face_i_count + j + 2];
+
+			if (idx0 >= 0 && idx0 < num_verts &&
+			    idx1 >= 0 && idx1 < num_verts &&
+			    idx2 >= 0 && idx2 < num_verts) {
+
+				VERT tmp0, tmp1, tmp2;
+
+				tmp0.x = lerped_verts[idx0].x;
+				tmp0.y = lerped_verts[idx0].z;
+				tmp0.z = lerped_verts[idx0].y;
+
+				tmp1.x = lerped_verts[idx1].x;
+				tmp1.y = lerped_verts[idx1].z;
+				tmp1.z = lerped_verts[idx1].y;
+
+				tmp2.x = lerped_verts[idx2].x;
+				tmp2.y = lerped_verts[idx2].z;
+				tmp2.z = lerped_verts[idx2].y;
+
+				CalculateVertNormal(
+				    tmp0, tmp1, tmp2,
+				    pmdata[pmodel_id].t[face_i_count + j + 0],
+				    pmdata[pmodel_id].t[face_i_count + j + 1],
+				    pmdata[pmodel_id].t[face_i_count + j + 2]);
+
+				lerped_verts[idx0].nx += tmp0.nx;
+				lerped_verts[idx0].ny += tmp0.ny;
+				lerped_verts[idx0].nz += tmp0.nz;
+				lerped_verts[idx1].nx += tmp0.nx;
+				lerped_verts[idx1].ny += tmp0.ny;
+				lerped_verts[idx1].nz += tmp0.nz;
+				lerped_verts[idx2].nx += tmp0.nx;
+				lerped_verts[idx2].ny += tmp0.ny;
+				lerped_verts[idx2].nz += tmp0.nz;
+			}
+		}
+
+		face_i_count += num_verts_per_poly;
+	}
+
+	// 2. Normalize accumulated vertex normals
+	for (int v = 0; v < num_verts; v++) {
+		float nx = lerped_verts[v].nx;
+		float ny = lerped_verts[v].ny;
+		float nz = lerped_verts[v].nz;
+
+		float len = sqrtf(nx * nx + ny * ny + nz * nz);
+		if (len > 0.00001f) {
+			lerped_verts[v].nx = nx / len;
+			lerped_verts[v].ny = ny / len;
+			lerped_verts[v].nz = nz / len;
+		} else {
+			lerped_verts[v].nx = 0.0f;
+			lerped_verts[v].ny = 1.0f;
+			lerped_verts[v].nz = 0.0f;
+		}
+	}
+
+	// 3. Smooth vertex normals across seam vertices sharing positions
+	SmoothVertArrayNoHash(lerped_verts.data(), num_verts, 0.2f);
+
+	// 4. Generate per-frame tangents using MikkTSpace on interpolated mesh
+	if (num_indices >= 3) {
+		SMikkTSpaceInterface mikkInterface = {};
+		mikkInterface.m_getNumFaces = MD2Mikk_GetNumFaces;
+		mikkInterface.m_getNumVerticesOfFace = MD2Mikk_GetNumVerticesOfFace;
+		mikkInterface.m_getPosition = MD2Mikk_GetPosition;
+		mikkInterface.m_getNormal = MD2Mikk_GetNormal;
+		mikkInterface.m_getTexCoord = MD2Mikk_GetTexCoord;
+		mikkInterface.m_setTSpaceBasic = MD2Mikk_SetTSpaceBasic;
+
+		MD2MikkUserData userData;
+		userData.pmodel_id = pmodel_id;
+		userData.frame_verts = lerped_verts.data();
+		userData.total_triangles = num_indices / 3;
+
+		SMikkTSpaceContext mikkContext = {};
+		mikkContext.m_pInterface = &mikkInterface;
+		mikkContext.m_pUserData = &userData;
+
+		genTangSpaceDefault(&mikkContext);
+	}
+
 	const float cosine = (float)cos(angle * k);
 	const float sine = (float)sin(angle * k);
 
@@ -1013,7 +1141,6 @@ void PlayerToD3DVertList(int pmodel_id, int curr_frame, float angle, int texture
 	const float wz = zt;
 
 	int i_count = 0;
-	const int num_poly = pmdata[pmodel_id].num_polys_per_frame;
 	const int start_cnt = cnt;
 
 	for (int i = 0; i < num_poly; i++) {
@@ -1049,49 +1176,17 @@ void PlayerToD3DVertList(int pmodel_id, int curr_frame, float angle, int texture
 		for (int j = 0; j < num_verts_per_poly; j++) {
 			const short v_index = pmdata[pmodel_id].f[i_count];
 
-			const vert_ptr tp = &pmdata[pmodel_id].w[curr_frame][v_index];
+			const vert_ptr tp = &lerped_verts[v_index];
 
-			float x, y, z;
-			float nx, ny, nz, nmx, nmy, nmz;
-
-			if (nextFrame != -1) {
-				const vert_ptr tpNextFrame = &pmdata[pmodel_id].w[nextFrame][v_index];
-				const float t = (gametimerAnimation > 0.0f && gametimerAnimation < 1.0f) ? gametimerAnimation : 0.0f;
-
-				if (t > 0.0f) {
-					x = tp->x + t * (tpNextFrame->x - tp->x);
-					z = tp->y + t * (tpNextFrame->y - tp->y);
-					y = tp->z + t * (tpNextFrame->z - tp->z);
-
-					nx = tp->nx + t * (tpNextFrame->nx - tp->nx);
-					ny = tp->ny + t * (tpNextFrame->ny - tp->ny);
-					nz = tp->nz + t * (tpNextFrame->nz - tp->nz);
-
-					nmx = tp->nmx + t * (tpNextFrame->nmx - tp->nmx);
-					nmy = tp->nmy + t * (tpNextFrame->nmy - tp->nmy);
-					nmz = tp->nmz + t * (tpNextFrame->nmz - tp->nmz);
-				} else {
-					x = tp->x;
-					z = tp->y;
-					y = tp->z;
-					nx = tp->nx;
-					ny = tp->ny;
-					nz = tp->nz;
-					nmx = tp->nmx;
-					nmy = tp->nmy;
-					nmz = tp->nmz;
-				}
-			} else {
-				x = tp->x;
-				z = tp->y;
-				y = tp->z;
-				nx = tp->nx;
-				ny = tp->ny;
-				nz = tp->nz;
-				nmx = tp->nmx;
-				nmy = tp->nmy;
-				nmz = tp->nmz;
-			}
+			float x = tp->x;
+			float z = tp->y; // MD2 Y is DirectX Z
+			float y = tp->z; // MD2 Z is DirectX Y
+			float nx = tp->nx;
+			float ny = tp->ny;
+			float nz = tp->nz;
+			float nmx = tp->nmx;
+			float nmy = tp->nmy;
+			float nmz = tp->nmz;
 
 			if (weapondrop == 1) {
 				y -= 40.0f;
