@@ -301,7 +301,6 @@ VOID UpdateControls() {
 				Controls.bNextWeap = 1;
 			else if (dims.lZ < 0)
 				Controls.bPrevWeap = 1;
-
 		}
 
 		// Read joystick input

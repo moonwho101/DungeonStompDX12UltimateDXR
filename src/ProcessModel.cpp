@@ -435,7 +435,6 @@ void Compute3DSModelNormals(int pmodel_id) {
 		mikkContext.m_pUserData = &userData;
 
 		genTangSpaceDefault(&mikkContext);
-
 	}
 }
 
@@ -612,8 +611,6 @@ void ComputeMD2ModelNormals(int pmodel_id) {
 		mikkContext.m_pUserData = &userData;
 
 		genTangSpaceDefault(&mikkContext);
-
-		
 	}
 }
 

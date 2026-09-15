@@ -116,8 +116,8 @@ void FirePlayerMissle(float x, float y, float z, float angy, int owner, int shoo
 		if (strstr(your_gun[current_gun].gunname, "SCROLL-MAGICMISSLE") != NULL) {
 			your_missle[misslespot].model_id = 103;
 			your_missle[misslespot].skin_tex_id = 205;
-			your_missle[misslespot].bouncemax= 1;
-			your_missle[misslespot].bounce= 0;
+			your_missle[misslespot].bouncemax = 1;
+			your_missle[misslespot].bounce = 0;
 		} else if (strstr(your_gun[current_gun].gunname, "SCROLL-FIREBALL") != NULL) {
 			your_missle[misslespot].model_id = 104;
 			your_missle[misslespot].skin_tex_id = 288;
@@ -317,7 +317,6 @@ void FirePlayerMissle(float x, float y, float z, float angy, int owner, int shoo
 					XMStoreFloat3(&result, v);
 
 					your_missle[misslecount].velocity = result;
-
 				}
 				int volume;
 				volume = 100 - (int)((100 * your_missle[misslecount].qdist) / ((numberofsquares * monsterdist) / 2));
@@ -466,18 +465,17 @@ void ApplyMissleDamage(int playernum) {
 							}
 
 							{
-							DSHitType spellHit = HIT_MISSILE;
-							//if      (strstr(your_missle[misslecount].gunname, "FIREBALL")  != NULL) spellHit = HIT_FIREBALL;
-							//else if (strstr(your_missle[misslecount].gunname, "LIGHTNING") != NULL) spellHit = HIT_LIGHTNING;
+								DSHitType spellHit = HIT_MISSILE;
+								// if      (strstr(your_missle[misslecount].gunname, "FIREBALL")  != NULL) spellHit = HIT_FIREBALL;
+								// else if (strstr(your_missle[misslecount].gunname, "LIGHTNING") != NULL) spellHit = HIT_LIGHTNING;
 
-							if (your_missle[misslecount].guntype == 20)
-								spellHit = HIT_LIGHTNING;
-							else if (your_missle[misslecount].guntype == 19)
-								spellHit = HIT_FIREBALL;								
+								if (your_missle[misslecount].guntype == 20)
+									spellHit = HIT_LIGHTNING;
+								else if (your_missle[misslecount].guntype == 19)
+									spellHit = HIT_FIREBALL;
 
-
-							DisplayDamage(your_missle[misslecount].x - 2.0f, your_missle[misslecount].y - 20.0f, your_missle[misslecount].z, 1, i, 0, spellHit);
-						}
+								DisplayDamage(your_missle[misslecount].x - 2.0f, your_missle[misslecount].y - 20.0f, your_missle[misslecount].z, 1, i, 0, spellHit);
+							}
 
 							monster_list[i].health = monster_list[i].health - action;
 							int painaction = random_num(3);
@@ -642,7 +640,7 @@ void ApplyMissleDamage(int playernum) {
 						}
 						ApplyPlayerDamage(trueplayernum, raction);
 
-							DSHitType spellHit = HIT_MISSILE;
+						DSHitType spellHit = HIT_MISSILE;
 						// if      (strstr(your_missle[misslecount].gunname, "FIREBALL")  != NULL) spellHit = HIT_FIREBALL;
 						// else if (strstr(your_missle[misslecount].gunname, "LIGHTNING") != NULL) spellHit = HIT_LIGHTNING;
 

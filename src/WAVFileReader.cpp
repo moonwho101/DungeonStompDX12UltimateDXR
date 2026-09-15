@@ -442,7 +442,7 @@ HRESULT LoadAudioFromFile(
 	if (!szFileName)
 		return E_INVALIDARG;
 
-	// open the file
+		// open the file
 #if (_WIN32_WINNT >= _WIN32_WINNT_WIN8)
 	ScopedHandle hFile(safe_handle(CreateFile2(szFileName,
 	                                           GENERIC_READ,
