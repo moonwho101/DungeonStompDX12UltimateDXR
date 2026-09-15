@@ -953,6 +953,7 @@ int SceneInBox(D3DVECTOR point) {
 	int angle = 0;
 
 	angle = (int)360 - (int)angy;
+	angle = (angle % 360 + 360) % 360;
 
 	cosine = cos_table[angle];
 	sine = sin_table[angle];
@@ -2116,33 +2117,33 @@ void DrawPlayerGun(int shadow) {
 			current_frame = player_list[trueplayernum].current_frame;
 			angle = player_list[trueplayernum].gunangle;
 
-float fDot2;
-		if (perspectiveview == 1) {
-			weapondrop = 1;
-			fDot2 = look_up_ang;
-		} else {
-			weapondrop = 0;
-			fDot2 = 0.0f;
-		}
-		if (weapondrop == 0) {
-			wx = player_list[trueplayernum].x;
-			wy = player_list[trueplayernum].y;
-			wz = player_list[trueplayernum].z;
-		} else {
-			float adjust = 10.0f;
-
-			if (shadow == 1) {
-				adjust = -15.0f;
+			float fDot2;
+			if (perspectiveview == 1) {
+				weapondrop = 1;
+				fDot2 = look_up_ang;
+			} else {
+				weapondrop = 0;
 				fDot2 = 0.0f;
 			}
+			if (weapondrop == 0) {
+				wx = player_list[trueplayernum].x;
+				wy = player_list[trueplayernum].y;
+				wz = player_list[trueplayernum].z;
+			} else {
+				float adjust = 10.0f;
 
-			wx = GunTruesave.x;
-			wy = GunTruesave.y + adjust; // +bobY.getY();
-			wz = GunTruesave.z;
-			// wx = m_vEyePt.x;
-			// wy = m_vEyePt.y + 50.0f;
-			// wz = m_vEyePt.z;
-		}
+				if (shadow == 1) {
+					adjust = -15.0f;
+					fDot2 = 0.0f;
+				}
+
+				wx = GunTruesave.x;
+				wy = GunTruesave.y + adjust; // +bobY.getY();
+				wz = GunTruesave.z;
+				// wx = m_vEyePt.x;
+				// wy = m_vEyePt.y + 50.0f;
+				// wz = m_vEyePt.z;
+			}
 
 			int nextFrame = GetNextFramePlayer();
 
@@ -2774,30 +2775,37 @@ int DisplayDamage(float x, float y, float z, int owner, int id, bool criticalhit
 		}
 	}
 
-	//Spawn blood splatter
-	//your_missle[misslespot].model_id = 104;
-	//your_missle[misslespot].skin_tex_id = 370;
-	//your_missle[misslespot].current_frame = 0;
-	//your_missle[misslespot].current_sequence = 0;
-	//your_missle[misslespot].x = x;
-	//your_missle[misslespot].y = y + monstersize;
-	//your_missle[misslespot].z = z;
-	//your_missle[misslespot].rot_angle = (float)gun_angle;
-	//your_missle[misslespot].active = 2;
-	//your_missle[misslespot].owner = (int)owner;
-	//your_missle[misslespot].playernum = (int)owner;
-	//your_missle[misslespot].playertype = (int)1;
-	//your_missle[misslespot].guntype = current_gun;
-	//your_missle[misslespot].critical = criticalhit;
-	//your_missle[misslespot].blood = 1;
-
+	// Spawn blood splatter
+	// your_missle[misslespot].model_id = 104;
+	// your_missle[misslespot].skin_tex_id = 370;
+	// your_missle[misslespot].current_frame = 0;
+	// your_missle[misslespot].current_sequence = 0;
+	// your_missle[misslespot].x = x;
+	// your_missle[misslespot].y = y + monstersize;
+	// your_missle[misslespot].z = z;
+	// your_missle[misslespot].rot_angle = (float)gun_angle;
+	// your_missle[misslespot].active = 2;
+	// your_missle[misslespot].owner = (int)owner;
+	// your_missle[misslespot].playernum = (int)owner;
+	// your_missle[misslespot].playertype = (int)1;
+	// your_missle[misslespot].guntype = current_gun;
+	// your_missle[misslespot].critical = criticalhit;
+	// your_missle[misslespot].blood = 1;
 
 	// Spawn particles based on hit type.
 	switch (hitType) {
-		case HIT_MISSILE:   SpawnMagicParticles(x, y + monstersize, z); break;
-		case HIT_FIREBALL:  SpawnFireParticles (x, y + monstersize, z); break;
-		case HIT_LIGHTNING: SpawnSparkParticles(x, y + monstersize, z); break;
-		default:            SpawnHitParticles  (x, y + monstersize, z, criticalhit); break;
+	case HIT_MISSILE:
+		SpawnMagicParticles(x, y + monstersize, z);
+		break;
+	case HIT_FIREBALL:
+		SpawnFireParticles(x, y + monstersize, z);
+		break;
+	case HIT_LIGHTNING:
+		SpawnSparkParticles(x, y + monstersize, z);
+		break;
+	default:
+		SpawnHitParticles(x, y + monstersize, z, criticalhit);
+		break;
 	}
 
 	return misslespot;
@@ -2809,12 +2817,12 @@ static void StartTreasurePickupFx(int itemIndex, bool burstParticles) {
 
 	item_list[itemIndex].bIsPlayerAlive = FALSE;
 	item_list[itemIndex].bIsPlayerValid = TRUE;
-	item_list[itemIndex].attackspeed = 1; // use attackspeed as a timer for pickup animation
+	item_list[itemIndex].attackspeed = 1;               // use attackspeed as a timer for pickup animation
 	item_list[itemIndex].guny = item_list[itemIndex].y; // save original y position for pickup pop animation
 
-	//if (burstParticles) {
+	// if (burstParticles) {
 	//	SpawnHitParticles(item_list[itemIndex].x, item_list[itemIndex].y + 16.0f, item_list[itemIndex].z, false);
-	//}
+	// }
 }
 
 void GetItem() {
