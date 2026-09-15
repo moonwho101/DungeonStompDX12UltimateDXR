@@ -9,6 +9,10 @@
 #include <math.h>
 #include <time.h>
 #include <stdio.h>
+#include <vector>
+#include <thread>
+#include <cstdlib>
+#include <cstring>
 #include "LoadWorld.hpp"
 #include "world.hpp"
 #include "ImportMD2.hpp"
@@ -544,141 +548,193 @@ int CLoadWorld::CheckObjectId(char *p) {
 	return -1; // error
 }
 
+struct FastTokenizer {
+	const char *ptr;
+	const char *end;
+
+	FastTokenizer(const char *buffer, size_t size) : ptr(buffer), end(buffer + size) {}
+
+	inline void skip_whitespace_and_comments() {
+		while (ptr < end) {
+			if (*ptr == ' ' || *ptr == '\t' || *ptr == '\r' || *ptr == '\n') {
+				ptr++;
+			} else if (*ptr == ';' || *ptr == '#') {
+				while (ptr < end && *ptr != '\n' && *ptr != '\r')
+					ptr++;
+			} else if (ptr + 1 < end && *ptr == '/' && *(ptr + 1) == '/') {
+				while (ptr < end && *ptr != '\n' && *ptr != '\r')
+					ptr++;
+			} else {
+				break;
+			}
+		}
+	}
+
+	inline bool get_token(char *out_str, size_t max_len) {
+		skip_whitespace_and_comments();
+		if (ptr >= end)
+			return false;
+
+		const char *start = ptr;
+		while (ptr < end && *ptr != ' ' && *ptr != '\t' && *ptr != '\r' && *ptr != '\n') {
+			ptr++;
+		}
+		size_t len = ptr - start;
+		if (len >= max_len)
+			len = max_len - 1;
+		memcpy(out_str, start, len);
+		out_str[len] = '\0';
+		return true;
+	}
+
+	inline bool read_int(int &val) {
+		skip_whitespace_and_comments();
+		if (ptr >= end)
+			return false;
+		char *end_ptr = nullptr;
+		val = (int)strtol(ptr, &end_ptr, 10);
+		if (end_ptr == ptr)
+			return false;
+		ptr = end_ptr;
+		return true;
+	}
+
+	inline bool read_float(float &val) {
+		skip_whitespace_and_comments();
+		if (ptr >= end)
+			return false;
+		char *end_ptr = nullptr;
+		val = strtof(ptr, &end_ptr);
+		if (end_ptr == ptr)
+			return false;
+		ptr = end_ptr;
+		return true;
+	}
+
+	inline bool read_vert(int object_id, int vert_count, float dat_scale) {
+		float x, y, z;
+		if (!read_float(x) || !read_float(y) || !read_float(z))
+			return false;
+		obdata[object_id].v[vert_count].x = x * dat_scale;
+		obdata[object_id].v[vert_count].y = y * dat_scale;
+		obdata[object_id].v[vert_count].z = z * dat_scale;
+		return true;
+	}
+
+	inline bool read_vert_ex(int object_id, int vert_count, float dat_scale) {
+		float x, y, z, u, v;
+		if (!read_float(x) || !read_float(y) || !read_float(z) || !read_float(u) || !read_float(v))
+			return false;
+		obdata[object_id].v[vert_count].x = x * dat_scale;
+		obdata[object_id].v[vert_count].y = y * dat_scale;
+		obdata[object_id].v[vert_count].z = z * dat_scale;
+		obdata[object_id].t[vert_count].x = u;
+		obdata[object_id].t[vert_count].y = v;
+		return true;
+	}
+};
+
 BOOL CLoadWorld::LoadObjectData(char *filename) {
-	FILE *fp;
-	int i;
+	FILE *fp = nullptr;
+	if (fopen_s(&fp, filename, "rb") != 0) {
+		char path[256];
+		sprintf_s(path, "bin/%s", filename);
+		if (fopen_s(&fp, path, "rb") != 0) {
+			return FALSE;
+		}
+	}
+
+	fseek(fp, 0, SEEK_END);
+	long file_size = ftell(fp);
+	fseek(fp, 0, SEEK_SET);
+
+	if (file_size <= 0) {
+		fclose(fp);
+		return FALSE;
+	}
+
+	std::vector<char> file_buffer(file_size + 1);
+	size_t read_bytes = fread(file_buffer.data(), 1, file_size, fp);
+	fclose(fp);
+	file_buffer[read_bytes] = '\0';
+
+	FastTokenizer tok(file_buffer.data(), read_bytes);
+
+	if (!obdata) {
+		obdata = new OBJECTDATA[1000];
+	}
+	memset(obdata, 0, sizeof(OBJECTDATA) * 1000);
+
 	int done = 0;
 	int object_id = 0;
 	int object_count = 0;
 	int old_object_id = 0;
 	int vert_count = 0;
-	int pv_count = 0;
 	int poly_count = 0;
 	int texture = 0;
 	int conn_cnt = 0;
-	int num_v;
-	BOOL command_error;
-	float dat_scale;
-	char buffer[256];
+	int num_v = 0;
+	float dat_scale = 1.0f;
 	char s[256];
 	char p[256];
+	bool has_started_object = false;
 
-	obdata = new OBJECTDATA[1000];
+	while (done == 0 && tok.get_token(s, 256)) {
+		if ((strcmp(s, "OBJECT") == 0) || (strcmp(s, "Q2M_OBJECT") == 0)) {
+			if (has_started_object) {
+				num_vert_per_object[object_id] = vert_count;
+				num_polys_per_object[object_id] = poly_count;
+			}
+			dat_scale = 1.0f;
 
-	int maxvertcount = 0;
-
-	int vertcountfinal = 0;
-	int polycountfinal = 0;
-
-	if (fopen_s(&fp, filename, "r") != 0) {
-		// PrintMessage(hwnd, "ERROR can't load ", filename, SCN_AND_FILE);
-		// MessageBox(hwnd, filename, "Error can't load file", MB_OK);
-		return FALSE;
-	}
-
-	// PrintMessage(hwnd, "Loading ", filename, SCN_AND_FILE);
-
-	while (done == 0) {
-		command_error = TRUE;
-
-		fscanf_s(fp, "%s", &s, 256);
-
-		if ((strcmp(s, "OBJECT") == 0) || (strcmp(s, "Q2M_OBJECT") == 0))
-
-		{
-			dat_scale = 1.0;
-
-			old_object_id = object_id;
-
-			fscanf_s(fp, "%s", &p, 256); // read object ID
+			if (!tok.get_token(p, 256))
+				return FALSE;
 			object_id = atoi(p);
-
-			// find the highest object_id
 
 			if (object_id > object_count)
 				object_count = object_id;
 
-			if ((object_id < 0) || (object_id > 399)) {
-				// MessageBox(hwnd, "Error Bad Object ID in: LoadObjectData", NULL, MB_OK);
+			if ((object_id < 0) || (object_id >= 1000)) {
 				return FALSE;
 			}
-
-			num_vert_per_object[old_object_id] = vert_count;
-			num_polys_per_object[old_object_id] = poly_count;
-
-			vertcountfinal += vert_count;
-			polycountfinal += poly_count;
-
-			_itoa_s(vert_count, buffer, _countof(buffer), 10);
-
-			if (vert_count > maxvertcount)
-				maxvertcount = vert_count;
-
-			// PrintMessage(hwnd, buffer, " vert_count objects", LOGFILE_ONLY);
-			_itoa_s(poly_count, buffer, _countof(buffer), 10);
-			// PrintMessage(hwnd, buffer, " polycount objects", LOGFILE_ONLY);
-
-			// PrintMessage(hwnd, "\n", NULL, LOGFILE_ONLY);
 
 			vert_count = 0;
 			poly_count = 0;
 			conn_cnt = 0;
 
-			fscanf_s(fp, "%s", &p, 256); // read object name
-			// PrintMessage(hwnd, p, " vert_count objects", LOGFILE_ONLY);
-
+			if (!tok.get_token(p, 256))
+				return FALSE;
 			strcpy_s((char *)obdata[object_id].name, 256, (char *)&p);
-			command_error = FALSE;
-		}
-
-		if (strcmp(s, "SCALE") == 0) {
-			fscanf_s(fp, "%s", &p, 256);
-			dat_scale = (float)atof(p);
-			command_error = FALSE;
-		}
-
-		if (strcmp(s, "SHADOW") == 0) {
-			fscanf_s(fp, "%s", &p, 256);
-			int shadow = (int)atoi(p);
-
+			has_started_object = true;
+		} else if (strcmp(s, "SCALE") == 0) {
+			if (!tok.read_float(dat_scale))
+				return FALSE;
+		} else if (strcmp(s, "SHADOW") == 0) {
+			int shadow = 0;
+			if (!tok.read_int(shadow))
+				return FALSE;
 			obdata[object_id].shadow = shadow;
-
-			command_error = FALSE;
-		}
-
-		if (strcmp(s, "TEXTURE") == 0) {
-			fscanf_s(fp, "%s", &p, 256);
-
+		} else if (strcmp(s, "TEXTURE") == 0) {
+			if (!tok.get_token(p, 256))
+				return FALSE;
 			texture = CheckValidTextureAlias(p);
-
-			// TODO: fix texture
-
-			// texture = 1;
-
 			if (texture == -1) {
-				// PrintMessage(hwnd, "Error in objects.dat - Bad Texture ID", p, LOGFILE_ONLY);
-				// MessageBox(hwnd, "Error in objects.dat", "Bad Texture ID", MB_OK);
-				fclose(fp);
 				return FALSE;
 			}
-			command_error = FALSE;
-		}
-
-		if (strcmp(s, "TYPE") == 0) {
-			fscanf_s(fp, "%s", &p, 256);
-			command_error = FALSE;
-		}
-
-		if (strcmp(s, "TRI") == 0) {
-			for (i = 0; i < 3; i++) {
-				ReadObDataVert(fp, object_id, vert_count, dat_scale);
+		} else if (strcmp(s, "TYPE") == 0) {
+			if (!tok.get_token(p, 256))
+				return FALSE;
+		} else if (strcmp(s, "TRI") == 0) {
+			for (int i = 0; i < 3; i++) {
+				if (!tok.read_vert(object_id, vert_count, dat_scale))
+					return FALSE;
 				vert_count++;
 			}
 
 			obdata[object_id].use_texmap[poly_count] = TRUE;
 			obdata[object_id].tex[poly_count] = texture;
 			obdata[object_id].num_vert[poly_count] = 3;
-			obdata[object_id].poly_cmd[poly_count] = D3DPT_TRIANGLELIST; // POLY_CMD_TRI;
+			obdata[object_id].poly_cmd[poly_count] = D3DPT_TRIANGLELIST;
 
 			obdata[object_id].t[vert_count + 0].x = TexMap[texture].tu[0];
 			obdata[object_id].t[vert_count + 0].y = TexMap[texture].tv[0];
@@ -688,13 +744,11 @@ BOOL CLoadWorld::LoadObjectData(char *filename) {
 			obdata[object_id].t[vert_count + 2].y = TexMap[texture].tv[2];
 
 			poly_count++;
-			command_error = FALSE;
-		}
-
-		if (strcmp(s, "QUAD") == 0) {
+		} else if (strcmp(s, "QUAD") == 0) {
 			VERT qv[4];
-			for (i = 0; i < 4; i++) {
-				ReadObDataVert(fp, object_id, vert_count + i, dat_scale);
+			for (int i = 0; i < 4; i++) {
+				if (!tok.read_vert(object_id, vert_count + i, dat_scale))
+					return FALSE;
 				qv[i] = obdata[object_id].v[vert_count + i];
 			}
 
@@ -727,27 +781,23 @@ BOOL CLoadWorld::LoadObjectData(char *filename) {
 			obdata[object_id].num_vert[poly_count] = 6;
 			obdata[object_id].poly_cmd[poly_count] = D3DPT_TRIANGLELIST;
 			poly_count++;
-			command_error = FALSE;
-		}
-
-		if (strcmp(s, "TRITEX") == 0) {
-			for (i = 0; i < 3; i++) {
-				ReadObDataVertEx(fp, object_id, vert_count, dat_scale);
+		} else if (strcmp(s, "TRITEX") == 0) {
+			for (int i = 0; i < 3; i++) {
+				if (!tok.read_vert_ex(object_id, vert_count, dat_scale))
+					return FALSE;
 				vert_count++;
 			}
 
 			obdata[object_id].use_texmap[poly_count] = FALSE;
 			obdata[object_id].tex[poly_count] = texture;
 			obdata[object_id].num_vert[poly_count] = 3;
-			obdata[object_id].poly_cmd[poly_count] = D3DPT_TRIANGLELIST; // POLY_CMD_TRI_TEX;
+			obdata[object_id].poly_cmd[poly_count] = D3DPT_TRIANGLELIST;
 			poly_count++;
-			command_error = FALSE;
-		}
-
-		if (strcmp(s, "QUADTEX") == 0) {
+		} else if (strcmp(s, "QUADTEX") == 0) {
 			VERT qv[4], qt[4];
-			for (i = 0; i < 4; i++) {
-				ReadObDataVertEx(fp, object_id, vert_count + i, dat_scale);
+			for (int i = 0; i < 4; i++) {
+				if (!tok.read_vert_ex(object_id, vert_count + i, dat_scale))
+					return FALSE;
 				qv[i] = obdata[object_id].v[vert_count + i];
 				qt[i] = obdata[object_id].t[vert_count + i];
 			}
@@ -773,25 +823,22 @@ BOOL CLoadWorld::LoadObjectData(char *filename) {
 			obdata[object_id].num_vert[poly_count] = 6;
 			obdata[object_id].poly_cmd[poly_count] = D3DPT_TRIANGLELIST;
 			poly_count++;
-			command_error = FALSE;
-		}
+		} else if (strcmp(s, "TRI_STRIP") == 0) {
+			if (!tok.read_int(num_v))
+				return FALSE;
 
-		if (strcmp(s, "TRI_STRIP") == 0) {
-			// Get numbers of verts in triangle strip
-			fscanf_s(fp, "%s", &p, 256);
-			num_v = atoi(p);
+			std::vector<VERT> sv(num_v);
+			std::vector<VERT> st(num_v);
 
-			VERT *sv = new VERT[num_v];
-			VERT *st = new VERT[num_v];
-
-			for (i = 0; i < num_v; i++) {
-				ReadObDataVertEx(fp, object_id, vert_count + i, dat_scale);
+			for (int i = 0; i < num_v; i++) {
+				if (!tok.read_vert_ex(object_id, vert_count + i, dat_scale))
+					return FALSE;
 				sv[i] = obdata[object_id].v[vert_count + i];
 				st[i] = obdata[object_id].t[vert_count + i];
 			}
 
 			int tri_verts = 0;
-			for (i = 0; i < num_v - 2; i++) {
+			for (int i = 0; i < num_v - 2; i++) {
 				if (i % 2 == 0) {
 					obdata[object_id].v[vert_count + tri_verts] = sv[i];
 					obdata[object_id].t[vert_count + tri_verts] = st[i];
@@ -815,9 +862,6 @@ BOOL CLoadWorld::LoadObjectData(char *filename) {
 				}
 			}
 
-			delete[] sv;
-			delete[] st;
-
 			vert_count += tri_verts;
 
 			obdata[object_id].use_texmap[poly_count] = FALSE;
@@ -825,25 +869,22 @@ BOOL CLoadWorld::LoadObjectData(char *filename) {
 			obdata[object_id].num_vert[poly_count] = tri_verts;
 			obdata[object_id].poly_cmd[poly_count] = D3DPT_TRIANGLELIST;
 			poly_count++;
-			command_error = FALSE;
-		}
+		} else if (strcmp(s, "TRI_FAN") == 0) {
+			if (!tok.read_int(num_v))
+				return FALSE;
 
-		if (strcmp(s, "TRI_FAN") == 0) {
-			// Get numbers of verts in triangle fan
-			fscanf_s(fp, "%s", &p, 256);
-			num_v = atoi(p);
+			std::vector<VERT> sv(num_v);
+			std::vector<VERT> st(num_v);
 
-			VERT *sv = new VERT[num_v];
-			VERT *st = new VERT[num_v];
-
-			for (i = 0; i < num_v; i++) {
-				ReadObDataVertEx(fp, object_id, vert_count + i, dat_scale);
+			for (int i = 0; i < num_v; i++) {
+				if (!tok.read_vert_ex(object_id, vert_count + i, dat_scale))
+					return FALSE;
 				sv[i] = obdata[object_id].v[vert_count + i];
 				st[i] = obdata[object_id].t[vert_count + i];
 			}
 
 			int tri_verts = 0;
-			for (i = 0; i < num_v - 2; i++) {
+			for (int i = 0; i < num_v - 2; i++) {
 				obdata[object_id].v[vert_count + tri_verts] = sv[0];
 				obdata[object_id].t[vert_count + tri_verts] = st[0];
 				tri_verts++;
@@ -855,9 +896,6 @@ BOOL CLoadWorld::LoadObjectData(char *filename) {
 				tri_verts++;
 			}
 
-			delete[] sv;
-			delete[] st;
-
 			vert_count += tri_verts;
 
 			obdata[object_id].use_texmap[poly_count] = FALSE;
@@ -865,47 +903,52 @@ BOOL CLoadWorld::LoadObjectData(char *filename) {
 			obdata[object_id].num_vert[poly_count] = tri_verts;
 			obdata[object_id].poly_cmd[poly_count] = D3DPT_TRIANGLELIST;
 			poly_count++;
-			command_error = FALSE;
-		}
-
-		if (strcmp(s, "CONNECTION") == 0) {
+		} else if (strcmp(s, "CONNECTION") == 0) {
 			if (conn_cnt < 4) {
-				fscanf_s(fp, "%s", &p, 256);
-				obdata[object_id].connection[conn_cnt].x = (float)atof(p);
-				fscanf_s(fp, "%s", &p, 256);
-				obdata[object_id].connection[conn_cnt].y = (float)atof(p);
-				fscanf_s(fp, "%s", &p, 256);
-				obdata[object_id].connection[conn_cnt].z = (float)atof(p);
+				if (!tok.read_float(obdata[object_id].connection[conn_cnt].x) ||
+				    !tok.read_float(obdata[object_id].connection[conn_cnt].y) ||
+				    !tok.read_float(obdata[object_id].connection[conn_cnt].z))
+					return FALSE;
 				conn_cnt++;
 			} else {
-				fscanf_s(fp, "%s", &p, 256);
-				fscanf_s(fp, "%s", &p, 256);
-				fscanf_s(fp, "%s", &p, 256);
+				float dummy;
+				if (!tok.read_float(dummy) || !tok.read_float(dummy) || !tok.read_float(dummy))
+					return FALSE;
 			}
-			command_error = FALSE;
-		}
-
-		if (strcmp(s, "END_FILE") == 0) {
+		} else if (strcmp(s, "END_FILE") == 0) {
 			num_vert_per_object[object_id] = vert_count;
 			num_polys_per_object[object_id] = poly_count;
 			obdata_length = object_count + 1;
-			command_error = FALSE;
 			done = 1;
-		}
-
-		if (command_error == TRUE) {
-			_itoa_s(object_id, buffer, _countof(buffer), 10);
-			// PrintMessage(NULL, "CLoadWorld::LoadObjectData - ERROR in objects.dat, object : ", buffer, LOGFILE_ONLY);
-			// MessageBox(hwnd, s, "Unrecognised command", MB_OK);
-			fclose(fp);
+		} else {
 			return FALSE;
 		}
 	}
-	fclose(fp);
 
-	// Calculate normal and tangent for each triangle of every object in obdata using MikkTSpace
-	for (int obj_idx = 0; obj_idx < obdata_length; obj_idx++) {
-		ComputeObDataNormals(obj_idx);
+	if (has_started_object && done == 0) {
+		num_vert_per_object[object_id] = vert_count;
+		num_polys_per_object[object_id] = poly_count;
+		obdata_length = object_count + 1;
+	}
+
+	// Calculate normal and tangent for each triangle of every object in obdata using MikkTSpace in parallel
+	unsigned int num_threads = std::thread::hardware_concurrency();
+	if (num_threads == 0)
+		num_threads = 4;
+
+	std::vector<std::thread> worker_threads;
+	worker_threads.reserve(num_threads);
+
+	for (unsigned int t = 0; t < num_threads; ++t) {
+		worker_threads.emplace_back([t, num_threads]() {
+			for (int obj_idx = (int)t; obj_idx < obdata_length; obj_idx += (int)num_threads) {
+				ComputeObDataNormals(obj_idx);
+			}
+		});
+	}
+
+	for (auto &th : worker_threads) {
+		th.join();
 	}
 
 	//_itoa_s(obdata_length, buffer, _countof(buffer), 10);
