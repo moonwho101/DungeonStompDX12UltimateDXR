@@ -269,8 +269,8 @@ static void ThreeDSMikk_GetPosition(const SMikkTSpaceContext *pContext, float fv
 	int global_v = userData->corner_to_global_v[corner_idx];
 	const VERT &v = userData->frame_verts[global_v];
 	fvPosOut[0] = v.x;
-	fvPosOut[1] = v.z;
-	fvPosOut[2] = v.y;
+	fvPosOut[1] = v.y;
+	fvPosOut[2] = v.z;
 }
 
 static void ThreeDSMikk_GetNormal(const SMikkTSpaceContext *pContext, float fvNormOut[], const int iFace, const int iVert) {
@@ -354,16 +354,16 @@ void Compute3DSModelNormals(int pmodel_id) {
 					VERT tmp0, tmp1, tmp2;
 
 					tmp0.x = frame_verts[g0].x;
-					tmp0.y = frame_verts[g0].z;
-					tmp0.z = frame_verts[g0].y;
+					tmp0.y = frame_verts[g0].y;
+					tmp0.z = frame_verts[g0].z;
 
 					tmp1.x = frame_verts[g1].x;
-					tmp1.y = frame_verts[g1].z;
-					tmp1.z = frame_verts[g1].y;
+					tmp1.y = frame_verts[g1].y;
+					tmp1.z = frame_verts[g1].z;
 
 					tmp2.x = frame_verts[g2].x;
-					tmp2.y = frame_verts[g2].z;
-					tmp2.z = frame_verts[g2].y;
+					tmp2.y = frame_verts[g2].y;
+					tmp2.z = frame_verts[g2].z;
 
 					CalculateVertNormal(
 					    tmp0, tmp1, tmp2,
@@ -997,6 +997,7 @@ void PlayerToD3DVertList(int pmodel_id, int curr_frame, float angle, int texture
 
 	// Indexed 3DS models: forward to indexed path with the correct frame
 	if (pmdata[pmodel_id].use_indexed_primitive == TRUE) {
+		angle = fixangle(angle + 90.0f, 0);
 		PlayerToD3DIndexedVertList(pmodel_id, curr_frame, angle, texture_alias, tex_flag, xt, yt, zt, fDot2);
 		return;
 	}
@@ -2281,8 +2282,8 @@ void PlayerToD3DIndexedVertList(int pmodel_id, int curr_frame, float angle, int 
 
 				const auto &vert = pmdata[pmodel_id].w[curr_frame][global_v];
 				float x = vert.x;
-				float z = vert.y;
-				float y = vert.z;
+				float y = vert.y;
+				float z = vert.z;
 
 				float rx, ry, rz;
 
