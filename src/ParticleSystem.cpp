@@ -428,7 +428,7 @@ void DrawParticles() {
                 texture_list_buffer[slot] = 200;
                 break;
             case EMITTER_SPARKS:
-                texture_list_buffer[slot] = 239;
+                texture_list_buffer[slot] = 191-1;
                 break;
             case EMITTER_MAGIC:
                 texture_list_buffer[slot] = 157-1;

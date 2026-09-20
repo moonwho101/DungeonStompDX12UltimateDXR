@@ -418,7 +418,7 @@ void DungeonStompApp::OnKeyboardInput(const GameTimer &gt) {
 	});
 
 	// F9: Imgui
-	handleToggleKey(VK_F9, enableGuiKey, []() {
+	handleToggleKey(VK_F7, enableGuiKey, []() {
 		enableGui = !enableGui;
 		sprintf_s(gActionMessage, "Onscreen Debug GUI %s", enableGui ? "Enabled" : "Disabled");
 		UpdateScrollList(0, 255, 255);
