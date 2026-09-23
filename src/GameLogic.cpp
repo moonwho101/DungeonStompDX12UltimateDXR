@@ -3355,146 +3355,35 @@ int XpPoints(int hd, int hp) {
 }
 
 int LevelUp(int xp) {
-	int countlevels = 0;
+	// compute level using short formula
+	int lvl =
+	    (xp <= 0) ? 0 : (xp <= 2000) ? 1
+	                : (xp <= 4000)   ? 2
+	                : (xp <= 8000)   ? 3
+	                : (xp <= 18000)  ? 4
+	                : (xp <= 35000)  ? 5
+	                : (xp <= 70000)  ? 6
+	                : (xp <= 125000) ? 7
+	                : (xp <= 250000) ? 8
+	                                 : 8 + (xp - 250000) / 250000;
 
-	if (xp > 0 && xp <= 2000)
-		countlevels = 1;
-	else if (xp <= 4000)
-		countlevels = 2;
-	else if (xp <= 8000)
-		countlevels = 3;
-	else if (xp <= 18000)
-		countlevels = 4;
-	else if (xp <= 35000)
-		countlevels = 5;
-	else if (xp <= 70000)
-		countlevels = 6;
-	else if (xp <= 125000)
-		countlevels = 7;
-	else if (xp <= 250000)
-		countlevels = 8;
-	else if (xp <= 500000)
-		countlevels = 9;
-	else if (xp <= 750000)
-		countlevels = 10;
-	else if (xp <= 1000000)
-		countlevels = 11;
-	else if (xp <= 1250000)
-		countlevels = 12;
-	else if (xp <= 1500000)
-		countlevels = 13;
-	else if (xp <= 1750000)
-		countlevels = 14;
-	else if (xp <= 2000000)
-		countlevels = 15;
-	else if (xp <= 2250000)
-		countlevels = 16;
-	else if (xp <= 2500000)
-		countlevels = 17;
-	else if (xp <= 2750000)
-		countlevels = 18;
-	else if (xp <= 3000000)
-		countlevels = 19;
-	else if (xp <= 3250000)
-		countlevels = 20;
-	else if (xp <= 3500000)
-		countlevels = 21;
-	else if (xp <= 3750000)
-		countlevels = 22;
-	else if (xp <= 4000000)
-		countlevels = 23;
-	else if (xp <= 4250000)
-		countlevels = 24;
-	else if (xp <= 4500000)
-		countlevels = 25;
-	else if (xp <= 4750000)
-		countlevels = 26;
-	else if (xp <= 5000000)
-		countlevels = 27;
-	else if (xp <= 5250000)
-		countlevels = 28;
-	else if (xp <= 5500000)
-		countlevels = 29;
-	else if (xp <= 5750000)
-		countlevels = 30;
-	else if (xp <= 6000000)
-		countlevels = 31;
-	else if (xp <= 6250000)
-		countlevels = 32;
-	else if (xp <= 6500000)
-		countlevels = 33;
-	else if (xp <= 6750000)
-		countlevels = 34;
-	else if (xp <= 7000000)
-		countlevels = 35;
-	else if (xp <= 7250000)
-		countlevels = 36;
-	else if (xp <= 7500000)
-		countlevels = 37;
-	else if (xp <= 7750000)
-		countlevels = 38;
-	else if (xp <= 8000000)
-		countlevels = 39;
-	else if (xp <= 8250000)
-		countlevels = 40;
-	else if (xp <= 8500000)
-		countlevels = 41;
-	else if (xp <= 8750000)
-		countlevels = 42;
-	else if (xp <= 9000000)
-		countlevels = 43;
-	else if (xp <= 9250000)
-		countlevels = 44;
-	else if (xp <= 9500000)
-		countlevels = 45;
-	else if (xp <= 9750000)
-		countlevels = 46;
-	else if (xp <= 10000000)
-		countlevels = 47;
-	else if (xp <= 10250000)
-		countlevels = 48;
-	else if (xp <= 10500000)
-		countlevels = 49;
-	else if (xp <= 10750000)
-		countlevels = 50;
-	else if (xp <= 11000000)
-		countlevels = 51;
-	else if (xp <= 11250000)
-		countlevels = 52;
-	else if (xp <= 11500000)
-		countlevels = 53;
-	else if (xp <= 11750000)
-		countlevels = 54;
-	else if (xp <= 12000000)
-		countlevels = 55;
-	else if (xp <= 12250000)
-		countlevels = 56;
-	else if (xp <= 12500000)
-		countlevels = 57;
-	else if (xp <= 12750000)
-		countlevels = 58;
-	else if (xp <= 13000000)
-		countlevels = 59;
-	else if (xp <= 13250000)
-		countlevels = 60;
-	else if (xp <= 13500000)
-		countlevels = 61;
+	PLAYER &p = player_list[trueplayernum];
 
-	if (player_list[trueplayernum].hd < countlevels) {
-		player_list[trueplayernum].hd++;
+	if (p.hd < lvl) {
+		p.hd++;
 
-		int raction = random_num(20) + 1;
-		if (raction <= player_list[trueplayernum].hd)
-			raction = player_list[trueplayernum].hd;
+		int r = random_num(20) + 1;
+		if (r < p.hd)
+			r = p.hd;
 
-		player_list[trueplayernum].hp += raction;
-		player_list[trueplayernum].health = player_list[trueplayernum].hp;
-		player_list[trueplayernum].thaco--;
+		p.hp += r;
+		p.health = p.hp;
 
-		if (player_list[trueplayernum].thaco <= 0)
-			player_list[trueplayernum].thaco = 5;
+		p.thaco--;
+		if (p.thaco <= 0)
+			p.thaco = 5;
 
-		sprintf_s(gActionMessage, "You went up a level.  Hit Dice: %d", player_list[trueplayernum].hd);
+		sprintf_s(gActionMessage, "You went up a level.  Hit Dice: %d", p.hd);
 		UpdateScrollList(255, 0, 255);
 		PlayWavSound(SoundID("win"), 100);
 	}
@@ -3503,6 +3392,7 @@ int LevelUp(int xp) {
 }
 
 int LevelUpXPNeeded(int xp) {
+	// early custom thresholds
 	if (xp <= 2000)
 		return 2000;
 	if (xp <= 4000)
@@ -3519,111 +3409,11 @@ int LevelUpXPNeeded(int xp) {
 		return 125000;
 	if (xp <= 250000)
 		return 250000;
-	if (xp <= 500000)
-		return 500000;
-	if (xp <= 750000)
-		return 750000;
-	if (xp <= 1000000)
-		return 1000000;
-	if (xp <= 1250000)
-		return 1250000;
-	if (xp <= 1500000)
-		return 1500000;
-	if (xp <= 1750000)
-		return 1750000;
-	if (xp <= 2000000)
-		return 2000000;
-	if (xp <= 2250000)
-		return 2250000;
-	if (xp <= 2500000)
-		return 2500000;
-	if (xp <= 2750000)
-		return 2750000;
-	if (xp <= 3000000)
-		return 3000000;
-	if (xp <= 3250000)
-		return 3250000;
-	if (xp <= 3500000)
-		return 3500000;
-	if (xp <= 3750000)
-		return 3750000;
-	if (xp <= 4000000)
-		return 4000000;
-	if (xp <= 4250000)
-		return 4250000;
-	if (xp <= 4500000)
-		return 4500000;
-	if (xp <= 4750000)
-		return 4750000;
-	if (xp <= 5000000)
-		return 5000000;
-	if (xp <= 5250000)
-		return 5250000;
-	if (xp <= 5500000)
-		return 5500000;
-	if (xp <= 5750000)
-		return 5750000;
-	if (xp <= 6000000)
-		return 6000000;
-	if (xp <= 6250000)
-		return 6250000;
-	if (xp <= 6500000)
-		return 6500000;
-	if (xp <= 6750000)
-		return 6750000;
-	if (xp <= 7000000)
-		return 7000000;
-	if (xp <= 7250000)
-		return 7250000;
-	if (xp <= 7500000)
-		return 7500000;
-	if (xp <= 7750000)
-		return 7750000;
-	if (xp <= 8000000)
-		return 8000000;
-	if (xp <= 8250000)
-		return 8250000;
-	if (xp <= 8500000)
-		return 8500000;
-	if (xp <= 8750000)
-		return 8750000;
-	if (xp <= 9000000)
-		return 9000000;
-	if (xp <= 9250000)
-		return 9250000;
-	if (xp <= 9500000)
-		return 9500000;
-	if (xp <= 9750000)
-		return 9750000;
-	if (xp <= 10000000)
-		return 10000000;
-	if (xp <= 10250000)
-		return 10250000;
-	if (xp <= 10500000)
-		return 10500000;
-	if (xp <= 10750000)
-		return 10750000;
-	if (xp <= 11000000)
-		return 11000000;
-	if (xp <= 11250000)
-		return 11250000;
-	if (xp <= 11500000)
-		return 11500000;
-	if (xp <= 11750000)
-		return 11750000;
-	if (xp <= 12000000)
-		return 12000000;
-	if (xp <= 12250000)
-		return 12250000;
-	if (xp <= 12500000)
-		return 12500000;
-	if (xp <= 12750000)
-		return 12750000;
-	if (xp <= 13000000)
-		return 13000000;
-	if (xp <= 13250000)
-		return 13250000;
-	return 13500000;
+
+	// linear progression: next 250k boundary
+	int next = ((xp - 250000) / 250000 + 1) * 250000 + 250000;
+
+	return next;
 }
 
 void statusbardisplay(float x, float length, int type) {
