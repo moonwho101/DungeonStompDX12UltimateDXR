@@ -33,6 +33,22 @@ int CycleBitMap(int i);
 int CalculateView(XMFLOAT3 EyeBall, XMFLOAT3 LookPoint, float angle);
 void ObjectToD3DVertList(int ob_type, float angle, int oblist_index);
 
+extern int g_StaticDungeonVertCount;
+extern int g_StaticDungeonPolyCount;
+extern int g_StaticNumTriangles;
+extern int g_StaticNumVerts;
+extern int g_StaticNumDpCommands;
+
+extern D3DVERTEX2 *g_StaticSrcV;
+extern POLY_SORT *g_StaticObjectsToDraw;
+extern int *g_StaticVertsPerPoly;
+extern int *g_StaticFacesPerPoly;
+extern D3DPRIMITIVETYPE *g_StaticDpCommands;
+extern BOOL *g_StaticDpCommandIndexMode;
+extern int *g_StaticTextureListBuffer;
+
+void BuildStaticDungeon();
+
 void Compute3DSModelNormals(int pmodel_id);
 void ComputeMD2ModelNormals(int pmodel_id);
 void ComputeObDataNormals(int obj_idx);

@@ -12,6 +12,9 @@
 #include <unordered_map>
 #include <vector>
 #include <algorithm>
+#include "DungeonStomp.hpp"
+
+extern DungeonStompApp *gApp;
 
 int itemlistcount = 0;
 
@@ -47,6 +50,76 @@ extern float culldist;
 D3DPRIMITIVETYPE *dp_commands;
 
 BOOL *dp_command_index_mode;
+
+int g_StaticDungeonVertCount = 0;
+int g_StaticDungeonPolyCount = 0;
+int g_StaticNumTriangles = 0;
+int g_StaticNumVerts = 0;
+int g_StaticNumDpCommands = 0;
+
+D3DVERTEX2 *g_StaticSrcV = nullptr;
+POLY_SORT *g_StaticObjectsToDraw = nullptr;
+int *g_StaticVertsPerPoly = nullptr;
+int *g_StaticFacesPerPoly = nullptr;
+D3DPRIMITIVETYPE *g_StaticDpCommands = nullptr;
+BOOL *g_StaticDpCommandIndexMode = nullptr;
+int *g_StaticTextureListBuffer = nullptr;
+
+void BuildStaticDungeon() {
+	if (!g_StaticSrcV) {
+		g_StaticSrcV = new D3DVERTEX2[MAX_NUM_QUADS];
+		g_StaticObjectsToDraw = new POLY_SORT[MAX_NUM_QUADS];
+		g_StaticVertsPerPoly = new int[MAX_NUM_QUADS];
+		g_StaticFacesPerPoly = new int[MAX_NUM_QUADS];
+		g_StaticDpCommands = new D3DPRIMITIVETYPE[MAX_NUM_QUADS];
+		g_StaticDpCommandIndexMode = new BOOL[MAX_NUM_QUADS];
+		g_StaticTextureListBuffer = new int[MAX_NUM_QUADS];
+	}
+
+	cnt = 0;
+	number_of_polys_per_frame = 0;
+	num_triangles_in_scene = 0;
+	num_verts_in_scene = 0;
+	num_dp_commands_in_scene = 0;
+	g_ob_vert_count = 0;
+
+	for (int q = 0; q < oblist_length; q++) {
+		float angle = oblist[q].rot_angle;
+		int ob_type = oblist[q].type;
+
+		if (ob_type != 35 && ob_type != 131 && ob_type != 6 && ob_type != 120) {
+			objectcollide = 1;
+
+			if (strstr(oblist[q].name, "nohit") != NULL) {
+				objectcollide = 0;
+			}
+
+			ObjectToD3DVertList(ob_type, angle, q);
+		}
+	}
+
+	g_StaticDungeonVertCount = cnt;
+	g_StaticDungeonPolyCount = number_of_polys_per_frame;
+	g_StaticNumTriangles = num_triangles_in_scene;
+	g_StaticNumVerts = num_verts_in_scene;
+	g_StaticNumDpCommands = num_dp_commands_in_scene;
+
+	if (g_StaticDungeonVertCount > 0) {
+		memcpy(g_StaticSrcV, src_v, g_StaticDungeonVertCount * sizeof(D3DVERTEX2));
+	}
+	if (g_StaticDungeonPolyCount > 0) {
+		memcpy(g_StaticObjectsToDraw, ObjectsToDraw, g_StaticDungeonPolyCount * sizeof(POLY_SORT));
+		memcpy(g_StaticVertsPerPoly, verts_per_poly, g_StaticDungeonPolyCount * sizeof(int));
+		memcpy(g_StaticFacesPerPoly, faces_per_poly, g_StaticDungeonPolyCount * sizeof(int));
+		memcpy(g_StaticDpCommands, dp_commands, g_StaticDungeonPolyCount * sizeof(D3DPRIMITIVETYPE));
+		memcpy(g_StaticDpCommandIndexMode, dp_command_index_mode, g_StaticDungeonPolyCount * sizeof(BOOL));
+		memcpy(g_StaticTextureListBuffer, texture_list_buffer, g_StaticDungeonPolyCount * sizeof(int));
+	}
+
+	if (gApp) {
+		gApp->BuildStaticDungeonGPUBuffer();
+	}
+}
 
 #define USE_INDEXED_DP 0
 #define USE_NON_INDEXED_DP 1
@@ -435,7 +508,6 @@ void Compute3DSModelNormals(int pmodel_id) {
 		mikkContext.m_pUserData = &userData;
 
 		genTangSpaceDefault(&mikkContext);
-
 	}
 }
 
@@ -612,8 +684,6 @@ void ComputeMD2ModelNormals(int pmodel_id) {
 		mikkContext.m_pUserData = &userData;
 
 		genTangSpaceDefault(&mikkContext);
-
-		
 	}
 }
 

@@ -512,6 +512,8 @@ BOOL CLoadWorld::LoadWorldMap(char *filename) {
 	}
 	fclose(fp);
 
+	BuildStaticDungeon();
+
 	//_itoa_s(oblist_length, buffer, 100, 10);
 	// PrintMessage(hwnd, buffer, " map objects loaded (oblist_length)", SCN_AND_FILE);
 	// PrintMessage(hwnd, "\n", NULL, LOGFILE_ONLY);
@@ -1977,6 +1979,8 @@ int load_game(char *filename) {
 		if (door[montry].y != 0)
 			oblist[door[montry].doornum].y = (float)door[montry].y;
 	}
+
+	BuildStaticDungeon();
 
 	fread(&num_your_guns, sizeof(int), 1, fp);
 	for (montry = 0; montry < num_your_guns; montry++) {

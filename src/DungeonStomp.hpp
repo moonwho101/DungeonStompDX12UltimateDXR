@@ -130,6 +130,14 @@ class DungeonStompApp : public D3DApp {
 	float GetHillsHeight(float x, float z) const;
 	XMFLOAT3 GetHillsNormal(float x, float z) const;
 
+  public:
+	void BuildStaticDungeonGPUBuffer();
+
+  private:
+	ComPtr<ID3D12Resource> mStaticDungeonVB = nullptr;
+	ComPtr<ID3D12Resource> mStaticDungeonUploader = nullptr;
+	D3D12_VERTEX_BUFFER_VIEW mStaticDungeonVBView = {};
+
   private:
 	std::vector<std::unique_ptr<FrameResource>> mFrameResources;
 	FrameResource *mCurrFrameResource = nullptr;
@@ -200,8 +208,8 @@ class DungeonStompApp : public D3DApp {
 	UINT8 *rectangleVBGPUAddress[MaxRectangle];
 	D3D12_VERTEX_BUFFER_VIEW rectangleVertexBufferView[MaxRectangle]; // a view for our text vertex buffer
 
-	bool  rectangleActive[MaxRectangle]  = {};
-	int   rectangleTexId[MaxRectangle]   = {};
+	bool rectangleActive[MaxRectangle] = {};
+	int rectangleTexId[MaxRectangle] = {};
 
 	std::unique_ptr<ShadowMap> mShadowMap;
 	std::unique_ptr<Ssao> mSsao;
