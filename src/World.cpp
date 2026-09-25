@@ -387,6 +387,8 @@ void InitDS() {
 		// return FALSE;
 	}
 
+	BuildStaticDungeon();
+
 	pCWorld->LoadMod("level1.mod");
 	SetStartSpot();
 	float fangle = (float)90 * k;
@@ -425,15 +427,18 @@ void InitDS() {
 
 void UpdateWorld(float fElapsedTime) {
 
-	number_of_polys_per_frame = 0;
-	num_triangles_in_scene = 0;
-	num_verts_in_scene = 0;
-	num_dp_commands_in_scene = 0;
-	cnt = 0;
 	cnt_f = 0;
 	tempvcounter = 0;
 	num_light_sources = 0;
 	g_ob_vert_count = 0;
+
+	// Reset dynamic vertex counter for per-frame 3DS and MD2 models.
+	cnt = 0;
+	// Dynamic polygon draw entries start after static dungeon polygons.
+	number_of_polys_per_frame = g_StaticDungeonPolyCount;
+	num_triangles_in_scene = g_StaticNumTriangles;
+	num_verts_in_scene = g_StaticNumVerts;
+	num_dp_commands_in_scene = g_StaticNumDpCommands;
 
 	float gun_angle;
 	gun_angle = -angy + 90;
@@ -449,41 +454,6 @@ void UpdateWorld(float fElapsedTime) {
 
 	if (maingameloop) {
 		CheckMidiMusic();
-	}
-
-	float distance = 1500.0f;
-
-	if (outside) {
-		distance = 3000.0f;
-	}
-
-	if (largedungeon) {
-		distance = 2500.0f;
-	}
-
-	for (int q = 0; q < oblist_length; q++) {
-		float angle = oblist[q].rot_angle;
-		int ob_type = oblist[q].type;
-
-		// 120 text   //6 lamp post
-		// 35  monster //57 flamesnothit
-		// 131 startpos /58 torch
-		// 120 = text
-
-		// if (ob_type != 120 && ob_type != 35 && ob_type != 131 && ob_type != 6)
-		if (ob_type != 35 && ob_type != 131 && ob_type != 6 && ob_type != 120) {
-			float qdist = FastDistance(m_vEyePt.x - oblist[q].x, m_vEyePt.y - oblist[q].y, m_vEyePt.z - oblist[q].z);
-
-			objectcollide = 1;
-
-			if (strstr(oblist[q].name, "nohit") != NULL) {
-				objectcollide = 0;
-			}
-
-			if (qdist < distance) {
-				ObjectToD3DVertList(ob_type, angle, q);
-			}
-		}
 	}
 
 	endc = cnt;

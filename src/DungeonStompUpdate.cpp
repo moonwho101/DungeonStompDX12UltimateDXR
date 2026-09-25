@@ -45,8 +45,6 @@ bool enableDXRKey = false;
 bool enableGui = false;
 bool enableGuiKey = false;
 
-
-
 // DXR debug stats (updated each frame when DXR is active)
 int gDXRTriangleCount = 0;
 int gDXRAliasCount = 0;
@@ -430,8 +428,6 @@ void DungeonStompApp::OnKeyboardInput(const GameTimer &gt) {
 		}
 	});
 
-
-
 	// R: DirectX Raytracing (DXR)
 	handleToggleKey('R', enableDXRKey, [this]() {
 		enableDXR = !enableDXR;
@@ -787,4 +783,52 @@ void DungeonStompApp::UpdateDungeon(const GameTimer &gt) {
 		    0.001f, // rayConeSpreadAngle
 		    outside);
 	}
+}
+
+void DungeonStompApp::BuildStaticDungeonGPUBuffer() {
+	if (g_StaticDungeonVertCount <= 0 || md3dDevice == nullptr)
+		return;
+
+	std::vector<Vertex> vertices(g_StaticDungeonVertCount);
+	for (int i = 0; i < g_StaticDungeonVertCount; ++i) {
+		vertices[i].Pos.x = g_StaticSrcV[i].x;
+		vertices[i].Pos.y = g_StaticSrcV[i].y;
+		vertices[i].Pos.z = g_StaticSrcV[i].z;
+
+		vertices[i].Normal.x = g_StaticSrcV[i].nx;
+		vertices[i].Normal.y = g_StaticSrcV[i].ny;
+		vertices[i].Normal.z = g_StaticSrcV[i].nz;
+
+		vertices[i].TexC.x = g_StaticSrcV[i].tu;
+		vertices[i].TexC.y = g_StaticSrcV[i].tv;
+
+		vertices[i].TangentU.x = g_StaticSrcV[i].nmx;
+		vertices[i].TangentU.y = g_StaticSrcV[i].nmy;
+		vertices[i].TangentU.z = g_StaticSrcV[i].nmz;
+
+		vertices[i].CastShadow = g_StaticSrcV[i].CastShadow;
+	}
+
+	const UINT vbByteSize = (UINT)vertices.size() * sizeof(Vertex);
+
+	ComPtr<ID3D12CommandAllocator> cmdAlloc;
+	ComPtr<ID3D12GraphicsCommandList> cmdList;
+	ThrowIfFailed(md3dDevice->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&cmdAlloc)));
+	ThrowIfFailed(md3dDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, cmdAlloc.Get(), nullptr, IID_PPV_ARGS(&cmdList)));
+
+	mStaticDungeonVB = d3dUtil::CreateDefaultBuffer(
+	    md3dDevice.Get(),
+	    cmdList.Get(),
+	    vertices.data(),
+	    vbByteSize,
+	    mStaticDungeonUploader);
+
+	mStaticDungeonVBView.BufferLocation = mStaticDungeonVB->GetGPUVirtualAddress();
+	mStaticDungeonVBView.StrideInBytes = sizeof(Vertex);
+	mStaticDungeonVBView.SizeInBytes = vbByteSize;
+
+	ThrowIfFailed(cmdList->Close());
+	ID3D12CommandList *cmdsLists[] = { cmdList.Get() };
+	mCommandQueue->ExecuteCommandLists(_countof(cmdsLists), cmdsLists);
+	FlushCommandQueue();
 }

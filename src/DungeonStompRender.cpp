@@ -71,7 +71,7 @@ void DungeonStompApp::Draw(const GameTimer &gt) {
 	// Reusing the command list reuses memory.
 	ThrowIfFailed(mCommandList->Reset(cmdListAlloc.Get(), mPSOs["opaque"].Get()));
 
-	//ProcessLights11();
+	// ProcessLights11();
 
 	ID3D12DescriptorHeap *descriptorHeaps[] = { mSrvDescriptorHeap.Get() };
 	mCommandList->SetDescriptorHeaps(1, descriptorHeaps);
@@ -94,18 +94,18 @@ void DungeonStompApp::Draw(const GameTimer &gt) {
 		drawingSSAO = false;
 
 		mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-			mDepthStencilBuffer.Get(),
-			D3D12_RESOURCE_STATE_DEPTH_WRITE,
-			D3D12_RESOURCE_STATE_GENERIC_READ));
+		                                     mDepthStencilBuffer.Get(),
+		                                     D3D12_RESOURCE_STATE_DEPTH_WRITE,
+		                                     D3D12_RESOURCE_STATE_GENERIC_READ));
 
 		// Compute SSAO.
 		mCommandList->SetGraphicsRootSignature(mSsaoRootSignature.Get());
 		mSsao->ComputeSsao(mCommandList.Get(), mCurrFrameResource, 3);
 
 		mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-			mDepthStencilBuffer.Get(),
-			D3D12_RESOURCE_STATE_GENERIC_READ,
-			D3D12_RESOURCE_STATE_DEPTH_WRITE));
+		                                     mDepthStencilBuffer.Get(),
+		                                     D3D12_RESOURCE_STATE_GENERIC_READ,
+		                                     D3D12_RESOURCE_STATE_DEPTH_WRITE));
 	}
 
 	// Main rendering pass.
@@ -535,15 +535,15 @@ void DungeonStompApp::DrawDungeon(ID3D12GraphicsCommandList *cmdList, const std:
 	auto matCB = mCurrFrameResource->MaterialCB->Resource();
 
 	bool draw = true;
+	int boundVB = -1; // 0 = static dungeon VB, 1 = dynamic model VB
 
-	int currentObject = 0;
-	for (currentObject = 0; currentObject < number_of_polys_per_frame; currentObject++) {
-		int i = ObjectsToDraw[currentObject].vert_index;
-		int vert_index = ObjectsToDraw[currentObject].srcstart;
-		int fperpoly = ObjectsToDraw[currentObject].srcfstart;
-		int face_index = ObjectsToDraw[currentObject].srcfstart;
+	for (int currentObject = 0; currentObject < number_of_polys_per_frame; currentObject++) {
+		bool isStaticObj = (currentObject < g_StaticDungeonPolyCount);
 
-		int texture_alias_number = texture_list_buffer[i];
+		int i = isStaticObj ? g_StaticObjectsToDraw[currentObject].vert_index : ObjectsToDraw[currentObject].vert_index;
+		int vert_index = isStaticObj ? g_StaticObjectsToDraw[currentObject].srcstart : ObjectsToDraw[currentObject].srcstart;
+
+		int texture_alias_number = isStaticObj ? g_StaticTextureListBuffer[i] : texture_list_buffer[i];
 		int texture_number = TexMap[texture_alias_number].texture;
 
 		int normal_map_texture = TexMap[texture_alias_number].normalmaptextureid;
@@ -582,7 +582,7 @@ void DungeonStompApp::DrawDungeon(ID3D12GraphicsCommandList *cmdList, const std:
 		int oid = 0;
 
 		if (drawingSSAO || drawingShadowMap) {
-			oid = ObjectsToDraw[currentObject].objectId;
+			oid = isStaticObj ? g_StaticObjectsToDraw[currentObject].objectId : ObjectsToDraw[currentObject].objectId;
 
 			// Don't draw player captions
 			if (oid == -99) {
@@ -606,7 +606,8 @@ void DungeonStompApp::DrawDungeon(ID3D12GraphicsCommandList *cmdList, const std:
 				}
 			}
 
-			if (ObjectsToDraw[currentObject].castshaddow == 0) {
+			int castshadow = isStaticObj ? g_StaticObjectsToDraw[currentObject].castshaddow : ObjectsToDraw[currentObject].castshaddow;
+			if (castshadow == 0) {
 				draw = false;
 			}
 		}
@@ -660,21 +661,35 @@ void DungeonStompApp::DrawDungeon(ID3D12GraphicsCommandList *cmdList, const std:
 			}
 			cmdList->SetGraphicsRootDescriptorTable(7, tex4); // Set gSsaoMap
 
-			// CHECK THIS
 			if (normalMap && !drawingShadowMap && !drawingSSAO) {
 				CD3DX12_GPU_DESCRIPTOR_HANDLE tex2(mSrvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
 				tex2.Offset(normal_map_texture, mCbvSrvDescriptorSize);
 				cmdList->SetGraphicsRootDescriptorTable(4, tex2); // Set gNormalMap
 			}
 
-			if (dp_command_index_mode[i] == 1 && TexMap[texture_alias_number].is_alpha_texture == isAlpha) { // USE_NON_INDEXED_DP
-				int v = verts_per_poly[currentObject];
+			BOOL dp_mode = isStaticObj ? g_StaticDpCommandIndexMode[i] : dp_command_index_mode[i];
+			if (dp_mode == 1 && TexMap[texture_alias_number].is_alpha_texture == isAlpha) { // USE_NON_INDEXED_DP
+				int v = isStaticObj ? g_StaticVertsPerPoly[currentObject] : verts_per_poly[currentObject];
+				D3DPRIMITIVETYPE dp_cmd = isStaticObj ? g_StaticDpCommands[currentObject] : dp_commands[currentObject];
 
-				if (dp_commands[currentObject] == D3DPT_TRIANGLELIST) {
+				if (dp_cmd == D3DPT_TRIANGLELIST) {
 					cmdList->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-				} else if (dp_commands[currentObject] == D3DPT_TRIANGLESTRIP) {
+				} else if (dp_cmd == D3DPT_TRIANGLESTRIP) {
 					cmdList->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 				}
+
+				if (isStaticObj) {
+					if (boundVB != 0 && mStaticDungeonVB != nullptr) {
+						cmdList->IASetVertexBuffers(0, 1, &mStaticDungeonVBView);
+						boundVB = 0;
+					}
+				} else {
+					if (boundVB != 1) {
+						cmdList->IASetVertexBuffers(0, 1, &ri->Geo->VertexBufferView());
+						boundVB = 1;
+					}
+				}
+
 				cmdList->DrawInstanced(v, 1, vert_index, 0);
 			}
 		}
@@ -752,7 +767,7 @@ void DungeonStompApp::ProcessLights11() {
 
 		int angle = (int)oblist[q].rot_angle;
 		int ob_type = oblist[q].type;
-		float adjust =0.0f;
+		float adjust = 0.0f;
 		//+1 because 0 is reserved for directional light
 		LightContainer[i + 1].Strength = { 9.0f, 9.0f, 9.0f };
 		LightContainer[i + 1].Position = DirectX::XMFLOAT3{ oblist[q].x, oblist[q].y + 43.0f, oblist[q].z };
