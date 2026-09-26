@@ -785,6 +785,9 @@ void DungeonStompApp::DisplayHud() {
 	}
 }
 
+
+void SetStartSpot();
+
 void DungeonStompApp::RenderImGuiTogglePanel() {
 	if (drawingShadowMap || drawingSSAO)
 		return;
@@ -799,19 +802,61 @@ void DungeonStompApp::RenderImGuiTogglePanel() {
 		ImGui::Separator();
 		ImGui::Spacing();
 
+		if (ImGui::TreeNodeEx("Dungeon Generator", ImGuiTreeNodeFlags_DefaultOpen)) {
+			static int genSeed = 0;
+			static int genCount = 350;
+			ImGui::InputInt("Seed (0=Random)", &genSeed);
+			if (genSeed < 0)
+				genSeed = 0;
+			ImGui::SliderInt("Tile Count", &genCount, 50, 1000);
+
+			if (ImGui::Button("Generate Classic Dungeon")) {
+				DungeonGen::GeneratorOptions options;
+				options.seed = static_cast<unsigned int>(genSeed);
+				options.numObjectsToPlace = genCount;
+				if (DungeonGen::GenerateDungeonClassic("level1.map", options)) {
+					load_level("level1");
+					// ResetPlayer();
+					SetStartSpot();
+					sprintf_s(gActionMessage, "Generated Classic Dungeon (%d tiles)", genCount);
+					UpdateScrollList(0, 255, 255);
+				}
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("Generate New Objects")) {
+				DungeonGen::GeneratorOptions options;
+				options.seed = static_cast<unsigned int>(genSeed);
+				options.numObjectsToPlace = genCount;
+				if (DungeonGen::GenerateDungeonNewObjects("level1.map", options)) {
+					load_level("level1");
+					SetStartSpot();
+					sprintf_s(gActionMessage, "Generated New Objects Dungeon (%d tiles)", genCount);
+					UpdateScrollList(0, 255, 255);
+				}
+			}
+			ImGui::TreePop();
+		}
+		
+		ImGui::Spacing();
+
 		if (ImGui::TreeNodeEx("Graphics & Features", ImGuiTreeNodeFlags_DefaultOpen)) {
-			// Shadow Overlay
-			bool shadowOverlay = (displayShadowMap != 0);
-			if (ImGui::Checkbox("Shadow Overlay [M]", &shadowOverlay)) {
-				displayShadowMap = shadowOverlay ? 1 : 0;
-				sprintf_s(gActionMessage, "Shadow Overlay %s", displayShadowMap ? "Enabled" : "Disabled");
+
+			// DXR Raytracing
+			if (!mDXRInitialized)
+				ImGui::BeginDisabled();
+			if (ImGui::Checkbox("DXR Raytracing [R]", &enableDXR)) {
+				if (enableDXR && mDXRInitialized) {
+					sprintf_s(gActionMessage, "DirectX Raytracing Enabled");
+				} else {
+					enableDXR = false;
+					sprintf_s(gActionMessage, "DXR Not Supported on this GPU");
+				}
 				UpdateScrollList(0, 255, 255);
 			}
-
-			// SSAO Effect
-			if (ImGui::Checkbox("SSAO Effect [O]", &enableSSao)) {
-				sprintf_s(gActionMessage, "SSAO %s", enableSSao ? "Enabled" : "Disabled");
-				UpdateScrollList(0, 255, 255);
+			if (!mDXRInitialized) {
+				ImGui::EndDisabled();
+				ImGui::SameLine();
+				ImGui::TextDisabled("(Unsupported)");
 			}
 
 			// Normal Mapping
@@ -831,6 +876,20 @@ void DungeonStompApp::RenderImGuiTogglePanel() {
 				UpdateScrollList(0, 255, 255);
 			}
 
+			// Shadow Overlay
+			bool shadowOverlay = (displayShadowMap != 0);
+			if (ImGui::Checkbox("Shadow Overlay [M]", &shadowOverlay)) {
+				displayShadowMap = shadowOverlay ? 1 : 0;
+				sprintf_s(gActionMessage, "Shadow Overlay %s", displayShadowMap ? "Enabled" : "Disabled");
+				UpdateScrollList(0, 255, 255);
+			}
+
+			// SSAO Effect
+			if (ImGui::Checkbox("SSAO Effect [O]", &enableSSao)) {
+				sprintf_s(gActionMessage, "SSAO %s", enableSSao ? "Enabled" : "Disabled");
+				UpdateScrollList(0, 255, 255);
+			}
+
 			// Variable Rate Shading (VRS)
 			bool vrsSupported = mVRSHelper.IsSupported();
 			if (!vrsSupported)
@@ -845,24 +904,6 @@ void DungeonStompApp::RenderImGuiTogglePanel() {
 				UpdateScrollList(0, 255, 255);
 			}
 			if (!vrsSupported) {
-				ImGui::EndDisabled();
-				ImGui::SameLine();
-				ImGui::TextDisabled("(Unsupported)");
-			}
-
-			// DXR Raytracing
-			if (!mDXRInitialized)
-				ImGui::BeginDisabled();
-			if (ImGui::Checkbox("DXR Raytracing [R]", &enableDXR)) {
-				if (enableDXR && mDXRInitialized) {
-					sprintf_s(gActionMessage, "DirectX Raytracing Enabled");
-				} else {
-					enableDXR = false;
-					sprintf_s(gActionMessage, "DXR Not Supported on this GPU");
-				}
-				UpdateScrollList(0, 255, 255);
-			}
-			if (!mDXRInitialized) {
 				ImGui::EndDisabled();
 				ImGui::SameLine();
 				ImGui::TextDisabled("(Unsupported)");
@@ -898,40 +939,6 @@ void DungeonStompApp::RenderImGuiTogglePanel() {
 				UpdateScrollList(0, 255, 255);
 			}
 
-			ImGui::TreePop();
-		}
-
-		ImGui::Spacing();
-
-		if (ImGui::TreeNodeEx("Dungeon Generator", ImGuiTreeNodeFlags_DefaultOpen)) {
-			static int genSeed = 0;
-			static int genCount = 350;
-			ImGui::InputInt("Seed (0=Random)", &genSeed);
-			if (genSeed < 0)
-				genSeed = 0;
-			ImGui::SliderInt("Tile Count", &genCount, 50, 1000);
-
-			if (ImGui::Button("Generate Classic Dungeon")) {
-				DungeonGen::GeneratorOptions options;
-				options.seed = static_cast<unsigned int>(genSeed);
-				options.numObjectsToPlace = genCount;
-				if (DungeonGen::GenerateDungeonClassic("level1.map", options)) {
-					load_level("level1");
-					sprintf_s(gActionMessage, "Generated Classic Dungeon (%d tiles)", genCount);
-					UpdateScrollList(0, 255, 255);
-				}
-			}
-			ImGui::SameLine();
-			if (ImGui::Button("Generate New Objects")) {
-				DungeonGen::GeneratorOptions options;
-				options.seed = static_cast<unsigned int>(genSeed);
-				options.numObjectsToPlace = genCount;
-				if (DungeonGen::GenerateDungeonNewObjects("level1.map", options)) {
-					load_level("level1");
-					sprintf_s(gActionMessage, "Generated New Objects Dungeon (%d tiles)", genCount);
-					UpdateScrollList(0, 255, 255);
-				}
-			}
 			ImGui::TreePop();
 		}
 

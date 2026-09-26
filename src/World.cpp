@@ -419,7 +419,7 @@ void InitDS() {
 	strcpy_s(gActionMessage, "[=LevelUp ]=LevelDown B=HeadBob O=ssao V=VSync N=NormalMap");
 	UpdateScrollList(0, 255, 255);
 
-	strcpy_s(gActionMessage, "F5=Load F6=Save. Created by Mark Longo. Good luck!");
+	strcpy_s(gActionMessage, "F5=Load F6=Save F7=Options F8=Debug. Created by Mark Longo. Good luck!");
 	UpdateScrollList(0, 255, 255);
 }
 
