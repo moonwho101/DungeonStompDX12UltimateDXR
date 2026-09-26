@@ -166,6 +166,7 @@
     <ClCompile Include="col_types.cpp" />
     <ClCompile Include="DDSTextureLoader.cpp" />
     <ClCompile Include="Dice.cpp" />
+    <ClCompile Include="DungeonGenerator.cpp" />
     <ClCompile Include="DirectInput.cpp" />
     <ClCompile Include="Font.cpp" />
     <ClCompile Include="FrameMove.cpp" />
@@ -209,6 +210,7 @@
     <ClInclude Include="col_local.h" />
     <ClInclude Include="DDSTextureLoader.h" />
     <ClInclude Include="Dice.hpp" />
+    <ClInclude Include="DungeonGenerator.hpp" />
     <ClInclude Include="DirectInput.hpp" />
     <ClInclude Include="DungeonStomp.hpp" />
     <ClInclude Include="Font.hpp" />
