@@ -151,6 +151,8 @@ python generate_dungeonNewObjects.py # Extended tileset
 
 ## 🌐 Credits
 
+*Engine architecture builds upon concepts from "Introduction to 3D Game Programming with DirectX 12 - 2nd Edition" by Frank Luna.*
+
 <details>
 <summary><b>🎨 MD2 Model Author Credits</b></summary>
 
