@@ -34,6 +34,13 @@ DungeonStomp.exe
 
 ---
 
+
+## 🎮 Procedural Dungeon Generation (Press F7)
+
+![Procedural-Dungeon-Generation](Textures/screenshot50.jpg)
+
+---
+
 ## ✨ Features at a Glance
 
 ### 🚀 Graphics & Engine (DX12 Ultimate)
@@ -142,15 +149,7 @@ python generate_dungeonNewObjects.py # Extended tileset
 
 ---
 
-## 🌐 Related Projects & Credits
-
-| Project | API |
-|---|---|
-| [Dungeon Stomp DX12](https://github.com/moonwho101/DungeonStompDirectX12) | DirectX 12 (Rasterization) |
-| [Dungeon Stomp Vulkan](https://github.com/moonwho101/DungeonStompVulkan) | Vulkan (WIP) |
-| [Dungeon Stomp Classic](https://github.com/moonwho101/DungeonStomp) | DirectX 7 |
-
-*Engine architecture builds upon concepts from "Introduction to 3D Game Programming with DirectX 12" by Frank Luna.*
+## 🌐 Credits
 
 <details>
 <summary><b>🎨 MD2 Model Author Credits</b></summary>
