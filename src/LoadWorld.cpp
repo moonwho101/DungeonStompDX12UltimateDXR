@@ -2094,11 +2094,13 @@ int load_level(char *filename) {
 
 	for (int i = 0; i < MAX_MISSLE; i++) {
 
-		// if (your_missle[i].sexplode != 0)
-		// DSound_Delete_Sound(your_missle[i].sexplode);
+		if (your_missle[i].sexplode != 0) {
+			DSound_Delete_Sound(your_missle[i].sexplode);
+		}
 
-		// if (your_missle[i].smove != 0)
-		// DSound_Delete_Sound(your_missle[i].smove);
+		if (your_missle[i].smove != 0) {
+			DSound_Delete_Sound(your_missle[i].smove);
+		}
 
 		your_missle[i].model_id = 10;
 		your_missle[i].skin_tex_id = 137;
