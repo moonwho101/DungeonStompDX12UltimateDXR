@@ -45,8 +45,6 @@ bool enableDXRKey = false;
 bool enableGui = false;
 bool enableGuiKey = false;
 
-
-
 // DXR debug stats (updated each frame when DXR is active)
 int gDXRTriangleCount = 0;
 int gDXRAliasCount = 0;
@@ -418,19 +416,25 @@ void DungeonStompApp::OnKeyboardInput(const GameTimer &gt) {
 	});
 
 	// F9: Imgui
-	handleToggleKey(VK_F7, enableGuiKey, []() {
+	handleToggleKey(VK_F7, enableGuiKey, [this]() {
 		enableGui = !enableGui;
 		sprintf_s(gActionMessage, "Onscreen Debug GUI %s", enableGui ? "Enabled" : "Disabled");
 		UpdateScrollList(0, 255, 255);
 
 		if (enableGui) {
 			ShowCursor(TRUE);
+			ImGuiIO &io = ImGui::GetIO();
+			io.ClearEventsQueue();
+			io.ClearInputKeys();
+			io.ClearInputMouse();
+			POINT pos;
+			if (::GetCursorPos(&pos) && ::ScreenToClient(mhMainWnd, &pos)) {
+				io.AddMousePosEvent((float)pos.x, (float)pos.y);
+			}
 		} else {
 			ShowCursor(FALSE);
 		}
 	});
-
-
 
 	// R: DirectX Raytracing (DXR)
 	handleToggleKey('R', enableDXRKey, [this]() {

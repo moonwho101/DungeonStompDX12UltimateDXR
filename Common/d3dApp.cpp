@@ -199,14 +199,16 @@ extern float gFps;
 extern float gMspf;
 
 // GPU info globals (defined in Font.cpp)
-extern char   gGpuName[256];
+extern char gGpuName[256];
 extern SIZE_T gGpuVramMB;
-extern char   gGpuFeatureLevel[16];
-extern char   gGpuShaderModel[16];
-extern bool   gGpuVRSSupported;
-extern bool   gGpuMeshShaderSupported;
-extern bool   gGpuSamplerFeedbackSupported;
-extern bool   gGpuTearingSupported;
+extern char gGpuFeatureLevel[16];
+extern char gGpuShaderModel[16];
+extern bool gGpuVRSSupported;
+extern bool gGpuMeshShaderSupported;
+extern bool gGpuSamplerFeedbackSupported;
+extern bool gGpuTearingSupported;
+
+extern bool enableGui;
 
 LRESULT CALLBACK
 MainWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
@@ -356,15 +358,15 @@ void D3DApp::OnResize() {
 		if (SUCCEEDED(mdxgiFactory->EnumAdapters1(0, &adapter)) &&
 		    SUCCEEDED(adapter->EnumOutputs(0, &output))) {
 			DXGI_MODE_DESC desired = {};
-			desired.Width  = static_cast<UINT>(mRestrictedWidth);
+			desired.Width = static_cast<UINT>(mRestrictedWidth);
 			desired.Height = static_cast<UINT>(mRestrictedHeight);
 			desired.Format = mBackBufferFormat;
 			DXGI_MODE_DESC closest = {};
 			if (SUCCEEDED(output->FindClosestMatchingMode(&desired, &closest, md3dDevice.Get()))) {
-				mClientWidth  = static_cast<int>(closest.Width);
+				mClientWidth = static_cast<int>(closest.Width);
 				mClientHeight = static_cast<int>(closest.Height);
 			} else {
-				mClientWidth  = min(mClientWidth,  mRestrictedWidth);
+				mClientWidth = min(mClientWidth, mRestrictedWidth);
 				mClientHeight = min(mClientHeight, mRestrictedHeight);
 			}
 		}
@@ -441,7 +443,7 @@ void D3DApp::OnResize() {
 }
 
 LRESULT D3DApp::MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-	if (ImGui_ImplWin32_WndProcHandler(hwnd, msg, wParam, lParam))
+	if (enableGui && ImGui_ImplWin32_WndProcHandler(hwnd, msg, wParam, lParam))
 		return true;
 
 	switch (msg) {
@@ -462,16 +464,15 @@ LRESULT D3DApp::MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 	// the window is moved to a monitor with a different scaling).  Windows passes
 	// a recommended new window rectangle in lParam which should be applied via
 	// SetWindowPos so the window's outer size/position is updated correctly.
-	case WM_DPICHANGED:
-	{
+	case WM_DPICHANGED: {
 		if (lParam != 0) {
 			RECT *prcNewWindow = reinterpret_cast<RECT *>(lParam);
 			SetWindowPos(hwnd, nullptr,
-					prcNewWindow->left,
-					prcNewWindow->top,
-					prcNewWindow->right - prcNewWindow->left,
-					prcNewWindow->bottom - prcNewWindow->top,
-					SWP_NOZORDER | SWP_NOACTIVATE);
+			             prcNewWindow->left,
+			             prcNewWindow->top,
+			             prcNewWindow->right - prcNewWindow->left,
+			             prcNewWindow->bottom - prcNewWindow->top,
+			             SWP_NOZORDER | SWP_NOACTIVATE);
 		}
 		return 0;
 	}
@@ -711,17 +712,25 @@ bool D3DApp::InitDirect3D() {
 	{
 		const char *flStr = "11_0";
 		switch (mFeatureLevel) {
-		case D3D_FEATURE_LEVEL_12_2: flStr = "12_2"; break;
-		case D3D_FEATURE_LEVEL_12_1: flStr = "12_1"; break;
-		case D3D_FEATURE_LEVEL_12_0: flStr = "12_0"; break;
-		case D3D_FEATURE_LEVEL_11_1: flStr = "11_1"; break;
+		case D3D_FEATURE_LEVEL_12_2:
+			flStr = "12_2";
+			break;
+		case D3D_FEATURE_LEVEL_12_1:
+			flStr = "12_1";
+			break;
+		case D3D_FEATURE_LEVEL_12_0:
+			flStr = "12_0";
+			break;
+		case D3D_FEATURE_LEVEL_11_1:
+			flStr = "11_1";
+			break;
 		}
 		sprintf_s(gGpuFeatureLevel, "%s", flStr);
-		sprintf_s(gGpuShaderModel,  "%s", ShaderModelToString(mDX12UltimateFeatures.HighestShaderModel));
-		gGpuVRSSupported             = mDX12UltimateFeatures.VariableRateShadingSupported;
-		gGpuMeshShaderSupported      = mDX12UltimateFeatures.MeshShaderSupported;
+		sprintf_s(gGpuShaderModel, "%s", ShaderModelToString(mDX12UltimateFeatures.HighestShaderModel));
+		gGpuVRSSupported = mDX12UltimateFeatures.VariableRateShadingSupported;
+		gGpuMeshShaderSupported = mDX12UltimateFeatures.MeshShaderSupported;
 		gGpuSamplerFeedbackSupported = mDX12UltimateFeatures.SamplerFeedbackSupported;
-		gGpuTearingSupported         = mTearingSupported;
+		gGpuTearingSupported = mTearingSupported;
 	}
 
 #ifdef _DEBUG
@@ -912,16 +921,16 @@ void D3DApp::CreateSwapChain() {
 		if (SUCCEEDED(mdxgiFactory->EnumAdapters1(0, &adapter)) &&
 		    SUCCEEDED(adapter->EnumOutputs(0, &output))) {
 			DXGI_MODE_DESC desired = {};
-			desired.Width  = static_cast<UINT>(mRestrictedWidth);
+			desired.Width = static_cast<UINT>(mRestrictedWidth);
 			desired.Height = static_cast<UINT>(mRestrictedHeight);
 			desired.Format = mBackBufferFormat;
 			DXGI_MODE_DESC closest = {};
 			if (SUCCEEDED(output->FindClosestMatchingMode(&desired, &closest, md3dDevice.Get()))) {
-				mClientWidth  = static_cast<int>(closest.Width);
+				mClientWidth = static_cast<int>(closest.Width);
 				mClientHeight = static_cast<int>(closest.Height);
 			} else {
 				// Fallback: hard cap if FindClosestMatchingMode is unavailable.
-				mClientWidth  = min(mClientWidth,  mRestrictedWidth);
+				mClientWidth = min(mClientWidth, mRestrictedWidth);
 				mClientHeight = min(mClientHeight, mRestrictedHeight);
 			}
 		}
