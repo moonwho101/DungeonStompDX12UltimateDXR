@@ -37,7 +37,7 @@ DungeonStomp.exe
 
 ## 🎮 Procedural Dungeon Generation (Press F7)
 
-![Procedural-Dungeon-Generation](Textures/screenshot50.jpg)
+![Procedural-Dungeon-Generation](Textures/screenshot52.jpg)
 
 ---
 
