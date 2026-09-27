@@ -440,8 +440,10 @@ void D3DApp::OnResize() {
 	mScissorRect = { 0, 0, mClientWidth, mClientHeight };
 }
 
+extern bool enableGui;
+
 LRESULT D3DApp::MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-	if (ImGui_ImplWin32_WndProcHandler(hwnd, msg, wParam, lParam))
+	if (enableGui && ImGui_ImplWin32_WndProcHandler(hwnd, msg, wParam, lParam))
 		return true;
 
 	switch (msg) {

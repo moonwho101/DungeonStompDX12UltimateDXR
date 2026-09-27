@@ -422,10 +422,15 @@ void DungeonStompApp::OnKeyboardInput(const GameTimer &gt) {
 		enableGui = !enableGui;
 		sprintf_s(gActionMessage, "Onscreen Debug GUI %s", enableGui ? "Enabled" : "Disabled");
 		UpdateScrollList(0, 255, 255);
-
+		ImGuiIO &io = ImGui::GetIO();
 		if (enableGui) {
+			io.ClearEventsQueue();
+			io.ClearInputKeys();
+			io.ClearInputMouse();
+			io.MouseDrawCursor = true;
 			ShowCursor(TRUE);
 		} else {
+			io.MouseDrawCursor = false;
 			ShowCursor(FALSE);
 		}
 	});
