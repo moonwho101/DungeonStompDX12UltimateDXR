@@ -214,6 +214,11 @@ BOOL CLoadWorld::LoadWorldMap(char *filename) {
 			if (lwm_start_flag == FALSE)
 				object_count++;
 
+			if (object_count >= 3000) {
+				fclose(fp);
+				return FALSE;
+			}
+
 			oblist[object_count].type = object_id;
 			oblist[object_count].castshadow = 1;
 			strcpy_s(oblist[object_count].name, 10000, p);
@@ -2043,9 +2048,6 @@ int load_level(char *filename) {
 		sprintf_s(levelname, "level%d", current_level);
 		strcpy_s(level, levelname);
 		strcat_s(level, ".map");
-	}
-
-	if (!pCWorld->LoadWorldMap(level)) {
 	}
 
 	num_players2 = 0;
