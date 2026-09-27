@@ -10,7 +10,7 @@
 [![C++](https://img.shields.io/badge/language-C%2B%2B-orange?style=flat-square&logo=cplusplus)](https://github.com/moonwho101/DungeonStompDX12UltimateDXR)
 [![Visual Studio](https://img.shields.io/badge/VS-2022-purple?style=flat-square&logo=visualstudio)](https://visualstudio.microsoft.com/)
 
-![Dungeon Stomp DX12 DXR](Textures/screenshot48.jpg)
+![Dungeon Stomp DX12 DXR](Textures/screenshot52.jpg)
 
 **Most DXR samples stop at a spinning triangle or a Cornell box. Dungeon Stomp is a full, playable dungeon crawler engine that puts DirectX 12 Ultimate's headline features to work in a live production codebase — featuring DXR 1.1 inline ray tracing, PBR, Variable Rate Shading, and SSAO.**
 
@@ -37,7 +37,7 @@ DungeonStomp.exe
 
 ## 🎮 Procedural Dungeon Generation (Press F7)
 
-![Procedural-Dungeon-Generation](Textures/screenshot52.jpg)
+![Procedural-Dungeon-Generation](Textures/screenshot50.jpg)
 
 ---
 
