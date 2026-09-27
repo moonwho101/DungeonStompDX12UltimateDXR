@@ -64,7 +64,7 @@ DungeonStomp.exe
 
 | Real-Time DXR Ray-Traced Shadows | Dynamic Combat Encounter |
 |:---:|:---:|
-| ![Ray-traced dungeon scene](Textures/screenshot43.jpg) | ![Combat encounter](Textures/screenshot42.jpg) |
+| ![Ray-traced dungeon scene](Textures/screenshot52.jpg) | ![Combat encounter](Textures/screenshot53.jpg) |
 
 <details>
 <summary><b>📷 Click to view more screenshots</b></summary>
