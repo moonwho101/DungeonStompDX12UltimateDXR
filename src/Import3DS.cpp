@@ -719,38 +719,97 @@ BOOL Import3DS(char *filename, int pmodel_id, float scale) {
 
 	//	fclose(fp_3dsmodel);
 
+	auto is_3ds_deg_tri = [&](const VERT &v0, const VERT &v1, const VERT &v2) -> bool {
+		float e1x = v1.x - v0.x;
+		float e1y = v1.y - v0.y;
+		float e1z = v1.z - v0.z;
+
+		float e2x = v2.x - v0.x;
+		float e2y = v2.y - v0.y;
+		float e2z = v2.z - v0.z;
+
+		float nx = e1y * e2z - e1z * e2y;
+		float ny = e1z * e2x - e1x * e2z;
+		float nz = e1x * e2y - e1y * e2x;
+
+		float lenSq = nx * nx + ny * ny + nz * nz;
+		return lenSq < 1e-10f;
+	};
+
 	cnt = 0;
 	int face_idx = 0;
+	int total_valid_faces = 0;
 
 	for (i = 0; i < total_num_objects; i++) {
 		int v_start = oblistitem[i].verts_start;
 		int num_faces_obj = num_faces_in_object[i];
+		int valid_faces_obj = 0;
 
 		for (int f = 0; f < num_faces_obj; f++) {
-			for (j = 0; j < 3; j++) {
-				int local_v = faces[face_idx].v[j];
-				int global_v = v_start + local_v;
+			int l0 = faces[face_idx].v[0];
+			int l1 = faces[face_idx].v[1];
+			int l2 = faces[face_idx].v[2];
 
-				pmdata[pmodel_id].f[cnt] = local_v;
+			int g0 = v_start + l0;
+			int g1 = v_start + l1;
+			int g2 = v_start + l2;
 
-				if (global_v >= 0 && global_v < total_num_verts) {
-					pmdata[pmodel_id].t[cnt].x = mcoords[global_v].x;
-					pmdata[pmodel_id].t[cnt].y = mcoords[global_v].y;
+			bool is_degen = (l0 == l1 || l1 == l2 || l2 == l0);
+
+			if (!is_degen && g0 >= 0 && g0 < total_num_verts &&
+			    g1 >= 0 && g1 < total_num_verts &&
+			    g2 >= 0 && g2 < total_num_verts) {
+				const VERT &v0 = pmdata[pmodel_id].w[0][g0];
+				const VERT &v1 = pmdata[pmodel_id].w[0][g1];
+				const VERT &v2 = pmdata[pmodel_id].w[0][g2];
+				if (is_3ds_deg_tri(v0, v1, v2)) {
+					is_degen = true;
+				}
+			}
+
+			if (!is_degen) {
+				pmdata[pmodel_id].f[cnt + 0] = l0;
+				pmdata[pmodel_id].f[cnt + 1] = l1;
+				pmdata[pmodel_id].f[cnt + 2] = l2;
+
+				if (g0 >= 0 && g0 < total_num_verts) {
+					pmdata[pmodel_id].t[cnt + 0].x = mcoords[g0].x;
+					pmdata[pmodel_id].t[cnt + 0].y = mcoords[g0].y;
 				} else {
-					pmdata[pmodel_id].t[cnt].x = 0.0f;
-					pmdata[pmodel_id].t[cnt].y = 0.0f;
+					pmdata[pmodel_id].t[cnt + 0].x = 0.0f;
+					pmdata[pmodel_id].t[cnt + 0].y = 0.0f;
 				}
 
-				cnt++;
+				if (g1 >= 0 && g1 < total_num_verts) {
+					pmdata[pmodel_id].t[cnt + 1].x = mcoords[g1].x;
+					pmdata[pmodel_id].t[cnt + 1].y = mcoords[g1].y;
+				} else {
+					pmdata[pmodel_id].t[cnt + 1].x = 0.0f;
+					pmdata[pmodel_id].t[cnt + 1].y = 0.0f;
+				}
+
+				if (g2 >= 0 && g2 < total_num_verts) {
+					pmdata[pmodel_id].t[cnt + 2].x = mcoords[g2].x;
+					pmdata[pmodel_id].t[cnt + 2].y = mcoords[g2].y;
+				} else {
+					pmdata[pmodel_id].t[cnt + 2].x = 0.0f;
+					pmdata[pmodel_id].t[cnt + 2].y = 0.0f;
+				}
+
+				cnt += 3;
+				valid_faces_obj++;
 			}
 			face_idx++;
 		}
+
+		num_faces_in_object[i] = valid_faces_obj;
+		pmdata[pmodel_id].num_faces_per_object[i] = valid_faces_obj;
+		total_valid_faces += valid_faces_obj;
 	}
 
 	for (i = 0; i < total_num_objects; i++) {
 		pmdata[pmodel_id].poly_cmd[i] = D3DPT_TRIANGLELIST;
 		pmdata[pmodel_id].num_verts_per_object[i] = (int)num_verts_in_object[i];
-		pmdata[pmodel_id].num_faces_per_object[i] = (int)num_faces_in_object[i];
 		pmdata[pmodel_id].texture_list[i] = object_texture[i];
 	}
 
@@ -760,8 +819,8 @@ BOOL Import3DS(char *filename, int pmodel_id, float scale) {
 		fclose(logfile);
 
 	pmdata[pmodel_id].num_polys_per_frame = total_num_objects;
-	pmdata[pmodel_id].num_faces = total_num_faces;
-	pmdata[pmodel_id].num_verts = total_num_verts;
+	pmdata[pmodel_id].num_faces = total_valid_faces;
+	pmdata[pmodel_id].num_verts = cnt;
 	pmdata[pmodel_id].num_frames = total_num_frames;
 
 	pmdata[pmodel_id].skx = 1;
