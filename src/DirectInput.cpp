@@ -9,6 +9,9 @@
 #include "DirectInput.hpp"
 #include "GameLogic.hpp"
 #include "Dice.hpp"
+#include <vector>
+#include <stdio.h>
+#include <stdlib.h>
 
 // mouse sensitivity
 float mousediv = 12.0f;
@@ -105,6 +108,193 @@ HWND hWndGlobal;
 HRESULT CreateInputDevice(IDirectInput8 *pDI, IDirectInputDevice8 *pDIdDevice, GUID guidDevice, const DIDATAFORMAT *pdidDataFormat, DWORD dwFlags);
 int save_game(char *filename);
 int load_game(char *filename);
+int UpdateScrollList(int r, int g, int b);
+
+//-----------------------------------------------------------------------------
+// Demo recording / playback (F2 = record toggle, F3 = play toggle)
+// A recording is a save game (demo.sav) plus per-frame input and delta time (demo.dem).
+//-----------------------------------------------------------------------------
+namespace {
+struct DemoFrame {
+	float dt;
+	CONTROLS controls;
+};
+
+enum class DemoMode { Idle,
+	                  Recording,
+	                  Playing };
+
+const char *kDemoSaveFile = "demo.sav";
+const char *kDemoFile = "demo.dem";
+const unsigned int kDemoMagic = 0x4D445344; // 'DSDM'
+const unsigned int kDemoVersion = 1;
+
+DemoMode demoMode = DemoMode::Idle;
+std::vector<DemoFrame> demoFrames;
+size_t demoPlayIndex = 0;
+unsigned int demoSeed = 0;
+bool demoFramePending = false;
+bool demoF2Down = false;
+bool demoF3Down = false;
+
+void DemoMessage(const char *msg) {
+	strcpy_s(gActionMessage, msg);
+	UpdateScrollList(0, 255, 255);
+}
+
+// Reset state that would otherwise leak between the live game and a demo.
+void DemoResetState(unsigned int seed) {
+	srand(seed);
+	use_x = 0;
+	use_y = 0;
+	filterx = 0;
+	filtery = 0;
+	jump = 0;
+	jumpcount = 0;
+	jumpstart = 0;
+}
+
+void StopDemoRecording() {
+	demoMode = DemoMode::Idle;
+
+	FILE *fp = nullptr;
+	if (fopen_s(&fp, kDemoFile, "wb") != 0 || !fp) {
+		DemoMessage("Demo: could not write demo.dem.");
+		return;
+	}
+
+	unsigned int header[5] = { kDemoMagic, kDemoVersion, (unsigned int)sizeof(CONTROLS), demoSeed, (unsigned int)demoFrames.size() };
+	fwrite(header, sizeof(header), 1, fp);
+	if (!demoFrames.empty())
+		fwrite(demoFrames.data(), sizeof(DemoFrame), demoFrames.size(), fp);
+	fclose(fp);
+
+	char msg[128];
+	sprintf_s(msg, "Demo recorded (%u frames). F3 to play.", (unsigned int)demoFrames.size());
+	DemoMessage(msg);
+}
+
+void StartDemoRecording() {
+	if (!save_game((char *)kDemoSaveFile)) {
+		DemoMessage("Demo: could not write demo.sav.");
+		return;
+	}
+
+	demoSeed = (unsigned int)timeGetTime();
+	DemoResetState(demoSeed);
+	demoFrames.clear();
+	demoFramePending = false;
+	demoMode = DemoMode::Recording;
+	DemoMessage("Demo recording... F2 to stop.");
+}
+
+void StopDemoPlayback(const char *msg) {
+	demoMode = DemoMode::Idle;
+	demoFramePending = false;
+	DemoMessage(msg);
+}
+
+void StartDemoPlayback() {
+	FILE *fp = nullptr;
+	if (fopen_s(&fp, kDemoFile, "rb") != 0 || !fp) {
+		DemoMessage("Demo: no demo.dem found. Record one with F2.");
+		return;
+	}
+
+	unsigned int header[5] = {};
+	bool ok = fread(header, sizeof(header), 1, fp) == 1 && header[0] == kDemoMagic && header[1] == kDemoVersion &&
+	          header[2] == sizeof(CONTROLS) && header[4] > 0 && header[4] < 10000000;
+
+	std::vector<DemoFrame> frames;
+	if (ok) {
+		frames.resize(header[4]);
+		ok = fread(frames.data(), sizeof(DemoFrame), frames.size(), fp) == frames.size();
+	}
+	fclose(fp);
+
+	if (!ok) {
+		DemoMessage("Demo: demo.dem is invalid.");
+		return;
+	}
+
+	if (!load_game((char *)kDemoSaveFile)) {
+		DemoMessage("Demo: could not load demo.sav.");
+		return;
+	}
+
+	demoFrames = std::move(frames);
+	demoSeed = header[3];
+	DemoResetState(demoSeed);
+	demoPlayIndex = 0;
+	demoFramePending = false;
+	demoMode = DemoMode::Playing;
+	DemoMessage("Demo playback... F3 to stop.");
+}
+
+// Handles F2/F3 and swaps live input with recorded input. Called after the devices are read.
+void UpdateDemo() {
+	bool f2 = (diks[DIK_F2] & 0x80) != 0;
+	bool f3 = (diks[DIK_F3] & 0x80) != 0;
+	bool f2Pressed = f2 && !demoF2Down;
+	bool f3Pressed = f3 && !demoF3Down;
+	demoF2Down = f2;
+	demoF3Down = f3;
+
+	if (f2Pressed) {
+		if (demoMode == DemoMode::Recording) {
+			StopDemoRecording();
+		} else {
+			if (demoMode == DemoMode::Playing)
+				StopDemoPlayback("Demo playback stopped.");
+			StartDemoRecording();
+		}
+	} else if (f3Pressed) {
+		if (demoMode == DemoMode::Playing) {
+			StopDemoPlayback("Demo playback stopped.");
+		} else {
+			if (demoMode == DemoMode::Recording)
+				StopDemoRecording();
+			StartDemoPlayback();
+		}
+	}
+
+	demoFramePending = false;
+
+	if (demoMode == DemoMode::Idle)
+		return;
+
+	// Quick save/load would desync the demo, so ignore them while active.
+	Controls.bSaveGame = 0;
+	Controls.bLoadGame = 0;
+
+	if (demoMode == DemoMode::Recording) {
+		demoFrames.push_back({ 0.0f, Controls });
+		demoFramePending = true;
+	} else if (demoMode == DemoMode::Playing) {
+		if (demoPlayIndex >= demoFrames.size()) {
+			StopDemoPlayback("Demo playback finished.");
+			return;
+		}
+		Controls = demoFrames[demoPlayIndex].controls;
+		demoFramePending = true;
+	}
+}
+} // namespace
+
+// Returns the delta time the game should use this frame; stores it when recording, replaces it when playing.
+float DemoFrameTime(float dt) {
+	if (!demoFramePending)
+		return dt;
+	demoFramePending = false;
+
+	if (demoMode == DemoMode::Recording) {
+		demoFrames.back().dt = dt;
+	} else if (demoMode == DemoMode::Playing) {
+		dt = demoFrames[demoPlayIndex].dt;
+		demoPlayIndex++;
+	}
+	return dt;
+}
 
 //-----------------------------------------------------------------------------
 // Name: CreateDInput()
@@ -414,6 +604,8 @@ VOID UpdateControls() {
 			if ((diks[i] && 0x80) == FALSE)
 				DelayKey2[i] = FALSE;
 		}
+
+		UpdateDemo();
 
 		if (!enableGui)
 			MovePlayer(&Controls);
