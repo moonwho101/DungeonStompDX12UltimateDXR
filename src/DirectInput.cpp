@@ -116,6 +116,9 @@ extern LONGLONG gametimerlast;
 extern LONGLONG gametimerlast2;
 extern int countmodtime;
 extern FLOAT LevelModLastTime;
+extern FLOAT fTimeKeysave;
+extern int monstercount;
+void ResetPlayerMotionState();
 static double gGameClock = 0.0;
 
 double GameClockSeconds() {
@@ -147,7 +150,7 @@ enum class DemoMode { Idle,
 const char *kDemoSaveFile = "demo.sav";
 const char *kDemoFile = "demo.dem";
 const unsigned int kDemoMagic = 0x4D445344; // 'DSDM'
-const unsigned int kDemoVersion = 1;
+const unsigned int kDemoVersion = 2;
 
 DemoMode demoMode = DemoMode::Idle;
 std::vector<DemoFrame> demoFrames;
@@ -162,17 +165,44 @@ void DemoMessage(const char *msg) {
 	UpdateScrollList(0, 255, 255);
 }
 
-// Reset state that would otherwise leak between the live game and a demo.
+// Put every piece of gameplay state that the save game doesn't cover into a known value so a recording and its playback start identically.
 void DemoResetState(unsigned int seed) {
-	srand(seed);
+	SeedGameRandom(seed);
 	ResetGameClock();
+	ResetPlayerMotionState();
+
+	elapsegametimersave = 0;
+	fTimeKeysave = 0;
+	monstercount = 0;
+
 	use_x = 0;
 	use_y = 0;
 	filterx = 0;
 	filtery = 0;
+
 	jump = 0;
 	jumpcount = 0;
 	jumpstart = 0;
+	jumpvdir = 0;
+	nojumpallow = 0;
+	cleanjumpspeed = 0;
+	lastjumptime = 0;
+	gravityon = 1;
+
+	firemissle = 0;
+	hitmonster = 0;
+	criticalhiton = 0;
+	damageinprogress = 0;
+	firing_gun_flag = FALSE;
+
+	gravitybutton = 0;
+	nextsong = 0;
+	giveallweapons = 0;
+	stopmusic = 0;
+	nextlevel = 0;
+	previouslevel = 0;
+	cycleweaponbuttonpressed = FALSE;
+	memset(&Controls, 0, sizeof(Controls));
 }
 
 void StopDemoRecording() {
@@ -198,6 +228,12 @@ void StopDemoRecording() {
 void StartDemoRecording() {
 	if (!save_game((char *)kDemoSaveFile)) {
 		DemoMessage("Demo: could not write demo.sav.");
+		return;
+	}
+
+	// Reload our own save so the recording starts from exactly the state playback will load.
+	if (!load_game((char *)kDemoSaveFile)) {
+		DemoMessage("Demo: could not reload demo.sav.");
 		return;
 	}
 

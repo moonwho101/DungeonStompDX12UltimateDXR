@@ -1274,13 +1274,35 @@ int FindTextureAlias(char *alias) {
 	return -1; // error
 }
 
+// Private gameplay RNG: cosmetic callers use random_cosmetic() so they can't shift the sequence a demo depends on.
+static unsigned int gGameRandState = 0;
+
+void SeedGameRandom(unsigned int seed) {
+	gGameRandState = seed ? seed : 1;
+}
+
 int random_num(int num) {
+	if (num <= 0)
+		return 0;
 
-	UINT rndNum;
+	if (gGameRandState == 0)
+		SeedGameRandom((unsigned int)time(NULL));
 
-	rndNum = rand() % num;
+	// xorshift32
+	unsigned int x = gGameRandState;
+	x ^= x << 13;
+	x ^= x >> 17;
+	x ^= x << 5;
+	gGameRandState = x;
 
-	return rndNum;
+	return (int)(x % (unsigned int)num);
+}
+
+int random_cosmetic(int num) {
+	if (num <= 0)
+		return 0;
+
+	return rand() % num;
 }
 
 BOOL CLoadWorld::LoadImportedModelList(char *filename) {

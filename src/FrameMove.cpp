@@ -95,6 +95,29 @@ HRESULT FrameMove(double fTime, FLOAT fTimeKey) {
 	return S_OK;
 }
 
+void ResetPlayerMotionState() {
+	direction = 0;
+	directionlast = 0;
+	savelastmove = 0;
+	savelaststrifemove = 0;
+	playermove = 0;
+	playermovestrife = 0;
+	movespeed = 0.0f;
+	movespeedold = 0.0f;
+	movespeedsave = 0.0f;
+	movetime = 0.0f;
+	currentspeed = 0.0f;
+	savevelocity = { 0.0f, 0.0f, 0.0f };
+	saveoldvelocity = { 0.0f, 0.0f, 0.0f };
+	gravityvector.x = gravityvector.y = gravityvector.z = 0.0f;
+	gravityvectorold.x = gravityvectorold.y = gravityvectorold.z = 0.0f;
+	totaldist = 0.0f;
+	gravitydropcount = 0;
+	lastcollide = 0;
+	foundcollisiontrue = 0;
+	gravitytime = 0.0f;
+}
+
 void CheckAngle() {
 	if (angy >= 360)
 		angy = angy - 360;
