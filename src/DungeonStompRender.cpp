@@ -23,6 +23,7 @@ using namespace DirectX;
 
 extern bool enableDXR;
 extern bool enableSSao;
+extern FLOAT fTimeKeysave;
 extern bool drawingSSAO;
 extern bool enableVRS;
 extern bool enablePlayerHUD;
@@ -182,7 +183,7 @@ void DungeonStompApp::Draw(const GameTimer &gt) {
 			SetDungeonText();
 		}
 
-		ScanMod(gt.DeltaTime());
+		ScanMod(fTimeKeysave);
 		FlushRectangles();
 		FlushText();
 
@@ -516,7 +517,7 @@ void DungeonStompApp::DrawRenderItems(ID3D12GraphicsCommandList *cmdList, const 
 			SetDungeonText();
 		}
 
-		ScanMod(gt.DeltaTime());
+		ScanMod(fTimeKeysave);
 		FlushRectangles();
 		FlushText();
 	}

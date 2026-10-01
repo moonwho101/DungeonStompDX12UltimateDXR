@@ -24,7 +24,7 @@ using namespace std;
 using namespace DirectX;
 
 // When true, DXGI selects the closest supported mode to the given dimensions.
-bool mRestrictVideoSize = true;
+bool mRestrictVideoSize = false;
 int mRestrictedWidth = 2560;
 int mRestrictedHeight = 1440;
 

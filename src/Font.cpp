@@ -950,6 +950,8 @@ void DungeonStompApp::RenderImGuiTogglePanel() {
 	ImGui::End();
 }
 
+double GameClockSeconds();
+
 void DungeonStompApp::ScanMod(float fElapsedTime) {
 	int i = 0;
 	int j = 0;
@@ -957,7 +959,7 @@ void DungeonStompApp::ScanMod(float fElapsedTime) {
 
 	int counter = 0;
 	float qdist = 0;
-	LevelModTime = timeGetTime() * 0.001f;
+	LevelModTime = (float)GameClockSeconds();
 
 	for (i = 0; i < totalmod; i++) {
 
@@ -986,7 +988,7 @@ void DungeonStompApp::ScanMod(float fElapsedTime) {
 
 						ScanModJump(levelmodify[counter].jump);
 						if (countmodtime == 0) {
-							LevelModLastTime = timeGetTime() * 0.001f;
+							LevelModLastTime = (float)GameClockSeconds();
 							countmodtime = 1;
 						}
 
@@ -1033,7 +1035,7 @@ void DungeonStompApp::ScanMod(float fElapsedTime) {
 
 						ScanModJump(levelmodify[counter].jump);
 						if (countmodtime == 0) {
-							LevelModLastTime = timeGetTime() * 0.001f;
+							LevelModLastTime = (float)GameClockSeconds();
 							countmodtime = 1;
 						}
 
@@ -1062,7 +1064,7 @@ void DungeonStompApp::ScanMod(float fElapsedTime) {
 
 						ScanModJump(levelmodify[counter].jump);
 						if (countmodtime == 0) {
-							LevelModLastTime = timeGetTime() * 0.001f;
+							LevelModLastTime = (float)GameClockSeconds();
 							countmodtime = 1;
 						}
 
@@ -1129,7 +1131,7 @@ void DungeonStompApp::ScanMod(float fElapsedTime) {
 
 						ScanModJump(levelmodify[counter].jump);
 						if (countmodtime == 0) {
-							LevelModLastTime = timeGetTime() * 0.001f;
+							LevelModLastTime = (float)GameClockSeconds();
 							countmodtime = 1;
 						}
 

@@ -110,6 +110,26 @@ int save_game(char *filename);
 int load_game(char *filename);
 int UpdateScrollList(int r, int g, int b);
 
+// Game clock advances by the frame time the game uses, so demos replay with identical timer behaviour.
+extern double time_factor;
+extern LONGLONG gametimerlast;
+extern LONGLONG gametimerlast2;
+extern int countmodtime;
+extern FLOAT LevelModLastTime;
+static double gGameClock = 0.0;
+
+double GameClockSeconds() {
+	return gGameClock;
+}
+
+static void ResetGameClock() {
+	gGameClock = 0.0;
+	gametimerlast = 0;
+	gametimerlast2 = 0;
+	countmodtime = 0;
+	LevelModLastTime = 0.0f;
+}
+
 //-----------------------------------------------------------------------------
 // Demo recording / playback (F2 = record toggle, F3 = play toggle)
 // A recording is a save game (demo.sav) plus per-frame input and delta time (demo.dem).
@@ -145,6 +165,7 @@ void DemoMessage(const char *msg) {
 // Reset state that would otherwise leak between the live game and a demo.
 void DemoResetState(unsigned int seed) {
 	srand(seed);
+	ResetGameClock();
 	use_x = 0;
 	use_y = 0;
 	filterx = 0;
@@ -283,16 +304,18 @@ void UpdateDemo() {
 
 // Returns the delta time the game should use this frame; stores it when recording, replaces it when playing.
 float DemoFrameTime(float dt) {
-	if (!demoFramePending)
-		return dt;
-	demoFramePending = false;
+	if (demoFramePending) {
+		demoFramePending = false;
 
-	if (demoMode == DemoMode::Recording) {
-		demoFrames.back().dt = dt;
-	} else if (demoMode == DemoMode::Playing) {
-		dt = demoFrames[demoPlayIndex].dt;
-		demoPlayIndex++;
+		if (demoMode == DemoMode::Recording) {
+			demoFrames.back().dt = dt;
+		} else if (demoMode == DemoMode::Playing) {
+			dt = demoFrames[demoPlayIndex].dt;
+			demoPlayIndex++;
+		}
 	}
+
+	gGameClock += dt;
 	return dt;
 }
 
@@ -1022,9 +1045,9 @@ HRESULT SelectInputDevice() {
 }
 
 LONGLONG DSTimer() {
-	LONGLONG cur_time;
-	QueryPerformanceCounter((LARGE_INTEGER *)&cur_time);
-	return cur_time;
+	if (time_factor <= 0.0)
+		return 0;
+	return (LONGLONG)(gGameClock / time_factor);
 }
 
 void SwitchGun(int gun) {

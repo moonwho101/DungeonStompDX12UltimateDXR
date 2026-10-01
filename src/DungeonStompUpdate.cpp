@@ -63,6 +63,7 @@ extern int playercurrentmove;
 extern CameraBob bobY;
 extern CameraBob bobX;
 extern float angy;
+extern FLOAT fTimeKeysave;
 extern float look_up_ang;
 extern float look_roll_ang;
 extern float k;
@@ -144,7 +145,7 @@ void DungeonStompApp::Update(const GameTimer &gt) {
 }
 
 void DungeonStompApp::UpdateCamera(const GameTimer &gt) {
-	float dt = gt.DeltaTime();
+	float dt = fTimeKeysave;
 
 	// Decay landing dip
 	mLandingDip -= 150.0f * dt;
