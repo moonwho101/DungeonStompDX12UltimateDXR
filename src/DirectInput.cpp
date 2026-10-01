@@ -108,7 +108,6 @@ HWND hWndGlobal;
 HRESULT CreateInputDevice(IDirectInput8 *pDI, IDirectInputDevice8 *pDIdDevice, GUID guidDevice, const DIDATAFORMAT *pdidDataFormat, DWORD dwFlags);
 int save_game(char *filename);
 int load_game(char *filename);
-int load_level(char *filename);
 int UpdateScrollList(int r, int g, int b);
 
 // Game clock advances by the frame time the game uses, so demos replay with identical timer behaviour.
@@ -206,26 +205,6 @@ void DemoResetState(unsigned int seed) {
 	memset(&Controls, 0, sizeof(Controls));
 }
 
-// Reload the saved level from scratch first so doors, textures and lists are reset, then restore the saved state.
-bool LoadDemoStartState() {
-	FILE *fp = nullptr;
-	if (fopen_s(&fp, kDemoSaveFile, "rb") != 0 || !fp)
-		return false;
-
-	char savedLevel[80] = {};
-	size_t got = fread(savedLevel, sizeof(char), 50, fp);
-	fclose(fp);
-
-	if (got != 50)
-		return false;
-
-	savedLevel[50] = '\0';
-	if (savedLevel[0] != '\0')
-		load_level(savedLevel);
-
-	return load_game((char *)kDemoSaveFile) != 0;
-}
-
 void StopDemoRecording() {
 	demoMode = DemoMode::Idle;
 
@@ -253,7 +232,7 @@ void StartDemoRecording() {
 	}
 
 	// Reload our own save so the recording starts from exactly the state playback will load.
-	if (!LoadDemoStartState()) {
+	if (!load_game((char *)kDemoSaveFile)) {
 		DemoMessage("Demo: could not reload demo.sav.");
 		return;
 	}
@@ -295,7 +274,7 @@ void StartDemoPlayback() {
 		return;
 	}
 
-	if (!LoadDemoStartState()) {
+	if (!load_game((char *)kDemoSaveFile)) {
 		DemoMessage("Demo: could not load demo.sav.");
 		return;
 	}

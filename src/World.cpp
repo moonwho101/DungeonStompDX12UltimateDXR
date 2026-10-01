@@ -768,14 +768,15 @@ float fixangle(float angle, float adjust) {
 int initDSTimer() {
 
 	LONGLONG perf_cnt;
+	LONGLONG count;
 	int a = 0;
 
 	if (QueryPerformanceFrequency((LARGE_INTEGER *)&perf_cnt)) {
 		// set scaling factor
 		time_factor = (double)1.0 / (double)perf_cnt;
-		// DSTimer() runs on the game clock, so the timers must start from its value, not the performance counter.
-		gametimerlast = DSTimer();
-		gametimerlast2 = DSTimer();
+		QueryPerformanceCounter((LARGE_INTEGER *)&count);
+		gametimerlast = count;
+		gametimerlast2 = count;
 	}
 
 	return 1;
