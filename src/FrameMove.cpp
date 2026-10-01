@@ -421,6 +421,10 @@ void GameTimers(const FLOAT &fTimeKey) {
 
 	gametimer2 = DSTimer();
 
+	// The game clock restarts at 0 when a demo starts.
+	if (gametimerlast2 > gametimer2)
+		gametimerlast2 = gametimer2;
+
 	if ((gametimer2 - gametimerlast2) * time_factor >= 60.0f / 1000.0f) {
 		// Torch & Teleport Cycle
 		maingameloop2 = 1;
@@ -430,6 +434,9 @@ void GameTimers(const FLOAT &fTimeKey) {
 	}
 
 	gametimer = DSTimer();
+
+	if (gametimerlast > gametimer)
+		gametimerlast = gametimer;
 
 	if ((gametimer - gametimerlast) * time_factor >= 40.0f / 1000) {
 		// Rotation coins, keys, diamonds
