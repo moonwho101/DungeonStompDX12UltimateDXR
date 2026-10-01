@@ -63,6 +63,7 @@ extern int playercurrentmove;
 extern CameraBob bobY;
 extern CameraBob bobX;
 extern float angy;
+extern FLOAT fTimeKeysave;
 extern float look_up_ang;
 extern float look_roll_ang;
 extern float k;
@@ -90,12 +91,14 @@ float fixangle(float angle, float node);
 float FastDistance(float fx, float fy, float fz);
 
 VOID UpdateControls();
+float DemoFrameTime(float dt);
 HRESULT FrameMove(double fTime, FLOAT fTimeKey);
 void UpdateWorld(float fElapsedTime);
 
 void DungeonStompApp::Update(const GameTimer &gt) {
 	float t = gt.DeltaTime();
 	UpdateControls();
+	t = DemoFrameTime(t);
 	FrameMove(0.0f, t);
 	UpdateWorld(t);
 	OnKeyboardInput(gt);
@@ -142,7 +145,7 @@ void DungeonStompApp::Update(const GameTimer &gt) {
 }
 
 void DungeonStompApp::UpdateCamera(const GameTimer &gt) {
-	float dt = gt.DeltaTime();
+	float dt = fTimeKeysave;
 
 	// Decay landing dip
 	mLandingDip -= 150.0f * dt;

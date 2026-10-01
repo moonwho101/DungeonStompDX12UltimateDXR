@@ -39,7 +39,7 @@ static void EnsureInit() {
 
 // Returns a float in [lo, hi).
 static inline float RandRange(float lo, float hi) {
-    float t = static_cast<float>(random_num(10000)) / 9999.0f;
+    float t = static_cast<float>(random_cosmetic(10000)) / 9999.0f;
     return lo + t * (hi - lo);
 }
 
@@ -422,7 +422,7 @@ void DrawParticles() {
         // Per-type texture selection.
         switch (em.type) {
             case EMITTER_CRITICAL:
-                texture_list_buffer[slot] = 370 + random_num(5);
+                texture_list_buffer[slot] = 370 + random_cosmetic(5);
                 break;
             case EMITTER_FIRE:
                 texture_list_buffer[slot] = 200;

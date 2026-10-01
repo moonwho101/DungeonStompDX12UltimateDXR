@@ -520,6 +520,8 @@ void DrawModel();
 void DrawItems(float fElapsedTime);
 void UpdateWorld(float fElapsedTime);
 int random_num(int num);
+int random_cosmetic(int num);
+void SeedGameRandom(unsigned int seed);
 void PrintMessage(HWND hwnd, char *message1, char *message2, int message_mode);
 char *_itoa(int x);
 void InitDS();

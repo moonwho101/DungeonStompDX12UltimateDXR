@@ -14,6 +14,7 @@ int movement = 1;
 void PlayerJump(const FLOAT &fTimeKey);
 void FindDoors(const FLOAT &fTimeKey);
 void GameTimers(const FLOAT &fTimeKey);
+double GameClockSeconds();
 bool MovePlayer(const FLOAT &fTimeKey);
 void StrifePlayer(FLOAT &fTimeKey, bool addVel);
 void PlayerAnimation();
@@ -92,6 +93,29 @@ HRESULT FrameMove(double fTime, FLOAT fTimeKey) {
 	// GunTruesave = EyeTrue;
 
 	return S_OK;
+}
+
+void ResetPlayerMotionState() {
+	direction = 0;
+	directionlast = 0;
+	savelastmove = 0;
+	savelaststrifemove = 0;
+	playermove = 0;
+	playermovestrife = 0;
+	movespeed = 0.0f;
+	movespeedold = 0.0f;
+	movespeedsave = 0.0f;
+	movetime = 0.0f;
+	currentspeed = 0.0f;
+	savevelocity = { 0.0f, 0.0f, 0.0f };
+	saveoldvelocity = { 0.0f, 0.0f, 0.0f };
+	gravityvector.x = gravityvector.y = gravityvector.z = 0.0f;
+	gravityvectorold.x = gravityvectorold.y = gravityvectorold.z = 0.0f;
+	totaldist = 0.0f;
+	gravitydropcount = 0;
+	lastcollide = 0;
+	foundcollisiontrue = 0;
+	gravitytime = 0.0f;
 }
 
 void CheckAngle() {
@@ -363,22 +387,18 @@ void FindDoors(const FLOAT &fTimeKey) {
 }
 
 void GameTimers(const FLOAT &fTimeKey) {
-	static LARGE_INTEGER frequency = { 0 };
-	static LARGE_INTEGER lastTime = { 0 };
+	static double lastTime = 0.0;
 	static float elapsedTime = 0.0f;
 	float kAnimationSpeed = 7.0f;
 
-	// Initialize frequency and lastTime on first call
-	if (frequency.QuadPart == 0) {
-		QueryPerformanceFrequency(&frequency);
-		QueryPerformanceCounter(&lastTime);
-	}
+	double currentTime = GameClockSeconds();
 
-	LARGE_INTEGER currentTime;
-	QueryPerformanceCounter(&currentTime);
+	// The game clock restarts at 0 when a demo starts.
+	if (currentTime < lastTime)
+		lastTime = currentTime;
 
 	// Calculate elapsed time in milliseconds
-	elapsedTime = (float)((currentTime.QuadPart - lastTime.QuadPart) * 1000.0 / frequency.QuadPart);
+	elapsedTime = (float)((currentTime - lastTime) * 1000.0);
 
 	// To find the current t we divide the elapsed time by the ratio of 1 second / our anim speed.
 	// Since we aren't using 1 second as our t = 1, we need to divide the speed by 1000
@@ -390,7 +410,7 @@ void GameTimers(const FLOAT &fTimeKey) {
 	if (elapsedTime >= (1000.0f / kAnimationSpeed)) {
 		// Animation Cycle
 		maingameloop3 = 1;
-		QueryPerformanceCounter(&lastTime);
+		lastTime = currentTime;
 	} else {
 		maingameloop3 = 0;
 	}

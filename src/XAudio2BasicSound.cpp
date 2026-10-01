@@ -595,7 +595,7 @@ int FindSoundSlot() {
 
 void PlaySong() {
 
-	int raction = random_num(nummidi);
+	int raction = random_cosmetic(nummidi);
 	int count = 0;
 
 	if (WaveSongPlaying(playingsong)) {
@@ -670,7 +670,7 @@ void CheckMidiMusic() {
 		skipmusic = 0;
 		fLastTimeMusic = fTime;
 
-		raction = random_num(4);
+		raction = random_cosmetic(4);
 
 		if (raction == 1)
 			PlayWavSound(SoundID("effect1"), 100);
@@ -692,7 +692,7 @@ void CheckMidiMusic() {
 		WaveSongPlaying(playingsong);
 
 	if (playingsong == 0 && skipmusic == 0 && musicon == 1) {
-		raction = random_num(2);
+		raction = random_cosmetic(2);
 		skipmusic = 0;
 
 		PlaySong();

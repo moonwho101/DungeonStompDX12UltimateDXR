@@ -14,15 +14,16 @@
 
 **Most DXR samples stop at a spinning triangle or a Cornell box. Dungeon Stomp is a full, playable dungeon crawler engine that puts DirectX 12 Ultimate's headline features to work in a live production codebase — featuring DXR 1.1 inline ray tracing, PBR, Variable Rate Shading, and SSAO.**
 
-[Play Now](#quick-start) · [Screenshots](#screenshots) · [Features](#features-at-a-glance) · [Build](#build-from-source) · [Controls](#controls)
+[Play Now](#quick-start) · [Dungeon Generator](#dungeon-generator) · [Features](#features) · [Screenshots](#screenshots) · [Controls](#controls) · [Demos](#demo-recording-and-playback) · [Build](#build-from-source) · [Repository](#repository-structure) · [Credits](#credits)
 
 </div>
 
 ---
 
+<a id="quick-start"></a>
 ## ⚡ Quick Start
 
-> **Play immediately** — pre-compiled binary included!
+> **Play immediately** — a pre-compiled `DungeonStomp.exe` is included in `bin/`.
 
 ```bash
 git clone https://github.com/moonwho101/DungeonStompDX12UltimateDXR.git
@@ -30,34 +31,40 @@ cd DungeonStompDX12UltimateDXR/bin
 DungeonStomp.exe
 ```
 
-*Requirements: Windows 10/11 with a DirectX 12 GPU. A DXR-capable GPU (NVIDIA RTX / AMD RX 6000+ / Intel Arc) is recommended for ray tracing features.*
+Run the game from the `bin/` folder; it loads its levels, sounds and shaders using paths relative to that directory.
+
+*Requirements: Windows 10/11 with a DirectX 12 GPU. A DXR 1.1-capable GPU (NVIDIA RTX / AMD RX 6000+ / Intel Arc) is needed for ray tracing (`R`); without one the game falls back to the rasterized renderer. Variable Rate Shading (`T`) also requires hardware support.*
 
 ---
 
-
-## 🎮 Procedural Dungeon Generation (Press F7)
+<a id="dungeon-generator"></a>
+## 🎮 Dungeon Generator (Press F7)
 
 ![Procedural-Dungeon-Generation](Textures/screenshot50.jpg)
 
+Press `F7` to open the settings panel, choose a seed (`0` = random) and tile count, then click **Generate Classic Dungeon** or **Generate Enhanced Dungeon**. The layout is written to `level1.map` and loaded immediately. Press `F7` again to close the panel and return to play.
+
 ---
 
-## ✨ Features at a Glance
+<a id="features"></a>
+## ✨ Features
 
 ### 🚀 Graphics & Engine (DX12 Ultimate)
-- **DXR 1.1 Inline Ray Tracing:** Pixel-perfect ray-traced shadow rays & global illumination.
-- **PBR Material Pipeline:** Cook-Torrance BRDF with metallic workflow, 28+ tuned materials, and ACES tone mapping.
-- **Variable Rate Shading (VRS):** Hardware-adaptive shading rates for enhanced performance.
-- **Dynamic Lighting & Effects:** 2048x2048 shadow maps, SSAO, 32 dynamic lights per scene, normal mapping & atmospheric fog.
-- **Engine Tech:** 3-frame buffered rendering, spatial culling, BMFont GPU text rendering, and XAudio2 sound engine.
+- **DXR 1.1 Inline Ray Tracing:** `RayQuery` shadow rays, plus a 2-sample single-bounce indirect diffuse (GI) approximation.
+- **PBR Material Pipeline:** Cook-Torrance BRDF with a metallic workflow, 28 tuned materials (`bin/materials.txt`) and ACES tone mapping.
+- **Variable Rate Shading (VRS):** Optional hardware shading-rate control for performance.
+- **Lighting & Effects:** 2048x2048 shadow map, SSAO, up to 32 dynamic lights per scene, normal mapping and atmospheric fog.
+- **Engine Tech:** 3-frame buffered rendering, spatial culling, BMFont GPU text rendering, Dear ImGui settings panel and an XAudio2 sound engine.
 
-### ⚔️ Complete Game Campaign
-- **15 Dungeon Levels:** Hand-crafted campaign levels + procedural seed-based dungeon generator.
-- **25+ Enemy Types:** Animated MD2 & 3DS monsters with AI, audio cues, and loot drops.
-- **30+ Weapons & Spells:** Melee, ranged, and magic missile projectile system (up to 100 active missiles).
-- **Classic RPG Mechanics:** Level progression, XP system, keys, swinging doors, and persistent save/load state (`F5`/`F6`).
+### ⚔️ Game
+- **16 Dungeon Levels:** Hand-crafted campaign levels plus a seed-based procedural dungeon generator.
+- **25+ Enemy Types:** Animated MD2 & 3DS monsters with AI, audio cues and loot drops.
+- **Weapons & Spells:** Up to 30 weapon/spell slots covering melee, scrolls and a missile system (up to 100 active missiles).
+- **Classic RPG Mechanics:** Dice-based combat, level progression, XP, keys, swinging doors, save/load (`F5`/`F6`) and demo record/playback (`F2`/`F3`).
 
 ---
 
+<a id="screenshots"></a>
 ## 🖼️ Screenshots
 
 <div align="center">
@@ -82,38 +89,58 @@ DungeonStomp.exe
 
 ---
 
+<a id="controls"></a>
 ## 🎮 Controls
 
 | Action | Input | Action | Input |
 |---|---|---|---|
-| **Move** | `W` `A` `S` `D` | **Cycle Weapons** | `Q` / `Z` or `Mouse Wheel` |
-| **Attack** | `Left Click` | **Load / Save** | `F5` / `F6` |
-| **Forward** | `Right Click` | **Fullscreen** | `Alt`+`Enter` / `F11` |
-| **Open Doors** | `Space` | **Debug HUD / GUI** | `F8 / F7` |
-| **Jump** | `E` | **Xbox Controller** | Supported (enabled in `DirectInput.cpp`) |
+| **Look / Turn** | `Mouse` | **Cycle Weapons** | `Q` next / `Z` previous, or `Mouse Wheel` |
+| **Move Forward / Back** | `W` / `S` (or `Right Click` to move forward) | **Load / Save** | `F5` / `F6` |
+| **Strafe** | `A` / `D` | **Record / Play Demo** | `F2` / `F3` |
+| **Attack** | `Left Click` | **Settings Panel (Generator & Toggles)** | `F7` |
+| **Jump** | `E` | **On-Screen Debug Stats** | `F8` |
+| **Open Doors** | `Space` | **Fullscreen (borderless)** | `Alt`+`Enter` or `F11` |
+| **Respawn after death** | `Space` | **Quit** | `Esc` |
+
+An Xbox controller is supported but disabled by default; set `g_bUseJoystick` to `true` (`g_bUseMouse` and `g_bUseKeyboard`  to `false`) in `src/DirectInput.cpp` and rebuild.
 
 <details>
 <summary><b>🔧 Developer & Feature Hotkeys (Click to expand)</b></summary>
 
 <br>
 
-| Key | Graphics Toggle | Key | Developer / Gameplay Controls |
+| Key | Graphics Toggle | Key | Gameplay / Developer |
 |:---:|---|:---:|---|
-| `R` | Toggle DXR Ray Tracing | `G` | Toggle Noclip / Fly Mode (Numpad `+`/`-`) |
-| `T` | Toggle Variable Rate Shading | `X` | Add Experience Points |
-| `O` | Toggle SSAO | `K` | Unlock All Weapons & Spells |
-| `J` | Toggle Shadow Map | `]` / `[` | Jump to Next / Previous Level |
-| `N` | Toggle Normal Maps | `I` / `P` | Disable / Randomize Music |
-| `M` | View Shadow Map / SSAO Buffer | `B` | Toggle Camera Head Bob |
-| `V` | Toggle VSync | `H` | Toggle Player HUD |
+| `R` | DXR Ray Tracing | `G` | Gravity on/off (fly with Numpad `+` / `-` when off) |
+| `T` | Variable Rate Shading | `X` | Add 10 experience points |
+| `O` | SSAO | `K` | Unlock all weapons & spells |
+| `J` | Shadow Map | `]` / `[` | Next / previous level |
+| `N` | Normal Maps | `I` | Music on/off |
+| `M` | Shadow Map overlay | `P` | Play a random song |
+| `V` | VSync | `B` | Camera head bob |
+| `H` | Player HUD | | |
 
 </details>
 
 ---
 
+<a id="demo-recording-and-playback"></a>
+## 🎬 Demo Recording & Playback
+
+Record your gameplay and watch it back, much like Quake or Doom demos.
+
+- `F2` starts recording: the game is saved to `demo.sav` and every frame's input is captured. Press `F2` again to stop and write `demo.dem`.
+- `F3` plays the recording back from that saved starting state. Press `F3` again to stop early; playback also stops when the demo ends.
+- While recording or playing, `F5` / `F6` are ignored and live mouse/keyboard input is not used during playback.
+- Both files are written to the game's working directory (`bin/`). Only the most recent recording is kept; recording again overwrites it.
+- Playback replays your input with the recorded frame times, using a fixed random seed and a game clock, so monsters, damage rolls and loot should match the original run.
+
+---
+
+<a id="build-from-source"></a>
 ## 🛠️ Build from Source
 
-**Prerequisites:** Visual Studio 2022 (with Desktop development with C++) & Windows 10/11 SDK.
+**Prerequisites:** Visual Studio 2022 (Desktop development with C++, v143 toolset) and the Windows 10/11 SDK.
 
 ```powershell
 git clone https://github.com/moonwho101/DungeonStompDX12UltimateDXR.git
@@ -121,34 +148,40 @@ cd DungeonStompDX12UltimateDXR
 msbuild src\DungeonStomp.sln /p:Configuration=Release /p:Platform=x64
 ```
 
-Or open `src/DungeonStomp.sln` in Visual Studio 2022 and build in **Release | x64**. Binary outputs to `bin/DungeonStomp.exe`.
+Or open `src/DungeonStomp.sln` in Visual Studio 2022 and build **Release | x64**.
+
+| Configuration | Output |
+|---|---|
+| Release | `bin/DungeonStomp.exe` |
+| Debug | `bin/DungeonStompDebug.exe` |
+
+Run the executable from `bin/`. HLSL shaders are compiled at startup from the `Shaders/` folder next to it, so keep the repository layout intact.
 
 ---
 
-<details>
-<summary><b>📂 Repository Structure & Dungeon Generator</b></summary>
+<a id="repository-structure"></a>
+## 📂 Repository Structure
 
-<br>
-
-### Key Directories
-- `bin/` — Pre-built executable, levels, sounds, and assets
-- `src/` — Engine & game logic source code (40+ C++ files)
-- `Shaders/` — HLSL shader code ([Shaders/Raytracing.hlsl](Shaders/Raytracing.hlsl), PBR, VRS, SSAO)
+- `bin/` — Pre-built executable, level files (`.map`/`.cmp`/`.mod`), sounds and runtime data
+- `src/` — Engine & game logic (about 30 C++ files plus bundled Dear ImGui)
 - `Common/` — D3D12 helper framework (`d3dApp`, `GameTimer`, `MathHelper`)
-- `tools/` — Procedural dungeon generation scripts
+- `Shaders/` — HLSL shaders ([Raytracing.hlsl](Shaders/Raytracing.hlsl), PBR, shadows, SSAO)
+- `Models/`, `Textures/`, `Sounds/`, `Midi/` — Game assets
+- `tools/` — Python asset and dungeon-generation scripts
+- `Installer/` — Inno Setup installer script
 
-### Procedural Dungeon Generation
-Generate reproducible layout files replacing `bin/level1.map`:
+### Dungeon Generator Scripts
+Besides the in-game generator (`F7`), two scripts write a new layout to `bin/level1.map`:
+
 ```bash
 cd tools
-python generate_dungeon.py          # Classic tileset
+python generate_dungeon.py           # Classic tileset
 python generate_dungeonNewObjects.py # Extended tileset
 ```
 
-</details>
-
 ---
 
+<a id="credits"></a>
 ## 🌐 Credits
 
 *Engine architecture builds upon concepts from "Introduction to 3D Game Programming with DirectX 12 - 2nd Edition" by Frank Luna.*
