@@ -2,7 +2,7 @@
 
 # Dungeon Stomp DX12 Ultimate DXR
 
-### A Full 3D Dungeon Crawler Engine Showcase for DirectX 12 Ultimate & DXR
+### A Deterministic 3D Dungeon Crawler Engine Showcase for DirectX 12 Ultimate & DXR
 
 [![License](https://img.shields.io/github/license/moonwho101/DungeonStompDX12UltimateDXR?style=flat-square)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows-blue?style=flat-square&logo=windows)](https://github.com/moonwho101/DungeonStompDX12UltimateDXR)
@@ -12,9 +12,9 @@
 
 ![Dungeon Stomp DX12 DXR](Textures/screenshot52.jpg)
 
-**Most DXR samples stop at a spinning triangle or a Cornell box. Dungeon Stomp is a full, playable dungeon crawler engine that puts DirectX 12 Ultimate's headline features to work in a live production codebase — featuring DXR 1.1 inline ray tracing, PBR, Variable Rate Shading, and SSAO.**
+**Most DXR samples stop at a spinning triangle or a Cornell box. Dungeon Stomp is a full, playable, deterministic dungeon crawler engine that puts DirectX 12 Ultimate's headline features to work in a live production codebase — featuring DXR 1.1 inline ray tracing, PBR, Variable Rate Shading, deterministic simulation, and SSAO.**
 
-[Play Now](#quick-start) · [Dungeon Generator](#dungeon-generator) · [Features](#features) · [Screenshots](#screenshots) · [Controls](#controls) · [Demos](#demo-recording-and-playback) · [Build](#build-from-source) · [Repository](#repository-structure) · [Credits](#credits)
+[Play Now](#quick-start) · [Dungeon Generator](#dungeon-generator) · [Features](#features) · [Screenshots](#screenshots) · [Controls](#controls) · [Deterministic Simulation & Demos](#deterministic-simulation-and-demos) · [Build](#build-from-source) · [Repository](#repository-structure) · [Credits](#credits)
 
 </div>
 
@@ -60,7 +60,8 @@ Press `F7` to open the settings panel, choose a seed (`0` = random) and tile cou
 - **16 Dungeon Levels:** Hand-crafted campaign levels plus a seed-based procedural dungeon generator.
 - **25+ Enemy Types:** Animated MD2 & 3DS monsters with AI, audio cues and loot drops.
 - **Weapons & Spells:** Up to 30 weapon/spell slots covering melee, scrolls and a missile system (up to 100 active missiles).
-- **Classic RPG Mechanics:** Dice-based combat, level progression, XP, keys, swinging doors, save/load (`F5`/`F6`) and demo record/playback (`F2`/`F3`).
+- **Deterministic Simulation:** Seeded PRNG sequence, fixed game-step logic, and deterministic physics & AI ensure 100% reproducible gameplay.
+- **Classic RPG Mechanics:** Dice-based combat, level progression, XP, keys, swinging doors, save/load (`F5`/`F6`) and deterministic demo record/playback (`F2`/`F3`).
 
 ---
 
@@ -124,16 +125,18 @@ An Xbox controller is supported but disabled by default; set `g_bUseJoystick` to
 
 ---
 
-<a id="demo-recording-and-playback"></a>
-## 🎬 Demo Recording & Playback
+<a id="deterministic-simulation-and-demos"></a>
+## 🎲 Deterministic Simulation & Demo System
 
-Record your gameplay and watch it back, much like Quake or Doom demos.
+Dungeon Stomp is designed as a **fully deterministic game simulation**. All core game logic—including monster AI pathfinding and target decisions, combat dice rolls, projectile physics, particle behavior, and procedural dungeon generation—runs on a fixed tick clock and a deterministic pseudo-random number generator (PRNG) sequence.
 
-- `F2` starts recording: the game is saved to `demo.sav` and every frame's input is captured. Press `F2` again to stop and write `demo.dem`.
-- `F3` plays the recording back from that saved starting state. Press `F3` again to stop early; playback also stops when the demo ends.
-- While recording or playing, `F5` / `F6` are ignored and live mouse/keyboard input is not used during playback.
-- Both files are written to the game's working directory (`bin/`). Only the most recent recording is kept; recording again overwrites it.
-- Playback replays your input with the recorded frame times, using a fixed random seed and a game clock, so monsters, damage rolls and loot should match the original run.
+Because every state update is deterministic and reproducible, the engine features a classic Quake/Doom-style **Demo Recording & Playback System**:
+
+- **`F2` Record:** Saves an initial world snapshot to `demo.sav` and records raw frame-by-frame player inputs. Pressing `F2` again stops recording and writes `demo.dem`.
+- **`F3` Playback:** Restores the exact starting snapshot and feeds the recorded inputs back through the deterministic simulation tick loop.
+- **Exact Parity:** Every monster AI choice, combat hit roll, missile trajectory, and loot drop unfolds with 100% mathematical accuracy compared to the original play session.
+- **Deterministic Seed Generation:** Procedural dungeons (`F7` panel or `tools/generate_dungeon.py`) use fixed seed values, ensuring identical dungeon layouts, enemy spawns, and item placements across machines.
+- Both demo files are written to `bin/`. Live input is ignored during playback, and `F5`/`F6` save/load hotkeys are temporarily disabled.
 
 ---
 
