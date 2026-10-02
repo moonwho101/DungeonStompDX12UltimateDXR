@@ -274,6 +274,8 @@ void StartDemoPlayback() {
 		return;
 	}
 
+	level();
+
 	if (!load_game((char *)kDemoSaveFile)) {
 		DemoMessage("Demo: could not load demo.sav.");
 		return;

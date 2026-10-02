@@ -2067,9 +2067,6 @@ int load_level(char *filename) {
 		strcat_s(level, ".map");
 	}
 
-	if (!pCWorld->LoadWorldMap(level)) {
-	}
-
 	num_players2 = 0;
 	itemlistcount = 0;
 	num_monsters = 0;
