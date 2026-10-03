@@ -1234,6 +1234,9 @@ void DungeonStompApp::DisplayPlayerCaption() {
 	int totalcount = 0;
 	displayCapture = 0;
 
+	if (enableDXR && !enablePlayerHUD)
+		return;
+
 	ObjectsToDraw[number_of_polys_per_frame].srcstart = cnt;
 	ObjectsToDraw[number_of_polys_per_frame].objectId = -99;
 	ObjectsToDraw[number_of_polys_per_frame].srcfstart = 0;
@@ -1335,6 +1338,49 @@ void DungeonStompApp::DisplayPlayerCaption() {
 				float cosine = (float)cos(fDot * k);
 				float sine = (float)sin(fDot * k);
 
+				if (enableDXR) {
+					// DXR consumes triangle lists, so expand each 4 vertex glyph strip into two
+					// triangles wound clockwise as seen from the camera (back faces are culled).
+					for (int q = 0; q + 3 < countdisplay && cnt + 6 < MAX_NUM_QUADS; q += 4) {
+						XMFLOAT3 p[4];
+						for (int k = 0; k < 4; k++) {
+							p[k].x = x + (bubble[q + k].x * cosine - bubble[q + k].z * sine);
+							p[k].y = y + bubble[q + k].y;
+							p[k].z = z + (bubble[q + k].x * sine + bubble[q + k].z * cosine);
+						}
+
+						XMVECTOR p0 = XMLoadFloat3(&p[0]);
+						XMVECTOR faceNormal = XMVector3Normalize(XMVector3Cross(XMLoadFloat3(&p[1]) - p0, XMLoadFloat3(&p[2]) - p0));
+						bool facesCamera = XMVectorGetX(XMVector3Dot(faceNormal, XMLoadFloat3(&vw1) - p0)) >= 0.0f;
+						if (!facesCamera)
+							faceNormal = -faceNormal;
+
+						XMFLOAT3 n;
+						XMStoreFloat3(&n, faceNormal);
+
+						static const int frontOrder[6] = { 0, 1, 2, 2, 1, 3 };
+						static const int backOrder[6] = { 0, 2, 1, 2, 3, 1 };
+						const int *order = facesCamera ? frontOrder : backOrder;
+
+						for (int k = 0; k < 6; k++) {
+							int idx = order[k];
+							memset(&src_v[cnt], 0, sizeof(D3DVERTEX2));
+							src_v[cnt].x = p[idx].x;
+							src_v[cnt].y = p[idx].y;
+							src_v[cnt].z = p[idx].z;
+							src_v[cnt].tu = bubble[q + idx].tu;
+							src_v[cnt].tv = bubble[q + idx].tv;
+							src_v[cnt].nx = n.x;
+							src_v[cnt].ny = n.y;
+							src_v[cnt].nz = n.z;
+							src_v[cnt].CastShadow = 0;
+							totalcount++;
+							cnt++;
+						}
+					}
+					continue;
+				}
+
 				displayCaptureIndex[displayCapture] = cnt;
 				;
 				displayCaptureCount[displayCapture] = (int)strlen(junk2);
@@ -1369,6 +1415,23 @@ void DungeonStompApp::DisplayPlayerCaption() {
 	}
 
 	int test = (totalcount / 4) * 6;
+	if (enableDXR) {
+		// Captions are already emitted as triangle lists; register them as a regular draw object
+		// so the DXR path assigns the font texture to these triangles.
+		displayCapture = 0;
+		if (totalcount > 0) {
+			int slot = number_of_polys_per_frame;
+			ObjectsToDraw[slot].castshaddow = 0;
+			ObjectsToDraw[slot].vertsperpoly = totalcount;
+			ObjectsToDraw[slot].facesperpoly = totalcount / 3;
+			verts_per_poly[slot] = totalcount;
+			dp_command_index_mode[slot] = 1;
+			dp_commands[slot] = D3DPT_TRIANGLELIST;
+			number_of_polys_per_frame++;
+		}
+		return;
+	}
+
 	verts_per_poly[number_of_polys_per_frame] = test;
 	dp_command_index_mode[number_of_polys_per_frame] = 1;
 	dp_commands[number_of_polys_per_frame] = D3DPT_TRIANGLELIST;

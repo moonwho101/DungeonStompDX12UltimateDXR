@@ -162,6 +162,13 @@ bool IsTransparentTexture(uint texIdx)
 	return false;
 }
 
+// Player caption font (fontB). Its DDS is DXT1 so it has no alpha channel;
+// the glyph mask is the source art's alpha map, which is white glyphs on black.
+bool IsFontTexture(uint texIdx)
+{
+	return texIdx == 378;
+}
+
 bool IsTextureCastNoShadow(uint texIdx)
 {
 	if (texIdx >= 127 && texIdx <= 137)
@@ -649,6 +656,13 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
 	if (IsTransparentTexture(texIndex))
 	{
 		float alpha = texSample.a * materialDiffuseAlbedo.a;
+		if (IsFontTexture(texIndex))
+		{
+            // Use the glyph mask as alpha and keep the glyph color solid so the
+            // black background never shows and antialiased edges do not darken.
+			alpha = saturate(max(texSample.r, max(texSample.g, texSample.b))) * materialDiffuseAlbedo.a;
+			albedo = materialDiffuseAlbedo.rgb;
+		}
 		const float alphaTolerance = 0.05f;
 		float3 surfaceColor = albedo; // default: opaque surface color
 
