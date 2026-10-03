@@ -162,6 +162,12 @@ bool IsTransparentTexture(uint texIdx)
 	return false;
 }
 
+// Player caption font (fontB), drawn additively like the raster path.
+bool IsFontTexture(uint texIdx)
+{
+	return texIdx == 378;
+}
+
 bool IsTextureCastNoShadow(uint texIdx)
 {
 	if (texIdx >= 127 && texIdx <= 137)
@@ -651,6 +657,15 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
 		float alpha = texSample.a * materialDiffuseAlbedo.a;
 		const float alphaTolerance = 0.05f;
 		float3 surfaceColor = albedo; // default: opaque surface color
+		float3 fontAdd = float3(0.0f, 0.0f, 0.0f);
+		if (IsFontTexture(texIndex))
+		{
+            // Match the raster caption path (torch PSO): unlit texture color, blended as
+            // SRC_COLOR * out + dest, i.e. dest + tex^2. The black background adds nothing.
+			fontAdd = texSample.rgb * texSample.rgb;
+			albedo = fontAdd;
+			surfaceColor = fontAdd;
+		}
 
 		if (payload.depth < 4)
 		{
@@ -668,6 +683,13 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
 			contPayload.hitT = 100000.0f;
 
 			TraceRay(gScene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, 0xFF, 0, 1, 0, contRay, contPayload);
+
+			if (IsFontTexture(texIndex))
+			{
+				payload.color = float4(saturate(contPayload.color.rgb + fontAdd), 1.0f);
+				payload.hitT = RayTCurrent();
+				return;
+			}
 
 			if (alpha < alphaTolerance)
 			{

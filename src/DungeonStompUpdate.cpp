@@ -135,8 +135,10 @@ void DungeonStompApp::Update(const GameTimer &gt) {
 		UpdateShadowTransform(gt, 0);
 		UpdateSsaoCB(gt);
 		UpdateShadowPassCB(gt);
-		DisplayPlayerCaption();
 	}
+
+	// Captions are billboards in the vertex buffer: needed by both rasterization and DXR.
+	DisplayPlayerCaption();
 
 	ProcessLights11();
 	UpdateMainPassCB(gt);
