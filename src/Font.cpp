@@ -85,6 +85,7 @@ extern int gDXROutputWidth;
 extern int gDXROutputHeight;
 extern bool enableVsync;
 extern bool enablePlayerHUD;
+extern bool enablePlayerCaptions;
 extern bool enableOnscreenDebug;
 extern bool enableCameraBob;
 extern bool enableNormalmap;
@@ -934,6 +935,12 @@ void DungeonStompApp::RenderImGuiTogglePanel() {
 				UpdateScrollList(0, 255, 255);
 			}
 
+			// Player Captions
+			if (ImGui::Checkbox("Player Captions [.]", &enablePlayerCaptions)) {
+				sprintf_s(gActionMessage, "Player Captions %s", enablePlayerCaptions ? "Enabled" : "Disabled");
+				UpdateScrollList(0, 255, 255);
+			}
+
 			// Debug Stats
 			if (ImGui::Checkbox("Debug Stats [F8]", &enableOnscreenDebug)) {
 				sprintf_s(gActionMessage, "Onscreen Debug %s", enableOnscreenDebug ? "Enabled" : "Disabled");
@@ -945,7 +952,7 @@ void DungeonStompApp::RenderImGuiTogglePanel() {
 
 		ImGui::Spacing();
 		ImGui::Separator();
-		ImGui::TextDisabled("Use mouse or hotkeys [M,O,N,J,T,R,V,B,H,F8]");
+		ImGui::TextDisabled("Use mouse or hotkeys [M,O,N,J,T,R,V,B,H,.,F8]");
 	}
 	ImGui::End();
 }
@@ -1233,6 +1240,9 @@ void DungeonStompApp::DisplayPlayerCaption() {
 
 	int totalcount = 0;
 	displayCapture = 0;
+
+	if (!enablePlayerCaptions)
+		return;
 
 	if (enableDXR && !enablePlayerHUD)
 		return;

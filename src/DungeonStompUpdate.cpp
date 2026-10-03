@@ -38,6 +38,8 @@ bool enableVRS = false;
 bool enableVRSKey = false;
 bool enablePlayerHUD = true;
 bool enablePlayerHUDKey = false;
+bool enablePlayerCaptions = true;
+bool enablePlayerCaptionsKey = false;
 bool enableOnscreenDebug = false;
 bool enableOnscreenDebugKey = false;
 bool enableDXR = false;
@@ -412,6 +414,13 @@ void DungeonStompApp::OnKeyboardInput(const GameTimer &gt) {
 	handleToggleKey('H', enablePlayerHUDKey, []() {
 		enablePlayerHUD = !enablePlayerHUD;
 		sprintf_s(gActionMessage, "Player HUD %s", enablePlayerHUD ? "Enabled" : "Disabled");
+		UpdateScrollList(0, 255, 255);
+	});
+
+	// . : Player Captions
+	handleToggleKey(VK_OEM_PERIOD, enablePlayerCaptionsKey, []() {
+		enablePlayerCaptions = !enablePlayerCaptions;
+		sprintf_s(gActionMessage, "Player Captions %s", enablePlayerCaptions ? "Enabled" : "Disabled");
 		UpdateScrollList(0, 255, 255);
 	});
 
