@@ -24,6 +24,6 @@
 
 #define MaxLights 32
 
-#define MaxRectangle 5
+#define MaxRectangle 7
 
 #endif

@@ -293,6 +293,27 @@ void DungeonStompApp::RenderRectangle(Font font, int index, int textureid, XMFLO
 	rectangleTexId[index] = textureid;
 }
 
+// pos is the top-left corner and size the extent, both as fractions of the screen (0..1)
+void DungeonStompApp::RenderSolidRectangle(int index, XMFLOAT2 pos, XMFLOAT2 size, XMFLOAT4 color) {
+	TextVertex *vert = (TextVertex *)rectangleVBGPUAddress[index];
+
+	vert[0] = TextVertex(color.x,
+	                     color.y,
+	                     color.z,
+	                     color.w,
+	                     0.0f,
+	                     0.0f,
+	                     1.0f,
+	                     1.0f,
+	                     (pos.x * 2.0f) - 1.0f,
+	                     ((1.0f - pos.y) * 2.0f) - 1.0f,
+	                     size.x * 2.0f,
+	                     size.y * 2.0f);
+
+	rectangleActive[index] = true;
+	rectangleTexId[index] = 0;
+}
+
 void DungeonStompApp::FlushRectangles() {
 	for (int i = 0; i < MaxRectangle; ++i) {
 		if (!rectangleActive[i])
@@ -447,7 +468,31 @@ void DungeonStompApp::DisplayHud() {
 	sprintf_s(junk, "Health");
 	RenderText(arialFont, charToWChar(junk), XMFLOAT2(0.0f, 0.82f), XMFLOAT2(0.30f, 0.30f));
 	sprintf_s(junk, "%d/%d", player_list[trueplayernum].health, player_list[trueplayernum].hp);
-	RenderText(arialFont, charToWChar(junk), XMFLOAT2(0.07f, 0.82f), XMFLOAT2(0.30f, 0.30f), XMFLOAT2(0.5f, 0.0f), XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f));
+	RenderText(arialFont, charToWChar(junk), XMFLOAT2(0.137f, 0.82f), XMFLOAT2(0.30f, 0.30f), XMFLOAT2(0.5f, 0.0f), XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f));
+
+	// health bar: green when healthy, yellow when hurt, red when low
+	{
+		const float barX = 0.071f;
+		const float barY = 0.8240f;
+		const float barW = 0.062f;
+		const float barH = 0.012f;
+		const float border = 0.0015f;
+
+		float healthFrac = 0.0f;
+		if (player_list[trueplayernum].hp > 0)
+			healthFrac = (float)player_list[trueplayernum].health / (float)player_list[trueplayernum].hp;
+		healthFrac = max(0.0f, min(1.0f, healthFrac));
+
+		XMFLOAT4 barColor = XMFLOAT4(0.0f, 0.8f, 0.0f, 1.0f);
+		if (healthFrac <= 0.25f)
+			barColor = XMFLOAT4(0.9f, 0.0f, 0.0f, 1.0f);
+		else if (healthFrac <= 0.5f)
+			barColor = XMFLOAT4(0.9f, 0.8f, 0.0f, 1.0f);
+
+		RenderSolidRectangle(5, XMFLOAT2(barX - border, barY - border), XMFLOAT2(barW + border * 2.0f, barH + border * 2.0f), XMFLOAT4(0.0f, 0.0f, 0.0f, 0.7f));
+		if (healthFrac > 0.0f)
+			RenderSolidRectangle(6, XMFLOAT2(barX, barY), XMFLOAT2(barW * healthFrac, barH), barColor);
+	}
 
 	sprintf_s(junk, "Weapon");
 	RenderText(arialFont, charToWChar(junk), XMFLOAT2(0.00f, 0.84f), XMFLOAT2(0.30f, 0.30f));

@@ -108,6 +108,7 @@ class DungeonStompApp : public D3DApp {
 	void RenderText(Font font, std::wstring text, XMFLOAT2 pos, XMFLOAT2 scale = XMFLOAT2(1.0f, 1.0f), XMFLOAT2 padding = XMFLOAT2(0.5f, 0.0f), XMFLOAT4 color = XMFLOAT4(0.0f, 1.0f, 1.0f, 1.0f));
 	void FlushText();
 	void RenderRectangle(Font font, int index, int textureid, XMFLOAT2 pos, XMFLOAT2 scale = XMFLOAT2(1.0f, 1.0f), XMFLOAT2 padding = XMFLOAT2(0.5f, 0.0f), XMFLOAT4 color = XMFLOAT4(0.0f, 1.0f, 1.0f, 1.0f));
+	void RenderSolidRectangle(int index, XMFLOAT2 pos, XMFLOAT2 size, XMFLOAT4 color);
 	void FlushRectangles();
 	void display_message3(float x, float y, char text[2048], int r, int g, int b, float fontx, float fonty, int fonttype);
 	void SetDungeonText();

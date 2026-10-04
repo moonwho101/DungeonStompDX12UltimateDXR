@@ -705,6 +705,13 @@ void DungeonStompApp::BuildShadersAndInputLayout() {
 	rectanglePixelMapShaderBytecode.BytecodeLength = rectanglePixelMapShader->GetBufferSize();
 	rectanglePixelMapShaderBytecode.pShaderBytecode = rectanglePixelMapShader->GetBufferPointer();
 
+	Microsoft::WRL::ComPtr<ID3DBlob> rectangleSolidPixelShader = d3dUtil::CompileShaderDXC(
+	    L"..\\Shaders\\RectangleSolidPixelShader.hlsl", nullptr, "main", "ps_6_0");
+
+	D3D12_SHADER_BYTECODE rectangleSolidPixelShaderBytecode = {};
+	rectangleSolidPixelShaderBytecode.BytecodeLength = rectangleSolidPixelShader->GetBufferSize();
+	rectangleSolidPixelShaderBytecode.pShaderBytecode = rectangleSolidPixelShader->GetBufferPointer();
+
 	HRESULT hr = S_OK; // For PSO creation calls
 
 	mInputLayout = {
@@ -773,6 +780,8 @@ void DungeonStompApp::BuildShadersAndInputLayout() {
 	const int hDice2 = 2;
 	const int hShadowMap = 3;
 	const int hLogo = 4;
+	const int hHealthBarBack = 5;
+	const int hHealthBarFill = 6;
 
 	// create the rectangles for HUD
 	for (int i = 0; i < MaxRectangle; i++) {
@@ -808,6 +817,12 @@ void DungeonStompApp::BuildShadersAndInputLayout() {
 			rectangleBlendStateDesc.RenderTarget[0].SrcBlend = D3D12_BLEND_SRC_COLOR;
 			rectangleBlendStateDesc.RenderTarget[0].DestBlend = D3D12_BLEND_INV_SRC_COLOR;
 			rectangleBlendStateDesc.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
+		}
+
+		if (i == hHealthBarBack || i == hHealthBarFill) {
+			rectanglepsoDesc.PS = rectangleSolidPixelShaderBytecode;
+			rectangleBlendStateDesc.RenderTarget[0].SrcBlend = D3D12_BLEND_SRC_ALPHA;
+			rectangleBlendStateDesc.RenderTarget[0].DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
 		}
 
 		rectangleBlendStateDesc.RenderTarget[0].SrcBlendAlpha = D3D12_BLEND_SRC_ALPHA;
