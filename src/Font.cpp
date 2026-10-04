@@ -1393,7 +1393,7 @@ void DungeonStompApp::DisplayPlayerCaption() {
 
 				displayCaptureIndex[displayCapture] = cnt;
 				;
-				displayCaptureCount[displayCapture] = (int)strlen(junk2);
+				displayCaptureCount[displayCapture] = countdisplay / 4;
 
 				for (i = 0; i < ((countdisplay)); i += 1) {
 					src_v[cnt].x = bubble[i].x;
@@ -1451,620 +1451,148 @@ void DungeonStompApp::DisplayPlayerCaption() {
 	// ConvertQuad(fan_cnt);
 }
 
+// Ink bounds (left, right) in pixels inside the 16x16 cell of fontB for ASCII 32..126.
+// Used to lay captions out with proportional spacing instead of a fixed 16px advance.
+static const unsigned char kFontInk[95][2] = {
+	{0,0}, {8,10}, {5,13}, {5,13}, {5,13}, {5,13}, {5,13}, {7,11},
+	{6,11}, {7,12}, {5,13}, {6,12}, {7,11}, {6,12}, {8,10}, {5,12},
+	{5,13}, {6,11}, {5,13}, {5,13}, {5,13}, {5,13}, {5,12}, {5,13},
+	{5,13}, {5,12}, {8,10}, {7,10}, {6,12}, {5,13}, {6,12}, {5,13},
+	{5,13}, {5,13}, {5,13}, {5,13}, {5,13}, {5,12}, {5,12}, {5,13},
+	{5,13}, {7,11}, {5,13}, {5,13}, {5,12}, {5,13}, {5,13}, {5,13},
+	{5,13}, {5,13}, {5,13}, {5,13}, {5,13}, {5,13}, {5,13}, {5,13},
+	{5,13}, {5,13}, {5,13}, {7,12}, {5,12}, {6,11}, {5,12}, {5,13},
+	{7,11}, {5,13}, {5,13}, {5,13}, {5,13}, {5,13}, {5,13}, {5,13},
+	{5,13}, {8,10}, {5,11}, {5,13}, {7,10}, {5,13}, {5,13}, {5,13},
+	{5,13}, {5,13}, {5,13}, {5,13}, {5,12}, {5,13}, {5,13}, {5,13},
+	{5,13}, {5,13}, {5,13}, {6,12}, {8,10}, {6,12}, {5,12},
+};
+
+// Builds one camera-facing quad (4 vertices, triangle strip order) per visible glyph into bubble[],
+// centered on x. Glyphs are cropped to their ink bounds and spaced proportionally so the caption
+// reads as modern, compact text rather than a wide monospaced bitmap font.
 void display_font(float x, float y, char text[1000], int r, int g, int b) {
 
-	int perspectiveview = 1;
-	float tuad = .0625f;
-	float tvad = .0625f;
+	const float cellPx = 16.0f;
+	const float texPx = 256.0f;
+	const float fontsize = 3.4f; // world size of one 16px cell (height of every glyph quad)
+	const float pxToWorld = fontsize / cellPx;
+	const float padPx = 1.0f;      // bilinear/mip safety margin around the ink
+	const float trackingPx = 1.0f; // extra gap between glyphs
+	const float spacePx = 5.0f;
+	const int maxGlyphs = 600 / 4;
 
-	float fontsize;
-	int intTextLength = 0;
-	int i = 0;
-	float itrue = 0;
-	float tu = 1.0f, tv = 1.0f;
-	int textlen = 0;
-	int textmid;
-	char lefttext[500];
-	char righttext[500];
-	char newtext[500];
+	struct Glyph {
+		float u0, u1;       // texture range, left to right in reading order
+		float advance;      // in pixels
+		float quadWidth;    // in pixels
+		bool visible;
+	} glyphs[maxGlyphs];
 
-	char reversetext[500];
-	float adjust = 0.0f;
-	float adjust2 = 0.0f;
+	y = 40.0f; // caption baseline offset above the monster anchor, matches the original placement
+	int textlen = (int)strlen(text);
+	if (textlen > maxGlyphs)
+		textlen = maxGlyphs;
 
-	int j = 2;
+	float totalPx = 0.0f;
 
-	int countl = 0;
-	int countr = 0;
-	int countreverse = 0;
-	float xcol;
-	xcol = x;
-	textlen = (int)strlen(text);
-	textmid = textlen / 2;
+	for (int i = 0; i < textlen; i++) {
+		unsigned char c = (unsigned char)text[i];
+		Glyph &gl = glyphs[i];
+		gl.visible = true;
 
-	fontsize = 5;
+		int col = 0;
+		int row = 0;
+		float inkL = 0.0f;
+		float inkR = cellPx;
+		float pad = 0.0f;
+		float tracking = trackingPx;
 
-	if (perspectiveview == 1)
-		fontsize = 5;
-
-	fontsize = 3;
-
-	int flip = 0;
-
-	for (i = 0; i < textlen; i++) {
-
-		if (i < textmid) {
-
-			lefttext[countl++] = text[i];
+		if (c == '|' || c == '`') {
+			// Solid color swatch cells (health / max health bar segments) at the top-left of the font
+			// sheet. Segments butt against each other with no gap so the run reads as one continuous
+			// bar; the half pixel inset keeps bilinear sampling from bleeding in the neighbouring cell.
+			col = (c == '|') ? 0 : 1;
+			row = 0;
+			inkL = 0.5f;
+			inkR = cellPx - 0.5f;
+			tracking = 0.0f;
+		} else if (c >= 33 && c <= 126) {
+			col = c % 16;
+			row = c / 16;
+			inkL = (float)kFontInk[c - 32][0];
+			inkR = (float)kFontInk[c - 32][1];
+			pad = padPx;
 		} else {
-
-			righttext[countr++] = text[i];
+			gl.visible = false;
 		}
+
+		if (!gl.visible) {
+			gl.u0 = gl.u1 = 0.0f;
+			gl.quadWidth = 0.0f;
+			gl.advance = spacePx;
+		} else {
+			float left = (inkL - pad) > 0.0f ? (inkL - pad) : 0.0f;
+			float right = (inkR + pad) < cellPx ? (inkR + pad) : cellPx;
+			gl.u0 = (col * cellPx + left) / texPx;
+			gl.u1 = (col * cellPx + right) / texPx;
+			gl.quadWidth = right - left;
+			gl.advance = gl.quadWidth + tracking;
+		}
+
+		totalPx += gl.advance;
 	}
 
-	lefttext[countl] = '\0';
-	righttext[countr] = '\0';
-
-	strcpy_s(newtext, righttext);
-	countreverse = (int)strlen(lefttext);
-
-	for (i = 1; i <= (int)strlen(lefttext); i++) {
-
-		reversetext[i - 1] = lefttext[countreverse - i];
-	}
-
-	reversetext[i - 1] = '\0';
-
-	y = 40;
-
-	// for (j = 0; j < 1; j++)
-
-	for (j = 1; j >= 0; j--) {
-
-		if (j == 1) {
-			strcpy_s(newtext, reversetext);
-			if (flip == 0)
-				flip = 1;
-		}
-
-		if (j == 0) {
-			// corect
-			strcpy_s(newtext, righttext);
-		}
-
-		intTextLength = (int)strlen(newtext);
-
-		for (i = 0; i < intTextLength; i++) {
-
-			switch (newtext[i]) {
-
-			case '0':
-
-				tu = 1.0f;
-				tv = 4.0f;
-
-				break;
-			case '1':
-
-				tu = 2.0f;
-				tv = 4.0f;
-
-				break;
-			case '2':
-
-				tu = 3.0f;
-				tv = 4.0f;
-
-				break;
-			case '3':
-
-				tu = 4.0f;
-				tv = 4.0f;
-				break;
-
-			case '4':
-
-				tu = 5.0f;
-				tv = 4.0f;
-
-				break;
-			case '5':
-
-				tu = 6.0f;
-				tv = 4.0f;
-
-				break;
-			case '6':
-
-				tu = 7.0f;
-				tv = 4.0f;
-
-				break;
-			case '7':
-
-				tu = 8.0f;
-				tv = 4.0f;
-				break;
-			case '8':
-
-				tu = 9.0f;
-				tv = 4.0f;
-
-				break;
-			case '9':
-
-				tu = 10.0f;
-				tv = 4.0f;
-
-				break;
-			case ':':
-
-				tu = 11.0f;
-				tv = 4.0f;
-
-				break;
-			case '.':
-
-				tu = 15.0f;
-				tv = 3.0f;
-
-				break;
-			case '+':
-
-				tu = 12.0f;
-				tv = 3.0f;
-
-				break;
-			case ',':
-
-				tu = 13.0f;
-				tv = 3.0f;
-
-				break;
-
-			case '-':
-
-				tu = 14.0f;
-				tv = 3.0f;
-
-				break;
-			case '/':
-
-				tu = 16.0f;
-				tv = 3.0f;
-
-				break;
-
-			case 'A':
-
-				tu = 2.0f;
-				tv = 5.0f;
-
-				break;
-
-			case 'B':
-
-				tu = 3.0f;
-				tv = 5.0f;
-
-				break;
-
-			case 'C':
-
-				tu = 4.0f;
-				tv = 5.0f;
-
-				break;
-
-			case 'D':
-
-				tu = 5.0f;
-				tv = 5.0f;
-
-				break;
-
-			case 'E':
-
-				tu = 6.0f;
-				tv = 5.0f;
-
-				break;
-
-			case 'F':
-
-				tu = 7.0f;
-				tv = 5.0f;
-
-				break;
-
-			case 'G':
-
-				tu = 8.0f;
-				tv = 5.0f;
-
-				break;
-			case 'H':
-
-				tu = 9.0f;
-				tv = 5.0f;
-
-				break;
-			case 'I':
-
-				tu = 10.0f;
-				tv = 5.0f;
-
-				break;
-			case 'J':
-
-				tu = 11.0f;
-				tv = 5.0f;
-
-				break;
-
-			case 'K':
-
-				tu = 12.0f;
-				tv = 5.0f;
-
-				break;
-
-			case 'L':
-
-				tu = 13.0f;
-				tv = 5.0f;
-
-				break;
-
-			case 'M':
-
-				tu = 14.0f;
-				tv = 5.0f;
-
-				break;
-			case 'N':
-
-				tu = 15.0f;
-				tv = 5.0f;
-
-				break;
-
-			case 'O':
-
-				tu = 16.0f;
-				tv = 5.0f;
-
-				break;
-			case 'P':
-
-				tu = 1.0f;
-				tv = 6.0f;
-
-				break;
-			case 'Q':
-
-				tu = 2.0f;
-				tv = 6.0f;
-
-				break;
-			case 'R':
-
-				tu = 3.0f;
-				tv = 6.0f;
-
-				break;
-			case 'S':
-
-				tu = 4.0f;
-				tv = 6.0f;
-
-				break;
-			case 'T':
-
-				tu = 5.0f;
-				tv = 6.0f;
-
-				break;
-			case 'U':
-
-				tu = 6.0f;
-				tv = 6.0f;
-
-				break;
-			case 'V':
-
-				tu = 7.0f;
-				tv = 6.0f;
-
-				break;
-			case 'W':
-
-				tu = 8.0f;
-				tv = 6.0f;
-
-				break;
-			case 'X':
-
-				tu = 9.0f;
-				tv = 6.0f;
-
-				break;
-			case 'Y':
-
-				tu = 10.0f;
-				tv = 6.0f;
-
-				break;
-			case 'Z':
-
-				tu = 11.0f;
-				tv = 6.0f;
-
-				break;
-
-			case 'a':
-
-				tu = 2.0f;
-				tv = 7.0f;
-
-				break;
-
-			case 'b':
-
-				tu = 3.0f;
-				tv = 7.0f;
-
-				break;
-
-			case 'c':
-
-				tu = 4.0f;
-				tv = 7.0f;
-
-				break;
-
-			case 'd':
-
-				tu = 5.0f;
-				tv = 7.0f;
-
-				break;
-
-			case 'e':
-
-				tu = 6.0f;
-				tv = 7.0f;
-
-				break;
-
-			case 'f':
-
-				tu = 7.0f;
-				tv = 7.0f;
-
-				break;
-
-			case 'g':
-
-				tu = 8.0f;
-				tv = 7.0f;
-
-				break;
-			case 'h':
-
-				tu = 9.0f;
-				tv = 7.0f;
-
-				break;
-			case 'i':
-
-				tu = 10.0f;
-				tv = 7.0f;
-
-				break;
-			case 'j':
-
-				tu = 11.0f;
-				tv = 7.0f;
-
-				break;
-
-			case 'k':
-
-				tu = 12.0f;
-				tv = 7.0f;
-
-				break;
-
-			case 'l':
-
-				tu = 13.0f;
-				tv = 7.0f;
-
-				break;
-
-			case 'm':
-
-				tu = 14.0f;
-				tv = 7.0f;
-
-				break;
-			case 'n':
-
-				tu = 15.0f;
-				tv = 7.0f;
-
-				break;
-
-			case 'o':
-
-				tu = 16.0f;
-				tv = 7.0f;
-
-				break;
-			case 'p':
-
-				tu = 1.0f;
-				tv = 8.0f;
-
-				break;
-			case 'q':
-
-				tu = 2.0f;
-				tv = 8.0f;
-
-				break;
-			case 'r':
-
-				tu = 3.0f;
-				tv = 8.0f;
-
-				break;
-			case 's':
-
-				tu = 4.0f;
-				tv = 8.0f;
-
-				break;
-			case 't':
-
-				tu = 5.0f;
-				tv = 8.0f;
-
-				break;
-			case 'u':
-
-				tu = 6.0f;
-				tv = 8.0f;
-
-				break;
-			case 'v':
-
-				tu = 7.0f;
-				tv = 8.0f;
-
-				break;
-			case 'w':
-
-				tu = 8.0f;
-				tv = 8.0f;
-
-				break;
-			case 'x':
-
-				tu = 9.0f;
-				tv = 8.0f;
-
-				break;
-			case 'y':
-
-				tu = 10.0f;
-				tv = 8.0f;
-
-				break;
-			case 'z':
-
-				tu = 11.0f;
-				tv = 8.0f;
-
-				break;
-
-			case ' ':
-
-				tu = 1.0f;
-				tv = 3.0f;
-				break;
-			case '|':
-
-				tu = 1.0f;
-				tv = 1.0f;
-				break;
-			case '`':
-
-				tu = 2.0f;
-				tv = 1.0f;
-				break;
-			default:
-				tu = 2.0f;
-				tv = 9.0f;
-
-				break;
-			}
-
-			if (j == 0)
-				itrue = (float)-i - 1;
-			else
-				itrue = (float)i;
-
-			if (flip == 1) {
-				flip = 2;
-				adjust = 2.0f;
-			}
-
-			float amount = 1.5f;
-
-			if (j == 0) {
-				adjust += amount;
-			} else {
-				adjust -= amount;
-			}
-
-			long currentcolour = 0;
-			currentcolour = RGBA_MAKE(255, 255, 255, 0);
-
-			RGBA_MAKE(0, 0, 0, 0);
-
-			adjust = 0;
-
-			// m_BackgroundMesh[countdisplay] = D3DVERTEX2(D3DVECTOR(0, 0, 0.99f), 0.5f, -1, 0, tuad * tu, tvad * (tv - 1.0f));
-
-			// m_BackgroundMesh[countdisplay].sx = (x + (itrue * fontsize)) + adjust;
-			// m_BackgroundMesh[countdisplay].sy = y;
-
-			bubble[countdisplay].x = (x + (itrue * fontsize)) + adjust;
-			bubble[countdisplay].y = y;
-			bubble[countdisplay].tu = tuad * tu;
-			bubble[countdisplay].tv = tvad * (tv - 1.0f);
-
-			bubble[countdisplay].z = 0;
-
-			countdisplay++;
-			// m_BackgroundMesh[countdisplay] = D3DTLVERTEX(D3DVECTOR(0, 0, 0.99f), 0.5f, -1, 0, tuad * tu, tvad * tv);
-
-			// m_BackgroundMesh[countdisplay].sx = (x + (itrue * fontsize)) + adjust;
-			// m_BackgroundMesh[countdisplay].sy = y - fontsize;
-
-			bubble[countdisplay].x = (x + (itrue * fontsize)) + adjust;
-			bubble[countdisplay].y = y - fontsize;
-			bubble[countdisplay].tu = tuad * tu;
-			bubble[countdisplay].tv = tvad * tv;
-			bubble[countdisplay].z = 0;
-
-			countdisplay++;
-
-			// m_BackgroundMesh[countdisplay] = D3DTLVERTEX(D3DVECTOR(0, 0, 0.99f), 0.5f, -1, 0, tuad * (tu - 1.0f), tvad * (tv - 1.0f));
-			// m_BackgroundMesh[countdisplay].sx = (x + fontsize + (itrue * fontsize)) + adjust;
-			// m_BackgroundMesh[countdisplay].sy = y;
-
-			bubble[countdisplay].x = (x + fontsize + (itrue * fontsize)) + adjust;
-			bubble[countdisplay].y = y;
-			bubble[countdisplay].tu = tuad * (tu - 1.0f);
-			bubble[countdisplay].tv = tvad * (tv - 1.0f);
-			bubble[countdisplay].z = 0;
-
-			countdisplay++;
-
-			// m_BackgroundMesh[countdisplay] = D3DTLVERTEX(D3DVECTOR(0, 0, 0.99f), 0.5f, -1, 0, tuad * (tu - 1.0f), tvad * tv);
-			// m_BackgroundMesh[countdisplay].sx = (x + fontsize + (itrue * fontsize)) + adjust;
-			// m_BackgroundMesh[countdisplay].sy = y - fontsize;
-
-			bubble[countdisplay].x = (x + fontsize + (itrue * fontsize)) + adjust;
-			bubble[countdisplay].y = y - fontsize;
-			bubble[countdisplay].tu = tuad * (tu - 1.0f);
-			bubble[countdisplay].tv = tvad * tv;
-			bubble[countdisplay].z = 0;
-
-			countdisplay++;
-		}
+	float cursorPx = -totalPx * 0.5f;
+	float vTop = 0.0f;
+	float vBottom = 0.0f;
+
+	countdisplay = 0;
+
+	for (int i = 0; i < textlen; i++) {
+		const Glyph &gl = glyphs[i];
+		float startPx = cursorPx;
+		cursorPx += gl.advance;
+
+		if (!gl.visible)
+			continue;
+
+		unsigned char c = (unsigned char)text[i];
+		int row = (c == '|' || c == '`') ? 0 : (c / 16);
+		vTop = (row * cellPx) / texPx;
+		vBottom = ((row + 1) * cellPx) / texPx;
+
+		// The caption quad is rotated to face the camera, which mirrors its local x axis,
+		// so the string is laid out in reverse along +x and the u range is flipped to compensate.
+		float xMin = x - (startPx + gl.quadWidth) * pxToWorld;
+		float xMax = x - startPx * pxToWorld;
+
+		bubble[countdisplay].x = xMin;
+		bubble[countdisplay].y = y;
+		bubble[countdisplay].z = 0;
+		bubble[countdisplay].tu = gl.u1;
+		bubble[countdisplay].tv = vTop;
+		countdisplay++;
+
+		bubble[countdisplay].x = xMin;
+		bubble[countdisplay].y = y - fontsize;
+		bubble[countdisplay].z = 0;
+		bubble[countdisplay].tu = gl.u1;
+		bubble[countdisplay].tv = vBottom;
+		countdisplay++;
+
+		bubble[countdisplay].x = xMax;
+		bubble[countdisplay].y = y;
+		bubble[countdisplay].z = 0;
+		bubble[countdisplay].tu = gl.u0;
+		bubble[countdisplay].tv = vTop;
+		countdisplay++;
+
+		bubble[countdisplay].x = xMax;
+		bubble[countdisplay].y = y - fontsize;
+		bubble[countdisplay].z = 0;
+		bubble[countdisplay].tu = gl.u0;
+		bubble[countdisplay].tv = vBottom;
+		countdisplay++;
 	}
 }
