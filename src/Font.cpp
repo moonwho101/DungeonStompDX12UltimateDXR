@@ -468,13 +468,13 @@ void DungeonStompApp::DisplayHud() {
 	sprintf_s(junk, "Health");
 	RenderText(arialFont, charToWChar(junk), XMFLOAT2(0.0f, 0.82f), XMFLOAT2(0.30f, 0.30f));
 	sprintf_s(junk, "%d/%d", player_list[trueplayernum].health, player_list[trueplayernum].hp);
-	RenderText(arialFont, charToWChar(junk), XMFLOAT2(0.07f, 0.82f), XMFLOAT2(0.30f, 0.30f), XMFLOAT2(0.5f, 0.0f), XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f));
+	RenderText(arialFont, charToWChar(junk), XMFLOAT2(0.137f, 0.82f), XMFLOAT2(0.30f, 0.30f), XMFLOAT2(0.5f, 0.0f), XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f));
 
 	// health bar: green when healthy, yellow when hurt, red when low
 	{
-		const float barX = 0.12f;
-		const float barY = 0.8225f;
-		const float barW = 0.08f;
+		const float barX = 0.071f;
+		const float barY = 0.8240f;
+		const float barW = 0.062f;
 		const float barH = 0.012f;
 		const float border = 0.0015f;
 
