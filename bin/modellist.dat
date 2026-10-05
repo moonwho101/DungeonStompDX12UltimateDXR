@@ -48,7 +48,7 @@ YOURGUN		14 MD2 	MODEL_ID 44 ..\models\players\magicuser\weaponsorcerer.md2	TEX 
 PLAYER		30 MD2  MODEL_ID 45  ..\models\players\ogro\ogro.md2	TEX ogro  POS 635 13 720  ANGLE 0	SCALE 2.00   NO_EXTERNAL_WEP	monsterogre.snd	AC 5	HD 3	d 1d6 THACO 17	OGRO	20	NONE
 PLAYER		31 MD2  MODEL_ID 46  ..\models\players\skeleton2\skeleton2.md2	TEX skeleton2  POS 635 13 720  ANGLE 0	SCALE 2.00   NO_EXTERNAL_WEP	monsterskeleton.snd	AC 7	HD 2	d 1d4 THACO 18	SKELETON2	15	NONE
 PLAYER		32 MD2  MODEL_ID 47  ..\models\players\demoness\demoness.md2	TEX demoness  POS 635 13 720  ANGLE 0	SCALE 2.00   NO_EXTERNAL_WEP	monsterdemoness.snd	AC 3	HD 14	d 1d12 THACO 6	DEMONESS	35	weapondemoness
-PLAYER		33 MD2  MODEL_ID 48  ..\models\players\faerie\faerie.md2	TEX Faerie  POS 635 13 720  ANGLE 0	SCALE 2.00   NO_EXTERNAL_WEP	monsterfaerie.snd	AC 6	HD 12	d 1d8 THACO 8	FAERIE	30	NONE
+PLAYER		33 MD2  MODEL_ID 48  ..\models\players\faerie\faerie.md2	TEX Faerie  POS 635 13 720  ANGLE 0	SCALE 2.00   NO_EXTERNAL_WEP	monsterfaerie.snd	AC 6	HD 12	d 1d8 THACO 8	FAERIE	30	weaponfaerie
 YOURGUN		15 MD2 	MODEL_ID 49 ..\models\players\demoness\weapondemoness.md2	TEX weapondemoness  POS 0 0 0	   ANGLE 0	SCALE 2.00	D 1d12	A 5	D 5	weapondemoness	0
 PLAYER		34 3DS  MODEL_ID 50  ..\models\3ds\tubecover.3ds			TEX 0  POS 635 13 720  ANGLE 0	SCALE 1.00   NO_EXTERNAL_WEP	monster1.snd	AC 10	HD 5	d 1d8 THACO 19	tubecover	10	NONE
 PLAYER		35 3DS  MODEL_ID 51  ..\models\3ds\pillarlarge.3ds			TEX 0  POS 635 13 720  ANGLE 0	SCALE 1.00   NO_EXTERNAL_WEP	monster1.snd	AC 10	HD 5	d 1d8 THACO 19	pillarlarge	10	NONE
@@ -151,6 +151,7 @@ PLAYER		122 3DS  MODEL_ID 147  ..\textures\dungeon02\3ds\cdooropenchest.3ds		TEX
 PLAYER		123 3DS  MODEL_ID 148  ..\textures\dungeon02\3ds\cdoorclosedchest.3ds		TEX -1  POS 635 13 720  ANGLE 0	SCALE 25.00   NO_EXTERNAL_WEP	monster1.snd	AC 10	HD 5	d 1d8 THACO 19	cdoorclosedchest	10	NONE
 PLAYER		124 3DS  MODEL_ID 149  ..\textures\dungeon02\3ds\block01.3ds		TEX -1  POS 635 13 720  ANGLE 0	SCALE 1.00   NO_EXTERNAL_WEP	monster1.snd	AC 10	HD 5	d 1d8 THACO 19	block01	10	NONE
 PLAYER		125 3DS  MODEL_ID 150  ..\textures\dungeon02\3ds\block02.3ds		TEX -1  POS 635 13 720  ANGLE 0	SCALE 1.00   NO_EXTERNAL_WEP	monster1.snd	AC 10	HD 5	d 1d8 THACO 19	block02	10	NONE
+YOURGUN		25 MD2  MODEL_ID 151 ..\models\players\faerie\weaponfaerie.md2	TEX weaponfaerie  POS 0 0 0	   ANGLE 0	SCALE 2.00	D 1d12	A 5	D 5	weaponfaerie	0
 END_FILE
 
 

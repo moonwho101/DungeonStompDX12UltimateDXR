@@ -1814,6 +1814,8 @@ Alias  598   windmill           OPAQUE  WHOLE  wood
 AddTexture  ..\Textures\Dungeon02\3ds\tree_foliage.dds
 Alias  599   tree_foliage           OPAQUE  WHOLE  default
 
+AddTexture  ..\Models\Players\faerie\weaponfaerie.dds
+Alias  600   weaponfaerie           OPAQUE  WHOLE  monsterweapon
 
 
 END_FILE
