@@ -2,7 +2,7 @@
 
 # Dungeon Stomp DX12 Ultimate DXR
 
-### A Deterministic 3D Dungeon Crawler Engine Showcase for DirectX 12 Ultimate & DXR
+### A Deterministic 3D Procedural Dungeon Crawler Engine for DirectX 12 Ultimate & DXR
 
 [![License](https://img.shields.io/github/license/moonwho101/DungeonStompDX12UltimateDXR?style=flat-square)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows-blue?style=flat-square&logo=windows)](https://github.com/moonwho101/DungeonStompDX12UltimateDXR)
