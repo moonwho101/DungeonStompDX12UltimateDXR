@@ -954,6 +954,12 @@ void DungeonStompApp::RenderImGuiTogglePanel() {
 				sprintf_s(gActionMessage, "Overhead Map %s", enableOverheadMap ? "Enabled" : "Disabled");
 				UpdateScrollList(0, 255, 255);
 			}
+			if (enableOverheadMap) {
+				ImGui::Indent();
+				ImGui::SliderFloat("Map Half Extent", &mMapHalfExtent, 50.0f, 3000.0f, "%.0f");
+				ImGui::SliderFloat("Map Clip Height", &mMapClipHeight, -100.0f, 500.0f, "%.1f");
+				ImGui::Unindent();
+			}
 
 			// SSAO Effect
 			if (ImGui::Checkbox("SSAO Effect [O]", &enableSSao)) {
