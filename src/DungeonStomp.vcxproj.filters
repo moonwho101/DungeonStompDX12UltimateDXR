@@ -105,6 +105,9 @@
     <ClCompile Include="Font.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="OverheadMap.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="ShadowMap.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -228,6 +231,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Font.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OverheadMap.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="ShadowMap.h">

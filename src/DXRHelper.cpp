@@ -13,6 +13,7 @@ using namespace DirectX;
 
 // Shader export names
 const wchar_t *DXRHelper::kRayGenShader = L"RayGen";
+const wchar_t *DXRHelper::kRayGenMapShader = L"RayGenMap";
 const wchar_t *DXRHelper::kMissShader = L"Miss";
 const wchar_t *DXRHelper::kClosestHitShader = L"ClosestHit";
 const wchar_t *DXRHelper::kAnyHitShader = L"ShadowAnyHit";
@@ -79,10 +80,10 @@ bool DXRHelper::Initialize(ID3D12Device5 *device, ID3D12GraphicsCommandList5 *cm
 
 void DXRHelper::CreateDescriptorHeap(ID3D12Device5 *device) {
 	// Create descriptor heap for DXR resources
-	// Layout: 0 = Output UAV, 1-550 = Texture SRVs (copied from main heap)
-	// Total: 1 + MAX_NUM_TEXTURES (550) descriptors
+	// Layout: 0 = Output UAV, 1..MAX_NUM_TEXTURES = Texture SRVs (copied from main heap),
+	// 1 + MAX_NUM_TEXTURES = Overhead map UAV
 	D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
-	heapDesc.NumDescriptors = 1 + MAX_NUM_TEXTURES; // UAV + textures
+	heapDesc.NumDescriptors = 2 + MAX_NUM_TEXTURES; // UAV + textures + map UAV
 	heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	ThrowIfFailed(device->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&mDXRDescriptorHeap)));
@@ -297,6 +298,7 @@ void DXRHelper::CreateRaytracingPipelineState(ID3D12Device5 *device) {
 	D3D12_SHADER_BYTECODE libDxil = { rtShaderBlob->GetBufferPointer(), rtShaderBlob->GetBufferSize() };
 	lib->SetDXILLibrary(&libDxil);
 	lib->DefineExport(kRayGenShader);
+	lib->DefineExport(kRayGenMapShader);
 	lib->DefineExport(kMissShader);
 	lib->DefineExport(kClosestHitShader);
 
@@ -394,6 +396,57 @@ void DXRHelper::BuildShaderTables(ID3D12Device5 *device) {
 		memcpy(pData, hitGroupIdentifier, shaderIdentifierSize);
 		mHitGroupShaderTable->Unmap(0, nullptr);
 	}
+
+	// Overhead map ray generation shader table
+	{
+		void *mapRayGenIdentifier = mRaytracingStateObjectProperties->GetShaderIdentifier(kRayGenMapShader);
+
+		CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_UPLOAD);
+		CD3DX12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(mRayGenShaderTableSize);
+
+		ThrowIfFailed(device->CreateCommittedResource(
+		    &heapProps, D3D12_HEAP_FLAG_NONE, &bufferDesc,
+		    D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&mMapRayGenShaderTable)));
+
+		void *pData;
+		mMapRayGenShaderTable->Map(0, nullptr, &pData);
+		memcpy(pData, mapRayGenIdentifier, shaderIdentifierSize);
+		mMapRayGenShaderTable->Unmap(0, nullptr);
+	}
+}
+
+void DXRHelper::SetOverheadMapTarget(ID3D12Device *device, ID3D12Resource *mapTexture) {
+	// The map UAV lives after the output UAV and the texture range in the DXR heap.
+	CD3DX12_CPU_DESCRIPTOR_HANDLE handle(mDXRDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
+	handle.Offset(1 + MAX_NUM_TEXTURES, mCbvSrvUavDescriptorSize);
+
+	D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
+	uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+	uavDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	device->CreateUnorderedAccessView(mapTexture, nullptr, &uavDesc, handle);
+}
+
+void DXRHelper::SetOverheadMapView(const DirectX::XMFLOAT3 &center, const DirectX::XMFLOAT3 &right,
+                                   const DirectX::XMFLOAT3 &up, float halfExtent) {
+	mSceneConstants.MapCenter = center;
+	mSceneConstants.MapHalfExtent = halfExtent;
+	mSceneConstants.MapRight = right;
+	mSceneConstants.MapUp = up;
+}
+
+void DXRHelper::DispatchMapRays(ID3D12GraphicsCommandList5 *cmdList, ID3D12Resource *mapTexture, UINT width, UINT height) {
+	CD3DX12_RESOURCE_BARRIER toUav = CD3DX12_RESOURCE_BARRIER::Transition(
+	    mapTexture, D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	cmdList->ResourceBarrier(1, &toUav);
+
+	CD3DX12_GPU_DESCRIPTOR_HANDLE mapUav(mDXRDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+	mapUav.Offset(1 + MAX_NUM_TEXTURES, mCbvSrvUavDescriptorSize);
+
+	DispatchRaysInternal(cmdList, width, height, mMapRayGenShaderTable.Get(), mapUav);
+
+	CD3DX12_RESOURCE_BARRIER toRead = CD3DX12_RESOURCE_BARRIER::Transition(
+	    mapTexture, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_GENERIC_READ);
+	cmdList->ResourceBarrier(1, &toRead);
 }
 
 void DXRHelper::BuildBLAS(ID3D12Device5 *device, ID3D12GraphicsCommandList5 *cmdList,
@@ -582,6 +635,12 @@ void DXRHelper::UpdateSceneConstants(const DirectX::XMFLOAT4X4 &invView,
 }
 
 void DXRHelper::DispatchRays(ID3D12GraphicsCommandList5 *cmdList, UINT width, UINT height) {
+	DispatchRaysInternal(cmdList, width, height, mRayGenShaderTable.Get(),
+	                     mDXRDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+}
+
+void DXRHelper::DispatchRaysInternal(ID3D12GraphicsCommandList5 *cmdList, UINT width, UINT height,
+                                     ID3D12Resource *rayGenTable, D3D12_GPU_DESCRIPTOR_HANDLE outputUav) {
 	// Set pipeline state
 	cmdList->SetComputeRootSignature(mGlobalRootSignature.Get());
 	cmdList->SetPipelineState1(mRaytracingStateObject.Get());
@@ -591,7 +650,7 @@ void DXRHelper::DispatchRays(ID3D12GraphicsCommandList5 *cmdList, UINT width, UI
 	cmdList->SetDescriptorHeaps(1, heaps);
 
 	// Set root arguments
-	cmdList->SetComputeRootDescriptorTable(0, mDXRDescriptorHeap->GetGPUDescriptorHandleForHeapStart());            // UAV
+	cmdList->SetComputeRootDescriptorTable(0, outputUav);                                                           // UAV
 	cmdList->SetComputeRootShaderResourceView(1, mTLAS.Result->GetGPUVirtualAddress());                             // TLAS
 	cmdList->SetComputeRootConstantBufferView(2, mSceneConstantBuffer[mCurrentFrameIndex]->GetGPUVirtualAddress()); // Scene CB
 	if (mCurrentVertexBuffer) {
@@ -623,7 +682,7 @@ void DXRHelper::DispatchRays(ID3D12GraphicsCommandList5 *cmdList, UINT width, UI
 
 	// Dispatch rays
 	D3D12_DISPATCH_RAYS_DESC dispatchDesc = {};
-	dispatchDesc.RayGenerationShaderRecord.StartAddress = mRayGenShaderTable->GetGPUVirtualAddress();
+	dispatchDesc.RayGenerationShaderRecord.StartAddress = rayGenTable->GetGPUVirtualAddress();
 	dispatchDesc.RayGenerationShaderRecord.SizeInBytes = mRayGenShaderTableSize;
 	dispatchDesc.MissShaderTable.StartAddress = mMissShaderTable->GetGPUVirtualAddress();
 	dispatchDesc.MissShaderTable.SizeInBytes = mMissShaderTableSize;

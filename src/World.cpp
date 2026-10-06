@@ -413,7 +413,7 @@ void InitDS() {
 	strcpy_s(gActionMessage, "Press Q and Z to cycle weapons. R=Raytracing F11=Fullscreen");
 	UpdateScrollList(0, 255, 255);
 
-	strcpy_s(gActionMessage, "I=Music K=Weapons X=Experience P=Song G=Gravity (+ -) M=ShadowMap");
+	strcpy_s(gActionMessage, "I=Music K=Weapons X=Experience P=Song G=Gravity (+ -) M=ShadowMap L=Map");
 	UpdateScrollList(0, 255, 255);
 
 	strcpy_s(gActionMessage, "[=LevelUp ]=LevelDown B=HeadBob O=ssao V=VSync N=NormalMap");

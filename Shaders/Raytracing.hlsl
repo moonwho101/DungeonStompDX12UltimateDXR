@@ -60,6 +60,12 @@ cbuffer SceneConstants : register(b0)
 	float gRayConeSpreadAngle;
 	uint gOutside;    // 1 = outdoor level, 0 = indoor dungeon
 	float2 gPad1;
+	float3 gMapCenter;            // overhead map: ray origin for the centre pixel (at the clip height above the player)
+	float gMapHalfExtent;         // overhead map: half the world-space width/height covered
+	float3 gMapRight;             // overhead map: world direction of screen-right (horizontal)
+	float gMapPad0;
+	float3 gMapUp;                // overhead map: world direction of screen-up (horizontal, the player's heading)
+	float gMapPad1;
 };
 
 // Raytracing output
@@ -136,6 +142,11 @@ Vertex LoadVertex(uint vertexIndex)
 	v.CastShadow = gVertices.Load(address + 44);
 	return v;
 }
+
+// Overhead map rays carry a payload depth >= this value so Miss/ClosestHit can tell them apart
+// from camera rays (which never exceed depth 4). The low bits still count transparency continuations.
+#define MAP_RAY_DEPTH 100
+#define MAP_RAY_MAX_CONTINUATIONS 3
 
 // Ray payload
 struct RayPayload
@@ -499,12 +510,53 @@ void RayGen()
 }
 
 //=============================================================================
+// Overhead Map Ray Generation Shader
+// Orthographic, straight-down rays that start just above the player's head, so
+// ceilings (and anything taller) are skipped and the layout below is visible.
+//=============================================================================
+
+[shader("raygeneration")]
+void RayGenMap()
+{
+	uint2 launchIndex = DispatchRaysIndex().xy;
+	uint2 launchDim = DispatchRaysDimensions().xy;
+
+	float2 uv = (float2(launchIndex) + float2(0.5f, 0.5f)) / float2(launchDim);
+	float2 clipXY = uv * 2.0f - 1.0f;
+	clipXY.y = -clipXY.y;
+
+	RayDesc ray;
+	ray.Origin = gMapCenter + gMapRight * (clipXY.x * gMapHalfExtent) + gMapUp * (clipXY.y * gMapHalfExtent);
+	ray.Direction = float3(0.0f, -1.0f, 0.0f);
+	ray.TMin = 0.01f;
+	ray.TMax = 100000.0f;
+
+	RayPayload payload;
+	payload.color = float4(0.0f, 0.0f, 0.0f, 1.0f);
+	payload.depth = MAP_RAY_DEPTH;
+	payload.isGIRay = false;
+	payload.hitT = 100000.0f;
+
+	TraceRay(gScene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, 0xFF, 0, 1, 0, ray, payload);
+
+	gOutput[launchIndex] = float4(payload.color.rgb, 1.0f);
+}
+
+//=============================================================================
 // Miss Shader
 //=============================================================================
 
 [shader("miss")]
 void Miss(inout RayPayload payload)
 {
+	if (payload.depth >= MAP_RAY_DEPTH)
+	{
+		// Overhead map: nothing below (solid rock / outside the level).
+		payload.color = float4(0.02f, 0.02f, 0.03f, 1.0f);
+		payload.hitT = 100000.0f;
+		return;
+	}
+
 	float3 rayDir = WorldRayDirection();
 
     // Grow the vertical sample axis: for typical near-horizontal views the side cube
@@ -604,14 +656,63 @@ void ClosestHit(inout RayPayload payload, in BuiltInTriangleIntersectionAttribut
 	float areaRatio = uvArea / max(worldArea, 1e-8f);
     
     // 2. Calculate pixel footprint area on the surface
+	bool isMapRay = payload.depth >= MAP_RAY_DEPTH;
 	float rayDist = RayTCurrent();
 	float coneWidth = rayDist * gRayConeSpreadAngle;
 	float NdotR = max(abs(dot(N, rayDir)), 0.001f);
     // footPrintArea = pixel area in world space
 	float footPrintArea = (coneWidth * coneWidth) / NdotR;
+	if (isMapRay)
+	{
+        // Orthographic map: every pixel covers the same square of world space.
+		float mapPixelSize = 2.0f * gMapHalfExtent / (float) DispatchRaysDimensions().x;
+		footPrintArea = mapPixelSize * mapPixelSize;
+	}
     
     // 3. Convert to UV footprint area
 	float uvFootprintArea = footPrintArea * areaRatio;
+
+    // Overhead map: flat, evenly lit texture colour (no shadows, GI or fog) so the layout stays readable.
+	if (isMapRay)
+	{
+		float4 mapTex = float4(0.5f, 0.5f, 0.5f, 1.0f);
+		if (texIndex < 1650)
+		{
+			uint mapTexW, mapTexH;
+			gTextures[NonUniformResourceIndex(texIndex)].GetDimensions(mapTexW, mapTexH);
+			float mapTexelArea = uvFootprintArea * mapTexW * mapTexH;
+			float mapMip = max(0.5f * log2(max(mapTexelArea, 1.0f)), 0.0f);
+			mapTex = gTextures[NonUniformResourceIndex(texIndex)].SampleLevel(gSampler, texCoord, mapMip);
+		}
+
+		if (IsTransparentTexture(texIndex) && payload.depth < MAP_RAY_DEPTH + MAP_RAY_MAX_CONTINUATIONS)
+		{
+            // Flames, effects, decals and captions are not part of the layout: look through them.
+			RayDesc mapContRay;
+			mapContRay.Origin = hitPos + rayDir * 0.01f;
+			mapContRay.Direction = rayDir;
+			mapContRay.TMin = 0.01f;
+			mapContRay.TMax = 100000.0f;
+
+			RayPayload mapContPayload;
+			mapContPayload.color = float4(0.0f, 0.0f, 0.0f, 1.0f);
+			mapContPayload.depth = payload.depth + 1;
+			mapContPayload.isGIRay = false;
+			mapContPayload.hitT = 100000.0f;
+
+			TraceRay(gScene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, 0xFF, 0, 1, 0, mapContRay, mapContPayload);
+
+			payload.color = mapContPayload.color;
+			payload.hitT = RayTCurrent();
+			return;
+		}
+
+		float3 mapAlbedo = (texIndex < 1650) ? mapTex.rgb * materialDiffuseAlbedo.rgb : float3(0.45f, 0.43f, 0.4f);
+		float mapShade = lerp(0.65f, 1.0f, abs(N.y));
+		payload.color = float4(mapAlbedo * mapShade, 1.0f);
+		payload.hitT = RayTCurrent();
+		return;
+	}
     
     // Normal mapping: sample and apply if this primitive has a normal map
 	int normalMapIndex = ad.normalMapIndex;

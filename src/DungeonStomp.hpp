@@ -1,5 +1,6 @@
 #include "Font.hpp"
 #include "ShadowMap.h"
+#include "OverheadMap.h"
 #include "Ssao.h"
 #include "VRSHelper.h"
 #include "DXRHelper.h"
@@ -81,6 +82,7 @@ class DungeonStompApp : public D3DApp {
 	void UpdateDungeon(const GameTimer &gt);
 	void UpdateShadowPassCB(const GameTimer &gt);
 	void UpdateSsaoCB(const GameTimer &gt);
+	void UpdateOverheadMapPassCB(const GameTimer &gt);
 
 	void BuildRootSignature();
 	void BuildSsaoRootSignature();
@@ -108,7 +110,7 @@ class DungeonStompApp : public D3DApp {
 	void RenderText(Font font, std::wstring text, XMFLOAT2 pos, XMFLOAT2 scale = XMFLOAT2(1.0f, 1.0f), XMFLOAT2 padding = XMFLOAT2(0.5f, 0.0f), XMFLOAT4 color = XMFLOAT4(0.0f, 1.0f, 1.0f, 1.0f));
 	void FlushText();
 	void RenderRectangle(Font font, int index, int textureid, XMFLOAT2 pos, XMFLOAT2 scale = XMFLOAT2(1.0f, 1.0f), XMFLOAT2 padding = XMFLOAT2(0.5f, 0.0f), XMFLOAT4 color = XMFLOAT4(0.0f, 1.0f, 1.0f, 1.0f));
-	void RenderSolidRectangle(int index, XMFLOAT2 pos, XMFLOAT2 size, XMFLOAT4 color);
+	void RenderSolidRectangle(int index, XMFLOAT2 pos, XMFLOAT2 size, XMFLOAT4 color, int textureId = 0);
 	void FlushRectangles();
 	void display_message3(float x, float y, char text[2048], int r, int g, int b, float fontx, float fonty, int fonttype);
 	void SetDungeonText();
@@ -122,6 +124,7 @@ class DungeonStompApp : public D3DApp {
 	void SetTextureNormalMap();
 	void SetTextureNormalMapEmpty();
 	void DrawSceneToShadowMap(const GameTimer &gt);
+	void DrawSceneToOverheadMap(const GameTimer &gt);
 	void DrawNormalsAndDepth(const GameTimer &gt);
 	void UpdateShadowTransform(const GameTimer &gt, int light);
 	void CreateRtvAndDsvDescriptorHeaps();
@@ -172,11 +175,21 @@ class DungeonStompApp : public D3DApp {
 
 	UINT mNullTexSrvIndex1 = 0;
 	UINT mNullTexSrvIndex2 = 0;
+	UINT mOverheadMapHeapIndex = 0;
 
 	CD3DX12_GPU_DESCRIPTOR_HANDLE mNullSrv;
 
 	PassConstants mMainPassCB;
 	PassConstants mShadowPassCB; // index 1 of pass cbuffer.
+	PassConstants mMapPassCB;    // index 2 of pass cbuffer (overhead map).
+
+	// Overhead map camera, shared by the rasterization pass and the DXR map rays.
+	XMFLOAT3 mMapCenter = { 0.0f, 0.0f, 0.0f };
+	XMFLOAT3 mMapRight = { 1.0f, 0.0f, 0.0f };
+	XMFLOAT3 mMapUp = { 0.0f, 0.0f, 1.0f };
+	float mMapHalfExtent = 600.0f; // world units from the player to the map edge
+	float mMapClipHeight = 20.0f;  // camera height above the player's eye; geometry above it (ceilings) is clipped
+	float mMapDepthRange = 1000.0f;
 
 	Light LightContainer[MaxLights];
 
@@ -205,6 +218,7 @@ class DungeonStompApp : public D3DApp {
 	int   rectangleTexId[MaxRectangle]   = {};
 
 	std::unique_ptr<ShadowMap> mShadowMap;
+	std::unique_ptr<OverheadMap> mOverheadMap;
 	std::unique_ptr<Ssao> mSsao;
 	VRSHelper mVRSHelper;
 	std::unique_ptr<DXRHelper> mDXRHelper;

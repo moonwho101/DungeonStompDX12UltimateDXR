@@ -31,6 +31,8 @@ extern bool enableOnscreenDebug;
 extern int cnt;
 extern int trueplayernum;
 extern bool drawingShadowMap;
+extern bool drawingMap;
+extern bool enableOverheadMap;
 extern bool enableShadowmapFeature;
 extern int number_of_polys_per_frame;
 extern POLY_SORT ObjectsToDraw[MAX_NUM_QUADS];
@@ -85,6 +87,11 @@ void DungeonStompApp::Draw(const GameTimer &gt) {
 
 		// Render shadow map to texture.
 		DrawSceneToShadowMap(gt);
+
+		// Render the top-down overhead map to texture.
+		if (enableOverheadMap) {
+			DrawSceneToOverheadMap(gt);
+		}
 	}
 
 	if (enableSSao && !enableDXR) {
@@ -145,6 +152,11 @@ void DungeonStompApp::Draw(const GameTimer &gt) {
 
 		// Dispatch rays for raytracing
 		mDXRHelper->DispatchRays(mCommandList.Get(), mClientWidth, mClientHeight);
+
+		// Trace the overhead map into its texture (same acceleration structure, orthographic rays)
+		if (enableOverheadMap) {
+			mDXRHelper->DispatchMapRays(mCommandList.Get(), mOverheadMap->Resource(), mOverheadMap->Width(), mOverheadMap->Height());
+		}
 
 		// Copy raytracing output to back buffer
 		mDXRHelper->CopyOutputToBackBuffer(mCommandList.Get(), CurrentBackBuffer());
@@ -335,6 +347,56 @@ void DungeonStompApp::DrawSceneToShadowMap(const GameTimer &gt) {
 	                                                                       D3D12_RESOURCE_STATE_DEPTH_WRITE, D3D12_RESOURCE_STATE_GENERIC_READ));
 }
 
+void DungeonStompApp::DrawSceneToOverheadMap(const GameTimer &gt) {
+	mCommandList->RSSetViewports(1, &mOverheadMap->Viewport());
+	mCommandList->RSSetScissorRects(1, &mOverheadMap->ScissorRect());
+
+	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mOverheadMap->Resource(),
+	                                                                       D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_RENDER_TARGET));
+
+	UINT passCBByteSize = d3dUtil::CalcConstantBufferByteSize(sizeof(PassConstants));
+
+	D3D12_RENDER_PASS_RENDER_TARGET_DESC mapRtDesc = {};
+	mapRtDesc.cpuDescriptor = mOverheadMap->Rtv();
+	mapRtDesc.BeginningAccess.Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_CLEAR;
+	mapRtDesc.BeginningAccess.Clear.ClearValue.Format = OverheadMap::ColorFormat;
+	mapRtDesc.BeginningAccess.Clear.ClearValue.Color[0] = 0.02f;
+	mapRtDesc.BeginningAccess.Clear.ClearValue.Color[1] = 0.02f;
+	mapRtDesc.BeginningAccess.Clear.ClearValue.Color[2] = 0.03f;
+	mapRtDesc.BeginningAccess.Clear.ClearValue.Color[3] = 1.0f;
+	mapRtDesc.EndingAccess.Type = D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_PRESERVE;
+
+	D3D12_RENDER_PASS_DEPTH_STENCIL_DESC mapDsDesc = {};
+	mapDsDesc.cpuDescriptor = mOverheadMap->Dsv();
+	mapDsDesc.DepthBeginningAccess.Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_CLEAR;
+	mapDsDesc.DepthBeginningAccess.Clear.ClearValue.Format = OverheadMap::DepthFormat;
+	mapDsDesc.DepthBeginningAccess.Clear.ClearValue.DepthStencil.Depth = 1.0f;
+	mapDsDesc.DepthBeginningAccess.Clear.ClearValue.DepthStencil.Stencil = 0;
+	mapDsDesc.StencilBeginningAccess.Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_CLEAR;
+	mapDsDesc.StencilBeginningAccess.Clear.ClearValue = mapDsDesc.DepthBeginningAccess.Clear.ClearValue;
+	mapDsDesc.DepthEndingAccess.Type = D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_DISCARD;
+	mapDsDesc.StencilEndingAccess.Type = D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_DISCARD;
+
+	mCommandList->BeginRenderPass(1, &mapRtDesc, &mapDsDesc, D3D12_RENDER_PASS_FLAG_NONE);
+
+	auto passCB = mCurrFrameResource->PassCB->Resource();
+	mCommandList->SetGraphicsRootConstantBufferView(2, passCB->GetGPUVirtualAddress() + 2 * passCBByteSize);
+
+	drawingMap = true;
+	DrawRenderItems(mCommandList.Get(), mRitemLayer[(int)RenderLayer::Opaque], gt);
+	drawingMap = false;
+
+	// DrawRenderItems may have lowered the shading rate.
+	if (enableVRS && mVRSHelper.IsSupported()) {
+		mVRSHelper.SetFullRate(mCommandList.Get());
+	}
+
+	mCommandList->EndRenderPass();
+
+	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mOverheadMap->Resource(),
+	                                                                       D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_GENERIC_READ));
+}
+
 void DungeonStompApp::DrawNormalsAndDepth(const GameTimer &gt) {
 	mCommandList->RSSetViewports(1, &mScreenViewport);
 	mCommandList->RSSetScissorRects(1, &mScissorRect);
@@ -438,8 +500,11 @@ void DungeonStompApp::DrawRenderItems(ID3D12GraphicsCommandList *cmdList, const 
 		enablePSO = false;
 	}
 
+	// The overhead map uses the plain (non-SSAO) PSOs and only the solid geometry passes.
+	bool useSsaoPSO = enableSSao && !drawingMap;
+
 	if (enablePSO) {
-		if (enableSSao) {
+		if (useSsaoPSO) {
 			mCommandList->SetPipelineState(mPSOs["normalMapSsao"].Get());
 		} else {
 			mCommandList->SetPipelineState(mPSOs["normalMap"].Get());
@@ -453,7 +518,7 @@ void DungeonStompApp::DrawRenderItems(ID3D12GraphicsCommandList *cmdList, const 
 	DrawDungeon(cmdList, ritems, false, false, true);
 
 	if (enablePSO) {
-		if (enableSSao) {
+		if (useSsaoPSO) {
 			mCommandList->SetPipelineState(mPSOs["opaqueSsao"].Get());
 		} else {
 			mCommandList->SetPipelineState(mPSOs["opaque"].Get());
@@ -465,6 +530,11 @@ void DungeonStompApp::DrawRenderItems(ID3D12GraphicsCommandList *cmdList, const 
 	}
 	// Draw dungeon, monsters and items without normal maps
 	DrawDungeon(cmdList, ritems, false, false, false);
+
+	// Overhead map: no transparent effects, sky, HUD or text.
+	if (drawingMap) {
+		return;
+	}
 
 	if (enablePSO) {
 		mCommandList->SetPipelineState(mPSOs["transparent"].Get());
@@ -582,7 +652,7 @@ void DungeonStompApp::DrawDungeon(ID3D12GraphicsCommandList *cmdList, const std:
 
 		int oid = 0;
 
-		if (drawingSSAO || drawingShadowMap) {
+		if (drawingSSAO || drawingShadowMap || drawingMap) {
 			oid = ObjectsToDraw[currentObject].objectId;
 
 			// Don't draw player captions
@@ -612,7 +682,7 @@ void DungeonStompApp::DrawDungeon(ID3D12GraphicsCommandList *cmdList, const std:
 			}
 		}
 
-		if (currentObject >= playerGunObjectStart && currentObject < playerObjectStart && drawingShadowMap) {
+		if (currentObject >= playerGunObjectStart && currentObject < playerObjectStart && (drawingShadowMap || drawingMap)) {
 			// don't draw the onscreen player weapon
 			draw = false;
 		}
@@ -646,7 +716,7 @@ void DungeonStompApp::DrawDungeon(ID3D12GraphicsCommandList *cmdList, const std:
 			nullTex.Offset(mNullTexSrvIndex1, mCbvSrvDescriptorSize);
 
 			CD3DX12_GPU_DESCRIPTOR_HANDLE tex3(mSrvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
-			if (drawingShadowMap || drawingSSAO) {
+			if (drawingShadowMap || drawingSSAO || drawingMap) {
 				tex3 = nullTex;
 			} else {
 				tex3.Offset(number_of_tex_aliases + 1, mCbvSrvDescriptorSize);
@@ -654,7 +724,7 @@ void DungeonStompApp::DrawDungeon(ID3D12GraphicsCommandList *cmdList, const std:
 			cmdList->SetGraphicsRootDescriptorTable(5, tex3); // Set gShadowMap
 
 			CD3DX12_GPU_DESCRIPTOR_HANDLE tex4(mSrvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
-			if (drawingShadowMap || drawingSSAO) {
+			if (drawingShadowMap || drawingSSAO || drawingMap) {
 				tex4 = nullTex;
 			} else {
 				tex4.Offset(number_of_tex_aliases + 2, mCbvSrvDescriptorSize);

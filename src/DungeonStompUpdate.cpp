@@ -21,6 +21,9 @@
 using namespace DirectX;
 
 bool drawingShadowMap = false;
+bool drawingMap = false;
+bool enableOverheadMap = true;
+bool enableOverheadMapKey = false;
 bool drawingSSAO = false;
 int displayShadowMapKeyPress = 0;
 
@@ -144,6 +147,7 @@ void DungeonStompApp::Update(const GameTimer &gt) {
 
 	ProcessLights11();
 	UpdateMainPassCB(gt);
+	UpdateOverheadMapPassCB(gt);
 
 	UpdateDungeon(gt);
 }
@@ -353,6 +357,13 @@ void DungeonStompApp::OnKeyboardInput(const GameTimer &gt) {
 	handleToggleKey('M', displayShadowMapKeyPress, []() {
 		displayShadowMap = displayShadowMap ? 0 : 1;
 		sprintf_s(gActionMessage, "Shadow Overlay %s", displayShadowMap ? "Enabled" : "Disabled");
+		UpdateScrollList(0, 255, 255);
+	});
+
+	// L: Overhead map
+	handleToggleKey('L', enableOverheadMapKey, []() {
+		enableOverheadMap = !enableOverheadMap;
+		sprintf_s(gActionMessage, "Overhead Map %s", enableOverheadMap ? "Enabled" : "Disabled");
 		UpdateScrollList(0, 255, 255);
 	});
 
@@ -661,6 +672,50 @@ void DungeonStompApp::UpdateSsaoCB(const GameTimer &gt) {
 	currSsaoCB->CopyData(0, ssaoCB);
 }
 
+void DungeonStompApp::UpdateOverheadMapPassCB(const GameTimer &gt) {
+	// Camera hangs above the player looking straight down; the player's heading is "up" on the map.
+	float sinYaw, cosYaw;
+	XMScalarSinCos(&sinYaw, &cosYaw, angy * k);
+
+	mMapUp = XMFLOAT3(sinYaw, 0.0f, cosYaw);
+	mMapRight = XMFLOAT3(cosYaw, 0.0f, -sinYaw);
+	mMapCenter = XMFLOAT3(player_list[trueplayernum].x,
+	                      player_list[trueplayernum].y + mMapClipHeight,
+	                      player_list[trueplayernum].z);
+
+	XMVECTOR pos = XMLoadFloat3(&mMapCenter);
+	XMVECTOR target = XMVectorAdd(pos, XMVectorSet(0.0f, -1.0f, 0.0f, 0.0f));
+	XMVECTOR up = XMLoadFloat3(&mMapUp);
+
+	XMMATRIX view = XMMatrixLookAtLH(pos, target, up);
+	// Near plane at the camera: everything above the clip height (ceilings) is cut away.
+	XMMATRIX proj = XMMatrixOrthographicLH(2.0f * mMapHalfExtent, 2.0f * mMapHalfExtent, 0.0f, mMapDepthRange);
+
+	XMMATRIX viewProj = XMMatrixMultiply(view, proj);
+	XMMATRIX invView = XMMatrixInverse(&XMMatrixDeterminant(view), view);
+	XMMATRIX invProj = XMMatrixInverse(&XMMatrixDeterminant(proj), proj);
+	XMMATRIX invViewProj = XMMatrixInverse(&XMMatrixDeterminant(viewProj), viewProj);
+
+	XMStoreFloat4x4(&mMapPassCB.View, XMMatrixTranspose(view));
+	XMStoreFloat4x4(&mMapPassCB.InvView, XMMatrixTranspose(invView));
+	XMStoreFloat4x4(&mMapPassCB.Proj, XMMatrixTranspose(proj));
+	XMStoreFloat4x4(&mMapPassCB.InvProj, XMMatrixTranspose(invProj));
+	XMStoreFloat4x4(&mMapPassCB.ViewProj, XMMatrixTranspose(viewProj));
+	XMStoreFloat4x4(&mMapPassCB.InvViewProj, XMMatrixTranspose(invViewProj));
+	XMStoreFloat4x4(&mMapPassCB.ViewProjTex, XMMatrixTranspose(viewProj));
+	mMapPassCB.EyePosW = mMapCenter;
+	mMapPassCB.MapPass = 1.0f;
+	mMapPassCB.RenderTargetSize = XMFLOAT2((float)mOverheadMap->Width(), (float)mOverheadMap->Height());
+	mMapPassCB.InvRenderTargetSize = XMFLOAT2(1.0f / mOverheadMap->Width(), 1.0f / mOverheadMap->Height());
+	mMapPassCB.NearZ = 0.0f;
+	mMapPassCB.FarZ = mMapDepthRange;
+	mMapPassCB.TotalTime = gt.TotalTime();
+	mMapPassCB.DeltaTime = gt.DeltaTime();
+	mMapPassCB.AmbientLight = mMainPassCB.AmbientLight;
+
+	mCurrFrameResource->PassCB->CopyData(2, mMapPassCB);
+}
+
 void DungeonStompApp::UpdateDungeon(const GameTimer &gt) {
 	// Update the dungeon vertex buffer with the new solution.
 	auto currDungeonVB = mCurrFrameResource->DungeonVB.get();
@@ -792,6 +847,8 @@ void DungeonStompApp::UpdateDungeon(const GameTimer &gt) {
 		// mProj is stored non-transposed, so _11 = proj[0][0], _22 = proj[1][1]
 		float projScaleX = mProj._11; // 1 / (tan(fovY/2) * aspect)
 		float projScaleY = mProj._22; // 1 / tan(fovY/2)
+
+		mDXRHelper->SetOverheadMapView(mMapCenter, mMapRight, mMapUp, mMapHalfExtent);
 
 		mDXRHelper->UpdateSceneConstants(
 		    invViewF,
