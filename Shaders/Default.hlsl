@@ -86,7 +86,7 @@ cbuffer cbPass : register(b2)
 	float4x4 gViewProjTex;
 	float4x4 gShadowTransform;
 	float3 gEyePosW;
-	float cbPerObjectPad1;
+	float gMapPass;
 	float2 gRenderTargetSize;
 	float2 gInvRenderTargetSize;
 	float gNearZ;
@@ -319,6 +319,13 @@ float4 PS(VertexOut pin) : SV_Target
     // Make the torches bright by just returning the texture.
     return diffuseAlbedo = gDiffuseMap.Sample(gsamAnisotropicWrap, pin.TexC);
 #endif    
+
+    // Overhead map pass: flat, evenly lit texture colour so the whole level is readable.
+	if (gMapPass > 0.5f)
+	{
+		float mapShade = lerp(0.65f, 1.0f, abs(normalize(pin.NormalW).y));
+		return float4(diffuseAlbedo.rgb * mapShade, 1.0f);
+	}
 
     // Normal mapping
 	float3 norm = normalize(pin.NormalW);

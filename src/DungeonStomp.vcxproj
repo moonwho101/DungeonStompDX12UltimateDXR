@@ -182,6 +182,7 @@
     <ClCompile Include="Missle.cpp" />
     <ClCompile Include="ProcessModel.cpp" />
     <ClCompile Include="Dungeon.cpp" />
+    <ClCompile Include="OverheadMap.cpp" />
     <ClCompile Include="ShadowMap.cpp" />
     <ClCompile Include="VRSHelper.cpp" />
     <ClCompile Include="DXRHelper.cpp" />
@@ -227,6 +228,7 @@
     <ClInclude Include="ProcessModel.hpp" />
     <ClInclude Include="Dungeon.h" />
     <ClInclude Include="resource.h" />
+    <ClInclude Include="OverheadMap.h" />
     <ClInclude Include="ShadowMap.h" />
     <ClInclude Include="VRSHelper.h" />
     <ClInclude Include="DXRHelper.h" />

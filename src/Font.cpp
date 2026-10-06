@@ -44,6 +44,7 @@ int displayCapture = 0;
 int displayShadowMap = 0;
 
 extern bool drawingShadowMap;
+extern bool enableOverheadMap;
 extern bool drawingSSAO;
 extern CameraBob bobY;
 extern CameraBob bobX;
@@ -294,7 +295,7 @@ void DungeonStompApp::RenderRectangle(Font font, int index, int textureid, XMFLO
 }
 
 // pos is the top-left corner and size the extent, both as fractions of the screen (0..1)
-void DungeonStompApp::RenderSolidRectangle(int index, XMFLOAT2 pos, XMFLOAT2 size, XMFLOAT4 color) {
+void DungeonStompApp::RenderSolidRectangle(int index, XMFLOAT2 pos, XMFLOAT2 size, XMFLOAT4 color, int textureId) {
 	TextVertex *vert = (TextVertex *)rectangleVBGPUAddress[index];
 
 	vert[0] = TextVertex(color.x,
@@ -311,7 +312,7 @@ void DungeonStompApp::RenderSolidRectangle(int index, XMFLOAT2 pos, XMFLOAT2 siz
 	                     size.y * 2.0f);
 
 	rectangleActive[index] = true;
-	rectangleTexId[index] = 0;
+	rectangleTexId[index] = textureId;
 }
 
 void DungeonStompApp::FlushRectangles() {
@@ -448,6 +449,23 @@ void DungeonStompApp::DisplayHud() {
 	if (displayShadowMap) {
 		diceTexture = enableSSao ? number_of_tex_aliases + 2 : number_of_tex_aliases + 1;
 		RenderRectangle(arialFont, 3, diceTexture, XMFLOAT2(0.75f, 0.55f), XMFLOAT2(7.00f, 7.00f), XMFLOAT2(0.5f, 0.0f), XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f));
+	}
+
+	// Overhead map in the upper right corner: the player is always at the centre, facing up.
+	if (enableOverheadMap && mOverheadMap) {
+		const float mapH = 0.30f;
+		const float mapW = mapH * (float)mClientHeight / (float)mClientWidth; // square on screen
+		const float margin = 0.01f;
+		const float border = 0.003f;
+		const float mapX = 1.0f - margin - mapW;
+		const float mapY = margin * 1.5f;
+
+		RenderSolidRectangle(7, XMFLOAT2(mapX - border * 0.5f, mapY - border), XMFLOAT2(mapW + border, mapH + border * 2.0f), XMFLOAT4(0.0f, 0.0f, 0.0f, 0.85f));
+		RenderSolidRectangle(8, XMFLOAT2(mapX, mapY), XMFLOAT2(mapW, mapH), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), (int)mOverheadMapHeapIndex);
+
+		const float dotH = 0.012f;
+		const float dotW = dotH * (float)mClientHeight / (float)mClientWidth;
+		RenderSolidRectangle(9, XMFLOAT2(mapX + (mapW - dotW) * 0.5f, mapY + (mapH - dotH) * 0.5f), XMFLOAT2(dotW, dotH), XMFLOAT4(1.0f, 0.9f, 0.1f, 1.0f));
 	}
 
 	// only show logo during intro or when player is dead
@@ -931,6 +949,12 @@ void DungeonStompApp::RenderImGuiTogglePanel() {
 				UpdateScrollList(0, 255, 255);
 			}
 
+			// Overhead Map
+			if (ImGui::Checkbox("Overhead Map [L]", &enableOverheadMap)) {
+				sprintf_s(gActionMessage, "Overhead Map %s", enableOverheadMap ? "Enabled" : "Disabled");
+				UpdateScrollList(0, 255, 255);
+			}
+
 			// SSAO Effect
 			if (ImGui::Checkbox("SSAO Effect [O]", &enableSSao)) {
 				sprintf_s(gActionMessage, "SSAO %s", enableSSao ? "Enabled" : "Disabled");
@@ -997,7 +1021,7 @@ void DungeonStompApp::RenderImGuiTogglePanel() {
 
 		ImGui::Spacing();
 		ImGui::Separator();
-		ImGui::TextDisabled("Use mouse or hotkeys [M,O,N,J,T,R,V,B,H,.,F8]");
+		ImGui::TextDisabled("Use mouse or hotkeys [M,L,O,N,J,T,R,V,B,H,.,F8]");
 	}
 	ImGui::End();
 }

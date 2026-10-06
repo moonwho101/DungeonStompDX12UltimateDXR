@@ -115,6 +115,7 @@ bool DungeonStompApp::Initialize() {
 	mDungeon = std::make_unique<Dungeon>(128, 128, 1.0f, 0.03f, 4.0f, 0.2f);
 
 	mShadowMap = std::make_unique<ShadowMap>(md3dDevice.Get(), 2048, 2048);
+	mOverheadMap = std::make_unique<OverheadMap>(md3dDevice.Get(), 512, 512);
 
 	mSsao = std::make_unique<Ssao>(
 	    md3dDevice.Get(),
@@ -782,6 +783,9 @@ void DungeonStompApp::BuildShadersAndInputLayout() {
 	const int hLogo = 4;
 	const int hHealthBarBack = 5;
 	const int hHealthBarFill = 6;
+	const int hMapBorder = 7;
+	const int hMap = 8;
+	const int hMapMarker = 9;
 
 	// create the rectangles for HUD
 	for (int i = 0; i < MaxRectangle; i++) {
@@ -819,10 +823,15 @@ void DungeonStompApp::BuildShadersAndInputLayout() {
 			rectangleBlendStateDesc.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
 		}
 
-		if (i == hHealthBarBack || i == hHealthBarFill) {
+		if (i == hHealthBarBack || i == hHealthBarFill || i == hMapBorder || i == hMapMarker) {
 			rectanglepsoDesc.PS = rectangleSolidPixelShaderBytecode;
 			rectangleBlendStateDesc.RenderTarget[0].SrcBlend = D3D12_BLEND_SRC_ALPHA;
 			rectangleBlendStateDesc.RenderTarget[0].DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
+		}
+
+		if (i == hMap) {
+			// The map is drawn opaque over its border.
+			rectangleBlendStateDesc.RenderTarget[0].BlendEnable = FALSE;
 		}
 
 		rectangleBlendStateDesc.RenderTarget[0].SrcBlendAlpha = D3D12_BLEND_SRC_ALPHA;
@@ -1232,7 +1241,7 @@ void DungeonStompApp::BuildPSOs() {
 void DungeonStompApp::BuildFrameResources() {
 	for (int i = 0; i < gNumFrameResources; ++i) {
 		mFrameResources.push_back(std::make_unique<FrameResource>(md3dDevice.Get(),
-		                                                          2, (UINT)mAllRitems.size(), (UINT)mMaterials.size(), mDungeon->VertexCount()));
+		                                                          3, (UINT)mAllRitems.size(), (UINT)mMaterials.size(), mDungeon->VertexCount()));
 	}
 }
 
@@ -1366,17 +1375,18 @@ void DungeonStompApp::LoadTextures() {
 
 void DungeonStompApp::CreateRtvAndDsvDescriptorHeaps() {
 	// Add +6 RTV for cube render target.
+	// Add +1 RTV for the overhead map (after the 3 SSAO render targets).
 	D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc;
-	rtvHeapDesc.NumDescriptors = SwapChainBufferCount + 3;
+	rtvHeapDesc.NumDescriptors = SwapChainBufferCount + 4;
 	rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
 	rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
 	rtvHeapDesc.NodeMask = 0;
 	ThrowIfFailed(md3dDevice->CreateDescriptorHeap(
 	    &rtvHeapDesc, IID_PPV_ARGS(mRtvHeap.GetAddressOf())));
 
-	// Add +1 DSV for shadow map.
+	// Add +1 DSV for shadow map, +1 for the overhead map.
 	D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc;
-	dsvHeapDesc.NumDescriptors = 2;
+	dsvHeapDesc.NumDescriptors = 3;
 	dsvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
 	dsvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
 	dsvHeapDesc.NodeMask = 0;
@@ -1512,6 +1522,16 @@ void DungeonStompApp::BuildDescriptorHeaps() {
 
 	nullSrv.Offset(1, mCbvSrvUavDescriptorSize);
 	md3dDevice->CreateShaderResourceView(nullptr, &srvDesc, nullSrv);
+
+	mOverheadMapHeapIndex = mNullTexSrvIndex2 + 1;
+	mOverheadMap->BuildDescriptors(
+	    GetCpuSrv(mOverheadMapHeapIndex),
+	    GetRtv(SwapChainBufferCount + 3),
+	    GetDsv(2));
+
+	if (mDXRInitialized && mDXRHelper) {
+		mDXRHelper->SetOverheadMapTarget(md3dDevice.Get(), mOverheadMap->Resource());
+	}
 }
 
 CD3DX12_CPU_DESCRIPTOR_HANDLE DungeonStompApp::GetCpuSrv(int index) const {

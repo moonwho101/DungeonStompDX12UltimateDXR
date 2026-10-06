@@ -37,6 +37,14 @@ struct DXRSceneConstants {
 	float RayConeSpreadAngle;
 	int Outside;     // 1 = outdoor level, 0 = indoor dungeon
 	float Pad1[2];   // keep 16-byte alignment
+
+	// Overhead map (orthographic top-down rays)
+	DirectX::XMFLOAT3 MapCenter;
+	float MapHalfExtent;
+	DirectX::XMFLOAT3 MapRight;
+	float MapPad0;
+	DirectX::XMFLOAT3 MapUp;
+	float MapPad1;
 };
 
 struct DXRMaterialData {
@@ -69,6 +77,16 @@ class DXRHelper {
 
 	// Dispatch rays for raytracing
 	void DispatchRays(ID3D12GraphicsCommandList5 *cmdList, UINT width, UINT height);
+
+	// Bind the overhead map texture (needs ALLOW_UNORDERED_ACCESS) as the map ray output
+	void SetOverheadMapTarget(ID3D12Device *device, ID3D12Resource *mapTexture);
+
+	// Set the overhead map camera. Call before UpdateSceneConstants.
+	void SetOverheadMapView(const DirectX::XMFLOAT3 &center, const DirectX::XMFLOAT3 &right,
+	                        const DirectX::XMFLOAT3 &up, float halfExtent);
+
+	// Trace the top-down overhead map into mapTexture (GENERIC_READ in, GENERIC_READ out)
+	void DispatchMapRays(ID3D12GraphicsCommandList5 *cmdList, ID3D12Resource *mapTexture, UINT width, UINT height);
 
 	// Update scene constants (camera, lights, materials)
 	void UpdateSceneConstants(const DirectX::XMFLOAT4X4 &invView,
@@ -128,6 +146,8 @@ class DXRHelper {
 	void BuildShaderTables(ID3D12Device5 *device);
 	void CreateDescriptorHeap(ID3D12Device5 *device);
 	void CreateConstantBuffer(ID3D12Device *device);
+	void DispatchRaysInternal(ID3D12GraphicsCommandList5 *cmdList, UINT width, UINT height,
+	                          ID3D12Resource *rayGenTable, D3D12_GPU_DESCRIPTOR_HANDLE outputUav);
 
 	ComPtr<ID3DBlob> CompileRaytracingShader(const std::wstring &filename, const wchar_t *entryPoint);
 
@@ -153,6 +173,7 @@ class DXRHelper {
 
 	// Shader tables
 	ComPtr<ID3D12Resource> mRayGenShaderTable;
+	ComPtr<ID3D12Resource> mMapRayGenShaderTable;
 	ComPtr<ID3D12Resource> mMissShaderTable;
 	ComPtr<ID3D12Resource> mHitGroupShaderTable;
 
@@ -196,6 +217,7 @@ class DXRHelper {
 
 	// Shader identifiers
 	static const wchar_t *kRayGenShader;
+	static const wchar_t *kRayGenMapShader;
 	static const wchar_t *kMissShader;
 	static const wchar_t *kClosestHitShader;
 	static const wchar_t *kAnyHitShader;
