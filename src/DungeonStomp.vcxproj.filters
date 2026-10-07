@@ -72,6 +72,9 @@
     <ClCompile Include="Missle.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="MonsterAI.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="ProcessModel.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -192,6 +195,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Missle.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="MonsterAI.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="ProcessModel.hpp">
