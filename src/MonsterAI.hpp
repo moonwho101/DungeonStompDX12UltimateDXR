@@ -17,13 +17,13 @@ struct MonsterSteering {
 	bool kiter;          // prefers to keep range and shoot
 };
 
-// Call once per frame before the monsters are updated; resets the per frame think budget.
-void MonsterAIBeginFrame();
+// Call once per frame before the monsters are updated; resets the per frame think budget and advances simulation time.
+void MonsterAIBeginFrame(float fElapsedTime = 0.0f);
 
 // Updates one monster. 'walking' is true while the monster is allowed to move this frame.
 MonsterSteering MonsterAIUpdate(int monsterIndex, float fElapsedTime, bool walking);
 
-// Forget every monster's AI memory (call on level load).
-void MonsterAIReset();
+// Forget every monster's AI memory and optionally re-seed the deterministic generator (call on level load / demo reset).
+void MonsterAIReset(unsigned int seed = 0x9E3779B9u);
 
 #endif

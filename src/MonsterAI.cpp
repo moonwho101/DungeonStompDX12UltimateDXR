@@ -58,7 +58,10 @@ struct CachedTri {
 struct State {
 	int monsterId = -1;
 	bool init = false;
-	ULONGLONG lastTick = 0;
+	unsigned int rng = 0;
+
+	float lastActiveSimTime = 0.0f;
+	uint64_t lastActiveFrame = 0;
 
 	float thinkTimer = 0.0f;
 	float headX = 1.0f, headZ = 0.0f;   // smoothed move direction
@@ -96,17 +99,34 @@ std::vector<CachedTri> g_tris;
 float g_slotX[kSlots], g_slotZ[kSlots];
 bool g_slotsReady = false;
 int g_thinkBudget = kThinkBudgetPerFrame;
-unsigned int g_rng = 0x9E3779B9u;
 
-unsigned int NextRand() {
-	g_rng ^= g_rng << 13;
-	g_rng ^= g_rng >> 17;
-	g_rng ^= g_rng << 5;
-	return g_rng;
+float g_simTime = 0.0f;
+uint64_t g_simFrame = 0;
+unsigned int g_aiSeed = 0x9E3779B9u;
+
+// Deterministic integer hash to seed each monster's PRNG independently from its ID and session seed.
+inline unsigned int Hash32(unsigned int x) {
+	x = ((x >> 16) ^ x) * 0x45d9f3b;
+	x = ((x >> 16) ^ x) * 0x45d9f3b;
+	x = (x >> 16) ^ x;
+	return x ? x : 0x9E3779B9u;
 }
 
-float Rand01() { return (NextRand() & 0xFFFFFF) / 16777216.0f; }
-int RandSign() { return (NextRand() & 1) ? 1 : -1; }
+// Per-monster Xorshift32 PRNG: avoids global RNG coupling so each monster's decisions remain isolated and deterministic.
+inline unsigned int NextRand(State &s) {
+	s.rng ^= s.rng << 13;
+	s.rng ^= s.rng >> 17;
+	s.rng ^= s.rng << 5;
+	return s.rng;
+}
+
+inline float Rand01(State &s) {
+	return (NextRand(s) & 0xFFFFFF) / 16777216.0f;
+}
+
+inline int RandSign(State &s) {
+	return (NextRand(s) & 1) ? 1 : -1;
+}
 
 void EnsureSlots() {
 	if (g_slotsReady)
@@ -281,7 +301,9 @@ void InitState(State &s, int idx) {
 	s = State();
 	s.monsterId = m.monsterid;
 	s.init = true;
-	s.lastTick = GetTickCount64();
+	s.rng = Hash32((unsigned int)m.monsterid ^ g_aiSeed);
+	s.lastActiveSimTime = g_simTime;
+	s.lastActiveFrame = g_simFrame;
 
 	float dx = p.x - m.x, dz = p.z - m.z;
 	float len = sqrtf(dx * dx + dz * dz);
@@ -295,20 +317,20 @@ void InitState(State &s, int idx) {
 	s.headX = s.steerX = dx;
 	s.headZ = s.steerZ = dz;
 	s.faceRad = atan2f(dz, dx);
-	s.thinkTimer = Rand01() * kThinkInterval; // spread the thinks of a pack across frames
+	s.thinkTimer = Rand01(s) * kThinkInterval; // spread the thinks of a pack across frames deterministically
 
 	s.kiter = IsKiter(m.rname);
-	s.coward = (NextRand() % 4) == 0;
-	s.strafeSide = RandSign();
-	s.flank = RandSign() * (0.5f + 0.5f * Rand01());
-	s.phase = Rand01() * kTwoPi;
+	s.coward = (NextRand(s) % 4) == 0;
+	s.strafeSide = RandSign(s);
+	s.flank = RandSign(s) * (0.5f + 0.5f * Rand01(s));
+	s.phase = Rand01(s) * kTwoPi;
 	s.maxHp = m.hp > m.health ? m.hp : m.health;
 	if (s.maxHp < 1)
 		s.maxHp = 1;
 	s.prevX = m.x;
 	s.prevZ = m.z;
-	s.escapeSide = RandSign();
-	s.followSide = RandSign();
+	s.escapeSide = RandSign(s);
+	s.followSide = RandSign(s);
 }
 
 bool NeighbourAlive(const PLAYER &n) {
@@ -366,7 +388,7 @@ void Think(State &s, int idx, float dist, float tx, float tz) {
 	// Morale: some monsters break off when badly hurt, but they come back after a few seconds.
 	float hpFrac = (float)m.health / (float)s.maxHp;
 	if (s.coward && hpFrac <= 0.25f && s.fleeTimer <= 0.0f && s.fleeCooldown <= 0.0f) {
-		s.fleeTimer = 2.5f + 1.5f * Rand01();
+		s.fleeTimer = 2.5f + 1.5f * Rand01(s);
 		s.fleeCooldown = 9.0f;
 	}
 	bool fleeing = s.fleeTimer > 0.0f;
@@ -550,11 +572,17 @@ void Think(State &s, int idx, float dist, float tx, float tz) {
 
 } // namespace
 
-void MonsterAIBeginFrame() {
+void MonsterAIBeginFrame(float fElapsedTime) {
+	g_simTime += Clamp(fElapsedTime, 0.0f, kMaxDt);
+	g_simFrame++;
 	g_thinkBudget = kThinkBudgetPerFrame;
 }
 
-void MonsterAIReset() {
+void MonsterAIReset(unsigned int seed) {
+	g_aiSeed = seed ? seed : 0x9E3779B9u;
+	g_simTime = 0.0f;
+	g_simFrame = 0;
+	g_thinkBudget = kThinkBudgetPerFrame;
 	for (int i = 0; i < MAX_NUM_MONSTERS; i++)
 		g_state[i] = State();
 }
@@ -570,15 +598,16 @@ MonsterSteering MonsterAIUpdate(int idx, float fElapsedTime, bool walking) {
 		InitState(s, idx);
 
 	// A monster that was off screen for a while starts with a clean slate.
-	ULONGLONG now = GetTickCount64();
-	if (now - s.lastTick > 500) {
+	// Uses game simulation time to guarantee deterministic replay across different frame rates.
+	if (s.lastActiveSimTime > 0.0f && (g_simTime - s.lastActiveSimTime > 0.5f)) {
 		s.escapeTimer = s.followTimer = 0.0f;
 		s.walkExpected = s.walkMoved = 0.0f;
 		s.thinkTimer = 0.0f;
 		s.prevX = m.x;
 		s.prevZ = m.z;
 	}
-	s.lastTick = now;
+	s.lastActiveSimTime = g_simTime;
+	s.lastActiveFrame = g_simFrame;
 
 	float dt = Clamp(fElapsedTime, 0.0f, kMaxDt);
 	s.clock += dt;
@@ -622,7 +651,7 @@ MonsterSteering MonsterAIUpdate(int idx, float fElapsedTime, bool walking) {
 	if (s.thinkTimer <= 0.0f && g_thinkBudget > 0) {
 		g_thinkBudget--;
 		Think(s, idx, dist, tx, tz);
-		s.thinkTimer = kThinkInterval + Rand01() * 0.04f;
+		s.thinkTimer = kThinkInterval + Rand01(s) * 0.04f;
 	}
 
 	// Smooth the heading so direction changes between thinks are never a snap.
