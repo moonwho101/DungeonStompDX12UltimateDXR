@@ -16,6 +16,7 @@
 #include "GlobalSettings.hpp"
 #include "GameLogic.hpp"
 #include "Missle.hpp"
+#include "MonsterAI.hpp"
 
 #define MAX_NUM_OBJECTS_PER_CELL 250
 #define MD2_MODEL 0
@@ -2070,6 +2071,7 @@ int load_level(char *filename) {
 	num_players2 = 0;
 	itemlistcount = 0;
 	num_monsters = 0;
+	MonsterAIReset();
 
 	ClearObjectList();
 	ResetSound();

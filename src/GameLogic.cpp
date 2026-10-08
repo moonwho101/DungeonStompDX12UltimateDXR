@@ -134,7 +134,7 @@ void MoveMonsters(float fElapsedTime) {
 	if (player_list[trueplayernum].bIsPlayerAlive == FALSE)
 		return;
 
-	MonsterAIBeginFrame();
+	MonsterAIBeginFrame(fElapsedTime);
 
 	for (i = 0; i < num_monsters; i++) {
 		cullflag = 0;

@@ -9,6 +9,7 @@
 #include "DirectInput.hpp"
 #include "GameLogic.hpp"
 #include "Dice.hpp"
+#include "MonsterAI.hpp"
 #include <vector>
 #include <stdio.h>
 #include <stdlib.h>
@@ -170,6 +171,7 @@ void DemoResetState(unsigned int seed) {
 	SeedGameRandom(seed);
 	ResetGameClock();
 	ResetPlayerMotionState();
+	MonsterAIReset(seed);
 
 	elapsegametimersave = 0;
 	fTimeKeysave = 0;
