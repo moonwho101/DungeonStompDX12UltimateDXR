@@ -11,6 +11,7 @@
 #include <DirectXMath.h>
 #include "CameraBob.hpp"
 #include "ParticleSystem.hpp"
+#include "MonsterAI.hpp"
 using namespace DirectX;
 
 #pragma comment(lib, "Winmm.lib")
@@ -19,6 +20,8 @@ using namespace DirectX;
 int monsterenable = 1;
 int monstercount = 0;
 int monstermoveon = 1;
+// 1 = context steering + raycast whiskers, 0 = original straight line chase
+int monsteraienable = 0;
 int showmonstermenu = 1;
 int monstercull[1000];
 int monstertype[1000];
@@ -130,6 +133,8 @@ void MoveMonsters(float fElapsedTime) {
 
 	if (player_list[trueplayernum].bIsPlayerAlive == FALSE)
 		return;
+
+	MonsterAIBeginFrame();
 
 	for (i = 0; i < num_monsters; i++) {
 		cullflag = 0;
@@ -244,7 +249,16 @@ void MoveMonsters(float fElapsedTime) {
 
 			float length = XMVectorGetX(XMVector3Length(vDiff2));
 
-			if (length < 80.0f) {
+			// Statues and shot-only monsters never walk, but they still use the line of sight result.
+			const bool aiActive = monsteraienable == 1;
+			const bool aiMoves = aiActive && monster_list[i].ability != 4 && monster_list[i].ability != 6 &&
+			                     monster_list[i].ability != 7 && monster_list[i].ability != 8;
+			MonsterSteering steer = {};
+			if (aiActive)
+				steer = MonsterAIUpdate(i, fElapsedTime, aiMoves && monster_list[i].current_sequence == 1);
+
+			// Melee needs a clear path to the player, no more hitting through walls.
+			if (length < 80.0f && (!aiActive || steer.hasLineOfSight)) {
 				skipmonster = 1;
 
 				// if there are close attack right away and set attack speed
@@ -434,7 +448,8 @@ void MoveMonsters(float fElapsedTime) {
 							firetype = 3;
 					}
 
-					if (monster_list[i].dist > 200.0f) {
+					// Do not waste missiles on walls.
+					if (monster_list[i].dist > 200.0f && (!aiActive || steer.hasLineOfSight)) {
 						if (monster_list[i].firespeed == 0 && firetype > 0 && monster_list[i].ability != 7 && monster_list[i].ability != 8) {
 							mspeed = (int)25 - (int)monster_list[i].hd;
 
@@ -479,7 +494,7 @@ void MoveMonsters(float fElapsedTime) {
 				skipmonster = 1;
 			} else {
 
-				monster_list[i].rot_angle = fDot;
+				monster_list[i].rot_angle = aiMoves ? steer.faceAngle : fDot;
 			}
 
 			if (monster_list[i].ability == 6 || monster_list[i].ability == 7 || monster_list[i].ability == 8) {
@@ -524,7 +539,13 @@ void MoveMonsters(float fElapsedTime) {
 
 				float realspeed = (165.0f + (monster_list[i].speed * 2.0f)) * fElapsedTime;
 
-				XMVECTOR result = final * realspeed;
+				XMVECTOR moveDir = final;
+				if (aiMoves) {
+					moveDir = XMVectorSet(steer.dirX, 0.0f, steer.dirZ, 0.0f);
+					realspeed *= steer.speedScale;
+				}
+
+				XMVECTOR result = moveDir * realspeed;
 
 				XMFLOAT3 vfinal;
 				XMStoreFloat3(&vfinal, result);
@@ -2873,6 +2894,7 @@ void GetItem() {
 					num_players2 = 0;
 					itemlistcount = 0;
 					num_monsters = 0;
+					MonsterAIReset();
 
 					ClearObjectList();
 					ResetSound();
