@@ -75,6 +75,9 @@ struct State {
 
 	bool kiter = false;
 	bool coward = false;
+	bool cowardChecked = false;
+	bool aggressive = false;
+	bool aggressiveChecked = false;
 	int strafeSide = 1;
 	float flank = 0.0f;
 	float phase = 0.0f;
@@ -321,7 +324,8 @@ void InitState(State &s, int idx) {
 	s.thinkTimer = Rand01(s) * kThinkInterval; // spread the thinks of a pack across frames deterministically
 
 	s.kiter = IsKiter(m.rname);
-	s.coward = (NextRand(s) % 4) == 0;
+	s.coward = false;
+	s.aggressive = false;
 	s.strafeSide = RandSign(s);
 	s.flank = RandSign(s) * (0.5f + 0.5f * Rand01(s));
 	s.phase = Rand01(s) * kTwoPi;
@@ -386,9 +390,34 @@ void Think(State &s, int idx, float dist, float tx, float tz) {
 		s.walkMoved = 0.0f;
 	}
 
-	// Morale: some monsters break off when badly hurt, but they come back after a few seconds.
+	// Morale and aggressiveness logic based on HD and hitpoints fraction:
 	float hpFrac = (float)m.health / (float)s.maxHp;
-	if (s.coward && hpFrac <= 0.25f && s.fleeTimer <= 0.0f && s.fleeCooldown <= 0.0f) {
+
+	if (m.hd < p.hd && hpFrac < 0.10f) {
+		if (!s.cowardChecked) {
+			s.cowardChecked = true;
+			if (Rand01(s) < 0.5f) {
+				s.coward = true;
+			}
+		}
+	} else {
+		s.coward = false;
+		s.cowardChecked = false;
+	}
+
+	if (m.hd > p.hd && hpFrac >= 0.80f) {
+		if (!s.aggressiveChecked) {
+			s.aggressiveChecked = true;
+			if (Rand01(s) < 0.5f) {
+				s.aggressive = true;
+			}
+		}
+	} else {
+		s.aggressive = false;
+		s.aggressiveChecked = false;
+	}
+
+	if (s.coward && s.fleeTimer <= 0.0f && s.fleeCooldown <= 0.0f) {
 		s.fleeTimer = 2.5f + 1.5f * Rand01(s);
 		s.fleeCooldown = 9.0f;
 	}
@@ -401,6 +430,9 @@ void Think(State &s, int idx, float dist, float tx, float tz) {
 		wSeek = 0.0f;
 		wFlee = 1.0f;
 		wStrafe = 0.25f;
+	} else if (s.aggressive) {
+		wSeek = 1.8f;
+		wStrafe = 0.0f;
 	} else if (s.kiter && s.los && s.retreatCooldown <= 0.0f && dist < kKiteMaxRange) {
 		if (dist < kKiteMinRange) {
 			wSeek = 0.0f;
@@ -419,8 +451,8 @@ void Think(State &s, int idx, float dist, float tx, float tz) {
 	s.retreating = retreating;
 
 	// Approach direction: flank offset (fades out near the target) and a lazy wander when far away.
-	float flankAmt = s.flank * Sat((dist - 150.0f) / 450.0f);
-	float wander = 0.28f * sinf(s.clock * 1.3f + s.phase) * Sat((dist - 350.0f) / 450.0f);
+	float flankAmt = s.aggressive ? 0.0f : s.flank * Sat((dist - 150.0f) / 450.0f);
+	float wander = s.aggressive ? 0.0f : 0.28f * sinf(s.clock * 1.3f + s.phase) * Sat((dist - 350.0f) / 450.0f);
 	float sx, sz;
 	Rotate(tx, tz, flankAmt + wander, sx, sz);
 
@@ -569,6 +601,8 @@ void Think(State &s, int idx, float dist, float tx, float tz) {
 	}
 
 	s.speedScale = Clamp(1.0f - 0.6f * dil[best], 0.4f, 1.0f);
+	if (s.aggressive)
+		s.speedScale *= 1.25f;
 }
 
 } // namespace
