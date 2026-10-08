@@ -991,6 +991,20 @@ void DungeonStompApp::RenderImGuiTogglePanel() {
 
 		ImGui::Spacing();
 
+		if (ImGui::TreeNodeEx("Gameplay & AI", ImGuiTreeNodeFlags_DefaultOpen)) {
+			// Monster AI (Context Steering & Whiskers)
+			bool aiEnabled = (monsteraienable != 0);
+			if (ImGui::Checkbox("Monster Steering AI", &aiEnabled)) {
+				monsteraienable = aiEnabled ? 1 : 0;
+				sprintf_s(gActionMessage, "Monster Steering AI %s", monsteraienable ? "Enabled" : "Disabled");
+				UpdateScrollList(0, 255, 255);
+			}
+
+			ImGui::TreePop();
+		}
+
+		ImGui::Spacing();
+
 		if (ImGui::TreeNodeEx("System & Display", ImGuiTreeNodeFlags_DefaultOpen)) {
 			// VSync Lock
 			if (ImGui::Checkbox("VSync Lock [V]", &enableVsync)) {

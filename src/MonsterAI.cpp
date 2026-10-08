@@ -24,12 +24,13 @@ constexpr float kBodyRadius = 35.0f;      // whisker hits closer than this are t
 constexpr float kWhiskerBase = 170.0f;    // whisker length on the sides and behind
 constexpr float kWhiskerExtra = 110.0f;   // extra length for whiskers pointing where we want to go
 constexpr float kGatherRadius = 320.0f;   // level geometry cached around the monster
-constexpr float kLowWhiskerY = -25.0f;    // whisker heights relative to the monster centre
-constexpr float kHighWhiskerY = 20.0f;
+constexpr float kLowWhiskerY = -5.0f;     // whisker heights relative to the monster centre (kept high so inclines are not hit)
+constexpr float kHighWhiskerY = 25.0f;
 constexpr float kLedgeProbeDist = 85.0f;  // how far ahead the floor is checked
-constexpr float kLedgeProbeDrop = 175.0f; // how far below the monster centre the floor must be found
+constexpr float kLedgeProbeRise = 110.0f; // the floor probe starts this far above the monster centre so rising slopes are found
+constexpr float kLedgeProbeDrop = 285.0f; // total probe length, measured from the raised start point
 constexpr float kLedgeDanger = 0.85f;
-constexpr float kWalkableNormalY = 0.7f;  // triangles flatter than this are floors/ceilings, not walls
+constexpr float kWalkableNormalY = 0.35f;  // triangles flatter than this (about 60 degrees) are floors/ramps, not walls
 constexpr float kSeparationRadius = 130.0f;
 constexpr float kTurnRate = 9.5f;         // radians per second (about 540 degrees)
 constexpr float kMeleeRange = 80.0f;
@@ -177,7 +178,7 @@ float CastRay(const V3 &o, const V3 &d, float maxT, RayMode mode) {
 		float ay = fabsf(tri.ny);
 		if (mode == RAY_WALLS && ay >= kWalkableNormalY)
 			continue;
-		if (mode == RAY_FLOORS && ay < 0.5f)
+		if (mode == RAY_FLOORS && ay < kWalkableNormalY)
 			continue;
 		float t;
 		if (RayTriangle(o, d, tri, t) && t < best)
@@ -342,7 +343,7 @@ void Think(State &s, int idx, float dist, float tx, float tz) {
 	s.los = s.losBlockedCount < 2;
 
 	// Ledges are only checked while we are actually standing on something.
-	bool hasGround = CastRay(origin, V3{ 0.0f, -1.0f, 0.0f }, 230.0f, RAY_FLOORS) < 230.0f;
+	bool hasGround = CastRay(V3{ origin.x, origin.y + kLedgeProbeRise, origin.z }, V3{ 0.0f, -1.0f, 0.0f }, kLedgeProbeDrop + 60.0f, RAY_FLOORS) < kLedgeProbeDrop + 60.0f;
 
 	// Stuck detection: we wanted to walk, but barely moved.
 	if (s.walkExpected > 90.0f) {
@@ -436,7 +437,7 @@ void Think(State &s, int idx, float dist, float tx, float tz) {
 			dg = Sat(1.0f - (d - kBodyRadius) / (len - kBodyRadius));
 
 		if (hasGround && align > -0.35f) {
-			V3 probe = { m.x + dir.x * kLedgeProbeDist, m.y, m.z + dir.z * kLedgeProbeDist };
+			V3 probe = { m.x + dir.x * kLedgeProbeDist, m.y + kLedgeProbeRise, m.z + dir.z * kLedgeProbeDist };
 			if (CastRay(probe, V3{ 0.0f, -1.0f, 0.0f }, kLedgeProbeDrop, RAY_FLOORS) >= kLedgeProbeDrop)
 				dg = fmaxf(dg, kLedgeDanger);
 		}

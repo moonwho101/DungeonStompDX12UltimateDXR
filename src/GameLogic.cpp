@@ -21,7 +21,7 @@ int monsterenable = 1;
 int monstercount = 0;
 int monstermoveon = 1;
 // 1 = context steering + raycast whiskers, 0 = original straight line chase
-int monsteraienable = 1;
+int monsteraienable = 0;
 int showmonstermenu = 1;
 int monstercull[1000];
 int monstertype[1000];
