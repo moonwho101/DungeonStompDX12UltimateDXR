@@ -31,7 +31,7 @@ constexpr float kLedgeProbeRise = 60.0f; // the floor probe starts this far abov
 constexpr float kLedgeProbeDrop = 230.0f; // total probe length, measured from the raised start point
 constexpr float kLedgeDanger = 0.55f;
 
-constexpr float kWalkableNormalY = 0.35f;  // triangles flatter than this (about 60 degrees) are floors/ramps, not walls
+constexpr float kWalkableNormalY = 0.55f;  // triangles flatter than this (about 60 degrees) are floors/ramps, not walls
 constexpr float kSeparationRadius = 130.0f;
 constexpr float kTurnRate = 9.5f;         // radians per second (about 540 degrees)
 constexpr float kMeleeRange = 80.0f;
