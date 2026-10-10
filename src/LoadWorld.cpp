@@ -2144,3 +2144,136 @@ int load_level(char *filename) {
 
 	return 1;
 }
+
+BOOL SaveWorldMap(const char *filename) {
+	if (!filename || strlen(filename) == 0)
+		return FALSE;
+
+	char path[256];
+	if (strstr(filename, ".map") != NULL) {
+		sprintf_s(path, "%s", filename);
+	} else {
+		sprintf_s(path, "%s.map", filename);
+	}
+
+	FILE *fp = NULL;
+	if (fopen_s(&fp, path, "w") != 0) {
+		return FALSE;
+	}
+
+	if (startposcounter > 0) {
+		fprintf(fp, "OBJECT startpos\n");
+		fprintf(fp, "CO_ORDINATES %f %f %f\n", startpos[0].x, startpos[0].y - 100.0f, startpos[0].z);
+		fprintf(fp, "ROT_ANGLE %d\n", (int)startpos[0].angle);
+	}
+
+	for (int i = 0; i < oblist_length; i++) {
+		if (_strcmpi(oblist[i].name, "startpos") == 0)
+			continue;
+
+		fprintf(fp, "OBJECT %s\n", oblist[i].name);
+		fprintf(fp, "CO_ORDINATES %f %f %f\n", oblist[i].x, oblist[i].y - 28.0f, oblist[i].z);
+
+		if (strstr(oblist[i].name, "!") != NULL) {
+			char mname[80] = "POTION";
+			char mtex[80] = "-1";
+			int monnum = oblist[i].monsterid;
+			int abil = oblist[i].ability;
+
+			bool found = false;
+			for (int m = 0; m < num_monsters; m++) {
+				if (monster_list[m].monsterid == oblist[i].monsterid) {
+					strcpy_s(mname, monster_list[m].rname);
+					int stex = monster_list[m].skin_tex_id;
+					if (stex >= 0 && stex < number_of_tex_aliases) {
+						strcpy_s(mtex, TexMap[stex].tex_alias_name);
+					} else {
+						sprintf_s(mtex, "%d", stex);
+					}
+					found = true;
+					break;
+				}
+			}
+			if (!found) {
+				for (int it = 0; it < itemlistcount; it++) {
+					if (item_list[it].monsterid == oblist[i].monsterid) {
+						strcpy_s(mname, item_list[it].rname);
+						int stex = item_list[it].skin_tex_id;
+						if (stex == -1)
+							strcpy_s(mtex, "-1");
+						else if (stex == 0)
+							strcpy_s(mtex, "0");
+						else if (stex >= 0 && stex < number_of_tex_aliases) {
+							strcpy_s(mtex, TexMap[stex].tex_alias_name);
+						} else {
+							sprintf_s(mtex, "%d", stex);
+						}
+						found = true;
+						break;
+					}
+				}
+			}
+			if (!found) {
+				for (int p2 = 0; p2 < num_players2; p2++) {
+					if (player_list2[p2].monsterid == oblist[i].monsterid) {
+						strcpy_s(mname, player_list2[p2].rname);
+						int stex = player_list2[p2].skin_tex_id;
+						if (stex == 0)
+							strcpy_s(mtex, "0");
+						else if (stex == -1)
+							strcpy_s(mtex, "-1");
+						else if (stex >= 0 && stex < number_of_tex_aliases) {
+							strcpy_s(mtex, TexMap[stex].tex_alias_name);
+						} else {
+							sprintf_s(mtex, "%d", stex);
+						}
+						found = true;
+						break;
+					}
+				}
+			}
+
+			fprintf(fp, "ROT_ANGLE %d %s %s %d %d\n", (int)oblist[i].rot_angle, mname, mtex, monnum, abil);
+		} else if (strstr(oblist[i].name, "door") != NULL) {
+			fprintf(fp, "ROT_ANGLE %d %d\n", (int)oblist[i].rot_angle, oblist[i].ability);
+		} else if (strstr(oblist[i].name, "text") != NULL) {
+			fprintf(fp, "ROT_ANGLE 0 %d %s\n", oblist[i].ability, oblist[i].name);
+		} else {
+			fprintf(fp, "ROT_ANGLE %d\n", (int)oblist[i].rot_angle);
+		}
+
+		if (oblist[i].castshadow == 0) {
+			fprintf(fp, "SHADOW 0\n");
+		}
+
+		if (oblist[i].light_source && oblist[i].light_source->command > 0) {
+			const char *cmdStr = "point";
+			if (oblist[i].light_source->command == SPOT_LIGHT_SOURCE)
+				cmdStr = "Spotlight";
+			else if (oblist[i].light_source->command == DIRECTIONAL_LIGHT_SOURCE)
+				cmdStr = "directional";
+			else if (oblist[i].light_source->command == 900)
+				cmdStr = "flicker";
+
+			fprintf(fp, "LIGHT_SOURCE %s POS %f %f %f DIR %f %f %f COLOUR %f %f %f\n",
+			        cmdStr,
+			        oblist[i].light_source->position_x,
+			        oblist[i].light_source->position_y,
+			        oblist[i].light_source->position_z,
+			        oblist[i].light_source->direction_x,
+			        oblist[i].light_source->direction_y,
+			        oblist[i].light_source->direction_z,
+			        oblist[i].light_source->rcolour,
+			        oblist[i].light_source->gcolour,
+			        oblist[i].light_source->bcolour);
+		}
+	}
+
+	fprintf(fp, "END_FILE\n");
+	fclose(fp);
+
+	sprintf_s(gActionMessage, "Saved map: %s", path);
+	UpdateScrollList(0, 255, 0);
+
+	return TRUE;
+}

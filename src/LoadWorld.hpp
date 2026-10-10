@@ -47,6 +47,7 @@ int CheckValidTextureAlias(char *alias);
 extern int monsterenable;
 
 void SetStartSpot();
+BOOL SaveWorldMap(const char *filename);
 
 struct gametext {
 
