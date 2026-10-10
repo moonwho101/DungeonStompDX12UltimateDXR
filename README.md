@@ -12,7 +12,7 @@
 
 ![Dungeon Stomp DX12 DXR](Textures/screenshot52.jpg)
 
-**Most DXR samples stop at a spinning triangle or a Cornell box. Dungeon Stomp is a full, playable, deterministic dungeon crawler engine that puts DirectX 12 Ultimate's headline features to work in a live production codebase — featuring DXR 1.1 inline ray tracing, PBR, Variable Rate Shading, deterministic simulation, and SSAO.**
+**Dungeon Stomp is a full, playable, deterministic dungeon crawler engine that puts DirectX 12 Ultimate features to work in a live codebase — featuring DXR 1.1 inline ray tracing, PBR materials, Variable Rate Shading, context steering AI, real-time minimap, SSAO, and deterministic simulation.**
 
 [Play Now](#quick-start) · [Dungeon Generator](#dungeon-generator) · [Features](#features) · [Screenshots](#screenshots) · [Controls](#controls) · [Deterministic Simulation & Demos](#deterministic-simulation-and-demos) · [Build](#build-from-source) · [Repository](#repository-structure) · [Credits](#credits)
 
@@ -23,7 +23,7 @@
 <a id="quick-start"></a>
 ## ⚡ Quick Start
 
-> **Play immediately** — a pre-compiled `DungeonStomp.exe` is included in `bin/`.
+Play immediately using the pre-compiled `DungeonStomp.exe` in `bin/`:
 
 ```bash
 git clone https://github.com/moonwho101/DungeonStompDX12UltimateDXR.git
@@ -31,9 +31,7 @@ cd DungeonStompDX12UltimateDXR/bin
 DungeonStomp.exe
 ```
 
-Run the game from the `bin/` folder; it loads its levels, sounds and shaders using paths relative to that directory.
-
-*Requirements: Windows 10/11 with a DirectX 12 GPU. A DXR 1.1-capable GPU (NVIDIA RTX / AMD RX 6000+ / Intel Arc) is needed for ray tracing (`R`); without one the game falls back to the rasterized renderer. Variable Rate Shading (`T`) also requires hardware support.*
+*Requirements: Windows 10/11 with a DirectX 12 GPU. DXR 1.1 hardware (NVIDIA RTX / AMD RX 6000+ / Intel Arc) is required for ray tracing (`R`); otherwise the engine uses the rasterized renderer. Variable Rate Shading (`T`) also requires hardware support.*
 
 ---
 
@@ -42,26 +40,24 @@ Run the game from the `bin/` folder; it loads its levels, sounds and shaders usi
 
 ![Procedural-Dungeon-Generation](Textures/screenshot50.jpg)
 
-Press `F7` to open the settings panel, choose a seed (`0` = random) and tile count, then click **Generate Classic Dungeon** or **Generate Enhanced Dungeon**. The layout is written to `level1.map` and loaded immediately. Press `F7` again to close the panel and return to play.
+Press `F7` to open the settings panel. Enter a seed (`0` = random) and tile count, then click **Generate Classic Dungeon** or **Generate Enhanced Dungeon**. Layouts are saved to `level1.map` and loaded dynamically. Press `F7` again to close.
 
 ---
 
 <a id="features"></a>
 ## ✨ Features
 
-### 🚀 Graphics & Engine (DX12 Ultimate)
-- **DXR 1.1 Inline Ray Tracing:** `RayQuery` shadow rays, plus a 2-sample single-bounce indirect diffuse (GI) approximation.
-- **PBR Material Pipeline:** Cook-Torrance BRDF with a metallic workflow, 28 tuned materials (`bin/materials.txt`) and ACES tone mapping.
-- **Variable Rate Shading (VRS):** Optional hardware shading-rate control for performance.
-- **Lighting & Effects:** 2048x2048 shadow map, SSAO, up to 32 dynamic lights per scene, normal mapping and atmospheric fog.
-- **Engine Tech:** 3-frame buffered rendering, spatial culling, BMFont GPU text rendering, Dear ImGui settings panel and an XAudio2 sound engine.
+### 🚀 Graphics & Rendering Engine
+- **DXR 1.1 Inline Ray Tracing:** `RayQuery` inline shadow rays, 2-sample single-bounce indirect diffuse GI, and ray-traced minimap dispatch.
+- **Overhead Minimap:** Real-time orthographic dungeon map in the upper right-hand corner (`L` toggle) displaying player position and heading across raster and DXR modes.
+- **PBR Material Pipeline:** Cook-Torrance BRDF metallic workflow with 28 materials (`bin/materials.txt`), MikkTSpace tangents, normal mapping, and ACES tone mapping.
+- **DirectX 12 Tech:** Variable Rate Shading (VRS), 2048x2048 shadow maps, SSAO, 3-frame buffering, spatial culling, BMFont GPU text, Dear ImGui overlay, and XAudio2 3D audio.
 
-### ⚔️ Game
-- **16 Dungeon Levels:** Hand-crafted campaign levels plus a seed-based procedural dungeon generator.
-- **25+ Enemy Types:** Animated MD2 & 3DS monsters with AI, audio cues and loot drops.
-- **Weapons & Spells:** Up to 30 weapon/spell slots covering melee, scrolls and a missile system (up to 100 active missiles).
-- **Deterministic Simulation:** Seeded PRNG sequence, fixed game-step logic, and deterministic physics & AI ensure 100% reproducible gameplay.
-- **Classic RPG Mechanics:** Dice-based combat, level progression, XP, keys, swinging doors, save/load (`F5`/`F6`) and deterministic demo record/playback (`F2`/`F3`).
+### ⚔️ Gameplay & Intelligence
+- **Context Steering Monster AI:** Dynamic steering evaluated via interest/danger maps, raycasted collision whiskers, ledge probes, and neighbor separation. Features line-of-sight tracking and state transitions (aggressive charge, coward retreat, kiter range-keeping).
+- **Campaign & Procedural Levels:** 16 hand-crafted levels plus seed-based procedural dungeon generation.
+- **Combat & Arsenal:** Dice-based combat, 25+ animated MD2/3DS monster types, and up to 30 weapon/spell slots (melee, magic scrolls, missiles).
+- **Deterministic Simulation:** Fixed-tick updates, seeded PRNG, and exact input demo recording/playback (`F2`/`F3`).
 
 ---
 
@@ -96,30 +92,30 @@ Press `F7` to open the settings panel, choose a seed (`0` = random) and tile cou
 | Action | Input | Action | Input |
 |---|---|---|---|
 | **Look / Turn** | `Mouse` | **Cycle Weapons** | `Q` next / `Z` previous, or `Mouse Wheel` |
-| **Move Forward / Back** | `W` / `S` (or `Right Click` to move forward) | **Load / Save** | `F5` / `F6` |
+| **Move Forward / Back** | `W` / `S` (or `Right Click` forward) | **Load / Save** | `F5` / `F6` |
 | **Strafe** | `A` / `D` | **Record / Play Demo** | `F2` / `F3` |
 | **Attack** | `Left Click` | **Settings Panel (Generator & Toggles)** | `F7` |
 | **Jump** | `E` | **On-Screen Debug Stats** | `F8` |
 | **Open Doors** | `Space` | **Fullscreen (borderless)** | `Alt`+`Enter` or `F11` |
 | **Respawn after death** | `Space` | **Quit** | `Esc` |
 
-An Xbox controller is supported but disabled by default; set `g_bUseJoystick` to `true` (`g_bUseMouse` and `g_bUseKeyboard`  to `false`) in `src/DirectInput.cpp` and rebuild.
+*Xbox controller supported (toggle `g_bUseJoystick` in `src/DirectInput.cpp`).*
 
 <details>
 <summary><b>🔧 Developer & Feature Hotkeys (Click to expand)</b></summary>
 
 <br>
 
-| Key | Graphics Toggle | Key | Gameplay / Developer |
+| Key | Feature Toggle | Key | Feature / Developer |
 |:---:|---|:---:|---|
-| `R` | DXR Ray Tracing | `G` | Gravity on/off (fly with Numpad `+` / `-` when off) |
-| `T` | Variable Rate Shading | `X` | Add 10 experience points |
-| `O` | SSAO | `K` | Unlock all weapons & spells |
-| `J` | Shadow Map | `]` / `[` | Next / previous level |
-| `N` | Normal Maps | `I` | Music on/off |
-| `M` | Shadow Map overlay | `P` | Play a random song |
-| `V` | VSync | `B` | Camera head bob |
-| `H` | Player HUD | | |
+| `L` | Overhead Minimap | `G` | Gravity on/off (fly with Numpad `+` / `-`) |
+| `R` | DXR Ray Tracing | `X` | Add 10 XP |
+| `T` | Variable Rate Shading | `K` | Unlock all weapons & spells |
+| `O` | SSAO | `]` / `[` | Next / previous level |
+| `J` | Shadow Maps | `I` | Music on/off |
+| `N` | Normal Maps | `P` | Play random song |
+| `M` | Shadow Map Overlay | `B` | Camera head bob |
+| `V` | VSync | `H` | Player HUD |
 
 </details>
 
@@ -128,22 +124,18 @@ An Xbox controller is supported but disabled by default; set `g_bUseJoystick` to
 <a id="deterministic-simulation-and-demos"></a>
 ## 🎲 Deterministic Simulation & Demo System
 
-Dungeon Stomp is designed as a **fully deterministic game simulation**. All core game logic—including monster AI pathfinding and target decisions, combat dice rolls, projectile physics, particle behavior, and procedural dungeon generation—runs on a fixed tick clock and a deterministic pseudo-random number generator (PRNG) sequence.
+Dungeon Stomp operates on a fixed tick clock and seeded PRNG sequence for 100% reproducible physics, monster AI, combat rolls, and procedural layouts.
 
-Because every state update is deterministic and reproducible, the engine features a classic Quake/Doom-style **Demo Recording & Playback System**:
-
-- **`F2` Record:** Saves an initial world snapshot to `demo.sav` and records raw frame-by-frame player inputs. Pressing `F2` again stops recording and writes `demo.dem`.
-- **`F3` Playback:** Restores the exact starting snapshot and feeds the recorded inputs back through the deterministic simulation tick loop.
-- **Exact Parity:** Every monster AI choice, combat hit roll, missile trajectory, and loot drop unfolds with 100% mathematical accuracy compared to the original play session.
-- **Deterministic Seed Generation:** Procedural dungeons (`F7` panel or `tools/generate_dungeon.py`) use fixed seed values, ensuring identical dungeon layouts, enemy spawns, and item placements across machines.
-- Both demo files are written to `bin/`. Live input is ignored during playback, and `F5`/`F6` save/load hotkeys are temporarily disabled.
+- **`F2` Record:** Saves an initial snapshot (`demo.sav`) and records frame-by-frame player inputs to `demo.dem`.
+- **`F3` Playback:** Restores the starting snapshot and replays recorded inputs through the simulation loop with exact parity.
+- Both files are stored in `bin/`. Live input is disabled during playback.
 
 ---
 
 <a id="build-from-source"></a>
 ## 🛠️ Build from Source
 
-**Prerequisites:** Visual Studio 2022 (Desktop development with C++, v143 toolset) and the Windows 10/11 SDK.
+**Prerequisites:** Visual Studio 2022 (v143 C++ toolset) and Windows 10/11 SDK.
 
 ```powershell
 git clone https://github.com/moonwho101/DungeonStompDX12UltimateDXR.git
@@ -151,36 +143,24 @@ cd DungeonStompDX12UltimateDXR
 msbuild src\DungeonStomp.sln /p:Configuration=Release /p:Platform=x64
 ```
 
-Or open `src/DungeonStomp.sln` in Visual Studio 2022 and build **Release | x64**.
-
-| Configuration | Output |
+| Configuration | Executable Output |
 |---|---|
 | Release | `bin/DungeonStomp.exe` |
 | Debug | `bin/DungeonStompDebug.exe` |
 
-Run the executable from `bin/`. HLSL shaders are compiled at startup from the `Shaders/` folder next to it, so keep the repository layout intact.
+*Runtime dependencies (shaders, assets, level files) are loaded relative to `bin/`.*
 
 ---
 
 <a id="repository-structure"></a>
 ## 📂 Repository Structure
 
-- `bin/` — Pre-built executable, level files (`.map`/`.cmp`/`.mod`), sounds and runtime data
-- `src/` — Engine & game logic (about 30 C++ files plus bundled Dear ImGui)
-- `Common/` — D3D12 helper framework (`d3dApp`, `GameTimer`, `MathHelper`)
-- `Shaders/` — HLSL shaders ([Raytracing.hlsl](Shaders/Raytracing.hlsl), PBR, shadows, SSAO)
-- `Models/`, `Textures/`, `Sounds/`, `Midi/` — Game assets
-- `tools/` — Python asset and dungeon-generation scripts
-- `Installer/` — Inno Setup installer script
-
-### Dungeon Generator Scripts
-Besides the in-game generator (`F7`), two scripts write a new layout to `bin/level1.map`:
-
-```bash
-cd tools
-python generate_dungeon.py           # Classic tileset
-python generate_dungeonNewObjects.py # Extended tileset
-```
+- `bin/` — Pre-built executable, level maps (`.map`/`.cmp`/`.mod`), audio, and runtime assets
+- `src/` — Engine & game source code (C++ and Dear ImGui integration)
+- `Common/` — D3D12 framework helpers (`d3dApp`, `GameTimer`, `MathHelper`)
+- `Shaders/` — HLSL shaders ([Raytracing.hlsl](Shaders/Raytracing.hlsl), PBR, SSAO, shadows)
+- `Models/`, `Textures/`, `Sounds/`, `Midi/` — Game media assets
+- `tools/` — Asset processing and python dungeon generators (`generate_dungeon.py`, `generate_dungeonNewObjects.py`)
 
 ---
 
@@ -231,7 +211,7 @@ Special thanks to the authors of the classic MD2 models featured in Dungeon Stom
 
 ## License
 
-This project is open source. See the [LICENSE](LICENSE) file for details.
+This project is open source. See [LICENSE](LICENSE) for details.
 
 ---
 
@@ -244,4 +224,3 @@ This project is open source. See the [LICENSE](LICENSE) file for details.
 [![Star this repo](https://img.shields.io/github/stars/moonwho101/DungeonStompDX12UltimateDXR?style=social)](https://github.com/moonwho101/DungeonStompDX12UltimateDXR/stargazers)
 
 </div>
-
