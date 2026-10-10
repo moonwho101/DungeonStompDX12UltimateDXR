@@ -74,7 +74,7 @@ void DungeonStompApp::Draw(const GameTimer &gt) {
 	// Reusing the command list reuses memory.
 	ThrowIfFailed(mCommandList->Reset(cmdListAlloc.Get(), mPSOs["opaque"].Get()));
 
-	//ProcessLights11();
+	// ProcessLights11();
 
 	ID3D12DescriptorHeap *descriptorHeaps[] = { mSrvDescriptorHeap.Get() };
 	mCommandList->SetDescriptorHeaps(1, descriptorHeaps);
@@ -102,18 +102,18 @@ void DungeonStompApp::Draw(const GameTimer &gt) {
 		drawingSSAO = false;
 
 		mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-			mDepthStencilBuffer.Get(),
-			D3D12_RESOURCE_STATE_DEPTH_WRITE,
-			D3D12_RESOURCE_STATE_GENERIC_READ));
+		                                     mDepthStencilBuffer.Get(),
+		                                     D3D12_RESOURCE_STATE_DEPTH_WRITE,
+		                                     D3D12_RESOURCE_STATE_GENERIC_READ));
 
 		// Compute SSAO.
 		mCommandList->SetGraphicsRootSignature(mSsaoRootSignature.Get());
 		mSsao->ComputeSsao(mCommandList.Get(), mCurrFrameResource, 3);
 
 		mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-			mDepthStencilBuffer.Get(),
-			D3D12_RESOURCE_STATE_GENERIC_READ,
-			D3D12_RESOURCE_STATE_DEPTH_WRITE));
+		                                     mDepthStencilBuffer.Get(),
+		                                     D3D12_RESOURCE_STATE_GENERIC_READ,
+		                                     D3D12_RESOURCE_STATE_DEPTH_WRITE));
 	}
 
 	// Main rendering pass.
@@ -248,7 +248,11 @@ void DungeonStompApp::Draw(const GameTimer &gt) {
 		ImGui_ImplWin32_NewFrame();
 		ImGui::NewFrame();
 
-		RenderImGuiTogglePanel();
+		if (gDungeonEditor.IsActive()) {
+			gDungeonEditor.RenderImGui();
+		} else {
+			RenderImGuiTogglePanel();
+		}
 
 		ImGui::Render();
 
@@ -823,7 +827,7 @@ void DungeonStompApp::ProcessLights11() {
 
 		int angle = (int)oblist[q].rot_angle;
 		int ob_type = oblist[q].type;
-		float adjust =0.0f;
+		float adjust = 0.0f;
 		//+1 because 0 is reserved for directional light
 		LightContainer[i + 1].Strength = { 9.0f, 9.0f, 9.0f };
 		LightContainer[i + 1].Position = DirectX::XMFLOAT3{ oblist[q].x, oblist[q].y + 43.0f, oblist[q].z };
