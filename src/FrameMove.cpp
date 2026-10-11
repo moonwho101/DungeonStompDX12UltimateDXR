@@ -257,9 +257,12 @@ void PlayerAnimation() {
 	}
 }
 
+extern CONTROLS Controls;
+
 void StrifePlayer(FLOAT &fTimeKey, bool addVel) {
 	float step_left_angy = 0;
 	float r = 15.0f;
+	float speedMult = Controls.bSprint ? 1.6f : 1.0f;
 
 	if (playermovestrife == 6) {
 		step_left_angy = angy - 90;
@@ -270,7 +273,7 @@ void StrifePlayer(FLOAT &fTimeKey, bool addVel) {
 		if (step_left_angy >= 360)
 			step_left_angy = step_left_angy - 360;
 
-		r = (playerspeed)*fTimeKey;
+		r = (playerspeed * speedMult) * fTimeKey;
 
 		if (addVel) {
 
@@ -293,7 +296,7 @@ void StrifePlayer(FLOAT &fTimeKey, bool addVel) {
 		if (step_left_angy >= 360)
 			step_left_angy = step_left_angy - 360;
 
-		r = (playerspeed)*fTimeKey;
+		r = (playerspeed * speedMult) * fTimeKey;
 
 		if (addVel) {
 
@@ -311,7 +314,11 @@ void StrifePlayer(FLOAT &fTimeKey, bool addVel) {
 bool MovePlayer(const FLOAT &fTimeKey) {
 	bool addVel = false;
 
-	float r = (playerspeed)*fTimeKey;
+	float speedMult = Controls.bSprint ? 1.6f : 1.0f;
+	float effectiveSpeedMax = playerspeedmax * speedMult;
+	float effectiveSpeedLevel = playerspeedlevel * speedMult;
+
+	float r = (playerspeed * speedMult) * fTimeKey;
 	currentspeed = r;
 
 	savevelocity = { 0.0f, 0.0f, 0.0f };
@@ -327,12 +334,12 @@ bool MovePlayer(const FLOAT &fTimeKey) {
 		directionlast = -1;
 	}
 
-	if (movespeed < playerspeedmax && directionlast != 0) {
+	if (movespeed < effectiveSpeedMax && directionlast != 0) {
 		addVel = true;
 
 		if (direction) {
-			if (moveaccel * movetime >= playerspeedlevel) {
-				movespeed = playerspeedlevel * fTimeKey;
+			if (moveaccel * movetime >= effectiveSpeedLevel) {
+				movespeed = effectiveSpeedLevel * fTimeKey;
 			} else {
 				movetime = movetime + fTimeKey;
 				movespeed = moveaccel * (0.5f * movetime * movetime);
