@@ -112,16 +112,24 @@ BOOL ImportMD2_GLCMD(char *filename, int texture_alias, int pmodel_id, float sca
 	};
 
 	std::vector<UniqueMD2Vert> unique_verts;
+	std::vector<std::vector<int>> old_to_unique(header.num_verts);
+
 	auto get_or_add_unique_vert = [&](int old_index, float s, float t) -> int {
-		for (size_t u = 0; u < unique_verts.size(); u++) {
-			if (unique_verts[u].old_index == old_index &&
-			    fabsf(unique_verts[u].s - s) < 1e-5f &&
-			    fabsf(unique_verts[u].t - t) < 1e-5f) {
-				return (int)u;
+		if (old_index >= 0 && old_index < header.num_verts) {
+			const auto &candidates = old_to_unique[old_index];
+			for (int u_idx : candidates) {
+				if (fabsf(unique_verts[u_idx].s - s) < 1e-5f &&
+				    fabsf(unique_verts[u_idx].t - t) < 1e-5f) {
+					return u_idx;
+				}
 			}
 		}
+		int new_u = (int)unique_verts.size();
 		unique_verts.push_back({ old_index, s, t });
-		return (int)(unique_verts.size() - 1);
+		if (old_index >= 0 && old_index < header.num_verts) {
+			old_to_unique[old_index].push_back(new_u);
+		}
+		return new_u;
 	};
 
 	pmdata[pmodel_id].f = new int[total_tri_verts];
@@ -292,9 +300,7 @@ BOOL ImportMD2_GLCMD(char *filename, int texture_alias, int pmodel_id, float sca
 		fread(translate, sizeof(float), 3, fp);
 		fread(name, 1, 16, fp);
 
-		for (j = 0; j < header.num_verts; j++) {
-			fread(&raw_bverts[j], sizeof(MD2VERTEX), 1, fp);
-		}
+		fread(raw_bverts.data(), sizeof(MD2VERTEX), header.num_verts, fp);
 
 		for (j = 0; j < total_unique_verts; j++) {
 			int old_idx = unique_verts[j].old_index;
