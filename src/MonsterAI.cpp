@@ -1,6 +1,7 @@
 #include "d3dtypes.h"
 #include "world.hpp"
 #include "GlobalSettings.hpp"
+#include "Missle.hpp"
 #include "MonsterAI.hpp"
 #include <math.h>
 #include <string.h>
@@ -20,21 +21,21 @@ constexpr float kThinkInterval = 0.10f; // seconds between steering decisions
 constexpr int kThinkBudgetPerFrame = 10;
 constexpr float kMaxDt = 0.10f;
 
-constexpr float kBodyRadius = 35.0f;      // whisker hits closer than this are treated as blocked
-constexpr float kWhiskerBase = 170.0f;    // whisker length on the sides and behind
-constexpr float kWhiskerExtra = 110.0f;   // extra length for whiskers pointing where we want to go
-constexpr float kGatherRadius = 320.0f;   // level geometry cached around the monster
-constexpr float kLowWhiskerY = 15.0f;     // whisker heights relative to the monster centre (kept high so inclines are not hit)
+constexpr float kBodyRadius = 35.0f;    // whisker hits closer than this are treated as blocked
+constexpr float kWhiskerBase = 170.0f;  // whisker length on the sides and behind
+constexpr float kWhiskerExtra = 110.0f; // extra length for whiskers pointing where we want to go
+constexpr float kGatherRadius = 320.0f; // level geometry cached around the monster
+constexpr float kLowWhiskerY = 15.0f;   // whisker heights relative to the monster centre (kept high so inclines are not hit)
 constexpr float kHighWhiskerY = 45.0f;
 constexpr float kLedgeProbeDist = 55.0f;  // how far ahead the floor is checked
-constexpr float kLedgeProbeRise = 60.0f; // the floor probe starts this far above the monster centre so rising slopes are found
+constexpr float kLedgeProbeRise = 60.0f;  // the floor probe starts this far above the monster centre so rising slopes are found
 constexpr float kLedgeProbeDrop = 230.0f; // total probe length, measured from the raised start point
 constexpr float kLedgeDanger = 0.55f;
 
-constexpr float kWalkableNormalY = 0.55f;  // triangles flatter than this (about 60 degrees) are floors/ramps, not walls
+constexpr float kWalkableNormalY = 0.55f;    // triangles flatter than this (about 60 degrees) are floors/ramps, not walls
 constexpr float kMaxStepRiserHeight = 25.0f; // stair risers are 20 units; walls are >= 120 units
 constexpr float kSeparationRadius = 130.0f;
-constexpr float kTurnRate = 9.5f;         // radians per second (about 540 degrees)
+constexpr float kTurnRate = 9.5f; // radians per second (about 540 degrees)
 constexpr float kMeleeRange = 80.0f;
 constexpr float kKiteMinRange = 220.0f;
 constexpr float kKiteMaxRange = 380.0f;
@@ -44,13 +45,21 @@ struct V3 {
 	float x, y, z;
 };
 
-inline V3 Sub(const V3 &a, const V3 &b) { return { a.x - b.x, a.y - b.y, a.z - b.z }; }
-inline float Dot(const V3 &a, const V3 &b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
+inline V3 Sub(const V3 &a, const V3 &b) {
+	return { a.x - b.x, a.y - b.y, a.z - b.z };
+}
+inline float Dot(const V3 &a, const V3 &b) {
+	return a.x * b.x + a.y * b.y + a.z * b.z;
+}
 inline V3 Cross(const V3 &a, const V3 &b) {
 	return { a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x };
 }
-inline float Clamp(float v, float lo, float hi) { return v < lo ? lo : (v > hi ? hi : v); }
-inline float Sat(float v) { return Clamp(v, 0.0f, 1.0f); }
+inline float Clamp(float v, float lo, float hi) {
+	return v < lo ? lo : (v > hi ? hi : v);
+}
+inline float Sat(float v) {
+	return Clamp(v, 0.0f, 1.0f);
+}
 
 struct CachedTri {
 	V3 v0, e1, e2;
@@ -194,8 +203,10 @@ bool RayTriangle(const V3 &o, const V3 &d, const CachedTri &t, float &tOut) {
 	return true;
 }
 
-enum RayMode { RAY_WALLS,
-	           RAY_FLOORS };
+enum RayMode {
+	RAY_WALLS,
+	RAY_FLOORS
+};
 
 // Returns the distance to the nearest wall (or floor) hit, or maxT when nothing is hit.
 float CastRay(const V3 &o, const V3 &d, float maxT, RayMode mode) {
@@ -527,6 +538,60 @@ void Think(State &s, int idx, float dist, float tx, float tz) {
 				float dd = g_slotX[i] * nx + g_slotZ[i] * nz;
 				if (dd > 0.2f)
 					danger[i] = fmaxf(danger[i], 0.7f * prox * dd);
+			}
+		}
+	}
+
+	// Missile danger avoidance: active missiles nearby are treated as dangerous.
+	if (your_missle != nullptr) {
+		constexpr float kMissileRadius = 320.0f;
+		for (int mc = 0; mc < MAX_MISSLE; mc++) {
+			if (your_missle[mc].active != 1)
+				continue;
+
+			float mx = your_missle[mc].x - m.x;
+			float my = your_missle[mc].y - m.y;
+			float mz = your_missle[mc].z - m.z;
+			if (fabsf(my) > 100.0f)
+				continue;
+
+			float md2 = mx * mx + mz * mz;
+			if (md2 > kMissileRadius * kMissileRadius || md2 < 1e-4f)
+				continue;
+
+			float md = sqrtf(md2);
+			float nx = mx / md; // unit vector from monster to missile
+			float nz = mz / md;
+
+			// Check missile ownership / threat (player missile or missile from another entity)
+			bool isPlayerMissile = (your_missle[mc].playertype == 1);
+			bool isOtherMonsterMissile = (your_missle[mc].playertype == 0 && (int)your_missle[mc].owner != idx);
+			if (!isPlayerMissile && !isOtherMonsterMissile)
+				continue;
+
+			float vx = your_missle[mc].velocity.x;
+			float vz = your_missle[mc].velocity.z;
+			float vl = sqrtf(vx * vx + vz * vz);
+
+			// Proximity threat factor (1.0 at missile position, dropping to 0 at kMissileRadius)
+			float prox = 1.0f - md / kMissileRadius;
+
+			// Check if missile velocity is heading towards monster
+			float headingToward = 0.0f;
+			if (vl > 1e-3f) {
+				float vnx = vx / vl;
+				float vnz = vz / vl;
+				headingToward = fmaxf(0.0f, vnx * (-nx) + vnz * (-nz));
+			}
+
+			// Add danger to slots pointing toward missile location or heading
+			for (int i = 0; i < kSlots; i++) {
+				float dotMissile = g_slotX[i] * nx + g_slotZ[i] * nz;
+				if (dotMissile > -0.2f) {
+					float mDanger = prox * (dotMissile + 0.2f) / 1.2f;
+					mDanger *= (1.0f + 1.2f * headingToward);
+					danger[i] = fmaxf(danger[i], Sat(mDanger));
+				}
 			}
 		}
 	}
