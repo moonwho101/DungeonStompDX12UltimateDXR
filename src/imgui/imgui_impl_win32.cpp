@@ -398,6 +398,8 @@ void    ImGui_ImplWin32_NewFrame()
     // Setup time step
     INT64 current_time = 0;
     ::QueryPerformanceCounter((LARGE_INTEGER*)&current_time);
+    if (bd->Time == 0 || (current_time - bd->Time) > bd->TicksPerSecond / 5)
+        bd->Time = current_time - (bd->TicksPerSecond / 60);
     io.DeltaTime = (float)(current_time - bd->Time) / bd->TicksPerSecond;
     bd->Time = current_time;
 
