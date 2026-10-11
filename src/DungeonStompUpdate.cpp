@@ -50,8 +50,6 @@ bool enableDXRKey = false;
 bool enableGui = false;
 bool enableGuiKey = false;
 
-
-
 // DXR debug stats (updated each frame when DXR is active)
 int gDXRTriangleCount = 0;
 int gDXRAliasCount = 0;
@@ -107,6 +105,8 @@ void DungeonStompApp::Update(const GameTimer &gt) {
 	FrameMove(0.0f, t);
 	UpdateWorld(t);
 	OnKeyboardInput(gt);
+
+	gDungeonEditor.Update(t, mEyePos, angy, look_up_ang, (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0);
 
 	bobY.update(t);
 	bobX.update(t);
@@ -460,8 +460,6 @@ void DungeonStompApp::OnKeyboardInput(const GameTimer &gt) {
 		}
 	});
 
-
-
 	// R: DirectX Raytracing (DXR)
 	handleToggleKey('R', enableDXRKey, [this]() {
 		enableDXR = !enableDXR;
@@ -474,6 +472,12 @@ void DungeonStompApp::OnKeyboardInput(const GameTimer &gt) {
 			strcpy_s(gActionMessage, "DirectX Raytracing Disabled");
 		}
 		UpdateScrollList(0, 255, 255);
+	});
+
+	// F1: Dungeon Editor Mode
+	static int f1KeyPress = 0;
+	handleToggleKey(VK_F1, f1KeyPress, []() {
+		gDungeonEditor.ToggleActive();
 	});
 }
 
