@@ -542,7 +542,6 @@ void MoveMonsters(float fElapsedTime) {
 				XMVECTOR moveDir = final;
 				if (aiMoves) {
 					moveDir = XMVectorSet(steer.dirX, 0.0f, steer.dirZ, 0.0f);
-					realspeed *= steer.speedScale;
 				}
 
 				XMVECTOR result = moveDir * realspeed;
