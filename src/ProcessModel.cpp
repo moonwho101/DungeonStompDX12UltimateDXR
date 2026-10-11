@@ -1056,7 +1056,7 @@ void PlayerToD3DVertList(int pmodel_id, int curr_frame, float angle, int texture
 
 			if (nextFrame != -1) {
 				const vert_ptr tpNextFrame = &pmdata[pmodel_id].w[nextFrame][v_index];
-				const float t = (gametimerAnimation > 0.0f && gametimerAnimation < 1.0f) ? gametimerAnimation : 0.0f;
+				const float t = std::clamp(gametimerAnimation, 0.0f, 1.0f);
 
 				if (t > 0.0f) {
 					x = tp->x + t * (tpNextFrame->x - tp->x);
@@ -1070,6 +1070,20 @@ void PlayerToD3DVertList(int pmodel_id, int curr_frame, float angle, int texture
 					nmx = tp->nmx + t * (tpNextFrame->nmx - tp->nmx);
 					nmy = tp->nmy + t * (tpNextFrame->nmy - tp->nmy);
 					nmz = tp->nmz + t * (tpNextFrame->nmz - tp->nmz);
+
+					const float nLen = sqrtf(nx * nx + ny * ny + nz * nz);
+					if (nLen > 1e-5f) {
+						nx /= nLen;
+						ny /= nLen;
+						nz /= nLen;
+					}
+
+					const float tLen = sqrtf(nmx * nmx + nmy * nmy + nmz * nmz);
+					if (tLen > 1e-5f) {
+						nmx /= tLen;
+						nmy /= tLen;
+						nmz /= tLen;
+					}
 				} else {
 					x = tp->x;
 					z = tp->y;
