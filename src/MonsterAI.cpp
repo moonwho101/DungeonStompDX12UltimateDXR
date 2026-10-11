@@ -32,6 +32,7 @@ constexpr float kLedgeProbeDrop = 230.0f; // total probe length, measured from t
 constexpr float kLedgeDanger = 0.55f;
 
 constexpr float kWalkableNormalY = 0.55f;  // triangles flatter than this (about 60 degrees) are floors/ramps, not walls
+constexpr float kMaxStepRiserHeight = 25.0f; // stair risers are 20 units; walls are >= 120 units
 constexpr float kSeparationRadius = 130.0f;
 constexpr float kTurnRate = 9.5f;         // radians per second (about 540 degrees)
 constexpr float kMeleeRange = 80.0f;
@@ -53,7 +54,8 @@ inline float Sat(float v) { return Clamp(v, 0.0f, 1.0f); }
 
 struct CachedTri {
 	V3 v0, e1, e2;
-	float ny; // unit normal Y component
+	float ny;     // unit normal Y component
+	float height; // vertical height (max_y - min_y)
 };
 
 struct State {
@@ -200,7 +202,7 @@ float CastRay(const V3 &o, const V3 &d, float maxT, RayMode mode) {
 	float best = maxT;
 	for (const CachedTri &tri : g_tris) {
 		float ay = fabsf(tri.ny);
-		if (mode == RAY_WALLS && ay >= kWalkableNormalY)
+		if (mode == RAY_WALLS && (ay >= kWalkableNormalY || tri.height <= kMaxStepRiserHeight))
 			continue;
 		if (mode == RAY_FLOORS && ay < kWalkableNormalY)
 			continue;
@@ -274,11 +276,12 @@ void GatherGeometry(const V3 &c, LosRay *los, int losCount) {
 		if (nl < 1e-4f)
 			continue;
 		tri.ny = n.y / nl;
+		tri.height = maxy - miny;
 
 		if (local)
 			g_tris.push_back(tri);
 
-		if (losCandidate) {
+		if (losCandidate && (tri.height > kMaxStepRiserHeight && fabsf(tri.ny) < kWalkableNormalY)) {
 			for (int r = 0; r < losCount; r++) {
 				float t;
 				if (los[r].active && !los[r].blocked && RayTriangle(los[r].o, los[r].d, tri, t) && t < los[r].len)
@@ -423,6 +426,9 @@ void Think(State &s, int idx, float dist, float tx, float tz) {
 	}
 	bool fleeing = s.fleeTimer > 0.0f;
 
+	float dy = p.y - m.y;
+	bool heightDiff = fabsf(dy) > 25.0f;
+
 	// Behaviour mix.
 	float wSeek = 1.0f, wStrafe = 0.0f, wFlee = 0.0f;
 	bool retreating = false;
@@ -430,6 +436,10 @@ void Think(State &s, int idx, float dist, float tx, float tz) {
 		wSeek = 0.0f;
 		wFlee = 1.0f;
 		wStrafe = 0.25f;
+	} else if (heightDiff) {
+		// On stairs or vertical elevation changes: pursue straight up/down without strafing into stair walls.
+		wSeek = 1.0f;
+		wStrafe = 0.0f;
 	} else if (s.aggressive) {
 		wSeek = 1.8f;
 		wStrafe = 0.0f;
@@ -451,8 +461,8 @@ void Think(State &s, int idx, float dist, float tx, float tz) {
 	s.retreating = retreating;
 
 	// Approach direction: flank offset (fades out near the target) and a lazy wander when far away.
-	float flankAmt = s.aggressive ? 0.0f : s.flank * Sat((dist - 150.0f) / 450.0f);
-	float wander = s.aggressive ? 0.0f : 0.28f * sinf(s.clock * 1.3f + s.phase) * Sat((dist - 350.0f) / 450.0f);
+	float flankAmt = (s.aggressive || heightDiff) ? 0.0f : s.flank * Sat((dist - 150.0f) / 450.0f);
+	float wander = (s.aggressive || heightDiff) ? 0.0f : 0.28f * sinf(s.clock * 1.3f + s.phase) * Sat((dist - 350.0f) / 450.0f);
 	float sx, sz;
 	Rotate(tx, tz, flankAmt + wander, sx, sz);
 
@@ -678,7 +688,7 @@ MonsterSteering MonsterAIUpdate(int idx, float fElapsedTime, bool walking) {
 	s.prevX = m.x;
 	s.prevZ = m.z;
 	if (walking && dist > kMeleeRange + 20.0f) {
-		s.walkExpected += (165.0f + m.speed * 2.0f) * s.speedScale * dt;
+		s.walkExpected += (165.0f + m.speed * 2.0f) * dt;
 		s.walkMoved += moved;
 	}
 
