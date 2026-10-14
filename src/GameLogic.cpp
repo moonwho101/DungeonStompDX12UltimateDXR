@@ -12,6 +12,7 @@
 #include "CameraBob.hpp"
 #include "ParticleSystem.hpp"
 #include "MonsterAI.hpp"
+#include "PlayerAI.hpp"
 using namespace DirectX;
 
 #pragma comment(lib, "Winmm.lib")
@@ -2894,6 +2895,7 @@ void GetItem() {
 					itemlistcount = 0;
 					num_monsters = 0;
 					MonsterAIReset();
+					PlayerAIReset();
 
 					ClearObjectList();
 					ResetSound();

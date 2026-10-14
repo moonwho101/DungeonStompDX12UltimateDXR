@@ -181,6 +181,7 @@
     <ClCompile Include="LoadWorld.cpp" />
     <ClCompile Include="Missle.cpp" />
     <ClCompile Include="MonsterAI.cpp" />
+    <ClCompile Include="PlayerAI.cpp" />
     <ClCompile Include="ProcessModel.cpp" />
     <ClCompile Include="Dungeon.cpp" />
     <ClCompile Include="OverheadMap.cpp" />
@@ -226,6 +227,7 @@
     <ClInclude Include="LoadWorld.hpp" />
     <ClInclude Include="Missle.hpp" />
     <ClInclude Include="MonsterAI.hpp" />
+    <ClInclude Include="PlayerAI.hpp" />
     <ClInclude Include="ParticleSystem.hpp" />
     <ClInclude Include="ProcessModel.hpp" />
     <ClInclude Include="Dungeon.h" />
