@@ -10,6 +10,7 @@
 #include "GameLogic.hpp"
 #include "Dice.hpp"
 #include "MonsterAI.hpp"
+#include "PlayerAI.hpp"
 #include <vector>
 #include <stdio.h>
 #include <stdlib.h>
@@ -144,9 +145,11 @@ struct DemoFrame {
 	CONTROLS controls;
 };
 
-enum class DemoMode { Idle,
-	                  Recording,
-	                  Playing };
+enum class DemoMode {
+	Idle,
+	Recording,
+	Playing
+};
 
 const char *kDemoSaveFile = "demo.sav";
 const char *kDemoFile = "demo.dem";
@@ -160,6 +163,7 @@ unsigned int demoSeed = 0;
 bool demoFramePending = false;
 bool demoF2Down = false;
 bool demoF3Down = false;
+bool playerAIF1Down = false;
 
 void DemoMessage(const char *msg) {
 	strcpy_s(gActionMessage, msg);
@@ -300,6 +304,14 @@ void UpdateDemo() {
 	bool f3Pressed = f3 && !demoF3Down;
 	demoF2Down = f2;
 	demoF3Down = f3;
+
+	bool f1 = (diks[DIK_F1] & 0x80) != 0;
+	bool f1Pressed = f1 && !playerAIF1Down;
+	playerAIF1Down = f1;
+
+	if (f1Pressed) {
+		TogglePlayerAI();
+	}
 
 	if (f2Pressed) {
 		if (demoMode == DemoMode::Recording) {
@@ -554,7 +566,6 @@ VOID UpdateControls() {
 				Controls.bNextWeap = 1;
 			else if (dims.lZ < 0)
 				Controls.bPrevWeap = 1;
-
 		}
 
 		// Read joystick input
@@ -669,6 +680,10 @@ VOID UpdateControls() {
 		}
 
 		UpdateDemo();
+
+		if (IsPlayerAIEnabled()) {
+			PlayerAIUpdate(&Controls, elapsegametimersave);
+		}
 
 		if (!enableGui)
 			MovePlayer(&Controls);
