@@ -13,6 +13,7 @@
 #include "ProcessModel.hpp"
 #include "Dice.hpp"
 #include "CameraBob.hpp"
+#include "PlayerAI.hpp"
 #include "DungeonGenerator.hpp"
 #include "imgui/imgui.h"
 
@@ -999,6 +1000,11 @@ void DungeonStompApp::RenderImGuiTogglePanel() {
 				sprintf_s(gActionMessage, "Monster Steering AI %s", monsteraienable ? "Enabled" : "Disabled");
 				UpdateScrollList(0, 255, 255);
 			}
+
+			// Player AI (plays the game: kills monsters, collects treasure)
+			bool playerAI = PlayerAIIsEnabled();
+			if (ImGui::Checkbox("Player AI [F1]", &playerAI))
+				PlayerAISetEnabled(playerAI);
 
 			ImGui::TreePop();
 		}

@@ -55,6 +55,7 @@ Press `F7` to open the settings panel. Enter a seed (`0` = random) and tile coun
 
 ### ⚔️ Gameplay & Intelligence
 - **Context Steering Monster AI:** Dynamic steering evaluated via interest/danger maps, raycasted collision whiskers, ledge probes, and neighbor separation. Features line-of-sight tracking and state transitions (aggressive charge, coward retreat, kiter range-keeping).
+- **Player AI (`F1`):** An autopilot that plays like a human through the normal input path (`src/PlayerAI.cpp`): hunts nearby monsters, swings or casts scrolls, picks up treasure, potions and weapons, opens doors, explores unvisited rooms, heals when hurt, takes the level exit once the level is clear and gets back up after dying.
 - **Campaign & Procedural Levels:** 16 hand-crafted levels plus seed-based procedural dungeon generation.
 - **Combat & Arsenal:** Dice-based combat, 25+ animated MD2/3DS monster types, and up to 30 weapon/spell slots (melee, magic scrolls, missiles).
 - **Deterministic Simulation:** Fixed-tick updates, seeded PRNG, and exact input demo recording/playback (`F2`/`F3`).
@@ -97,7 +98,8 @@ Press `F7` to open the settings panel. Enter a seed (`0` = random) and tile coun
 | **Attack** | `Left Click` | **Settings Panel (Generator & Toggles)** | `F7` |
 | **Jump** | `E` | **On-Screen Debug Stats** | `F8` |
 | **Open Doors** | `Space` | **Fullscreen (borderless)** | `Alt`+`Enter` or `F11` |
-| **Respawn after death** | `Space` | **Quit** | `Esc` |
+| **Respawn after death** | `Space` | **Player AI (autopilot) on/off** | `F1` |
+| **Quit** | `Esc` | | |
 
 *Xbox controller supported (toggle `g_bUseJoystick` in `src/DirectInput.cpp`).*
 

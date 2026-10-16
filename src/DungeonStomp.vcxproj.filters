@@ -75,6 +75,9 @@
     <ClCompile Include="MonsterAI.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="PlayerAI.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="ProcessModel.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -198,6 +201,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="MonsterAI.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="PlayerAI.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="ProcessModel.hpp">

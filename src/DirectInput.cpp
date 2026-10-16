@@ -10,6 +10,7 @@
 #include "GameLogic.hpp"
 #include "Dice.hpp"
 #include "MonsterAI.hpp"
+#include "PlayerAI.hpp"
 #include <vector>
 #include <stdio.h>
 #include <stdlib.h>
@@ -340,6 +341,29 @@ void UpdateDemo() {
 		demoFramePending = true;
 	}
 }
+
+// F1 toggles the player AI. It rewrites the controls every frame, so it cannot run while a demo records or plays.
+bool playerAIF1Down = false;
+
+void UpdatePlayerAI() {
+	bool f1 = (diks[DIK_F1] & 0x80) != 0;
+	bool f1Pressed = f1 && !playerAIF1Down;
+	playerAIF1Down = f1;
+
+	if (demoMode != DemoMode::Idle) {
+		if (PlayerAIIsEnabled())
+			PlayerAISetEnabled(false);
+		if (f1Pressed)
+			DemoMessage("Player AI: stop the demo first (F2/F3).");
+		return;
+	}
+
+	if (f1Pressed)
+		PlayerAIToggle();
+
+	if (!enableGui)
+		PlayerAIUpdate(&Controls, elapsegametimersave);
+}
 } // namespace
 
 // Returns the delta time the game should use this frame; stores it when recording, replaces it when playing.
@@ -669,6 +693,7 @@ VOID UpdateControls() {
 		}
 
 		UpdateDemo();
+		UpdatePlayerAI();
 
 		if (!enableGui)
 			MovePlayer(&Controls);
