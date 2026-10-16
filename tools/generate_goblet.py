@@ -259,7 +259,6 @@ def build_goblet_model():
     # Generate main chalice mesh
     chalice_mesh = make_revolved_surface(profile, segments=segments, u_range=(0.0, 1.0), v_range=(0.0, 1.0))
     chalice_verts, chalice_faces, chalice_uvs = chalice_mesh
-    chalice_verts, chalice_faces = orient_faces_outward(chalice_verts, chalice_faces)
 
     # Generate embedded gemstone jewels around the upper knop collar (z=4.5)
     jewel_meshes = []
@@ -276,7 +275,6 @@ def build_goblet_model():
         jewel_meshes.append(j_mesh)
 
     jewels_verts, jewels_faces, jewels_uvs = combine_meshes(jewel_meshes)
-    jewels_verts, jewels_faces = orient_faces_outward(jewels_verts, jewels_faces)
 
     objects = [
         ("Cylinder01", chalice_verts, chalice_faces, chalice_uvs, "Material #8"),
