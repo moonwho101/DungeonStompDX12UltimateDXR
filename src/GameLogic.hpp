@@ -40,6 +40,7 @@ extern int slistcounter;
 extern int sliststart;
 extern int scrolllistnum;
 extern int scount;
+extern float gScrollOffset;
 int pnpoly(int npol, float *xp, float *yp, float x, float y);
 int SceneInBox(D3DVECTOR point);
 int CalculateView(XMFLOAT3 EyeBall, XMFLOAT3 LookPoint, float angle, bool distancecheck);

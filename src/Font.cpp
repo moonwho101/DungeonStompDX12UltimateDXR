@@ -586,16 +586,46 @@ void DungeonStompApp::DisplayHud() {
 	RenderText(arialFont, charToWChar(junk), XMFLOAT2(0.07f, 0.98f), XMFLOAT2(0.30f, 0.30f), XMFLOAT2(0.5f, 0.0f), XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f));
 
 	// scroll message list
+	float dt = fTimeKeysave;
+	if (dt <= 0.0f || dt > 0.1f)
+		dt = 0.016f;
+
+	if (gScrollOffset > 0.0f) {
+		float scrollSpeed = 0.08f;
+		if (gScrollOffset > 0.04f) {
+			scrollSpeed *= (gScrollOffset / 0.02f);
+		}
+		gScrollOffset -= scrollSpeed * dt;
+		if (gScrollOffset < 0.0f)
+			gScrollOffset = 0.0f;
+	}
+
 	char junk2[2048];
-	const int scrolllistnum = 6;
-	float scrollmessage1 = 0.0f;
-	int scount = sliststart;
-	for (int count = 0; count < scrolllistnum; count++) {
+	const int numVisibleLines = 6;
+	for (int count = 0; count <= numVisibleLines + 1; count++) {
+		int scount = (sliststart - count + 50) % 50;
+		if (scrolllist1[scount].text[0] == '\0')
+			continue;
+
+		float yPos = 0.10f - (count * 0.02f) + gScrollOffset;
+
+		float alpha = 1.0f;
+		if (yPos > 0.10f) {
+			alpha = (0.12f - yPos) / 0.02f;
+		} else if (yPos < 0.02f) {
+			alpha = (yPos - 0.00f) / 0.02f;
+		}
+		alpha = max(0.0f, min(1.0f, alpha));
+
+		if (alpha <= 0.0f)
+			continue;
+
+		float rNorm = scrolllist1[scount].r > 1 ? (float)scrolllist1[scount].r / 255.0f : (float)scrolllist1[scount].r;
+		float gNorm = scrolllist1[scount].g > 1 ? (float)scrolllist1[scount].g / 255.0f : (float)scrolllist1[scount].g;
+		float bNorm = scrolllist1[scount].b > 1 ? (float)scrolllist1[scount].b / 255.0f : (float)scrolllist1[scount].b;
+
 		sprintf_s(junk2, "%s", scrolllist1[scount].text);
-		RenderText(arialFont, charToWChar(junk2), XMFLOAT2(0.0f, 0.1f + scrollmessage1), XMFLOAT2(0.30f, 0.30f), XMFLOAT2(0.5f, 0.0f), XMFLOAT4((float)scrolllist1[scount].r, (float)scrolllist1[scount].g, (float)scrolllist1[scount].b, 1.0f));
-		scrollmessage1 -= 0.02f;
-		if (--scount < 0)
-			scount = scrolllistnum - 1;
+		RenderText(arialFont, charToWChar(junk2), XMFLOAT2(0.0f, yPos), XMFLOAT2(0.30f, 0.30f), XMFLOAT2(0.5f, 0.0f), XMFLOAT4(rNorm, gNorm, bNorm, alpha));
 	}
 
 	if (enableOnscreenDebug) {
@@ -850,7 +880,6 @@ void DungeonStompApp::DisplayHud() {
 	}
 }
 
-
 void SetStartSpot();
 
 void DungeonStompApp::RenderImGuiTogglePanel() {
@@ -902,7 +931,7 @@ void DungeonStompApp::RenderImGuiTogglePanel() {
 			}
 			ImGui::TreePop();
 		}
-		
+
 		ImGui::Spacing();
 
 		if (ImGui::TreeNodeEx("Graphics & Features", ImGuiTreeNodeFlags_DefaultOpen)) {
@@ -1549,18 +1578,101 @@ void DungeonStompApp::DisplayPlayerCaption() {
 // Ink bounds (left, right) in pixels inside the 16x16 cell of fontB for ASCII 32..126.
 // Used to lay captions out with proportional spacing instead of a fixed 16px advance.
 static const unsigned char kFontInk[95][2] = {
-	{0,0}, {8,10}, {5,13}, {5,13}, {5,13}, {5,13}, {5,13}, {7,11},
-	{6,11}, {7,12}, {5,13}, {6,12}, {7,11}, {6,12}, {8,10}, {5,12},
-	{5,13}, {6,11}, {5,13}, {5,13}, {5,13}, {5,13}, {5,12}, {5,13},
-	{5,13}, {5,12}, {8,10}, {7,10}, {6,12}, {5,13}, {6,12}, {5,13},
-	{5,13}, {5,13}, {5,13}, {5,13}, {5,13}, {5,12}, {5,12}, {5,13},
-	{5,13}, {7,11}, {5,13}, {5,13}, {5,12}, {5,13}, {5,13}, {5,13},
-	{5,13}, {5,13}, {5,13}, {5,13}, {5,13}, {5,13}, {5,13}, {5,13},
-	{5,13}, {5,13}, {5,13}, {7,12}, {5,12}, {6,11}, {5,12}, {5,13},
-	{7,11}, {5,13}, {5,13}, {5,13}, {5,13}, {5,13}, {5,13}, {5,13},
-	{5,13}, {8,10}, {5,11}, {5,13}, {7,10}, {5,13}, {5,13}, {5,13},
-	{5,13}, {5,13}, {5,13}, {5,13}, {5,12}, {5,13}, {5,13}, {5,13},
-	{5,13}, {5,13}, {5,13}, {6,12}, {8,10}, {6,12}, {5,12},
+	{ 0, 0 },
+	{ 8, 10 },
+	{ 5, 13 },
+	{ 5, 13 },
+	{ 5, 13 },
+	{ 5, 13 },
+	{ 5, 13 },
+	{ 7, 11 },
+	{ 6, 11 },
+	{ 7, 12 },
+	{ 5, 13 },
+	{ 6, 12 },
+	{ 7, 11 },
+	{ 6, 12 },
+	{ 8, 10 },
+	{ 5, 12 },
+	{ 5, 13 },
+	{ 6, 11 },
+	{ 5, 13 },
+	{ 5, 13 },
+	{ 5, 13 },
+	{ 5, 13 },
+	{ 5, 12 },
+	{ 5, 13 },
+	{ 5, 13 },
+	{ 5, 12 },
+	{ 8, 10 },
+	{ 7, 10 },
+	{ 6, 12 },
+	{ 5, 13 },
+	{ 6, 12 },
+	{ 5, 13 },
+	{ 5, 13 },
+	{ 5, 13 },
+	{ 5, 13 },
+	{ 5, 13 },
+	{ 5, 13 },
+	{ 5, 12 },
+	{ 5, 12 },
+	{ 5, 13 },
+	{ 5, 13 },
+	{ 7, 11 },
+	{ 5, 13 },
+	{ 5, 13 },
+	{ 5, 12 },
+	{ 5, 13 },
+	{ 5, 13 },
+	{ 5, 13 },
+	{ 5, 13 },
+	{ 5, 13 },
+	{ 5, 13 },
+	{ 5, 13 },
+	{ 5, 13 },
+	{ 5, 13 },
+	{ 5, 13 },
+	{ 5, 13 },
+	{ 5, 13 },
+	{ 5, 13 },
+	{ 5, 13 },
+	{ 7, 12 },
+	{ 5, 12 },
+	{ 6, 11 },
+	{ 5, 12 },
+	{ 5, 13 },
+	{ 7, 11 },
+	{ 5, 13 },
+	{ 5, 13 },
+	{ 5, 13 },
+	{ 5, 13 },
+	{ 5, 13 },
+	{ 5, 13 },
+	{ 5, 13 },
+	{ 5, 13 },
+	{ 8, 10 },
+	{ 5, 11 },
+	{ 5, 13 },
+	{ 7, 10 },
+	{ 5, 13 },
+	{ 5, 13 },
+	{ 5, 13 },
+	{ 5, 13 },
+	{ 5, 13 },
+	{ 5, 13 },
+	{ 5, 13 },
+	{ 5, 12 },
+	{ 5, 13 },
+	{ 5, 13 },
+	{ 5, 13 },
+	{ 5, 13 },
+	{ 5, 13 },
+	{ 5, 13 },
+	{ 6, 12 },
+	{ 8, 10 },
+	{ 6, 12 },
+	{ 5, 12 },
 };
 
 // Builds one camera-facing quad (4 vertices, triangle strip order) per visible glyph into bubble[],
@@ -1578,9 +1690,9 @@ void display_font(float x, float y, char text[1000], int r, int g, int b) {
 	const int maxGlyphs = 600 / 4;
 
 	struct Glyph {
-		float u0, u1;       // texture range, left to right in reading order
-		float advance;      // in pixels
-		float quadWidth;    // in pixels
+		float u0, u1;    // texture range, left to right in reading order
+		float advance;   // in pixels
+		float quadWidth; // in pixels
 		bool visible;
 	} glyphs[maxGlyphs];
 
