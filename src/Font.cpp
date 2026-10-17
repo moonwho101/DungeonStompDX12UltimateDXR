@@ -22,6 +22,7 @@ using Microsoft::WRL::ComPtr;
 using namespace DirectX;
 using namespace DirectX::PackedVector;
 
+extern FLOAT fTimeKeysave;
 extern int number_of_tex_aliases;
 extern int textcounter;
 extern char gfinaltext[2048];
