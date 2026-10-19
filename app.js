@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+import { DDSLoader } from 'three/addons/loaders/DDSLoader.js';
 import { TextureManager, ObjectsDatParser, LevelMapParser } from './parsers.js';
 
 let camera, scene, renderer, controls;
@@ -17,7 +18,20 @@ const textureManager = new TextureManager();
 const objectsParser = new ObjectsDatParser();
 const levelParser = new LevelMapParser();
 
+const ddsLoader = new DDSLoader();
+const textureLoader = new THREE.TextureLoader();
+
 const textureCache = new Map();
+
+const defaultCanvas = document.createElement('canvas');
+defaultCanvas.width = 128;
+defaultCanvas.height = 128;
+const ctx = defaultCanvas.getContext('2d');
+ctx.fillStyle = '#666677';
+ctx.fillRect(0, 0, 128, 128);
+ctx.fillStyle = '#444455';
+ctx.fillRect(0, 0, 64, 64);
+ctx.fillRect(64, 64, 64, 64);
 
 async function init() {
     const container = document.getElementById('canvas-container');
@@ -125,51 +139,69 @@ async function init() {
     animate();
 }
 
-function getTexture(texAlias) {
+function getTexture(texAlias, onLoadCallback) {
+    if (!texAlias) return null;
+
     if (textureCache.has(texAlias)) {
-        return textureCache.get(texAlias);
+        const cached = textureCache.get(texAlias);
+        if (cached.loadedTex) {
+            if (onLoadCallback) onLoadCallback(cached.loadedTex);
+            return cached.loadedTex;
+        } else if (cached.isLoading) {
+            if (onLoadCallback) cached.callbacks.push(onLoadCallback);
+            return cached.fallbackTex;
+        }
     }
 
-    const texPath = textureManager.getTexturePath(texAlias);
-
-    const loader = new THREE.TextureLoader();
-
-    // Default canvas texture
-    const canvas = document.createElement('canvas');
-    canvas.width = 128;
-    canvas.height = 128;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#666677';
-    ctx.fillRect(0, 0, 128, 128);
-    ctx.fillStyle = '#444455';
-    ctx.fillRect(0, 0, 64, 64);
-    ctx.fillRect(64, 64, 64, 64);
-
-    const fallbackTex = new THREE.CanvasTexture(canvas);
+    const fallbackTex = new THREE.CanvasTexture(defaultCanvas);
     fallbackTex.wrapS = THREE.RepeatWrapping;
     fallbackTex.wrapT = THREE.RepeatWrapping;
 
-    let possiblePaths = [
-        `Textures/${texPath}`,
-        `Textures/${texPath.replace(/\.dds$/i, '.png')}`,
-        `Textures/${texPath.replace(/\.dds$/i, '.jpg')}`,
-        `Textures/${texPath.replace(/\.dds$/i, '.bmp')}`,
-        `Textures/${texAlias}.png`,
-        `Textures/${texAlias}.jpg`,
-        `Textures/${texAlias}.bmp`
-    ];
+    const cacheEntry = {
+        loadedTex: null,
+        fallbackTex: fallbackTex,
+        isLoading: true,
+        callbacks: onLoadCallback ? [onLoadCallback] : []
+    };
+    textureCache.set(texAlias, cacheEntry);
 
-    let texture = fallbackTex;
+    const texPath = textureManager.getTexturePath(texAlias);
+
+    let possiblePaths = [];
+    if (texPath) {
+        const ddsPath = `Textures/${texPath}`;
+        const jpgPath = `Textures/${texPath.replace(/\.dds$/i, '.jpg')}`;
+        const pngPath = `Textures/${texPath.replace(/\.dds$/i, '.png')}`;
+        const bmpPath = `Textures/${texPath.replace(/\.dds$/i, '.bmp')}`;
+
+        possiblePaths.push(jpgPath, pngPath, bmpPath, ddsPath);
+    }
+
+    const aliasJpg = `Textures/${texAlias}.jpg`;
+    const aliasPng = `Textures/${texAlias}.png`;
+    const aliasBmp = `Textures/${texAlias}.bmp`;
+    const aliasDds = `Textures/${texAlias}.dds`;
+    possiblePaths.push(aliasJpg, aliasPng, aliasBmp, aliasDds);
+
+    possiblePaths = [...new Set(possiblePaths)];
 
     function tryLoad(index) {
         if (index >= possiblePaths.length) return;
+        const path = possiblePaths[index];
+        const loader = path.toLowerCase().endsWith('.dds') ? ddsLoader : textureLoader;
+
         loader.load(
-            possiblePaths[index],
+            path,
             (loadedTex) => {
                 loadedTex.wrapS = THREE.RepeatWrapping;
                 loadedTex.wrapT = THREE.RepeatWrapping;
-                texture.image = loadedTex.image;
-                texture.needsUpdate = true;
+                cacheEntry.loadedTex = loadedTex;
+                cacheEntry.isLoading = false;
+
+                for (const cb of cacheEntry.callbacks) {
+                    cb(loadedTex);
+                }
+                cacheEntry.callbacks = [];
             },
             undefined,
             () => {
@@ -180,8 +212,7 @@ function getTexture(texAlias) {
 
     tryLoad(0);
 
-    textureCache.set(texAlias, texture);
-    return texture;
+    return fallbackTex;
 }
 
 async function loadGameWorld() {
@@ -263,11 +294,15 @@ async function loadGameWorld() {
         geometry.setAttribute('uv', new THREE.Float32BufferAttribute(data.uvs, 2));
         geometry.computeVertexNormals();
 
-        const texture = getTexture(texAlias);
         const material = new THREE.MeshLambertMaterial({
-            map: texture,
             side: THREE.DoubleSide
         });
+
+        const initialTexture = getTexture(texAlias, (loadedTex) => {
+            material.map = loadedTex;
+            material.needsUpdate = true;
+        });
+        material.map = initialTexture;
 
         const mesh = new THREE.Mesh(geometry, material);
         scene.add(mesh);
