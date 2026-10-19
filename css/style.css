@@ -1,0 +1,357 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+  font-family: 'Courier New', Courier, monospace;
+}
+
+body, html {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: #000;
+  color: #fff;
+}
+
+#canvas-container {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+}
+
+#hud {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 15px;
+}
+
+/* Top bar: Stats & Minimap */
+.hud-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  width: 100%;
+}
+
+.player-stats {
+  background: rgba(10, 10, 15, 0.85);
+  border: 2px solid #665544;
+  border-radius: 6px;
+  padding: 12px 16px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.8);
+  min-width: 260px;
+}
+
+.stat-label {
+  font-size: 13px;
+  font-weight: bold;
+  color: #d1b894;
+  margin-bottom: 4px;
+}
+
+.bar-container {
+  width: 100%;
+  height: 16px;
+  background-color: #222;
+  border: 1px solid #444;
+  border-radius: 3px;
+  margin-bottom: 10px;
+  position: relative;
+  overflow: hidden;
+}
+
+.bar-fill-hp {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(to right, #900, #f22);
+  transition: width 0.2s ease;
+}
+
+.bar-fill-mana {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(to right, #008, #28f);
+  transition: width 0.2s ease;
+}
+
+.bar-text {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: bold;
+  text-shadow: 1px 1px 2px #000;
+}
+
+.stats-sub {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: #ffcc00;
+  margin-top: 4px;
+}
+
+/* Top Right Minimap */
+.minimap-container {
+  background: rgba(10, 10, 15, 0.85);
+  border: 2px solid #665544;
+  border-radius: 6px;
+  padding: 6px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.8);
+  text-align: center;
+}
+
+#minimap {
+  width: 160px;
+  height: 160px;
+  background-color: #050508;
+  border: 1px solid #332211;
+  display: block;
+}
+
+.minimap-title {
+  font-size: 10px;
+  color: #aaa;
+  margin-top: 4px;
+  letter-spacing: 1px;
+}
+
+/* Center Crosshair */
+#crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+}
+
+#crosshair::before, #crosshair::after {
+  content: '';
+  position: absolute;
+  background-color: rgba(255, 255, 255, 0.7);
+  box-shadow: 0 0 2px #000;
+}
+
+#crosshair::before {
+  top: 7px;
+  left: 0;
+  width: 16px;
+  height: 2px;
+}
+
+#crosshair::after {
+  top: 0;
+  left: 7px;
+  width: 2px;
+  height: 16px;
+}
+
+/* Bottom Bar: Weapon and Combat Log */
+.hud-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  width: 100%;
+}
+
+.combat-log {
+  width: 420px;
+  height: 110px;
+  background: rgba(10, 10, 15, 0.85);
+  border: 2px solid #665544;
+  border-radius: 6px;
+  padding: 8px 12px;
+  overflow-y: auto;
+  font-size: 12px;
+  line-height: 1.4;
+  box-shadow: 0 0 10px rgba(0,0,0,0.8);
+  display: flex;
+  flex-direction: column-reverse;
+}
+
+.log-entry {
+  margin-bottom: 2px;
+  color: #ddd;
+}
+.log-entry.damage { color: #f66; }
+.log-entry.heal { color: #6f6; }
+.log-entry.pickup { color: #ff3; }
+.log-entry.info { color: #8cf; }
+
+.weapon-slot {
+  background: rgba(10, 10, 15, 0.85);
+  border: 2px solid #665544;
+  border-radius: 6px;
+  padding: 10px 16px;
+  text-align: right;
+  min-width: 220px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.8);
+}
+
+.weapon-name {
+  font-size: 16px;
+  font-weight: bold;
+  color: #ffaa00;
+}
+
+.weapon-controls {
+  font-size: 11px;
+  color: #888;
+  margin-top: 4px;
+}
+
+/* Click to Play / Start Overlay */
+#overlay-screen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.82);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  text-align: center;
+}
+
+#overlay-screen h1 {
+  font-size: 48px;
+  color: #e2b76c;
+  text-shadow: 0 0 15px #994400;
+  margin-bottom: 10px;
+  letter-spacing: 3px;
+}
+
+#overlay-screen h2 {
+  font-size: 20px;
+  color: #aaa;
+  margin-bottom: 30px;
+}
+
+.click-prompt {
+  font-size: 22px;
+  color: #fff;
+  background: #a30;
+  padding: 12px 30px;
+  border-radius: 6px;
+  border: 2px solid #f66;
+  box-shadow: 0 0 20px rgba(255, 50, 0, 0.6);
+  animation: pulse 1.5s infinite alternate;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 0.9; }
+  100% { transform: scale(1.05); opacity: 1; }
+}
+
+.controls-guide {
+  margin-top: 35px;
+  background: rgba(20, 20, 30, 0.9);
+  border: 1px solid #554433;
+  padding: 15px 25px;
+  border-radius: 6px;
+  text-align: left;
+  font-size: 13px;
+  color: #ccc;
+  line-height: 1.6;
+}
+
+/* Modal / Generator Menu (F7) */
+#generator-modal {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #111118;
+  border: 3px solid #886633;
+  border-radius: 8px;
+  padding: 24px;
+  z-index: 200;
+  box-shadow: 0 0 25px rgba(0, 0, 0, 0.9);
+  width: 380px;
+  display: none;
+}
+
+#generator-modal h3 {
+  font-size: 20px;
+  color: #e2b76c;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #443322;
+  padding-bottom: 8px;
+  text-align: center;
+}
+
+.form-group {
+  margin-bottom: 14px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 12px;
+  color: #bbb;
+  margin-bottom: 4px;
+}
+
+.form-group input, .form-group select {
+  width: 100%;
+  padding: 8px;
+  background: #22222a;
+  border: 1px solid #554433;
+  color: #fff;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.btn-group {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.btn {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  border-radius: 4px;
+  font-weight: bold;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.btn-primary {
+  background: #a30;
+  color: #fff;
+  border: 1px solid #f55;
+}
+
+.btn-secondary {
+  background: #333;
+  color: #ccc;
+  border: 1px solid #555;
+}
+
+.btn:hover {
+  filter: brightness(1.2);
+}
