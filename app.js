@@ -1,7 +1,9 @@
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import { DDSLoader } from 'three/addons/loaders/DDSLoader.js';
-import { TextureManager, ObjectsDatParser, LevelMapParser } from './parsers.js';
+import { TextureManager, ObjectsDatParser, LevelMapParser, ModelListParser } from './parsers.js';
+import { TDSLoader } from 'three/addons/loaders/TDSLoader.js';
+import { MD2Loader } from 'three/addons/loaders/MD2Loader.js';
 
 let camera, scene, renderer, controls;
 let moveForward = false;
@@ -17,11 +19,16 @@ const direction = new THREE.Vector3();
 const textureManager = new TextureManager();
 const objectsParser = new ObjectsDatParser();
 const levelParser = new LevelMapParser();
+const modelListParser = new ModelListParser();
 
 const ddsLoader = new DDSLoader();
+const tdsLoader = new TDSLoader();
+const md2Loader = new MD2Loader();
 const textureLoader = new THREE.TextureLoader();
 
 const textureCache = new Map();
+const tdsModelCache = new Map();
+const md2GeometryCache = new Map();
 
 const defaultCanvas = document.createElement('canvas');
 defaultCanvas.width = 128;
@@ -135,6 +142,10 @@ async function init() {
     // Load Game Data & Build Map
     await loadGameWorld();
 
+    window.camera = camera;
+    window.controls = controls;
+    window.scene = scene;
+
     prevTime = performance.now();
     animate();
 }
@@ -215,12 +226,127 @@ function getTexture(texAlias, onLoadCallback) {
     return fallbackTex;
 }
 
+function generatePathVariations(filepath) {
+    const parts = filepath.split('/');
+    if (parts.length < 4) return [filepath];
+
+    const dirs0 = [parts[0], 'Models', 'models'];
+    const dirs1 = [parts[1], 'Players', 'players'];
+
+    const folder = parts[2];
+    const capFolder = folder.charAt(0).toUpperCase() + folder.slice(1).toLowerCase();
+    const dirs2 = [folder, folder.toLowerCase(), capFolder, folder.toUpperCase()];
+
+    const file = parts[3];
+    const dotIdx = file.lastIndexOf('.');
+    const base = dotIdx !== -1 ? file.substring(0, dotIdx) : file;
+    const ext = dotIdx !== -1 ? file.substring(dotIdx) : '';
+
+    const capBase = base.charAt(0).toUpperCase() + base.slice(1).toLowerCase();
+    const baseVars = [base, base.toLowerCase(), capBase, base.toUpperCase()];
+    const extVars = [ext, ext.toLowerCase(), ext.toUpperCase(), '.md2', '.MD2', '.3ds', '.3DS'];
+
+    const fileVars = [];
+    for (const b of baseVars) {
+        for (const e of extVars) {
+            fileVars.push(b + e);
+        }
+    }
+
+    const set = new Set();
+    set.add(filepath);
+    for (const d0 of dirs0) {
+        for (const d1 of dirs1) {
+            for (const d2 of dirs2) {
+                for (const f of fileVars) {
+                    set.add(`${d0}/${d1}/${d2}/${f}`);
+                }
+            }
+        }
+    }
+    return Array.from(set);
+}
+
+async function loadMD2Geometry(modelDef) {
+    if (!modelDef || !modelDef.filepath) return null;
+    const key = modelDef.filepath.toLowerCase();
+    if (md2GeometryCache.has(key)) {
+        return md2GeometryCache.get(key);
+    }
+
+    const uniquePaths = generatePathVariations(modelDef.filepath);
+
+    for (const path of uniquePaths) {
+        try {
+            const geometry = await new Promise((resolve, reject) => {
+                md2Loader.load(path, resolve, undefined, reject);
+            });
+
+            if (geometry) {
+                console.log(`Successfully loaded MD2 at ${path}`);
+                md2GeometryCache.set(key, geometry);
+                return geometry;
+            }
+        } catch (e) {
+            // Try next variant
+        }
+    }
+
+    console.warn(`Could not load MD2 model at ${modelDef.filepath}`);
+    md2GeometryCache.set(key, null);
+    return null;
+}
+
+async function load3DSModel(modelDef) {
+    if (!modelDef || !modelDef.filepath) return null;
+    const key = modelDef.filepath.toLowerCase();
+    if (tdsModelCache.has(key)) {
+        return tdsModelCache.get(key);
+    }
+
+    const possiblePaths = [
+        modelDef.filepath,
+        modelDef.filepath.toLowerCase(),
+        modelDef.filepath.replace(/^models\//i, 'Models/').replace(/\.3ds$/i, '.3DS'),
+        modelDef.filepath.replace(/^textures\//i, 'Textures/').replace(/\.3ds$/i, '.3DS'),
+        modelDef.filepath.replace(/^models\//i, 'Models/').replace(/\.3ds$/i, '.3ds'),
+        modelDef.filepath.replace(/^textures\//i, 'Textures/').replace(/\.3ds$/i, '.3ds')
+    ];
+    const uniquePaths = [...new Set(possiblePaths)];
+
+    for (const path of uniquePaths) {
+        try {
+            const lastSlash = path.lastIndexOf('/');
+            const dir = lastSlash !== -1 ? path.substring(0, lastSlash + 1) : '';
+            tdsLoader.setResourcePath(dir);
+
+            const object3ds = await new Promise((resolve, reject) => {
+                tdsLoader.load(path, resolve, undefined, reject);
+            });
+
+            if (object3ds) {
+                tdsModelCache.set(key, object3ds);
+                return object3ds;
+            }
+        } catch (e) {
+            // Try next variant
+        }
+    }
+
+    console.warn(`Could not load 3DS model at ${modelDef.filepath}`);
+    tdsModelCache.set(key, null);
+    return null;
+}
+
 async function loadGameWorld() {
     console.log('Loading textures.dat...');
     await textureManager.loadTexturesDat('bin/textures.dat');
 
     console.log('Parsing Objects.dat...');
     const objectsMap = await objectsParser.parse('bin/Objects.dat');
+
+    console.log('Parsing modellist.dat...');
+    await modelListParser.parse('bin/modellist.dat');
 
     console.log('Parsing level1.map...');
     const { instances, startPos } = await levelParser.parse('bin/level1.map');
@@ -243,9 +369,6 @@ async function loadGameWorld() {
     for (const inst of instances) {
         if (inst.isStartPos) continue;
 
-        const objId = checkObjIdByName(inst.name, objectsMap);
-        const objDef = objectsMap.get(objId);
-
         if (inst.isLight) {
             lightCount++;
             const pointLight = new THREE.PointLight(0xffd29d, 3.0, 1500);
@@ -253,6 +376,68 @@ async function loadGameWorld() {
             scene.add(pointLight);
             continue;
         }
+
+        // Check if item instance is a 3DS or MD2 model from modellist.dat
+        if (inst.modelName) {
+            const modelDef = modelListParser.getModelByName(inst.modelName);
+            if (modelDef) {
+                if (inst.textureAlias === '-1' || modelDef.format === '3DS' || modelDef.filepath.toLowerCase().endsWith('.3ds')) {
+                    const template = await load3DSModel(modelDef);
+                    if (template) {
+                        const model = template.clone(true);
+                        const scaleFactor = modelDef.scale || 1.0;
+                        model.scale.set(scaleFactor, scaleFactor, scaleFactor);
+
+                        model.position.set(inst.x, inst.y, inst.z);
+
+                        const angleRad = (inst.rot * Math.PI) / 180.0;
+                        model.rotation.y = angleRad;
+
+                        model.traverse((child) => {
+                            if (child.isMesh && child.material) {
+                                child.material.side = THREE.DoubleSide;
+                            }
+                        });
+
+                        scene.add(model);
+                        builtObjectCount++;
+                        continue;
+                    }
+                } else if (modelDef.format === 'MD2' || modelDef.filepath.toLowerCase().endsWith('.md2')) {
+                    const geometry = await loadMD2Geometry(modelDef);
+                    if (geometry) {
+                        const scaleFactor = modelDef.scale || 1.0;
+                        const texAlias = (inst.textureAlias && inst.textureAlias !== '-1') ? inst.textureAlias : modelDef.textureAlias;
+
+                        const material = new THREE.MeshLambertMaterial({
+                            side: THREE.DoubleSide
+                        });
+
+                        if (texAlias) {
+                            const tex = getTexture(texAlias, (loadedTex) => {
+                                material.map = loadedTex;
+                                material.needsUpdate = true;
+                            });
+                            material.map = tex;
+                        }
+
+                        const mesh = new THREE.Mesh(geometry, material);
+                        mesh.scale.set(scaleFactor, scaleFactor, scaleFactor);
+                        mesh.position.set(inst.x, inst.y, inst.z);
+
+                        const angleRad = (inst.rot * Math.PI) / 180.0;
+                        mesh.rotation.y = angleRad;
+
+                        scene.add(mesh);
+                        builtObjectCount++;
+                        continue;
+                    }
+                }
+            }
+        }
+
+        const objId = checkObjIdByName(inst.name, objectsMap);
+        const objDef = objectsMap.get(objId);
 
         if (!objDef) {
             continue;

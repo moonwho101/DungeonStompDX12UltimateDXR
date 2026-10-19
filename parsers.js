@@ -192,6 +192,118 @@ export class ObjectsDatParser {
     }
 }
 
+export class ModelListParser {
+    constructor() {
+        this.modelsByName = new Map();
+        this.modelsById = new Map();
+    }
+
+    async parse(url) {
+        try {
+            const resp = await fetch(url);
+            if (!resp.ok) throw new Error(`HTTP error ${resp.status} loading ${url}`);
+            const text = await resp.text();
+            const lines = text.split(/\r?\n/);
+
+            for (let line of lines) {
+                line = line.trim();
+                if (!line || line.startsWith('FILENAME') || line.startsWith('END_FILE') || line.startsWith('//')) {
+                    continue;
+                }
+
+                const tokens = line.split(/\s+/);
+                if (tokens.length < 5) continue;
+
+                const typeCmd = tokens[0].toUpperCase();
+                if (typeCmd !== 'PLAYER' && typeCmd !== 'YOURGUN') continue;
+
+                let format = '';
+                for (let j = 1; j < Math.min(5, tokens.length); j++) {
+                    const tokUpper = tokens[j].toUpperCase();
+                    if (tokUpper === '3DS' || tokUpper === 'MD2') {
+                        format = tokUpper;
+                        break;
+                    }
+                }
+
+                let modelId = -1;
+                let filePath = '';
+                const modelIdIdx = tokens.findIndex(t => t.toUpperCase() === 'MODEL_ID');
+                if (modelIdIdx !== -1 && modelIdIdx + 2 < tokens.length) {
+                    modelId = parseInt(tokens[modelIdIdx + 1], 10);
+                    filePath = tokens[modelIdIdx + 2];
+                }
+
+                let scale = 1.0;
+                const scaleIdx = tokens.findIndex(t => t.toUpperCase() === 'SCALE');
+                if (scaleIdx !== -1 && scaleIdx + 1 < tokens.length) {
+                    scale = parseFloat(tokens[scaleIdx + 1]) || 1.0;
+                }
+
+                let textureAlias = '';
+                const texIdx = tokens.findIndex(t => t.toUpperCase() === 'TEX');
+                if (texIdx !== -1 && texIdx + 1 < tokens.length) {
+                    textureAlias = tokens[texIdx + 1];
+                }
+
+                let name = '';
+                if (typeCmd === 'PLAYER') {
+                    const thacoIdx = tokens.findIndex(t => t.toUpperCase() === 'THACO');
+                    if (thacoIdx !== -1 && thacoIdx + 2 < tokens.length) {
+                        name = tokens[thacoIdx + 2];
+                    }
+                } else if (typeCmd === 'YOURGUN') {
+                    const dIdx = tokens.lastIndexOf('D');
+                    if (dIdx !== -1 && dIdx + 2 < tokens.length) {
+                        name = tokens[dIdx + 2];
+                    }
+                }
+
+                if (!name && modelId !== -1) {
+                    name = `model_${modelId}`;
+                }
+
+                let cleanPath = filePath.replace(/\\/g, '/');
+                if (cleanPath.startsWith('../')) {
+                    cleanPath = cleanPath.substring(3);
+                }
+
+                const modelDef = {
+                    id: modelId,
+                    name: name,
+                    format: format,
+                    filepath: cleanPath,
+                    rawFilepath: filePath,
+                    scale: scale,
+                    textureAlias: textureAlias
+                };
+
+                if (name) {
+                    this.modelsByName.set(name.toLowerCase(), modelDef);
+                }
+                if (modelId !== -1) {
+                    this.modelsById.set(modelId, modelDef);
+                }
+            }
+        } catch (e) {
+            console.error('Failed to load or parse model list:', e);
+        }
+        return {
+            byName: this.modelsByName,
+            byId: this.modelsById
+        };
+    }
+
+    getModelByName(name) {
+        if (!name) return null;
+        return this.modelsByName.get(name.toLowerCase().trim()) || null;
+    }
+
+    getModelById(id) {
+        return this.modelsById.get(id) || null;
+    }
+}
+
 export class LevelMapParser {
     constructor() {
         this.instances = [];
@@ -221,7 +333,11 @@ export class LevelMapParser {
                     name: name,
                     x: 0, y: 0, z: 0,
                     rot: 0,
-                    shadow: 1
+                    shadow: 1,
+                    modelName: '',
+                    textureAlias: '',
+                    monsterId: 0,
+                    ability: 0
                 };
                 this.instances.push(currentObj);
 
@@ -244,6 +360,18 @@ export class LevelMapParser {
                 currentObj.rot = parseFloat(tokens[1]) || 0;
                 if (currentObj.isStartPos) {
                     this.startPos.rot = currentObj.rot;
+                }
+                if (tokens.length >= 3) {
+                    currentObj.modelName = tokens[2] || '';
+                }
+                if (tokens.length >= 4) {
+                    currentObj.textureAlias = tokens[3] || '';
+                }
+                if (tokens.length >= 5) {
+                    currentObj.monsterId = parseInt(tokens[4], 10) || 0;
+                }
+                if (tokens.length >= 6) {
+                    currentObj.ability = parseInt(tokens[5], 10) || 0;
                 }
             } else if (currentObj && cmd === 'SHADOW') {
                 currentObj.shadow = parseInt(tokens[1], 10) || 0;
