@@ -3,6 +3,7 @@ import { PointerLockControls } from 'three/addons/controls/PointerLockControls.j
 import { DDSLoader } from 'three/addons/loaders/DDSLoader.js';
 import { TextureManager, ObjectsDatParser, LevelMapParser, ModelListParser } from './parsers.js';
 import { TDSLoader } from 'three/addons/loaders/TDSLoader.js';
+import { MD2Loader } from 'three/addons/loaders/MD2Loader.js';
 
 let camera, scene, renderer, controls;
 let moveForward = false;
@@ -22,10 +23,12 @@ const modelListParser = new ModelListParser();
 
 const ddsLoader = new DDSLoader();
 const tdsLoader = new TDSLoader();
+const md2Loader = new MD2Loader();
 const textureLoader = new THREE.TextureLoader();
 
 const textureCache = new Map();
 const tdsModelCache = new Map();
+const md2GeometryCache = new Map();
 
 const defaultCanvas = document.createElement('canvas');
 defaultCanvas.width = 128;
@@ -223,6 +226,77 @@ function getTexture(texAlias, onLoadCallback) {
     return fallbackTex;
 }
 
+function generatePathVariations(filepath) {
+    const parts = filepath.split('/');
+    if (parts.length < 4) return [filepath];
+
+    const dirs0 = [parts[0], 'Models', 'models'];
+    const dirs1 = [parts[1], 'Players', 'players'];
+
+    const folder = parts[2];
+    const capFolder = folder.charAt(0).toUpperCase() + folder.slice(1).toLowerCase();
+    const dirs2 = [folder, folder.toLowerCase(), capFolder, folder.toUpperCase()];
+
+    const file = parts[3];
+    const dotIdx = file.lastIndexOf('.');
+    const base = dotIdx !== -1 ? file.substring(0, dotIdx) : file;
+    const ext = dotIdx !== -1 ? file.substring(dotIdx) : '';
+
+    const capBase = base.charAt(0).toUpperCase() + base.slice(1).toLowerCase();
+    const baseVars = [base, base.toLowerCase(), capBase, base.toUpperCase()];
+    const extVars = [ext, ext.toLowerCase(), ext.toUpperCase(), '.md2', '.MD2', '.3ds', '.3DS'];
+
+    const fileVars = [];
+    for (const b of baseVars) {
+        for (const e of extVars) {
+            fileVars.push(b + e);
+        }
+    }
+
+    const set = new Set();
+    set.add(filepath);
+    for (const d0 of dirs0) {
+        for (const d1 of dirs1) {
+            for (const d2 of dirs2) {
+                for (const f of fileVars) {
+                    set.add(`${d0}/${d1}/${d2}/${f}`);
+                }
+            }
+        }
+    }
+    return Array.from(set);
+}
+
+async function loadMD2Geometry(modelDef) {
+    if (!modelDef || !modelDef.filepath) return null;
+    const key = modelDef.filepath.toLowerCase();
+    if (md2GeometryCache.has(key)) {
+        return md2GeometryCache.get(key);
+    }
+
+    const uniquePaths = generatePathVariations(modelDef.filepath);
+
+    for (const path of uniquePaths) {
+        try {
+            const geometry = await new Promise((resolve, reject) => {
+                md2Loader.load(path, resolve, undefined, reject);
+            });
+
+            if (geometry) {
+                console.log(`Successfully loaded MD2 at ${path}`);
+                md2GeometryCache.set(key, geometry);
+                return geometry;
+            }
+        } catch (e) {
+            // Try next variant
+        }
+    }
+
+    console.warn(`Could not load MD2 model at ${modelDef.filepath}`);
+    md2GeometryCache.set(key, null);
+    return null;
+}
+
 async function load3DSModel(modelDef) {
     if (!modelDef || !modelDef.filepath) return null;
     const key = modelDef.filepath.toLowerCase();
@@ -303,32 +377,61 @@ async function loadGameWorld() {
             continue;
         }
 
-        // Check if item instance is a 3DS model (e.g. textureAlias === '-1' or name starts with '!')
-        const is3DSItem = inst.textureAlias === '-1' || (inst.name && inst.name.startsWith('!') && inst.textureAlias === '-1');
-
-        if (is3DSItem && inst.modelName) {
+        // Check if item instance is a 3DS or MD2 model from modellist.dat
+        if (inst.modelName) {
             const modelDef = modelListParser.getModelByName(inst.modelName);
-            if (modelDef && (modelDef.format === '3DS' || modelDef.filepath.toLowerCase().endsWith('.3ds'))) {
-                const template = await load3DSModel(modelDef);
-                if (template) {
-                    const model = template.clone(true);
-                    const scaleFactor = modelDef.scale || 1.0;
-                    model.scale.set(scaleFactor, scaleFactor, scaleFactor);
+            if (modelDef) {
+                if (inst.textureAlias === '-1' || modelDef.format === '3DS' || modelDef.filepath.toLowerCase().endsWith('.3ds')) {
+                    const template = await load3DSModel(modelDef);
+                    if (template) {
+                        const model = template.clone(true);
+                        const scaleFactor = modelDef.scale || 1.0;
+                        model.scale.set(scaleFactor, scaleFactor, scaleFactor);
 
-                    model.position.set(inst.x, inst.y, inst.z);
+                        model.position.set(inst.x, inst.y, inst.z);
 
-                    const angleRad = (inst.rot * Math.PI) / 180.0;
-                    model.rotation.y = angleRad;
+                        const angleRad = (inst.rot * Math.PI) / 180.0;
+                        model.rotation.y = angleRad;
 
-                    model.traverse((child) => {
-                        if (child.isMesh && child.material) {
-                            child.material.side = THREE.DoubleSide;
+                        model.traverse((child) => {
+                            if (child.isMesh && child.material) {
+                                child.material.side = THREE.DoubleSide;
+                            }
+                        });
+
+                        scene.add(model);
+                        builtObjectCount++;
+                        continue;
+                    }
+                } else if (modelDef.format === 'MD2' || modelDef.filepath.toLowerCase().endsWith('.md2')) {
+                    const geometry = await loadMD2Geometry(modelDef);
+                    if (geometry) {
+                        const scaleFactor = modelDef.scale || 1.0;
+                        const texAlias = (inst.textureAlias && inst.textureAlias !== '-1') ? inst.textureAlias : modelDef.textureAlias;
+
+                        const material = new THREE.MeshLambertMaterial({
+                            side: THREE.DoubleSide
+                        });
+
+                        if (texAlias) {
+                            const tex = getTexture(texAlias, (loadedTex) => {
+                                material.map = loadedTex;
+                                material.needsUpdate = true;
+                            });
+                            material.map = tex;
                         }
-                    });
 
-                    scene.add(model);
-                    builtObjectCount++;
-                    continue;
+                        const mesh = new THREE.Mesh(geometry, material);
+                        mesh.scale.set(scaleFactor, scaleFactor, scaleFactor);
+                        mesh.position.set(inst.x, inst.y, inst.z);
+
+                        const angleRad = (inst.rot * Math.PI) / 180.0;
+                        mesh.rotation.y = angleRad;
+
+                        scene.add(mesh);
+                        builtObjectCount++;
+                        continue;
+                    }
                 }
             }
         }
