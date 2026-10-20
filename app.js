@@ -24,6 +24,10 @@ const direction = new THREE.Vector3();
 const cameraQuaternion = new THREE.Quaternion();
 const worldDir = new THREE.Vector3();
 
+// Level Objects & Distance Culling
+const RENDER_DISTANCE = 3000.0;
+const levelObjects = [];
+
 // Spatial Collision Structures
 const levelTriangles = [];
 const modelBoxes = [];
@@ -457,6 +461,9 @@ async function loadGameWorld() {
 
     console.log(`Loaded ${instances.length} objects in level1.map. StartPos:`, startPos);
 
+    // Reset level objects tracking
+    levelObjects.length = 0;
+
     // Set initial camera position
     controls.getObject().position.set(startPos.x, startPos.y, startPos.z);
 
@@ -483,8 +490,6 @@ async function loadGameWorld() {
     // Build map geometry
     let builtObjectCount = 0;
     let lightCount = 0;
-
-    const texturePolysMap = new Map();
 
     for (const inst of instances) {
         if (inst.isStartPos) continue;
@@ -522,6 +527,7 @@ async function loadGameWorld() {
                         });
 
                         scene.add(model);
+                        levelObjects.push({ mesh: model, position: new THREE.Vector3(inst.x, inst.y + 50, inst.z) });
                         builtObjectCount++;
 
                         // Add bounding box for 3DS model collision
@@ -557,6 +563,7 @@ async function loadGameWorld() {
                         mesh.rotation.y = angleRad;
 
                         scene.add(mesh);
+                        levelObjects.push({ mesh: mesh, position: new THREE.Vector3(inst.x, inst.y + 50, inst.z) });
                         builtObjectCount++;
 
                         // Draw monster weapon if present
@@ -581,6 +588,7 @@ async function loadGameWorld() {
                                         weaponMesh.position.set(inst.x, inst.y + 50, inst.z);
                                         weaponMesh.rotation.y = angleRad;
                                         scene.add(weaponMesh);
+                                        levelObjects.push({ mesh: weaponMesh, position: new THREE.Vector3(inst.x, inst.y + 50, inst.z) });
                                     }
                                 } else if (weaponDef.format === '3DS' || weaponDef.filepath.toLowerCase().endsWith('.3ds')) {
                                     const weaponTemplate = await load3DSModel(weaponDef);
@@ -596,6 +604,7 @@ async function loadGameWorld() {
                                             }
                                         });
                                         scene.add(weaponModel);
+                                        levelObjects.push({ mesh: weaponModel, position: new THREE.Vector3(inst.x, inst.y + 50, inst.z) });
                                     }
                                 }
                             }
@@ -630,25 +639,31 @@ async function loadGameWorld() {
         const cosA = Math.cos(angleRad);
         const sinA = Math.sin(angleRad);
 
+        const objGroup = new THREE.Group();
+        objGroup.position.set(inst.x, inst.y, inst.z);
+        objGroup.rotation.y = angleRad;
+
+        const instTexMap = new Map();
+
         for (const poly of objDef.polys) {
             const texAlias = poly.texture || 'wall1';
-            if (!texturePolysMap.has(texAlias)) {
-                texturePolysMap.set(texAlias, { positions: [], uvs: [] });
+            if (!instTexMap.has(texAlias)) {
+                instTexMap.set(texAlias, { positions: [], uvs: [] });
             }
 
-            const group = texturePolysMap.get(texAlias);
+            const group = instTexMap.get(texAlias);
 
             const worldVerts = [];
             for (const v of poly.verts) {
+                group.positions.push(v.x, v.y, v.z);
+                group.uvs.push(v.u, v.v);
+
                 const rx = v.x * cosA - v.z * sinA;
                 const rz = v.x * sinA + v.z * cosA;
 
                 const wx = rx + inst.x;
                 const wy = v.y + inst.y;
                 const wz = rz + inst.z;
-
-                group.positions.push(wx, wy, wz);
-                group.uvs.push(v.u, v.v);
 
                 worldVerts.push(new THREE.Vector3(wx, wy, wz));
             }
@@ -670,28 +685,31 @@ async function loadGameWorld() {
                 }
             }
         }
-    }
 
-    for (const [texAlias, data] of texturePolysMap.entries()) {
-        if (data.positions.length === 0) continue;
+        for (const [texAlias, data] of instTexMap.entries()) {
+            if (data.positions.length === 0) continue;
 
-        const geometry = new THREE.BufferGeometry();
-        geometry.setAttribute('position', new THREE.Float32BufferAttribute(data.positions, 3));
-        geometry.setAttribute('uv', new THREE.Float32BufferAttribute(data.uvs, 2));
-        geometry.computeVertexNormals();
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(data.positions, 3));
+            geometry.setAttribute('uv', new THREE.Float32BufferAttribute(data.uvs, 2));
+            geometry.computeVertexNormals();
 
-        const material = new THREE.MeshLambertMaterial({
-            side: THREE.DoubleSide
-        });
+            const material = new THREE.MeshLambertMaterial({
+                side: THREE.DoubleSide
+            });
 
-        const initialTexture = getTexture(texAlias, (loadedTex) => {
-            material.map = loadedTex;
-            material.needsUpdate = true;
-        });
-        material.map = initialTexture;
+            const initialTexture = getTexture(texAlias, (loadedTex) => {
+                material.map = loadedTex;
+                material.needsUpdate = true;
+            });
+            material.map = initialTexture;
 
-        const mesh = new THREE.Mesh(geometry, material);
-        scene.add(mesh);
+            const mesh = new THREE.Mesh(geometry, material);
+            objGroup.add(mesh);
+        }
+
+        scene.add(objGroup);
+        levelObjects.push({ mesh: objGroup, position: new THREE.Vector3(inst.x, inst.y, inst.z) });
     }
 
     // Build spatial grid for static level triangles
@@ -1236,6 +1254,16 @@ function animate() {
 
     const pos = controls.getObject().position;
     document.getElementById('pos-display').textContent = `${Math.round(pos.x)}, ${Math.round(pos.y)}, ${Math.round(pos.z)}`;
+
+    // Distance culling for level objects
+    const renderDistSq = RENDER_DISTANCE * RENDER_DISTANCE;
+    for (let i = 0; i < levelObjects.length; i++) {
+        const obj = levelObjects[i];
+        if (obj.mesh) {
+            const distSq = pos.distanceToSquared(obj.position);
+            obj.mesh.visible = (distSq <= renderDistSq);
+        }
+    }
 
     renderer.render(scene, camera);
 }
