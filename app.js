@@ -51,6 +51,22 @@ const textureCache = new Map();
 const tdsModelCache = new Map();
 const md2GeometryCache = new Map();
 
+// Player Guns list
+const PLAYER_GUNS = [
+    'AXE',
+    'FLAMESWORD',
+    'BASTARDSWORD',
+    'BATTLEAXE',
+    'ICESWORD',
+    'LIGHTNINGSWORD',
+    'MORNINGSTAR',
+    'SPIKEDFLAIL',
+    'SPLITSWORD',
+    'SUPERFLAMESWORD'
+];
+let currentGunIndex = 0;
+let currentGunMesh = null;
+
 const defaultCanvas = document.createElement('canvas');
 defaultCanvas.width = 128;
 defaultCanvas.height = 128;
@@ -145,6 +161,12 @@ async function init() {
             case 'ShiftRight':
                 isSprinting = true;
                 break;
+            case 'KeyQ':
+                cycleWeapon(1);
+                break;
+            case 'KeyZ':
+                cycleWeapon(-1);
+                break;
         }
     };
 
@@ -188,6 +210,9 @@ async function init() {
 
     // Load Game Data & Build Map
     await loadGameWorld();
+
+    // Initialize Active Weapon
+    await updateWeaponMesh();
 
     window.camera = camera;
     window.controls = controls;
@@ -1037,6 +1062,53 @@ function resolveCapsuleCollisions(camPos) {
             break;
         }
     }
+}
+
+function cycleWeapon(dir) {
+    currentGunIndex = (currentGunIndex + dir + PLAYER_GUNS.length) % PLAYER_GUNS.length;
+    updateWeaponMesh();
+}
+
+async function updateWeaponMesh() {
+    const gunName = PLAYER_GUNS[currentGunIndex];
+    const gunDisplay = document.getElementById('gun-display');
+    if (gunDisplay) {
+        gunDisplay.textContent = gunName;
+    }
+
+    if (currentGunMesh) {
+        camera.remove(currentGunMesh);
+        currentGunMesh = null;
+    }
+
+    const modelDef = modelListParser.getModelByName(gunName);
+    if (!modelDef) return;
+
+    const geometry = await loadMD2Geometry(modelDef);
+    if (!geometry) return;
+
+    const scaleFactor = modelDef.scale || 1.0;
+    const texAlias = modelDef.textureAlias;
+
+    const material = new THREE.MeshLambertMaterial({
+        side: THREE.DoubleSide
+    });
+
+    if (texAlias) {
+        const tex = getTexture(texAlias, (loadedTex) => {
+            material.map = loadedTex;
+            material.needsUpdate = true;
+        });
+        material.map = tex;
+    }
+
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.scale.set(scaleFactor, scaleFactor, scaleFactor);
+    mesh.position.set(12, -12, -25);
+    mesh.rotation.set(0, 0, 0);
+
+    camera.add(mesh);
+    currentGunMesh = mesh;
 }
 
 function checkObjIdByName(name, objectsMap) {
