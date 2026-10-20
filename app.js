@@ -325,6 +325,9 @@ async function load3DSModel(modelDef) {
             });
 
             if (object3ds) {
+                // Fix old 3DS coordinate system
+                //object3ds.rotation.x = -Math.PI / 2;
+                //object3ds.updateMatrixWorld(true);
                 tdsModelCache.set(key, object3ds);
                 return object3ds;
             }
@@ -388,7 +391,7 @@ async function loadGameWorld() {
                         const scaleFactor = modelDef.scale || 1.0;
                         model.scale.set(scaleFactor, scaleFactor, scaleFactor);
 
-                        model.position.set(inst.x, inst.y, inst.z);
+                        model.position.set(inst.x, inst.y + 50, inst.z);
 
                         const angleRad = (inst.rot * Math.PI) / 180.0;
                         model.rotation.y = angleRad;
@@ -423,7 +426,7 @@ async function loadGameWorld() {
 
                         const mesh = new THREE.Mesh(geometry, material);
                         mesh.scale.set(scaleFactor, scaleFactor, scaleFactor);
-                        mesh.position.set(inst.x, inst.y, inst.z);
+                        mesh.position.set(inst.x, inst.y + 50, inst.z);
 
                         const angleRad = (inst.rot * Math.PI) / 180.0;
                         mesh.rotation.y = angleRad;
@@ -521,8 +524,8 @@ function animate() {
     let delta = (time - prevTime) / 1000;
     if (delta > 0.1) delta = 0.1;
 
-    velocity.x -= velocity.x * 10.0 * delta;
-    velocity.z -= velocity.z * 10.0 * delta;
+    velocity.x -= velocity.x * 1.0 * delta;
+    velocity.z -= velocity.z * 1.0 * delta;
 
     direction.z = Number(moveForward) - Number(moveBackward);
     direction.x = Number(moveRight) - Number(moveLeft);
