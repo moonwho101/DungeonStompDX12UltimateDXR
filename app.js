@@ -136,9 +136,19 @@ export class Monster {
         // Active morph target influences set tracking
         this.activeInfluences = new Set();
 
+        // Bounding box for dynamic collision
+        this.boundingBox = new THREE.Box3();
+        this.updateBoundingBox();
+
         // Apply initial animation pose
         this.setAnimation(this.config.animations.STAND, true);
         this.updateMorphTargets(0);
+    }
+
+    updateBoundingBox() {
+        if (!this.mesh) return;
+        const curPose = this.getCurrentPose();
+        computeMD2FrameBoundingBox(this.mesh, curPose.frameA, this.boundingBox);
     }
 
     setAnimation(animDef, forceReset = false) {
@@ -350,6 +360,7 @@ export class Monster {
         }
 
         this.updateMorphTargets(dt);
+        this.updateBoundingBox();
     }
 
     setState(newState) {
@@ -755,9 +766,17 @@ function generatePathVariations(filepath) {
     return [...new Set(paths)];
 }
 
-function computeMD2FrameBoundingBox(mesh, frameIndex = 0) {
+const _tempMD2Vec = new THREE.Vector3();
+
+function computeMD2FrameBoundingBox(mesh, frameIndex = 0, targetBox = null) {
+    const box = targetBox || new THREE.Box3();
+    box.makeEmpty();
+
     const geometry = mesh.geometry;
-    if (!geometry) return new THREE.Box3().setFromObject(mesh);
+    if (!geometry) {
+        box.setFromObject(mesh);
+        return box;
+    }
 
     mesh.updateMatrixWorld(true);
 
@@ -766,16 +785,16 @@ function computeMD2FrameBoundingBox(mesh, frameIndex = 0) {
         ? morphPositions[frameIndex]
         : geometry.attributes.position;
 
-    if (!posAttr) return new THREE.Box3().setFromObject(mesh);
+    if (!posAttr) {
+        box.setFromObject(mesh);
+        return box;
+    }
 
-    const box = new THREE.Box3();
-    const v = new THREE.Vector3();
     const array = posAttr.array;
-
     for (let i = 0; i < array.length; i += 3) {
-        v.set(array[i], array[i + 1], array[i + 2]);
-        v.applyMatrix4(mesh.matrixWorld);
-        box.expandByPoint(v);
+        _tempMD2Vec.set(array[i], array[i + 1], array[i + 2]);
+        _tempMD2Vec.applyMatrix4(mesh.matrixWorld);
+        box.expandByPoint(_tempMD2Vec);
     }
 
     return box;
@@ -1033,10 +1052,9 @@ async function loadGameWorld() {
                         const monster = new Monster(mesh, weaponMesh, mConfig, posVec, angleRad);
                         monsters.push(monster);
 
-                        // Add bounding box for MD2 model collision based on current/first frame geometry
-                        const box = computeMD2FrameBoundingBox(mesh, 0);
-                        if (!box.isEmpty()) {
-                            modelBoxes.push(box);
+                        // Register monster's dynamic bounding box for capsule collision
+                        if (!monster.boundingBox.isEmpty()) {
+                            modelBoxes.push(monster.boundingBox);
                         }
                         continue;
                     }
