@@ -106,6 +106,9 @@ export class Monster {
         this.config = { ...DEFAULT_MONSTER_CONFIG, ...config };
 
         this.position = initialPosition.clone();
+        this.velocity = new THREE.Vector3(0, 0, 0);
+        this.isGrounded = false;
+
         this.rotationY = initialRotationY;
         this.mesh.position.copy(this.position);
         this.mesh.rotation.y = this.rotationY - Math.PI / 2;
@@ -147,6 +150,10 @@ export class Monster {
 
     updateBoundingBox() {
         if (!this.mesh) return;
+        if (this.state === MonsterState.DEATH) {
+            this.boundingBox.makeEmpty();
+            return;
+        }
         const curPose = this.getCurrentPose();
         computeMD2FrameBoundingBox(this.mesh, curPose.frameA, this.boundingBox);
     }
@@ -273,12 +280,31 @@ export class Monster {
     }
 
     update(delta, playerPos, otherMonsters) {
+        const dt = Math.min(delta, 0.1);
+
+        // Sub-step vertical movement & gravity to prevent tunneling through floor geometry
+        const maxSubStep = 12.0;
+        const estDy = Math.abs(this.velocity.y * dt);
+        const subSteps = Math.max(1, Math.ceil(estDy / maxSubStep));
+        const subDt = dt / subSteps;
+
+        for (let s = 0; s < subSteps; s++) {
+            this.velocity.y -= GRAVITY * subDt;
+            this.position.y += this.velocity.y * subDt;
+            resolveMonsterCapsuleCollisions(this);
+            if (this.isGrounded) break;
+        }
+
         if (this.state === MonsterState.DEATH) {
-            this.updateMorphTargets(delta);
+            this.mesh.position.copy(this.position);
+            if (this.weaponMesh) {
+                this.weaponMesh.position.copy(this.position);
+            }
+            this.updateMorphTargets(dt);
+            this.updateBoundingBox();
             return;
         }
 
-        const dt = Math.min(delta, 0.1);
         this.stateTimer += dt;
 
         if (this.attackCooldown > 0) {
@@ -416,6 +442,7 @@ export class Monster {
         if (this.health <= 0) {
             this.health = 0;
             this.setState(MonsterState.DEATH);
+            this.boundingBox.makeEmpty();
             const deaths = [this.config.animations.DEATH1, this.config.animations.DEATH2, this.config.animations.DEATH3];
             const chosenDeath = deaths[Math.floor(Math.random() * deaths.length)];
             this.setAnimation(chosenDeath, true);
@@ -661,6 +688,8 @@ async function init() {
     window.controls = controls;
     window.scene = scene;
     window.monsters = monsters;
+    window.modelBoxes = modelBoxes;
+    window.resolveMonsterCapsuleCollisions = resolveMonsterCapsuleCollisions;
     window.doors = doors;
     window.openNearbyDoor = openNearbyDoor;
     Object.defineProperty(window, 'playerWeaponCurrentAnim', {
@@ -976,7 +1005,7 @@ async function loadGameWorld() {
                         const scaleFactor = modelDef.scale || 1.0;
                         model.scale.set(scaleFactor, scaleFactor, scaleFactor);
 
-                        model.position.set(inst.x, inst.y + 50, inst.z);
+                        model.position.set(inst.x, inst.y, inst.z);
 
                         const angleRad = (inst.rot * Math.PI) / 180.0;
                         model.rotation.y = angleRad;
@@ -988,10 +1017,11 @@ async function loadGameWorld() {
                         });
 
                         scene.add(model);
-                        levelObjects.push({ mesh: model, position: new THREE.Vector3(inst.x, inst.y + 50, inst.z) });
+                        levelObjects.push({ mesh: model, position: new THREE.Vector3(inst.x, inst.y, inst.z) });
                         builtObjectCount++;
 
-                        // Add bounding box for 3DS model collision
+                        // Add bounding box for 3DS model collision (must update matrixWorld first)
+                        model.updateMatrixWorld(true);
                         const box = new THREE.Box3().setFromObject(model);
                         if (!box.isEmpty()) {
                             modelBoxes.push(box);
@@ -1018,13 +1048,13 @@ async function loadGameWorld() {
 
                         const mesh = new THREE.Mesh(geometry, material);
                         mesh.scale.set(scaleFactor, scaleFactor, scaleFactor);
-                        mesh.position.set(inst.x, inst.y + 50, inst.z);
+                        mesh.position.set(inst.x, inst.y, inst.z);
 
                         const angleRad = (inst.rot * Math.PI) / 180.0;
                         mesh.rotation.y = angleRad - Math.PI / 2;
 
                         scene.add(mesh);
-                        levelObjects.push({ mesh: mesh, position: new THREE.Vector3(inst.x, inst.y + 50, inst.z) });
+                        levelObjects.push({ mesh: mesh, position: new THREE.Vector3(inst.x, inst.y, inst.z) });
                         builtObjectCount++;
 
                         // Draw monster weapon if present
@@ -1047,10 +1077,10 @@ async function loadGameWorld() {
                                         }
                                         weaponMesh = new THREE.Mesh(weaponGeom, weaponMat);
                                         weaponMesh.scale.set(weaponScale, weaponScale, weaponScale);
-                                        weaponMesh.position.set(inst.x, inst.y + 50, inst.z);
+                                        weaponMesh.position.set(inst.x, inst.y, inst.z);
                                         weaponMesh.rotation.y = angleRad - Math.PI / 2;
                                         scene.add(weaponMesh);
-                                        levelObjects.push({ mesh: weaponMesh, position: new THREE.Vector3(inst.x, inst.y + 50, inst.z) });
+                                        levelObjects.push({ mesh: weaponMesh, position: new THREE.Vector3(inst.x, inst.y, inst.z) });
                                     }
                                 } else if (weaponDef.format === '3DS' || weaponDef.filepath.toLowerCase().endsWith('.3ds')) {
                                     const weaponTemplate = await load3DSModel(weaponDef);
@@ -1058,7 +1088,7 @@ async function loadGameWorld() {
                                         weaponMesh = weaponTemplate.clone(true);
                                         const weaponScale = weaponDef.scale || scaleFactor;
                                         weaponMesh.scale.set(weaponScale, weaponScale, weaponScale);
-                                        weaponMesh.position.set(inst.x, inst.y + 50, inst.z);
+                                        weaponMesh.position.set(inst.x, inst.y, inst.z);
                                         weaponMesh.rotation.y = angleRad;
                                         weaponMesh.traverse((child) => {
                                             if (child.isMesh && child.material) {
@@ -1066,7 +1096,7 @@ async function loadGameWorld() {
                                             }
                                         });
                                         scene.add(weaponMesh);
-                                        levelObjects.push({ mesh: weaponMesh, position: new THREE.Vector3(inst.x, inst.y + 50, inst.z) });
+                                        levelObjects.push({ mesh: weaponMesh, position: new THREE.Vector3(inst.x, inst.y, inst.z) });
                                     }
                                 }
                             }
@@ -1074,7 +1104,7 @@ async function loadGameWorld() {
 
                         // Instantiate Monster state machine controller
                         const mConfig = getMonsterConfig(modelDef.name);
-                        const posVec = new THREE.Vector3(inst.x, inst.y + 50, inst.z);
+                        const posVec = new THREE.Vector3(inst.x, inst.y, inst.z);
                         const monster = new Monster(mesh, weaponMesh, mConfig, posVec, angleRad);
                         monsters.push(monster);
 
@@ -1467,16 +1497,18 @@ const _edge2 = new THREE.Vector3();
 
 function resolveMonsterCapsuleCollisions(monster) {
     if (!monster || !monster.position) return;
+    monster.isGrounded = false;
     const mPos = monster.position;
 
     const basePosY = mPos.y;
 
-    const queryMinX = mPos.x - MONSTER_CAPSULE_RADIUS - 10;
-    const queryMaxX = mPos.x + MONSTER_CAPSULE_RADIUS + 10;
-    const queryMinY = basePosY - 10;
-    const queryMaxY = basePosY + MONSTER_CAPSULE_HEIGHT + 10;
-    const queryMinZ = mPos.z - MONSTER_CAPSULE_RADIUS - 10;
-    const queryMaxZ = mPos.z + MONSTER_CAPSULE_RADIUS + 10;
+    const velYPadding = Math.abs(monster.velocity ? monster.velocity.y * 0.2 : 0);
+    const queryMinX = mPos.x - MONSTER_CAPSULE_RADIUS - 30;
+    const queryMaxX = mPos.x + MONSTER_CAPSULE_RADIUS + 30;
+    const queryMinY = basePosY - 50 - velYPadding;
+    const queryMaxY = basePosY + MONSTER_CAPSULE_HEIGHT + 50 + velYPadding;
+    const queryMinZ = mPos.z - MONSTER_CAPSULE_RADIUS - 30;
+    const queryMaxZ = mPos.z + MONSTER_CAPSULE_RADIUS + 30;
 
     const minCx = Math.floor(queryMinX / GRID_CELL_SIZE);
     const maxCx = Math.floor(queryMaxX / GRID_CELL_SIZE);
@@ -1518,12 +1550,25 @@ function resolveMonsterCapsuleCollisions(monster) {
             if (res.dist < MONSTER_CAPSULE_RADIUS) {
                 const pen = MONSTER_CAPSULE_RADIUS - res.dist;
                 _normal.subVectors(res.capP, res.triP);
+
+                _edge1.subVectors(tri.b, tri.a);
+                _edge2.subVectors(tri.c, tri.a);
+                _faceNormal.crossVectors(_edge1, _edge2).normalize();
+
                 if (_normal.lengthSq() > 1e-8) {
                     _normal.normalize();
                 } else {
-                    _edge1.subVectors(tri.b, tri.a);
-                    _edge2.subVectors(tri.c, tri.a);
-                    _normal.crossVectors(_edge1, _edge2).normalize();
+                    _normal.copy(_faceNormal);
+                }
+
+                if (_faceNormal.y > 0.3) {
+                    if (res.capP.y < res.triP.y || _normal.y < 0) {
+                        _normal.set(0, 1, 0);
+                    }
+                } else if (_faceNormal.y < -0.3) {
+                    if (res.capP.y > res.triP.y || _normal.y > 0) {
+                        _normal.set(0, -1, 0);
+                    }
                 }
 
                 if (pen > maxPenetration) {
@@ -1535,7 +1580,7 @@ function resolveMonsterCapsuleCollisions(monster) {
 
         for (let b = 0; b < modelBoxes.length; b++) {
             const box = modelBoxes[b];
-            if (box === monster.boundingBox) continue;
+            if (box === monster.boundingBox || box.isEmpty()) continue;
             if (box.max.x < queryMinX || box.min.x > queryMaxX ||
                 box.max.y < queryMinY || box.min.y > queryMaxY ||
                 box.max.z < queryMinZ || box.min.z > queryMaxZ) {
@@ -1549,7 +1594,18 @@ function resolveMonsterCapsuleCollisions(monster) {
                 if (_normal.lengthSq() > 1e-8) {
                     _normal.normalize();
                 } else {
-                    _normal.set(0, 1, 0);
+                    const boxCenter = _tempDiff.addVectors(box.min, box.max).multiplyScalar(0.5);
+                    _normal.subVectors(res.capP, boxCenter);
+                    if (res.capP.y >= box.max.y - 15) {
+                        _normal.set(0, 1, 0);
+                    } else {
+                        _normal.y = 0;
+                        if (_normal.lengthSq() > 1e-8) {
+                            _normal.normalize();
+                        } else {
+                            _normal.set(0, 1, 0);
+                        }
+                    }
                 }
 
                 if (pen > maxPenetration) {
@@ -1561,6 +1617,17 @@ function resolveMonsterCapsuleCollisions(monster) {
 
         if (maxPenetration > 0 && bestNormal) {
             mPos.addScaledVector(bestNormal, maxPenetration + 0.01);
+
+            if (bestNormal.y > 0.5) {
+                monster.isGrounded = true;
+            }
+
+            if (monster.velocity) {
+                const dotVel = monster.velocity.dot(bestNormal);
+                if (dotVel < 0) {
+                    monster.velocity.addScaledVector(bestNormal, -dotVel);
+                }
+            }
         } else {
             break;
         }
@@ -1571,12 +1638,13 @@ function resolveCapsuleCollisions(camPos) {
     isGrounded = false;
     const basePosY = camPos.y - EYE_HEIGHT;
 
-    const queryMinX = camPos.x - CAPSULE_RADIUS - 10;
-    const queryMaxX = camPos.x + CAPSULE_RADIUS + 10;
-    const queryMinY = basePosY - 10;
-    const queryMaxY = basePosY + CAPSULE_HEIGHT + 10;
-    const queryMinZ = camPos.z - CAPSULE_RADIUS - 10;
-    const queryMaxZ = camPos.z + CAPSULE_RADIUS + 10;
+    const velYPadding = Math.abs(velocity.y * 0.2);
+    const queryMinX = camPos.x - CAPSULE_RADIUS - 30;
+    const queryMaxX = camPos.x + CAPSULE_RADIUS + 30;
+    const queryMinY = basePosY - 50 - velYPadding;
+    const queryMaxY = basePosY + CAPSULE_HEIGHT + 50 + velYPadding;
+    const queryMinZ = camPos.z - CAPSULE_RADIUS - 30;
+    const queryMaxZ = camPos.z + CAPSULE_RADIUS + 30;
 
     const minCx = Math.floor(queryMinX / GRID_CELL_SIZE);
     const maxCx = Math.floor(queryMaxX / GRID_CELL_SIZE);
@@ -1619,12 +1687,25 @@ function resolveCapsuleCollisions(camPos) {
             if (res.dist < CAPSULE_RADIUS) {
                 const pen = CAPSULE_RADIUS - res.dist;
                 _normal.subVectors(res.capP, res.triP);
+
+                _edge1.subVectors(tri.b, tri.a);
+                _edge2.subVectors(tri.c, tri.a);
+                _faceNormal.crossVectors(_edge1, _edge2).normalize();
+
                 if (_normal.lengthSq() > 1e-8) {
                     _normal.normalize();
                 } else {
-                    _edge1.subVectors(tri.b, tri.a);
-                    _edge2.subVectors(tri.c, tri.a);
-                    _normal.crossVectors(_edge1, _edge2).normalize();
+                    _normal.copy(_faceNormal);
+                }
+
+                if (_faceNormal.y > 0.3) {
+                    if (res.capP.y < res.triP.y || _normal.y < 0) {
+                        _normal.set(0, 1, 0);
+                    }
+                } else if (_faceNormal.y < -0.3) {
+                    if (res.capP.y > res.triP.y || _normal.y > 0) {
+                        _normal.set(0, -1, 0);
+                    }
                 }
 
                 if (pen > maxPenetration) {
@@ -1636,6 +1717,7 @@ function resolveCapsuleCollisions(camPos) {
 
         for (let b = 0; b < modelBoxes.length; b++) {
             const box = modelBoxes[b];
+            if (box.isEmpty()) continue;
             if (box.max.x < queryMinX || box.min.x > queryMaxX ||
                 box.max.y < queryMinY || box.min.y > queryMaxY ||
                 box.max.z < queryMinZ || box.min.z > queryMaxZ) {
@@ -1649,7 +1731,18 @@ function resolveCapsuleCollisions(camPos) {
                 if (_normal.lengthSq() > 1e-8) {
                     _normal.normalize();
                 } else {
-                    _normal.set(0, 1, 0);
+                    const boxCenter = _tempDiff.addVectors(box.min, box.max).multiplyScalar(0.5);
+                    _normal.subVectors(res.capP, boxCenter);
+                    if (res.capP.y >= box.max.y - 15) {
+                        _normal.set(0, 1, 0);
+                    } else {
+                        _normal.y = 0;
+                        if (_normal.lengthSq() > 1e-8) {
+                            _normal.normalize();
+                        } else {
+                            _normal.set(0, 1, 0);
+                        }
+                    }
                 }
 
                 if (pen > maxPenetration) {
