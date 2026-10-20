@@ -640,8 +640,6 @@ async function loadGameWorld() {
         const sinA = Math.sin(angleRad);
 
         const objGroup = new THREE.Group();
-        objGroup.position.set(inst.x, inst.y, inst.z);
-        objGroup.rotation.y = angleRad;
 
         const instTexMap = new Map();
 
@@ -655,15 +653,15 @@ async function loadGameWorld() {
 
             const worldVerts = [];
             for (const v of poly.verts) {
-                group.positions.push(v.x, v.y, v.z);
-                group.uvs.push(v.u, v.v);
-
                 const rx = v.x * cosA - v.z * sinA;
                 const rz = v.x * sinA + v.z * cosA;
 
                 const wx = rx + inst.x;
                 const wy = v.y + inst.y;
                 const wz = rz + inst.z;
+
+                group.positions.push(wx, wy, wz);
+                group.uvs.push(v.u, v.v);
 
                 worldVerts.push(new THREE.Vector3(wx, wy, wz));
             }
