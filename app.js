@@ -405,6 +405,9 @@ export class Monster {
 
         this.position.x = newX;
         this.position.z = newZ;
+
+        // Resolve capsule collisions against level geometry and model bounding boxes
+        resolveMonsterCapsuleCollisions(this);
     }
 
     takeDamage(damage) {
@@ -1450,12 +1453,119 @@ function closestPointsCapsuleBox(capA, capB, box) {
     return { capP: bestCapP, boxP: bestBoxP, dist: Math.sqrt(minDistSq) };
 }
 
+const MONSTER_CAPSULE_RADIUS = 24.0;
+const MONSTER_CAPSULE_HEIGHT = 80.0;
+const _mCapA = new THREE.Vector3();
+const _mCapB = new THREE.Vector3();
+
 const _capA = new THREE.Vector3();
 const _capB = new THREE.Vector3();
 const _normal = new THREE.Vector3();
 const _faceNormal = new THREE.Vector3();
 const _edge1 = new THREE.Vector3();
 const _edge2 = new THREE.Vector3();
+
+function resolveMonsterCapsuleCollisions(monster) {
+    if (!monster || !monster.position) return;
+    const mPos = monster.position;
+
+    const basePosY = mPos.y;
+
+    const queryMinX = mPos.x - MONSTER_CAPSULE_RADIUS - 10;
+    const queryMaxX = mPos.x + MONSTER_CAPSULE_RADIUS + 10;
+    const queryMinY = basePosY - 10;
+    const queryMaxY = basePosY + MONSTER_CAPSULE_HEIGHT + 10;
+    const queryMinZ = mPos.z - MONSTER_CAPSULE_RADIUS - 10;
+    const queryMaxZ = mPos.z + MONSTER_CAPSULE_RADIUS + 10;
+
+    const minCx = Math.floor(queryMinX / GRID_CELL_SIZE);
+    const maxCx = Math.floor(queryMaxX / GRID_CELL_SIZE);
+    const minCy = Math.floor(queryMinY / GRID_CELL_SIZE);
+    const maxCy = Math.floor(queryMaxY / GRID_CELL_SIZE);
+    const minCz = Math.floor(queryMinZ / GRID_CELL_SIZE);
+    const maxCz = Math.floor(queryMaxZ / GRID_CELL_SIZE);
+
+    const nearbyTriangles = new Set();
+    for (let cx = minCx; cx <= maxCx; cx++) {
+        for (let cy = minCy; cy <= maxCy; cy++) {
+            for (let cz = minCz; cz <= maxCz; cz++) {
+                const cell = collisionGrid.get(getGridKey(cx, cy, cz));
+                if (cell) {
+                    for (let i = 0; i < cell.length; i++) {
+                        nearbyTriangles.add(cell[i]);
+                    }
+                }
+            }
+        }
+    }
+
+    const MAX_ITERATIONS = 4;
+    for (let iter = 0; iter < MAX_ITERATIONS; iter++) {
+        _mCapA.set(mPos.x, mPos.y + MONSTER_CAPSULE_RADIUS, mPos.z);
+        _mCapB.set(mPos.x, mPos.y + MONSTER_CAPSULE_HEIGHT - MONSTER_CAPSULE_RADIUS, mPos.z);
+
+        let maxPenetration = 0;
+        let bestNormal = null;
+
+        for (const tri of nearbyTriangles) {
+            if (tri.maxX < queryMinX || tri.minX > queryMaxX ||
+                tri.maxY < queryMinY || tri.minY > queryMaxY ||
+                tri.maxZ < queryMinZ || tri.minZ > queryMaxZ) {
+                continue;
+            }
+
+            const res = closestPointsCapsuleTriangle(_mCapA, _mCapB, tri.a, tri.b, tri.c);
+            if (res.dist < MONSTER_CAPSULE_RADIUS) {
+                const pen = MONSTER_CAPSULE_RADIUS - res.dist;
+                _normal.subVectors(res.capP, res.triP);
+                if (_normal.lengthSq() > 1e-8) {
+                    _normal.normalize();
+                } else {
+                    _edge1.subVectors(tri.b, tri.a);
+                    _edge2.subVectors(tri.c, tri.a);
+                    _normal.crossVectors(_edge1, _edge2).normalize();
+                }
+
+                if (pen > maxPenetration) {
+                    maxPenetration = pen;
+                    bestNormal = _normal.clone();
+                }
+            }
+        }
+
+        for (let b = 0; b < modelBoxes.length; b++) {
+            const box = modelBoxes[b];
+            if (box === monster.boundingBox) continue;
+            if (box.max.x < queryMinX || box.min.x > queryMaxX ||
+                box.max.y < queryMinY || box.min.y > queryMaxY ||
+                box.max.z < queryMinZ || box.min.z > queryMaxZ) {
+                continue;
+            }
+
+            const res = closestPointsCapsuleBox(_mCapA, _mCapB, box);
+            if (res.dist < MONSTER_CAPSULE_RADIUS) {
+                const pen = MONSTER_CAPSULE_RADIUS - res.dist;
+                _normal.subVectors(res.capP, res.boxP);
+                if (_normal.lengthSq() > 1e-8) {
+                    _normal.normalize();
+                } else {
+                    _normal.set(0, 1, 0);
+                }
+
+                if (pen > maxPenetration) {
+                    maxPenetration = pen;
+                    bestNormal = _normal.clone();
+                }
+            }
+        }
+
+        if (maxPenetration > 0 && bestNormal) {
+            mPos.addScaledVector(bestNormal, maxPenetration + 0.01);
+        } else {
+            break;
+        }
+    }
+}
 
 function resolveCapsuleCollisions(camPos) {
     isGrounded = false;
