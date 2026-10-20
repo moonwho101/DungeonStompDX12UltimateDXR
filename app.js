@@ -15,6 +15,8 @@ let isSprinting = false;
 let prevTime = performance.now();
 const velocity = new THREE.Vector3();
 const direction = new THREE.Vector3();
+const cameraQuaternion = new THREE.Quaternion();
+const worldDir = new THREE.Vector3();
 
 const textureManager = new TextureManager();
 const objectsParser = new ObjectsDatParser();
@@ -528,25 +530,30 @@ function animate() {
     if (delta > 0.1) delta = 0.1;
 
     velocity.x -= velocity.x * 1.0 * delta;
+    velocity.y -= velocity.y * 1.0 * delta;
     velocity.z -= velocity.z * 1.0 * delta;
 
-    direction.z = Number(moveForward) - Number(moveBackward);
-    direction.x = Number(moveRight) - Number(moveLeft);
-    direction.normalize();
+    direction.set(
+        Number(moveRight) - Number(moveLeft),
+        0,
+        Number(moveBackward) - Number(moveForward)
+    );
 
-    const speed = isSprinting ? 1200.0 : 600.0;
+    if (direction.lengthSq() > 0) {
+        direction.normalize();
 
-    if (moveForward || moveBackward) velocity.z -= direction.z * speed * delta;
-    if (moveLeft || moveRight) velocity.x -= direction.x * speed * delta;
+        camera.getWorldQuaternion(cameraQuaternion);
+        worldDir.copy(direction).applyQuaternion(cameraQuaternion);
 
-    if (controls.isLocked) {
-        controls.moveRight(-velocity.x * delta);
-        controls.moveForward(-velocity.z * delta);
-    } else if (moveForward || moveBackward || moveLeft || moveRight) {
-        const obj = controls.getObject();
-        obj.translateX(-velocity.x * delta);
-        obj.translateZ(-velocity.z * delta);
+        const speed = isSprinting ? 1200.0 : 600.0;
+        velocity.x += worldDir.x * speed * delta;
+        velocity.y += worldDir.y * speed * delta;
+        velocity.z += worldDir.z * speed * delta;
     }
+
+    controls.getObject().position.x += velocity.x * delta;
+    controls.getObject().position.y += velocity.y * delta;
+    controls.getObject().position.z += velocity.z * delta;
 
     prevTime = time;
 
