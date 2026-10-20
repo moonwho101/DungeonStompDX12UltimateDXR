@@ -448,6 +448,7 @@ const worldDir = new THREE.Vector3();
 const RENDER_DISTANCE = 3000.0;
 const levelObjects = [];
 const monsters = [];
+const doors = [];
 
 // Spatial Collision Structures
 const levelTriangles = [];
@@ -597,6 +598,9 @@ async function init() {
             case 'KeyZ':
                 cycleWeapon(-1);
                 break;
+            case 'KeyE':
+                openNearbyDoor();
+                break;
         }
     };
 
@@ -654,6 +658,8 @@ async function init() {
     window.controls = controls;
     window.scene = scene;
     window.monsters = monsters;
+    window.doors = doors;
+    window.openNearbyDoor = openNearbyDoor;
     Object.defineProperty(window, 'playerWeaponCurrentAnim', {
         get: () => playerWeaponCurrentAnim
     });
@@ -912,6 +918,9 @@ async function loadGameWorld() {
     // Reset level objects tracking
     levelObjects.length = 0;
     monsters.length = 0;
+    levelTriangles.length = 0;
+    modelBoxes.length = 0;
+    doors.length = 0;
 
     // Set initial camera position
     controls.getObject().position.set(startPos.x, startPos.y, startPos.z);
@@ -1090,6 +1099,10 @@ async function loadGameWorld() {
 
         builtObjectCount++;
 
+        const isDoor55 = (inst.name && inst.name.toLowerCase().trim() === 'door55') ||
+                         (objDef && objDef.name && objDef.name.toLowerCase().trim() === 'door55');
+        const doorTriangles = [];
+
         const angleRad = (inst.rot * Math.PI) / 180.0;
         const cosA = Math.cos(angleRad);
         const sinA = Math.sin(angleRad);
@@ -1126,7 +1139,7 @@ async function loadGameWorld() {
                 const b = worldVerts[i];
                 const c = worldVerts[i + 1];
                 if (a && b && c) {
-                    levelTriangles.push({
+                    const tri = {
                         a, b, c,
                         minX: Math.min(a.x, b.x, c.x),
                         maxX: Math.max(a.x, b.x, c.x),
@@ -1134,7 +1147,11 @@ async function loadGameWorld() {
                         maxY: Math.max(a.y, b.y, c.y),
                         minZ: Math.min(a.z, b.z, c.z),
                         maxZ: Math.max(a.z, b.z, c.z)
-                    });
+                    };
+                    levelTriangles.push(tri);
+                    if (isDoor55) {
+                        doorTriangles.push(tri);
+                    }
                 }
             }
         }
@@ -1161,8 +1178,22 @@ async function loadGameWorld() {
             objGroup.add(mesh);
         }
 
+        const levelObj = { mesh: objGroup, position: new THREE.Vector3(inst.x, inst.y, inst.z) };
         scene.add(objGroup);
-        levelObjects.push({ mesh: objGroup, position: new THREE.Vector3(inst.x, inst.y, inst.z) });
+        levelObjects.push(levelObj);
+
+        if (isDoor55) {
+            doors.push({
+                mesh: objGroup,
+                position: new THREE.Vector3(inst.x, inst.y, inst.z),
+                currentUp: 0,
+                maxUp: 200.0,
+                isOpening: false,
+                isOpen: false,
+                triangles: doorTriangles,
+                levelObj: levelObj
+            });
+        }
     }
 
     // Build spatial grid for static level triangles
@@ -1618,6 +1649,74 @@ function updatePlayerWeaponAnimation(delta) {
     }
 }
 
+function openNearbyDoor() {
+    if (controls && !controls.isLocked) return;
+    const playerPos = controls.getObject().position;
+    const INTERACTION_DISTANCE = 250.0;
+    const INTERACTION_DIST_SQ = INTERACTION_DISTANCE * INTERACTION_DISTANCE;
+
+    let nearestDoor = null;
+    let minBetween = INTERACTION_DIST_SQ;
+
+    for (const door of doors) {
+        if (door.isOpen || door.isOpening) continue;
+        const distSq = playerPos.distanceToSquared(door.position);
+        if (distSq <= minBetween) {
+            minBetween = distSq;
+            nearestDoor = door;
+        }
+    }
+
+    if (nearestDoor) {
+        nearestDoor.isOpening = true;
+    }
+}
+
+function updateDoors(delta) {
+    let gridNeedsUpdate = false;
+    const RISE_SPEED = 200.0;
+
+    for (let i = 0; i < doors.length; i++) {
+        const door = doors[i];
+        if (!door.isOpening || door.isOpen) continue;
+
+        let dy = RISE_SPEED * delta;
+        if (door.currentUp + dy >= door.maxUp) {
+            dy = door.maxUp - door.currentUp;
+            door.currentUp = door.maxUp;
+            door.isOpening = false;
+            door.isOpen = true;
+        } else {
+            door.currentUp += dy;
+        }
+
+        if (dy > 0) {
+            door.mesh.position.y += dy;
+
+            if (door.levelObj) {
+                door.levelObj.position.y += dy;
+            }
+
+            if (door.triangles) {
+                for (let t = 0; t < door.triangles.length; t++) {
+                    const tri = door.triangles[t];
+                    tri.a.y += dy;
+                    tri.b.y += dy;
+                    tri.c.y += dy;
+                    tri.minY += dy;
+                    tri.maxY += dy;
+                }
+            }
+
+            gridNeedsUpdate = true;
+        }
+    }
+
+    if (gridNeedsUpdate) {
+        buildCollisionGrid();
+    }
+}
+
 function cycleWeapon(dir) {
     currentGunIndex = (currentGunIndex + dir + PLAYER_GUNS.length) % PLAYER_GUNS.length;
     updateWeaponMesh();
@@ -1804,6 +1903,9 @@ function animate() {
 
     // Update active player weapon animation
     updatePlayerWeaponAnimation(delta);
+
+    // Update moving doors animation and collision
+    updateDoors(delta);
 
     // Distance culling for level objects
     const renderDistSq = RENDER_DISTANCE * RENDER_DISTANCE;
