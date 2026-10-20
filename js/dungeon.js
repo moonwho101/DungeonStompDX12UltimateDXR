@@ -1,280 +1,556 @@
 import * as THREE from './lib/three.module.js';
 
-// Procedural Dungeon Generator Port in JS
-export class DungeonGeneratorJS {
-  static generate(seed = 42, count = 120, startX = 5200, startZ = 2600) {
-    let random = DungeonGeneratorJS.createPRNG(seed || Date.now());
+export class TexturesDatParser {
+  static parse(text) {
+    const lines = text.split(/\r?\n/);
+    const textureMap = new Map(); // alias -> filename
+    const aliasToId = new Map();  // alias -> id
 
-    const OBJECTS = {
-      'ROOM2': [{ pos: [0, -160], out: [0, -1] }, { pos: [0, 160], out: [0, 1] }],
-      'crossroads': [{ pos: [80, 0], out: [0, -1] }, { pos: [80, 240], out: [0, 1] }, { pos: [-40, 120], out: [-1, 0] }, { pos: [200, 120], out: [1, 0] }],
-      't_junction': [{ pos: [80, 0], out: [0, -1] }, { pos: [-40, 120], out: [-1, 0] }, { pos: [200, 120], out: [1, 0] }],
-      'left_corner': [{ pos: [80, 0], out: [0, -1] }, { pos: [-40, 120], out: [-1, 0] }],
-      'ROOM_SQUARE': [{ pos: [240, 0], out: [1, 0] }],
-      'ROOMEDIUM': [{ pos: [-160, 0], out: [-1, 0] }, { pos: [160, 0], out: [1, 0] }]
-    };
+    let currentTextureFile = '';
 
-    const placed = [];
-    const entities = [];
+    for (let line of lines) {
+      line = line.trim();
+      if (!line || line.startsWith('//') || line.startsWith('#')) continue;
 
-    placed.push({ name: 'ROOM2', x: startX, y: 0.0, z: startZ, rot: 0 });
+      if (line.startsWith('END_FILE')) break;
 
-    const openExits = [];
-    for (const ext of OBJECTS['ROOM2']) {
-      openExits.push({
-        wx: startX + ext.pos[0],
-        wy: 0.0,
-        wz: startZ + ext.pos[1],
-        wdx: ext.out[0],
-        wdz: ext.out[1]
-      });
-    }
-
-    const types = Object.keys(OBJECTS);
-
-    for (let i = 0; i < count && openExits.length > 0; i++) {
-      const exitIdx = Math.floor(random() * openExits.length);
-      const O = openExits.splice(exitIdx, 1)[0];
-
-      let placedNew = false;
-      const shuffledTypes = [...types].sort(() => random() - 0.5);
-
-      for (const candName of shuffledTypes) {
-        if (placedNew) break;
-        const candExits = OBJECTS[candName];
-
-        for (let extIdx = 0; extIdx < candExits.length; extIdx++) {
-          if (placedNew) break;
-          const locExt = candExits[extIdx];
-          const rots = [0, 90, 180, 270].sort(() => random() - 0.5);
-
-          for (const ang of rots) {
-            const rad = THREE.MathUtils.degToRad(ang);
-            const rdx = Math.round(locExt.out[0] * Math.cos(rad) - locExt.out[1] * Math.sin(rad));
-            const rdz = Math.round(locExt.out[0] * Math.sin(rad) + locExt.out[1] * Math.cos(rad));
-
-            if (rdx === -O.wdx && rdz === -O.wdz) {
-              const rx = locExt.pos[0] * Math.cos(rad) - locExt.pos[1] * Math.sin(rad);
-              const rz = locExt.pos[0] * Math.sin(rad) + locExt.pos[1] * Math.cos(rad);
-
-              const Ox = O.wx - rx;
-              const Oy = O.wy;
-              const Oz = O.wz - rz;
-
-              placed.push({ name: candName, x: Ox, y: Oy, z: Oz, rot: ang });
-              placedNew = true;
-
-              if (random() < 0.3) {
-                entities.push({ name: 'door55', x: O.wx, y: O.wy + 10, z: O.wz, rot: ang });
-              }
-
-              if (random() < 0.4) {
-                const mobs = ['GOBLIN', 'OGRE', 'KNIGHT', 'SORCERER', 'TENTACLE', 'MUMMY', 'WRAITH'];
-                const mobType = mobs[Math.floor(random() * mobs.length)];
-                entities.push({ name: '!monster1', extra: [mobType], x: Ox, y: Oy + 10, z: Oz, rot: ang });
-              } else if (random() < 0.3) {
-                const items = ['POTION', 'COIN', 'SPELLBOOK'];
-                const itemType = items[Math.floor(random() * items.length)];
-                entities.push({ name: itemType, x: Ox, y: Oy + 10, z: Oz, rot: ang });
-              }
-
-              for (let k = 0; k < candExits.length; k++) {
-                if (k === extIdx) continue;
-                const other = candExits[k];
-                const orx = other.pos[0] * Math.cos(rad) - other.pos[1] * Math.sin(rad);
-                const orz = other.pos[0] * Math.sin(rad) + other.pos[1] * Math.cos(rad);
-                const odx = Math.round(other.out[0] * Math.cos(rad) - other.out[1] * Math.sin(rad));
-                const odz = Math.round(other.out[0] * Math.sin(rad) + other.out[1] * Math.cos(rad));
-
-                openExits.push({ wx: Ox + orx, wy: Oy, wz: Oz + orz, wdx: odx, wdz: odz });
-              }
-              break;
-            }
-          }
+      const tokens = line.split(/\s+/);
+      if (tokens[0] === 'AddTexture') {
+        currentTextureFile = tokens[1] ? tokens[1].replace(/\\/g, '/') : '';
+      } else if (tokens[0] === 'Alias') {
+        // Alias  1   die10r1           OPAQUE  WHOLE  default
+        const id = parseInt(tokens[1], 10);
+        const alias = tokens[2];
+        if (alias) {
+          textureMap.set(alias.toLowerCase(), currentTextureFile);
+          aliasToId.set(alias.toLowerCase(), id);
         }
       }
     }
 
-    return { spawnPoint: new THREE.Vector3(startX, 30, startZ), placed, entities };
+    return { textureMap, aliasToId };
   }
+}
 
-  static createPRNG(seed) {
-    return function() {
-      let t = seed += 0x6D2B79F5;
-      t = Math.imul(t ^ (t >>> 15), t | 1);
-      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+export class ObjectsDatParser {
+  static parse(text) {
+    const lines = text.split(/\r?\n/);
+    const objectsByName = new Map();
+    const objectsById = new Map();
+
+    let currentObj = null;
+    let currentTexture = 'default';
+    let datScale = 1.0;
+
+    let lineIdx = 0;
+
+    const readTokens = () => {
+      while (lineIdx < lines.length) {
+        let l = lines[lineIdx++].trim();
+        if (!l || l.startsWith('//') || l.startsWith('#')) continue;
+        const commentIdx = l.indexOf('//');
+        if (commentIdx !== -1) l = l.substring(0, commentIdx).trim();
+        if (!l) continue;
+        return l.split(/\s+/);
+      }
+      return null;
     };
+
+    while (lineIdx < lines.length) {
+      const tokens = readTokens();
+      if (!tokens) break;
+
+      const cmd = tokens[0].toUpperCase();
+
+      if (cmd === 'OBJECT' || cmd === 'Q2M_OBJECT') {
+        const id = parseInt(tokens[1], 10);
+        const name = tokens[2] || `object_${id}`;
+
+        currentObj = {
+          id,
+          name,
+          scale: 1.0,
+          triangles: [] // { positions: [v0, v1, v2], uvs: [uv0, uv1, uv2], texture: string }
+        };
+
+        datScale = 1.0;
+        currentTexture = 'default';
+
+        objectsByName.set(name, currentObj);
+        objectsByName.set(name.toLowerCase(), currentObj);
+        objectsById.set(id, currentObj);
+      } else if (cmd === 'SCALE') {
+        datScale = parseFloat(tokens[1]) || 1.0;
+        if (currentObj) currentObj.scale = datScale;
+      } else if (cmd === 'TEXTURE') {
+        currentTexture = tokens[1] ? tokens[1].toLowerCase() : 'default';
+      } else if (cmd === 'TRI') {
+        if (!currentObj) continue;
+        const v0 = parseVert(readTokens(), datScale);
+        const v1 = parseVert(readTokens(), datScale);
+        const v2 = parseVert(readTokens(), datScale);
+
+        currentObj.triangles.push({
+          positions: [v0.pos, v1.pos, v2.pos],
+          uvs: [v0.uv || [0, 1], v1.uv || [0, 0], v2.uv || [1, 1]],
+          texture: currentTexture
+        });
+      } else if (cmd === 'QUAD') {
+        if (!currentObj) continue;
+        const q0 = parseVert(readTokens(), datScale);
+        const q1 = parseVert(readTokens(), datScale);
+        const q2 = parseVert(readTokens(), datScale);
+        const q3 = parseVert(readTokens(), datScale);
+
+        const defaultUVs = [[0, 1], [0, 0], [1, 0], [1, 1]];
+
+        // Triangle 1: q0, q1, q3
+        currentObj.triangles.push({
+          positions: [q0.pos, q1.pos, q3.pos],
+          uvs: [q0.uv || defaultUVs[0], q1.uv || defaultUVs[1], q3.uv || defaultUVs[3]],
+          texture: currentTexture
+        });
+        // Triangle 2: q2, q3, q1
+        currentObj.triangles.push({
+          positions: [q2.pos, q3.pos, q1.pos],
+          uvs: [q2.uv || defaultUVs[2], q3.uv || defaultUVs[3], q1.uv || defaultUVs[1]],
+          texture: currentTexture
+        });
+      } else if (cmd === 'TRITEX') {
+        if (!currentObj) continue;
+        const v0 = parseVertEx(readTokens(), datScale);
+        const v1 = parseVertEx(readTokens(), datScale);
+        const v2 = parseVertEx(readTokens(), datScale);
+
+        currentObj.triangles.push({
+          positions: [v0.pos, v1.pos, v2.pos],
+          uvs: [v0.uv, v1.uv, v2.uv],
+          texture: currentTexture
+        });
+      } else if (cmd === 'QUADTEX') {
+        if (!currentObj) continue;
+        const q0 = parseVertEx(readTokens(), datScale);
+        const q1 = parseVertEx(readTokens(), datScale);
+        const q2 = parseVertEx(readTokens(), datScale);
+        const q3 = parseVertEx(readTokens(), datScale);
+
+        // Triangle 1: q0, q1, q3
+        currentObj.triangles.push({
+          positions: [q0.pos, q1.pos, q3.pos],
+          uvs: [q0.uv, q1.uv, q3.uv],
+          texture: currentTexture
+        });
+        // Triangle 2: q2, q3, q1
+        currentObj.triangles.push({
+          positions: [q2.pos, q3.pos, q1.pos],
+          uvs: [q2.uv, q3.uv, q1.uv],
+          texture: currentTexture
+        });
+      } else if (cmd === 'TRI_STRIP') {
+        if (!currentObj) continue;
+        const count = parseInt(tokens[1], 10);
+        const verts = [];
+        for (let i = 0; i < count; i++) {
+          verts.push(parseVertEx(readTokens(), datScale));
+        }
+        for (let i = 0; i < count - 2; i++) {
+          if (i % 2 === 0) {
+            currentObj.triangles.push({
+              positions: [verts[i].pos, verts[i + 1].pos, verts[i + 2].pos],
+              uvs: [verts[i].uv, verts[i + 1].uv, verts[i + 2].uv],
+              texture: currentTexture
+            });
+          } else {
+            currentObj.triangles.push({
+              positions: [verts[i + 2].pos, verts[i + 1].pos, verts[i].pos],
+              uvs: [verts[i + 2].uv, verts[i + 1].uv, verts[i].uv],
+              texture: currentTexture
+            });
+          }
+        }
+      } else if (cmd === 'TRI_FAN') {
+        if (!currentObj) continue;
+        const count = parseInt(tokens[1], 10);
+        const verts = [];
+        for (let i = 0; i < count; i++) {
+          verts.push(parseVertEx(readTokens(), datScale));
+        }
+        for (let i = 0; i < count - 2; i++) {
+          currentObj.triangles.push({
+            positions: [verts[0].pos, verts[i + 1].pos, verts[i + 2].pos],
+            uvs: [verts[0].uv, verts[i + 1].uv, verts[i + 2].uv],
+            texture: currentTexture
+          });
+        }
+      } else if (cmd === 'END_FILE') {
+        break;
+      }
+    }
+
+    return { objectsByName, objectsById };
   }
+}
+
+function parseVert(tokens, scale) {
+  if (!tokens || tokens.length < 3) return { pos: [0, 0, 0], uv: [0, 0] };
+  return {
+    pos: [
+      parseFloat(tokens[0]) * scale,
+      parseFloat(tokens[1]) * scale,
+      parseFloat(tokens[2]) * scale
+    ],
+    uv: tokens.length >= 5 ? [parseFloat(tokens[3]), parseFloat(tokens[4])] : null
+  };
+}
+
+function parseVertEx(tokens, scale) {
+  if (!tokens || tokens.length < 5) return { pos: [0, 0, 0], uv: [0, 0] };
+  return {
+    pos: [
+      parseFloat(tokens[0]) * scale,
+      parseFloat(tokens[1]) * scale,
+      parseFloat(tokens[2]) * scale
+    ],
+    uv: [parseFloat(tokens[3]), parseFloat(tokens[4])]
+  };
 }
 
 export class DungeonBuilder {
   constructor(scene) {
     this.scene = scene;
+    this.dungeonGroup = new THREE.Group();
+    this.scene.add(this.dungeonGroup);
     this.colliders = [];
-    this.lights = [];
-    this.spawnPoint = new THREE.Vector3(5200, 30, 2600);
 
-    this.createMaterials();
+    this.textureMap = new Map();
+    this.objectsByName = new Map();
+    this.materialCache = new Map();
+    this.proceduralTextures = new Map();
+
+    this.initProceduralTextures();
   }
 
-  createMaterials() {
-    this.materials = {
-      floor: new THREE.MeshLambertMaterial({ color: 0x334455, side: THREE.DoubleSide }),
-      wall: new THREE.MeshLambertMaterial({ color: 0x776655, side: THREE.DoubleSide }),
-      ceiling: new THREE.MeshLambertMaterial({ color: 0x222233, side: THREE.DoubleSide }),
-      arch: new THREE.MeshLambertMaterial({ color: 0x997755, side: THREE.DoubleSide })
-    };
+  initProceduralTextures() {
+    this.proceduralTextures.set('wall', this.createPatternTexture('#3a3a4e', '#222233', 'brick'));
+    this.proceduralTextures.set('floor', this.createPatternTexture('#1e1e2c', '#12121c', 'tile'));
+    this.proceduralTextures.set('ceiling', this.createPatternTexture('#2a2a3c', '#181826', 'wood'));
+    this.proceduralTextures.set('wood', this.createPatternTexture('#5c3a21', '#3d2514', 'wood'));
+    this.proceduralTextures.set('metal', this.createPatternTexture('#7f8c8d', '#34495e', 'metal'));
+    this.proceduralTextures.set('default', this.createPatternTexture('#4a4a5a', '#2d2d3a', 'stone'));
+  }
+
+  createPatternTexture(c1, c2, type = 'brick') {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+
+    ctx.fillStyle = c1;
+    ctx.fillRect(0, 0, 256, 256);
+    ctx.fillStyle = c2;
+
+    if (type === 'brick') {
+      for (let y = 0; y < 256; y += 32) {
+        ctx.fillRect(0, y, 256, 2);
+        const offset = (y / 32) % 2 === 0 ? 0 : 32;
+        for (let x = offset; x < 256; x += 64) {
+          ctx.fillRect(x, y, 2, 32);
+        }
+      }
+    } else if (type === 'tile') {
+      for (let i = 0; i < 256; i += 64) {
+        ctx.fillRect(i, 0, 2, 256);
+        ctx.fillRect(0, i, 256, 2);
+      }
+    } else {
+      for (let i = 0; i < 500; i++) {
+        const x = Math.random() * 256;
+        const y = Math.random() * 256;
+        const r = Math.random() * 3 + 1;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    return texture;
+  }
+
+  async loadDataFiles() {
+    try {
+      const texRes = await fetch('bin/textures.dat');
+      if (texRes.ok) {
+        const texText = await texRes.text();
+        const { textureMap } = TexturesDatParser.parse(texText);
+        this.textureMap = textureMap;
+      }
+
+      const objRes = await fetch('bin/Objects.dat');
+      if (objRes.ok) {
+        const objText = await objRes.text();
+        const { objectsByName } = ObjectsDatParser.parse(objText);
+        this.objectsByName = objectsByName;
+      }
+    } catch (e) {
+      console.warn('Error loading Objects.dat or textures.dat:', e);
+    }
+  }
+
+  getMaterialForTextureAlias(texAlias) {
+    if (this.materialCache.has(texAlias)) {
+      return this.materialCache.get(texAlias);
+    }
+
+    let texture = this.proceduralTextures.get('default');
+    const aliasLower = (texAlias || '').toLowerCase();
+
+    if (aliasLower.includes('wall') || aliasLower.includes('brick')) {
+      texture = this.proceduralTextures.get('wall');
+    } else if (aliasLower.includes('floor') || aliasLower.includes('tile')) {
+      texture = this.proceduralTextures.get('floor');
+    } else if (aliasLower.includes('ceiling') || aliasLower.includes('roof')) {
+      texture = this.proceduralTextures.get('ceiling');
+    } else if (aliasLower.includes('wood') || aliasLower.includes('door')) {
+      texture = this.proceduralTextures.get('wood');
+    } else if (aliasLower.includes('metal') || aliasLower.includes('iron')) {
+      texture = this.proceduralTextures.get('metal');
+    }
+
+    const mat = new THREE.MeshStandardMaterial({
+      map: texture,
+      roughness: 0.8,
+      metalness: 0.1,
+      side: THREE.DoubleSide
+    });
+
+    this.materialCache.set(texAlias, mat);
+    return mat;
+  }
+
+  buildMeshFromObjectData(objData) {
+    if (!objData || !objData.triangles || objData.triangles.length === 0) {
+      return null;
+    }
+
+    // Group triangles by texture
+    const texGroups = new Map();
+    for (const tri of objData.triangles) {
+      const tex = tri.texture || 'default';
+      if (!texGroups.has(tex)) texGroups.set(tex, []);
+      texGroups.get(tex).push(tri);
+    }
+
+    const groupMesh = new THREE.Group();
+
+    for (const [texAlias, tris] of texGroups.entries()) {
+      const positions = [];
+      const uvs = [];
+
+      for (const tri of tris) {
+        for (let i = 0; i < 3; i++) {
+          positions.push(...tri.positions[i]);
+          uvs.push(...tri.uvs[i]);
+        }
+      }
+
+      const geom = new THREE.BufferGeometry();
+      geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      geom.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+      geom.computeVertexNormals();
+
+      const mat = this.getMaterialForTextureAlias(texAlias);
+      const mesh = new THREE.Mesh(geom, mat);
+      groupMesh.add(mesh);
+    }
+
+    return groupMesh;
+  }
+
+  clear() {
+    while (this.dungeonGroup.children.length > 0) {
+      const child = this.dungeonGroup.children[0];
+      this.dungeonGroup.remove(child);
+    }
+    this.colliders = [];
   }
 
   buildFromMapData(mapText) {
-    this.colliders = [];
-    this.lights = [];
+    this.clear();
 
-    const lines = mapText.split('\n');
-    let currentObject = null;
-    let currentCoords = null;
-    let currentRot = 0;
+    const lines = mapText.split(/\r?\n/);
+    let spawnPoint = new THREE.Vector3(0, 50, 0);
+    const entities = [];
 
-    const parsedObjects = [];
-    const parsedLights = [];
+    let currentObjName = '';
+    let posX = 0, posY = 0, posZ = 0;
+    let rotAngle = 0;
+    let extraParams = [];
+
+    const instantiateObject = () => {
+      if (!currentObjName) return;
+
+      const objData = this.objectsByName.get(currentObjName) || this.objectsByName.get(currentObjName.toLowerCase());
+
+      if (currentObjName.toLowerCase() === 'startpos') {
+        spawnPoint.set(posX, posY + 50, posZ);
+        return;
+      }
+
+      if (currentObjName.startsWith('door') || currentObjName.startsWith('!monster') || ['POTION', 'COIN', 'SPELLBOOK'].some(k => currentObjName.includes(k))) {
+        entities.push({ name: currentObjName, x: posX, y: posY, z: posZ, rot: rotAngle, extra: extraParams });
+        return;
+      }
+
+      if (objData) {
+        const meshGroup = this.buildMeshFromObjectData(objData);
+        if (meshGroup) {
+          meshGroup.position.set(posX, posY, posZ);
+          meshGroup.rotation.y = THREE.MathUtils.degToRad(rotAngle);
+
+          this.dungeonGroup.add(meshGroup);
+
+          // Add bounding box collider
+          const box = new THREE.Box3().setFromObject(meshGroup);
+          if (!box.isEmpty()) {
+            this.colliders.push(box);
+          }
+        }
+      } else {
+        // Fallback room tile if object definition not in Objects.dat
+        this.buildFallbackTile(currentObjName, posX, posY, posZ, rotAngle);
+      }
+    };
 
     for (let line of lines) {
       line = line.trim();
-      if (!line || line.startsWith('#')) continue;
+      if (!line || line.startsWith('//') || line.startsWith('#')) continue;
 
       const tokens = line.split(/\s+/);
-      const tag = tokens[0];
+      const cmd = tokens[0].toUpperCase();
 
-      if (tag === 'OBJECT') {
-        currentObject = tokens[1];
-      } else if (tag === 'CO_ORDINATES') {
-        currentCoords = {
-          x: parseFloat(tokens[1]),
-          y: parseFloat(tokens[2]),
-          z: parseFloat(tokens[3])
-        };
-      } else if (tag === 'ROT_ANGLE') {
-        currentRot = parseFloat(tokens[1]);
-        if (currentObject && currentCoords) {
-          parsedObjects.push({
-            name: currentObject,
-            x: currentCoords.x,
-            y: currentCoords.y,
-            z: currentCoords.z,
-            rot: currentRot,
-            extra: tokens.slice(2)
-          });
-        }
-      } else if (tag === 'LIGHT_SOURCE') {
-        const posIdx = tokens.indexOf('POS');
-        const colIdx = tokens.indexOf('COLOUR');
-
-        if (posIdx !== -1 && colIdx !== -1) {
-          parsedLights.push({
-            x: parseFloat(tokens[posIdx + 1]),
-            y: parseFloat(tokens[posIdx + 2]),
-            z: parseFloat(tokens[posIdx + 3]),
-            r: parseFloat(tokens[colIdx + 1]),
-            g: parseFloat(tokens[colIdx + 2]),
-            b: parseFloat(tokens[colIdx + 3])
-          });
-        }
+      if (cmd === 'OBJECT') {
+        instantiateObject();
+        currentObjName = tokens[1] || '';
+        extraParams = [];
+      } else if (cmd === 'CO_ORDINATES') {
+        posX = parseFloat(tokens[1]) || 0;
+        posY = parseFloat(tokens[2]) || 0;
+        posZ = parseFloat(tokens[3]) || 0;
+      } else if (cmd === 'ROT_ANGLE') {
+        rotAngle = parseFloat(tokens[1]) || 0;
+        extraParams = tokens.slice(2);
       }
     }
 
-    const entitiesToSpawn = [];
+    instantiateObject(); // Final object
 
-    for (const obj of parsedObjects) {
-      if (obj.name === 'startpos') {
-        this.spawnPoint.set(obj.x, obj.y + 30, obj.z);
-      } else if (obj.name.startsWith('CORRIDOR') || obj.name.startsWith('ROOM') || obj.name.startsWith('CROSSING') || obj.name.startsWith('t_junction') || obj.name.startsWith('crossroads') || obj.name.startsWith('left_corner')) {
-        this.buildDungeonTile(obj.name, obj.x, obj.y, obj.z, obj.rot);
-      } else if (obj.name === 'torch' || obj.name === 'lamp_post') {
-        this.addTorchLight(obj.x, obj.y, obj.z);
-      } else {
-        entitiesToSpawn.push(obj);
-      }
-    }
-
-    for (const light of parsedLights) {
-      this.addPointLight(light.x, light.y, light.z, light.r, light.g, light.b);
-    }
-
-    return { spawnPoint: this.spawnPoint, entities: entitiesToSpawn };
+    return { spawnPoint, entities };
   }
 
-  buildDungeonTile(type, x, y, z, rot) {
-    const tileGroup = new THREE.Group();
-    tileGroup.position.set(x, y, z);
-    tileGroup.rotation.y = THREE.MathUtils.degToRad(rot);
+  buildFallbackTile(name, x, y, z, rotDeg) {
+    const group = new THREE.Group();
+    group.position.set(x, y, z);
+    group.rotation.y = THREE.MathUtils.degToRad(rotDeg);
 
-    let width = 240;
-    let length = 320;
-    let height = 120;
+    const size = 300;
+    const wallHeight = 150;
 
-    if (type.includes('ROOM_SQUARE')) {
-      width = 480; length = 480;
-    } else if (type.includes('ROOMEDIUM') || type.includes('ROOM2')) {
-      width = 360; length = 360;
-    }
+    const floorMat = this.getMaterialForTextureAlias('floor');
+    const wallMat = this.getMaterialForTextureAlias('wall');
+    const ceilMat = this.getMaterialForTextureAlias('ceiling');
 
     // Floor
-    const floorGeo = new THREE.PlaneGeometry(width, length);
-    const floor = new THREE.Mesh(floorGeo, this.materials.floor);
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(size, size), floorMat);
     floor.rotation.x = -Math.PI / 2;
-    tileGroup.add(floor);
+    group.add(floor);
 
     // Ceiling
-    const ceilingGeo = new THREE.PlaneGeometry(width, length);
-    const ceiling = new THREE.Mesh(ceilingGeo, this.materials.ceiling);
-    ceiling.position.y = height;
-    ceiling.rotation.x = Math.PI / 2;
-    tileGroup.add(ceiling);
+    const ceil = new THREE.Mesh(new THREE.PlaneGeometry(size, size), ceilMat);
+    ceil.position.y = wallHeight;
+    ceil.rotation.x = Math.PI / 2;
+    group.add(ceil);
 
-    // Walls
-    const wallThick = 12;
-    const halfW = width / 2;
+    // Back Wall
+    const wallBack = new THREE.Mesh(new THREE.PlaneGeometry(size, wallHeight), wallMat);
+    wallBack.position.set(0, wallHeight / 2, -size / 2);
+    group.add(wallBack);
 
-    this.addWallSegment(tileGroup, -halfW, height / 2, 0, wallThick, height, length);
-    this.addWallSegment(tileGroup, halfW, height / 2, 0, wallThick, height, length);
+    // Left Wall
+    const wallLeft = new THREE.Mesh(new THREE.PlaneGeometry(size, wallHeight), wallMat);
+    wallLeft.position.set(-size / 2, wallHeight / 2, 0);
+    wallLeft.rotation.y = Math.PI / 2;
+    group.add(wallLeft);
 
-    this.scene.add(tileGroup);
-    tileGroup.updateMatrixWorld(true);
+    // Right Wall
+    const wallRight = new THREE.Mesh(new THREE.PlaneGeometry(size, wallHeight), wallMat);
+    wallRight.position.set(size / 2, wallHeight / 2, 0);
+    wallRight.rotation.y = -Math.PI / 2;
+    group.add(wallRight);
 
-    // Store world bounding boxes for collision
-    for (const child of tileGroup.children) {
-      if (child.geometry instanceof THREE.BoxGeometry) {
-        this.colliders.push(new THREE.Box3().setFromObject(child));
-      }
+    this.dungeonGroup.add(group);
+
+    const box = new THREE.Box3().setFromObject(group);
+    if (!box.isEmpty()) {
+      this.colliders.push(box);
     }
   }
 
-  addWallSegment(parent, lx, ly, lz, tw, th, tl) {
-    const wallGeo = new THREE.BoxGeometry(tw, th, tl);
-    const wall = new THREE.Mesh(wallGeo, this.materials.wall);
-    wall.position.set(lx, ly, lz);
-    parent.add(wall);
+  buildDungeonTile(type, x, y, z, rotDeg) {
+    this.buildFallbackTile(type, x, y, z, rotDeg);
   }
+}
 
-  addTorchLight(x, y, z) {
-    const light = new THREE.PointLight(0xffaa44, 3.0, 500);
-    light.position.set(x, y + 20, z);
-    this.scene.add(light);
-    this.lights.push(light);
+export class DungeonGeneratorJS {
+  static generate(seed = 1234, targetTileCount = 100) {
+    const placed = [];
+    const entities = [];
+    const tileSize = 300;
 
-    const geo = new THREE.CylinderGeometry(2, 4, 18);
-    const mat = new THREE.MeshBasicMaterial({ color: 0xffaa22 });
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.set(x, y, z);
-    this.scene.add(mesh);
-  }
+    let spawnPoint = new THREE.Vector3(0, 50, 0);
 
-  addPointLight(x, y, z, r, g, b) {
-    const color = new THREE.Color(r / 8, g / 8, b / 8);
-    const light = new THREE.PointLight(color, 2.5, 450);
-    light.position.set(x, y, z);
-    this.scene.add(light);
-    this.lights.push(light);
+    placed.push({ name: 'ROOM2', x: 0, y: 0, z: 0, rot: 0 });
+
+    const directions = [
+      { dx: 1, dz: 0, rot: 90 },
+      { dx: -1, dz: 0, rot: 270 },
+      { dx: 0, dz: 1, rot: 0 },
+      { dx: 0, dz: -1, rot: 180 }
+    ];
+
+    const occupied = new Set(['0,0']);
+    const tileTypes = ['ROOM2', 'CORRIDOR01', 'WALL01'];
+
+    let currX = 0, currZ = 0;
+
+    for (let i = 1; i < targetTileCount; i++) {
+      const dir = directions[Math.floor(Math.random() * directions.length)];
+      currX += dir.dx;
+      currZ += dir.dz;
+
+      const key = `${currX},${currZ}`;
+      if (!occupied.has(key)) {
+        occupied.add(key);
+        const tileName = tileTypes[Math.floor(Math.random() * tileTypes.length)];
+        const posX = currX * tileSize;
+        const posZ = currZ * tileSize;
+
+        placed.push({ name: tileName, x: posX, y: 0, z: posZ, rot: dir.rot });
+
+        if (Math.random() < 0.2) {
+          entities.push({ name: 'door55', x: posX, y: 0, z: posZ, rot: dir.rot });
+        }
+        if (Math.random() < 0.3) {
+          entities.push({ name: '!monster1', x: posX, y: 50, z: posZ, rot: 0, extra: ['GOBLIN'] });
+        }
+        if (Math.random() < 0.25) {
+          entities.push({ name: 'POTION', x: posX, y: 20, z: posZ, rot: 0 });
+        }
+      }
+    }
+
+    return { spawnPoint, placed, entities };
   }
 }

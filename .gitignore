@@ -7,8 +7,6 @@ Debug/
 Release/
 *.log
 packages/
-node_modules/
-dist/
 
 
 

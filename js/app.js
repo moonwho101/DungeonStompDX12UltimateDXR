@@ -21,11 +21,11 @@ class DungeonStompApp {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.container.appendChild(this.renderer.domElement);
 
-    // Global Ambient Lighting
-    this.ambientLight = new THREE.AmbientLight(0xffffff, 1.5);
+    // Global Ambient & Torch Lighting
+    this.ambientLight = new THREE.AmbientLight(0xffffff, 1.8);
     this.scene.add(this.ambientLight);
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
     dirLight.position.set(100, 300, 100);
     this.scene.add(dirLight);
 
@@ -64,12 +64,17 @@ class DungeonStompApp {
     this.player.onLog = (msg, type) => this.logMessage(msg, type);
     this.player.onAttack = (weapon) => this.handlePlayerAttack(weapon);
 
-    // Load initial map
-    this.loadLevelMap('bin/level1.map');
+    // Load Objects.dat & level map
+    this.initGame();
 
     // Start loop
     this.animate = this.animate.bind(this);
     requestAnimationFrame(this.animate);
+  }
+
+  async initGame() {
+    await this.dungeonBuilder.loadDataFiles();
+    await this.loadLevelMap('bin/level1.map');
   }
 
   setupEvents() {
@@ -165,30 +170,13 @@ class DungeonStompApp {
       let mapText = '';
       if (res.ok) {
         mapText = await res.text();
-      } else {
-        mapText = `
-OBJECT startpos
-CO_ORDINATES 5200.000000 0.000000 2600.000000
-ROT_ANGLE 90
-OBJECT ROOM2
-CO_ORDINATES 5200.000000 0.000000 2600.000000
-ROT_ANGLE 0
-OBJECT CORRIDOR01
-CO_ORDINATES 4464.000000 0.000000 2600.000000
-ROT_ANGLE 180
-OBJECT door55
-CO_ORDINATES 4109.000000 75.000000 2600.000000
-ROT_ANGLE 90 -1
-OBJECT !monster1
-CO_ORDINATES 4464.000000 50.000000 2600.000000
-ROT_ANGLE 0 GOBLIN goblin 100 0
-        `;
       }
 
       const { spawnPoint, entities } = this.dungeonBuilder.buildFromMapData(mapText);
       this.player.position.copy(spawnPoint);
 
       this.spawnEntities(entities);
+      this.logMessage(`Loaded dungeon map: ${mapPath}`, 'info');
     } catch (e) {
       console.error('Map loading error:', e);
     }

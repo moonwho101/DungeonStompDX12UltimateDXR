@@ -2,120 +2,61 @@ import * as THREE from './lib/three.module.js';
 import { audio } from './audio.js';
 
 export const MONSTER_TYPES = {
-  GOBLIN:     { hp: 35,  damage: 8,  speed: 65, color: 0x338833, scale: 0.8 },
-  OGRE:       { hp: 80,  damage: 22, speed: 45, color: 0xaa5522, scale: 1.4 },
-  KNIGHT:     { hp: 100, damage: 26, speed: 60, color: 0x8888aa, scale: 1.2 },
-  SORCERER:   { hp: 60,  damage: 30, speed: 50, color: 0xaa22aa, scale: 1.0, ranged: true },
-  TENTACLE:   { hp: 45,  damage: 14, speed: 40, color: 0x228888, scale: 0.9 },
-  WRAITH:     { hp: 90,  damage: 25, speed: 70, color: 0x4444ff, scale: 1.1 },
-  DRAGON:     { hp: 200, damage: 45, speed: 55, color: 0xcc2222, scale: 2.0 },
-  COBRA:      { hp: 30,  damage: 10, speed: 75, color: 0x88aa22, scale: 0.7 },
-  MUMMY:      { hp: 70,  damage: 18, speed: 38, color: 0xaaaa66, scale: 1.1 },
-  WOLF:       { hp: 40,  damage: 12, speed: 85, color: 0x666666, scale: 0.8 }
+  GOBLIN: { name: 'Goblin', hp: 30, damage: 8, color: 0x33aa33, scale: 30, xp: 20 },
+  OGRE: { name: 'Ogre', hp: 80, damage: 20, color: 0x886633, scale: 50, xp: 50 },
+  KNIGHT: { name: 'Death Knight', hp: 100, damage: 25, color: 0x555577, scale: 45, xp: 75 },
+  SORCERER: { name: 'Sorcerer', hp: 50, damage: 18, color: 0xaa33aa, scale: 40, xp: 60 },
+  TENTACLE: { name: 'Tentacle', hp: 40, damage: 12, color: 0x228888, scale: 35, xp: 30 },
+  DRAGON: { name: 'Dragon', hp: 200, damage: 45, color: 0xcc2222, scale: 70, xp: 200 },
+  WRAITH: { name: 'Wraith', hp: 60, damage: 15, color: 0x88aaff, scale: 40, xp: 70 },
+  COBRA: { name: 'Giant Cobra', hp: 35, damage: 10, color: 0x22aa55, scale: 30, xp: 25 },
+  MUMMY: { name: 'Mummy', hp: 70, damage: 16, color: 0xccbb88, scale: 40, xp: 45 },
+  WOLF: { name: 'Dire Wolf', hp: 45, damage: 14, color: 0x666666, scale: 35, xp: 35 }
 };
 
 export class Monster {
-  constructor(typeKey, x, y, z, rot = 0) {
-    this.typeKey = typeKey.toUpperCase();
-    this.data = MONSTER_TYPES[this.typeKey] || MONSTER_TYPES.GOBLIN;
-
-    this.hp = this.data.hp;
-    this.maxHp = this.data.hp;
-    this.speed = this.data.speed;
-    this.damage = this.data.damage;
-    this.isDead = false;
-
-    this.attackTimer = 0;
-    this.attackInterval = 1.2;
+  constructor(typeKey, x, y, z, rotDeg = 0) {
+    this.typeInfo = MONSTER_TYPES[typeKey] || MONSTER_TYPES.GOBLIN;
+    this.name = this.typeInfo.name;
+    this.maxHp = this.typeInfo.hp;
+    this.hp = this.maxHp;
+    this.damage = this.typeInfo.damage;
+    this.xp = this.typeInfo.xp;
 
     this.group = new THREE.Group();
-    this.group.position.set(x, y, z);
-    this.group.rotation.y = THREE.MathUtils.degToRad(rot);
+    this.group.position.set(x, y + this.typeInfo.scale / 2, z);
 
-    this.createMesh();
+    this.isDead = false;
+    this.attackCooldown = 0;
+    this.speed = 80;
+
+    this.buildMesh();
   }
 
-  createMesh() {
-    const s = this.data.scale;
+  buildMesh() {
+    const size = this.typeInfo.scale;
 
-    // Body Mesh
-    const bodyGeo = new THREE.CylinderGeometry(12 * s, 14 * s, 45 * s, 8);
+    // Body Billboard / Box
+    const bodyGeom = new THREE.BoxGeometry(size * 0.7, size, size * 0.7);
     const bodyMat = new THREE.MeshStandardMaterial({
-      color: this.data.color,
-      roughness: 0.6,
+      color: this.typeInfo.color,
+      roughness: 0.5,
       metalness: 0.2
     });
-    this.body = new THREE.Mesh(bodyGeo, bodyMat);
-    this.body.position.y = (45 * s) / 2;
-    this.body.castShadow = true;
-    this.body.receiveShadow = true;
+    this.bodyMesh = new THREE.Mesh(bodyGeom, bodyMat);
+    this.group.add(this.bodyMesh);
 
     // Eyes
-    const eyeGeo = new THREE.SphereGeometry(3 * s, 6, 6);
+    const eyeGeom = new THREE.SphereGeometry(size * 0.1, 8, 8);
     const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
 
-    const eyeL = new THREE.Mesh(eyeGeo, eyeMat);
-    eyeL.position.set(-5 * s, 15 * s, -12 * s);
+    const leftEye = new THREE.Mesh(eyeGeom, eyeMat);
+    leftEye.position.set(-size * 0.2, size * 0.25, size * 0.35);
+    this.group.add(leftEye);
 
-    const eyeR = new THREE.Mesh(eyeGeo, eyeMat);
-    eyeR.position.set(5 * s, 15 * s, -12 * s);
-
-    this.group.add(this.body, eyeL, eyeR);
-  }
-
-  update(dt, player, onLog) {
-    if (this.isDead) return;
-
-    if (this.attackTimer > 0) {
-      this.attackTimer -= dt;
-    }
-
-    const mPos = this.group.position;
-    const pPos = player.position;
-
-    const dx = pPos.x - mPos.x;
-    const dz = pPos.z - mPos.z;
-    const distSq = dx * dx + dz * dz;
-    const dist = Math.sqrt(distSq);
-
-    // Perception radius
-    const sightRange = 480;
-    const attackRange = this.data.ranged ? 280 : 42;
-
-    if (dist < sightRange && dist > 5) {
-      // Face player
-      const targetAngle = Math.atan2(dx, dz);
-      this.group.rotation.y = THREE.MathUtils.lerp(this.group.rotation.y, targetAngle, dt * 5);
-
-      // Seek movement if not in attack range
-      if (dist > attackRange) {
-        const moveDist = this.speed * dt;
-        mPos.x += (dx / dist) * moveDist;
-        mPos.z += (dz / dist) * moveDist;
-      } else {
-        // Attack
-        if (this.attackTimer <= 0) {
-          this.attackTimer = this.attackInterval;
-          this.attackPlayer(player, onLog);
-        }
-      }
-    }
-  }
-
-  attackPlayer(player, onLog) {
-    const rawDmg = Math.round(this.damage * (0.8 + Math.random() * 0.4));
-    player.hp = Math.max(0, player.hp - rawDmg);
-    audio.playHit();
-
-    if (onLog) {
-      onLog(`${this.typeKey} hits you for ${rawDmg} damage!`, 'damage');
-    }
-
-    // Visual strike animation
-    this.group.position.y += 8;
-    setTimeout(() => {
-      this.group.position.y -= 8;
-    }, 120);
+    const rightEye = new THREE.Mesh(eyeGeom, eyeMat);
+    rightEye.position.set(size * 0.2, size * 0.25, size * 0.35);
+    this.group.add(rightEye);
   }
 
   takeDamage(amount, player, onLog) {
@@ -125,18 +66,7 @@ export class Monster {
     audio.playHit();
 
     if (onLog) {
-      onLog(`You hit ${this.typeKey} for ${amount} damage! (${Math.max(0, this.hp)} HP)`, 'info');
-    }
-
-    // Hit flash / nudge
-    if (this.body) {
-      const origColor = this.body.material.color.getHex();
-      this.body.material.color.setHex(0xffffff);
-      setTimeout(() => {
-        if (this.body && this.body.material) {
-          this.body.material.color.setHex(origColor);
-        }
-      }, 100);
+      onLog(`Dealt ${Math.round(amount)} damage to ${this.name}!`, 'damage');
     }
 
     if (this.hp <= 0) {
@@ -146,15 +76,42 @@ export class Monster {
 
   die(player, onLog) {
     this.isDead = true;
-    const xpGained = Math.round(this.maxHp * 0.8);
-    player.xp += xpGained;
+    this.group.rotation.x = Math.PI / 2;
+    this.group.position.y = 5;
 
-    if (onLog) {
-      onLog(`${this.typeKey} defeated! +${xpGained} XP`, 'pickup');
+    if (player) {
+      player.addXP(this.xp, onLog);
     }
 
-    // Collapse to floor
-    this.group.rotation.x = Math.PI / 2;
-    this.group.position.y = 8;
+    if (onLog) {
+      onLog(`Killed ${this.name}! (+${this.xp} XP)`, 'heal');
+    }
+  }
+
+  update(dt, player, onLog) {
+    if (this.isDead) return;
+
+    this.attackCooldown -= dt;
+
+    const mPos = this.group.position;
+    const pPos = player.position;
+
+    const dist = mPos.distanceTo(pPos);
+
+    // Look at player
+    this.group.lookAt(pPos.x, mPos.y, pPos.z);
+
+    // Steering / Pursuit
+    if (dist > 40 && dist < 500) {
+      const dir = pPos.clone().sub(mPos).normalize();
+      mPos.addScaledVector(dir, this.speed * dt);
+    }
+
+    // Attack Player
+    if (dist <= 50 && this.attackCooldown <= 0) {
+      this.attackCooldown = 1.5;
+      player.takeDamage(this.damage, onLog);
+      audio.playHit();
+    }
   }
 }
