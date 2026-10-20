@@ -314,6 +314,32 @@ function generatePathVariations(filepath) {
     return Array.from(set);
 }
 
+function computeMD2FrameBoundingBox(mesh, frameIndex = 0) {
+    const geometry = mesh.geometry;
+    if (!geometry) return new THREE.Box3().setFromObject(mesh);
+
+    mesh.updateMatrixWorld(true);
+
+    const morphPositions = geometry.morphAttributes && geometry.morphAttributes.position;
+    let posAttr = (morphPositions && morphPositions.length > frameIndex)
+        ? morphPositions[frameIndex]
+        : geometry.attributes.position;
+
+    if (!posAttr) return new THREE.Box3().setFromObject(mesh);
+
+    const box = new THREE.Box3();
+    const v = new THREE.Vector3();
+    const array = posAttr.array;
+
+    for (let i = 0; i < array.length; i += 3) {
+        v.set(array[i], array[i + 1], array[i + 2]);
+        v.applyMatrix4(mesh.matrixWorld);
+        box.expandByPoint(v);
+    }
+
+    return box;
+}
+
 async function loadMD2Geometry(modelDef) {
     if (!modelDef || !modelDef.filepath) return null;
     const key = modelDef.filepath.toLowerCase();
@@ -508,8 +534,8 @@ async function loadGameWorld() {
                         scene.add(mesh);
                         builtObjectCount++;
 
-                        // Add bounding box for MD2 model collision
-                        const box = new THREE.Box3().setFromObject(mesh);
+                        // Add bounding box for MD2 model collision based on current/first frame geometry
+                        const box = computeMD2FrameBoundingBox(mesh, 0);
                         if (!box.isEmpty()) {
                             modelBoxes.push(box);
                         }
