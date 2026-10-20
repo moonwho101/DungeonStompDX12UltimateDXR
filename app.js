@@ -325,11 +325,14 @@ async function load3DSModel(modelDef) {
             });
 
             if (object3ds) {
-                // Fix old 3DS coordinate system
-                //object3ds.rotation.x = -Math.PI / 2;
-                //object3ds.updateMatrixWorld(true);
-                tdsModelCache.set(key, object3ds);
-                return object3ds;
+                // 3DS is Z-up: tilt -90deg about X to Y-up. Z rotation is applied first, so it
+                // spins the model about its own up axis. The wrapper keeps the root free for
+                // per-instance scale/position/yaw.
+                object3ds.rotation.set(-Math.PI / 2, 0, Math.PI / 2);
+                const wrapper = new THREE.Group();
+                wrapper.add(object3ds);
+                tdsModelCache.set(key, wrapper);
+                return wrapper;
             }
         } catch (e) {
             // Try next variant
