@@ -5,6 +5,429 @@ import { TextureManager, ObjectsDatParser, LevelMapParser, ModelListParser } fro
 import { TDSLoader } from 'three/addons/loaders/TDSLoader.js';
 import { MD2Loader } from 'three/addons/loaders/MD2Loader.js';
 
+// Monster AI Finite State Machine & Animation Definitions
+export const MonsterState = Object.freeze({
+    IDLE: 'IDLE',
+    ALERT: 'ALERT',
+    CHASE: 'CHASE',
+    ATTACK: 'ATTACK',
+    HURT: 'HURT',
+    DEATH: 'DEATH'
+});
+
+export const MD2_ANIMATIONS = Object.freeze({
+    STAND:  { name: 'STAND',  start: 0,   end: 39,  fps: 9,  loop: true },
+    RUN:    { name: 'RUN',    start: 40,  end: 45,  fps: 10, loop: true },
+    ATTACK: { name: 'ATTACK', start: 46,  end: 53,  fps: 10, loop: false },
+    PAIN1:  { name: 'PAIN1',  start: 54,  end: 57,  fps: 8,  loop: false },
+    PAIN2:  { name: 'PAIN2',  start: 58,  end: 61,  fps: 8,  loop: false },
+    PAIN3:  { name: 'PAIN3',  start: 62,  end: 65,  fps: 8,  loop: false },
+    JUMP:   { name: 'JUMP',   start: 66,  end: 71,  fps: 10, loop: false },
+    FLIP:   { name: 'FLIP',   start: 72,  end: 83,  fps: 10, loop: false },
+    SALUTE: { name: 'SALUTE', start: 84,  end: 94,  fps: 9,  loop: false },
+    TAUNT:  { name: 'TAUNT',  start: 95,  end: 111, fps: 9,  loop: false },
+    WAVE:   { name: 'WAVE',   start: 112, end: 122, fps: 9,  loop: false },
+    POINT:  { name: 'POINT',  start: 123, end: 134, fps: 9,  loop: false },
+    DEATH1: { name: 'DEATH1', start: 178, end: 183, fps: 7,  loop: false },
+    DEATH2: { name: 'DEATH2', start: 184, end: 189, fps: 7,  loop: false },
+    DEATH3: { name: 'DEATH3', start: 190, end: 197, fps: 7,  loop: false }
+});
+
+export const DEFAULT_MONSTER_CONFIG = Object.freeze({
+    moveSpeed: 165.0,
+    turnRate: 6.0,          // radians per second
+    aggroRadius: 800.0,     // detection distance to player
+    deaggroRadius: 1200.0,  // distance to lose interest and return to idle
+    attackRange: 85.0,      // melee attack trigger range
+    stopDistance: 60.0,     // minimum distance to maintain when attacking/moving
+    alertDuration: 0.6,     // time spent in ALERT before entering CHASE
+    damage: 10,
+    maxHealth: 100,
+    animations: MD2_ANIMATIONS
+});
+
+export const MONSTER_CONFIGS = {
+    GOBLIN: {
+        ...DEFAULT_MONSTER_CONFIG,
+        moveSpeed: 190.0,
+        attackRange: 75.0,
+        aggroRadius: 750.0,
+        damage: 6,
+        maxHealth: 30
+    },
+    KNIGHT: {
+        ...DEFAULT_MONSTER_CONFIG,
+        moveSpeed: 150.0,
+        attackRange: 95.0,
+        aggroRadius: 850.0,
+        damage: 15,
+        maxHealth: 120
+    },
+    BAUUL: {
+        ...DEFAULT_MONSTER_CONFIG,
+        moveSpeed: 140.0,
+        attackRange: 110.0,
+        aggroRadius: 900.0,
+        damage: 20,
+        maxHealth: 150
+    },
+    OGRE: {
+        ...DEFAULT_MONSTER_CONFIG,
+        moveSpeed: 130.0,
+        attackRange: 120.0,
+        aggroRadius: 800.0,
+        damage: 25,
+        maxHealth: 180
+    },
+    WRAITH: {
+        ...DEFAULT_MONSTER_CONFIG,
+        moveSpeed: 180.0,
+        attackRange: 180.0,
+        aggroRadius: 950.0,
+        damage: 12,
+        maxHealth: 80
+    }
+};
+
+export function getMonsterConfig(name) {
+    if (!name) return DEFAULT_MONSTER_CONFIG;
+    const clean = name.toUpperCase().trim();
+    if (MONSTER_CONFIGS[clean]) return MONSTER_CONFIGS[clean];
+    for (const key in MONSTER_CONFIGS) {
+        if (clean.includes(key)) return MONSTER_CONFIGS[key];
+    }
+    return DEFAULT_MONSTER_CONFIG;
+}
+
+export class Monster {
+    constructor(mesh, weaponMesh = null, config = DEFAULT_MONSTER_CONFIG, initialPosition, initialRotationY = 0) {
+        this.mesh = mesh;
+        this.weaponMesh = weaponMesh;
+        this.config = { ...DEFAULT_MONSTER_CONFIG, ...config };
+
+        this.position = initialPosition.clone();
+        this.rotationY = initialRotationY;
+        this.mesh.position.copy(this.position);
+        this.mesh.rotation.y = this.rotationY - Math.PI / 2;
+
+        if (this.weaponMesh) {
+            this.weaponMesh.position.copy(this.position);
+            this.weaponMesh.rotation.y = this.rotationY - Math.PI / 2;
+        }
+
+        this.state = MonsterState.IDLE;
+        this.health = this.config.maxHealth;
+
+        // Timers & State control
+        this.alertTimer = 0.0;
+        this.stateTimer = 0.0;
+        this.attackCooldown = 0.0;
+
+        // Animation state tracking
+        this.currentAnim = this.config.animations.STAND;
+        this.animTimer = 0.0;
+        this.animComplete = false;
+
+        // Cross-fading for smooth state transitions
+        this.prevAnimFrames = null;
+        this.fadeTimer = 0.0;
+        this.fadeDuration = 0.15; // 150ms cross-fade
+
+        // Active morph target influences set tracking
+        this.activeInfluences = new Set();
+
+        // Bounding box for dynamic collision
+        this.boundingBox = new THREE.Box3();
+        this.updateBoundingBox();
+
+        // Apply initial animation pose
+        this.setAnimation(this.config.animations.STAND, true);
+        this.updateMorphTargets(0);
+    }
+
+    updateBoundingBox() {
+        if (!this.mesh) return;
+        const curPose = this.getCurrentPose();
+        computeMD2FrameBoundingBox(this.mesh, curPose.frameA, this.boundingBox);
+    }
+
+    setAnimation(animDef, forceReset = false) {
+        if (!animDef) return;
+        if (this.currentAnim === animDef && !forceReset) return;
+
+        // Save current frame pose for smooth cross-fading
+        if (!forceReset && this.currentAnim) {
+            this.prevAnimFrames = this.getCurrentPose();
+            this.fadeTimer = 0.0;
+        } else {
+            this.prevAnimFrames = null;
+        }
+
+        this.currentAnim = animDef;
+        this.animTimer = 0.0;
+        this.animComplete = false;
+    }
+
+    getCurrentPose() {
+        const anim = this.currentAnim;
+        const totalFrames = anim.end - anim.start + 1;
+        const progress = this.animTimer * anim.fps;
+
+        let frameA, frameB, alpha;
+        if (anim.loop) {
+            const frameIdx = progress % totalFrames;
+            frameA = anim.start + Math.floor(frameIdx);
+            frameB = anim.start + ((Math.floor(frameIdx) + 1) % totalFrames);
+            alpha = frameIdx - Math.floor(frameIdx);
+        } else {
+            const frameIdx = Math.min(progress, totalFrames - 1);
+            frameA = anim.start + Math.floor(frameIdx);
+            frameB = anim.start + Math.min(Math.floor(frameIdx) + 1, totalFrames - 1);
+            alpha = frameIdx - Math.floor(frameIdx);
+        }
+
+        return { frameA, frameB, alpha };
+    }
+
+    updateMorphTargets(delta) {
+        const meshGeometry = this.mesh ? this.mesh.geometry : null;
+        if (!meshGeometry || !meshGeometry.morphAttributes || !meshGeometry.morphAttributes.position) {
+            return;
+        }
+
+        const influences = this.mesh.morphTargetInfluences;
+        if (!influences) return;
+
+        // Reset previously active morph influences to 0
+        for (const idx of this.activeInfluences) {
+            if (idx >= 0 && idx < influences.length) {
+                influences[idx] = 0;
+            }
+        }
+        this.activeInfluences.clear();
+
+        // Advance animation timer
+        this.animTimer += delta;
+
+        const anim = this.currentAnim;
+        const totalFrames = anim.end - anim.start + 1;
+        const totalDuration = totalFrames / anim.fps;
+
+        if (!anim.loop && this.animTimer >= totalDuration) {
+            this.animComplete = true;
+        }
+
+        const curPose = this.getCurrentPose();
+        const finalWeights = new Map();
+
+        if (this.prevAnimFrames && this.fadeTimer < this.fadeDuration) {
+            this.fadeTimer += delta;
+            const blend = Math.min(1.0, this.fadeTimer / this.fadeDuration);
+            const invBlend = 1.0 - blend;
+
+            const pA = this.prevAnimFrames.frameA;
+            const pB = this.prevAnimFrames.frameB;
+            const pAlpha = this.prevAnimFrames.alpha;
+
+            finalWeights.set(pA, (finalWeights.get(pA) || 0) + (1 - pAlpha) * invBlend);
+            finalWeights.set(pB, (finalWeights.get(pB) || 0) + pAlpha * invBlend);
+
+            const cA = curPose.frameA;
+            const cB = curPose.frameB;
+            const cAlpha = curPose.alpha;
+
+            finalWeights.set(cA, (finalWeights.get(cA) || 0) + (1 - cAlpha) * blend);
+            finalWeights.set(cB, (finalWeights.get(cB) || 0) + cAlpha * blend);
+        } else {
+            this.prevAnimFrames = null;
+            const cA = curPose.frameA;
+            const cB = curPose.frameB;
+            const cAlpha = curPose.alpha;
+
+            finalWeights.set(cA, (1 - cAlpha));
+            if (cAlpha > 1e-4) {
+                finalWeights.set(cB, (finalWeights.get(cB) || 0) + cAlpha);
+            }
+        }
+
+        // Apply calculated weights to mesh influences
+        for (const [frameIdx, weight] of finalWeights.entries()) {
+            if (frameIdx >= 0 && frameIdx < influences.length && weight > 0.001) {
+                influences[frameIdx] = weight;
+                this.activeInfluences.add(frameIdx);
+            }
+        }
+
+        // Apply identical morph target weights to attached weapon mesh if available
+        if (this.weaponMesh && this.weaponMesh.morphTargetInfluences) {
+            const wInfluences = this.weaponMesh.morphTargetInfluences;
+            for (let i = 0; i < wInfluences.length; i++) {
+                wInfluences[i] = 0;
+            }
+            for (const [frameIdx, weight] of finalWeights.entries()) {
+                if (frameIdx >= 0 && frameIdx < wInfluences.length && weight > 0.001) {
+                    wInfluences[frameIdx] = weight;
+                }
+            }
+        }
+    }
+
+    update(delta, playerPos, otherMonsters) {
+        if (this.state === MonsterState.DEATH) {
+            this.updateMorphTargets(delta);
+            return;
+        }
+
+        const dt = Math.min(delta, 0.1);
+        this.stateTimer += dt;
+
+        if (this.attackCooldown > 0) {
+            this.attackCooldown = Math.max(0, this.attackCooldown - dt);
+        }
+
+        const dx = playerPos.x - this.position.x;
+        const dz = playerPos.z - this.position.z;
+        const distToPlayer = Math.sqrt(dx * dx + dz * dz);
+        const targetAngle = Math.atan2(dx, dz);
+
+        switch (this.state) {
+            case MonsterState.IDLE:
+                this.setAnimation(this.config.animations.STAND);
+                if (distToPlayer <= this.config.aggroRadius) {
+                    this.setState(MonsterState.ALERT);
+                }
+                break;
+
+            case MonsterState.ALERT:
+                this.setAnimation(this.config.animations.STAND);
+                this.smoothTurn(targetAngle, dt);
+
+                if (distToPlayer > this.config.deaggroRadius) {
+                    this.setState(MonsterState.IDLE);
+                } else if (distToPlayer <= this.config.attackRange) {
+                    this.setState(MonsterState.ATTACK);
+                } else if (this.stateTimer >= this.config.alertDuration) {
+                    this.setState(MonsterState.CHASE);
+                }
+                break;
+
+            case MonsterState.CHASE:
+                this.setAnimation(this.config.animations.RUN);
+                this.smoothTurn(targetAngle, dt);
+
+                if (distToPlayer <= this.config.attackRange) {
+                    this.setState(MonsterState.ATTACK);
+                } else if (distToPlayer > this.config.deaggroRadius) {
+                    this.setState(MonsterState.IDLE);
+                } else {
+                    if (distToPlayer > this.config.stopDistance) {
+                        this.moveForward(dt, otherMonsters);
+                    }
+                }
+                break;
+
+            case MonsterState.ATTACK:
+                this.setAnimation(this.config.animations.ATTACK);
+                if (this.stateTimer < 0.2) {
+                    this.smoothTurn(targetAngle, dt);
+                }
+
+                if (this.animComplete) {
+                    this.attackCooldown = 0.5;
+                    if (distToPlayer <= this.config.attackRange) {
+                        this.setState(MonsterState.CHASE);
+                    } else if (distToPlayer <= this.config.deaggroRadius) {
+                        this.setState(MonsterState.CHASE);
+                    } else {
+                        this.setState(MonsterState.IDLE);
+                    }
+                }
+                break;
+
+            case MonsterState.HURT:
+                if (this.animComplete) {
+                    this.setState(MonsterState.CHASE);
+                }
+                break;
+        }
+
+        this.mesh.position.copy(this.position);
+        this.mesh.rotation.y = this.rotationY - Math.PI / 2;
+
+        if (this.weaponMesh) {
+            this.weaponMesh.position.copy(this.position);
+            this.weaponMesh.rotation.y = this.rotationY - Math.PI / 2;
+        }
+
+        this.updateMorphTargets(dt);
+        this.updateBoundingBox();
+    }
+
+    setState(newState) {
+        if (this.state === newState || this.state === MonsterState.DEATH) return;
+        this.state = newState;
+        this.stateTimer = 0.0;
+    }
+
+    smoothTurn(targetAngle, dt) {
+        let diff = targetAngle - this.rotationY;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+
+        const maxTurn = this.config.turnRate * dt;
+        const turn = Math.max(-maxTurn, Math.min(maxTurn, diff));
+        this.rotationY += turn;
+    }
+
+    moveForward(dt, otherMonsters) {
+        const moveDist = this.config.moveSpeed * dt;
+        const dirX = Math.sin(this.rotationY);
+        const dirZ = Math.cos(this.rotationY);
+
+        let newX = this.position.x + dirX * moveDist;
+        let newZ = this.position.z + dirZ * moveDist;
+
+        if (otherMonsters) {
+            const minMonsterDist = 50.0;
+            for (const other of otherMonsters) {
+                if (other === this || other.state === MonsterState.DEATH) continue;
+                const mdx = newX - other.position.x;
+                const mdz = newZ - other.position.z;
+                const mdistSq = mdx * mdx + mdz * mdz;
+                if (mdistSq < minMonsterDist * minMonsterDist && mdistSq > 0.001) {
+                    const mdist = Math.sqrt(mdistSq);
+                    const push = (minMonsterDist - mdist) * 0.5;
+                    newX += (mdx / mdist) * push;
+                    newZ += (mdz / mdist) * push;
+                }
+            }
+        }
+
+        this.position.x = newX;
+        this.position.z = newZ;
+
+        // Resolve capsule collisions against level geometry and model bounding boxes
+        resolveMonsterCapsuleCollisions(this);
+    }
+
+    takeDamage(damage) {
+        if (this.state === MonsterState.DEATH) return;
+        this.health -= damage;
+        if (this.health <= 0) {
+            this.health = 0;
+            this.setState(MonsterState.DEATH);
+            const deaths = [this.config.animations.DEATH1, this.config.animations.DEATH2, this.config.animations.DEATH3];
+            const chosenDeath = deaths[Math.floor(Math.random() * deaths.length)];
+            this.setAnimation(chosenDeath, true);
+        } else {
+            this.setState(MonsterState.HURT);
+            const pains = [this.config.animations.PAIN1, this.config.animations.PAIN2, this.config.animations.PAIN3];
+            const chosenPain = pains[Math.floor(Math.random() * pains.length)];
+            this.setAnimation(chosenPain, true);
+        }
+    }
+}
+
 let camera, scene, renderer, controls;
 let moveForward = false;
 let moveBackward = false;
@@ -27,6 +450,7 @@ const worldDir = new THREE.Vector3();
 // Level Objects & Distance Culling
 const RENDER_DISTANCE = 3000.0;
 const levelObjects = [];
+const monsters = [];
 
 // Spatial Collision Structures
 const levelTriangles = [];
@@ -70,6 +494,11 @@ const PLAYER_GUNS = [
 ];
 let currentGunIndex = 0;
 let currentGunMesh = null;
+
+let playerWeaponAnimTimer = 0.0;
+let playerWeaponCurrentAnim = MD2_ANIMATIONS.STAND;
+let playerWeaponActiveInfluences = new Set();
+let isWeaponAttacking = false;
 
 const defaultCanvas = document.createElement('canvas');
 defaultCanvas.width = 128;
@@ -210,6 +639,12 @@ async function init() {
     document.addEventListener('keydown', onKeyDown);
     document.addEventListener('keyup', onKeyUp);
 
+    document.addEventListener('mousedown', (event) => {
+        if (event.button === 0 && controls && controls.isLocked) {
+            triggerWeaponAttack();
+        }
+    });
+
     window.addEventListener('resize', onWindowResize);
 
     // Load Game Data & Build Map
@@ -221,6 +656,10 @@ async function init() {
     window.camera = camera;
     window.controls = controls;
     window.scene = scene;
+    window.monsters = monsters;
+    Object.defineProperty(window, 'playerWeaponCurrentAnim', {
+        get: () => playerWeaponCurrentAnim
+    });
 
     prevTime = performance.now();
     animate();
@@ -303,49 +742,58 @@ function getTexture(texAlias, onLoadCallback) {
 }
 
 function generatePathVariations(filepath) {
-    const parts = filepath.split('/');
-    if (parts.length < 4) return [filepath];
+    if (!filepath) return [];
+    let clean = filepath.replace(/\\/g, '/');
+    while (clean.startsWith('../') || clean.startsWith('./')) {
+        clean = clean.substring(clean.indexOf('/') + 1);
+    }
+    if (clean.toLowerCase().startsWith('models/')) {
+        clean = clean.substring(7);
+    }
 
-    const dirs0 = [parts[0], 'Models', 'models'];
-    const dirs1 = [parts[1], 'Players', 'players'];
+    const parts = clean.split('/');
+    if (parts.length < 3) {
+        return [
+            `Models/${clean}`,
+            `Models/${clean.toLowerCase()}`,
+            `Models/${clean.toUpperCase()}`
+        ];
+    }
 
-    const folder = parts[2];
-    const capFolder = folder.charAt(0).toUpperCase() + folder.slice(1).toLowerCase();
-    const dirs2 = [folder, folder.toLowerCase(), capFolder, folder.toUpperCase()];
+    const d1 = parts[0];
+    const d2 = parts[1];
+    const file = parts[2];
 
-    const file = parts[3];
+    const d2Cap = d2.charAt(0).toUpperCase() + d2.slice(1).toLowerCase();
+
     const dotIdx = file.lastIndexOf('.');
     const base = dotIdx !== -1 ? file.substring(0, dotIdx) : file;
     const ext = dotIdx !== -1 ? file.substring(dotIdx) : '';
 
-    const capBase = base.charAt(0).toUpperCase() + base.slice(1).toLowerCase();
-    const baseVars = [base, base.toLowerCase(), capBase, base.toUpperCase()];
-    const extVars = [ext, ext.toLowerCase(), ext.toUpperCase(), '.md2', '.MD2', '.3ds', '.3DS'];
+    const paths = [
+        `Models/Players/${d2Cap}/${base.toLowerCase()}${ext.toLowerCase()}`,
+        `Models/Players/${d2Cap}/${base.toLowerCase()}${ext.toUpperCase()}`,
+        `Models/Players/${d2.toLowerCase()}/${base.toLowerCase()}${ext.toLowerCase()}`,
+        `Models/Players/${d2.toLowerCase()}/${base.toLowerCase()}${ext.toUpperCase()}`,
+        `Models/Players/${d2.toLowerCase()}/${base}${ext}`,
+        `Models/3ds/${d2Cap}/${base.toLowerCase()}${ext.toLowerCase()}`,
+        `Models/3ds/${d2.toLowerCase()}/${base.toLowerCase()}${ext.toLowerCase()}`
+    ];
 
-    const fileVars = [];
-    for (const b of baseVars) {
-        for (const e of extVars) {
-            fileVars.push(b + e);
-        }
-    }
-
-    const set = new Set();
-    set.add(filepath);
-    for (const d0 of dirs0) {
-        for (const d1 of dirs1) {
-            for (const d2 of dirs2) {
-                for (const f of fileVars) {
-                    set.add(`${d0}/${d1}/${d2}/${f}`);
-                }
-            }
-        }
-    }
-    return Array.from(set);
+    return [...new Set(paths)];
 }
 
-function computeMD2FrameBoundingBox(mesh, frameIndex = 0) {
+const _tempMD2Vec = new THREE.Vector3();
+
+function computeMD2FrameBoundingBox(mesh, frameIndex = 0, targetBox = null) {
+    const box = targetBox || new THREE.Box3();
+    box.makeEmpty();
+
     const geometry = mesh.geometry;
-    if (!geometry) return new THREE.Box3().setFromObject(mesh);
+    if (!geometry) {
+        box.setFromObject(mesh);
+        return box;
+    }
 
     mesh.updateMatrixWorld(true);
 
@@ -354,16 +802,16 @@ function computeMD2FrameBoundingBox(mesh, frameIndex = 0) {
         ? morphPositions[frameIndex]
         : geometry.attributes.position;
 
-    if (!posAttr) return new THREE.Box3().setFromObject(mesh);
+    if (!posAttr) {
+        box.setFromObject(mesh);
+        return box;
+    }
 
-    const box = new THREE.Box3();
-    const v = new THREE.Vector3();
     const array = posAttr.array;
-
     for (let i = 0; i < array.length; i += 3) {
-        v.set(array[i], array[i + 1], array[i + 2]);
-        v.applyMatrix4(mesh.matrixWorld);
-        box.expandByPoint(v);
+        _tempMD2Vec.set(array[i], array[i + 1], array[i + 2]);
+        _tempMD2Vec.applyMatrix4(mesh.matrixWorld);
+        box.expandByPoint(_tempMD2Vec);
     }
 
     return box;
@@ -373,77 +821,80 @@ async function loadMD2Geometry(modelDef) {
     if (!modelDef || !modelDef.filepath) return null;
     const key = modelDef.filepath.toLowerCase();
     if (md2GeometryCache.has(key)) {
-        return md2GeometryCache.get(key);
+        return await md2GeometryCache.get(key);
     }
 
-    const uniquePaths = generatePathVariations(modelDef.filepath);
+    const loadPromise = (async () => {
+        const uniquePaths = generatePathVariations(modelDef.filepath);
 
-    for (const path of uniquePaths) {
-        try {
-            const geometry = await new Promise((resolve, reject) => {
-                md2Loader.load(path, resolve, undefined, reject);
-            });
+        for (const path of uniquePaths) {
+            try {
+                const geometry = await new Promise((resolve, reject) => {
+                    md2Loader.load(path, resolve, undefined, reject);
+                });
 
-            if (geometry) {
-                console.log(`Successfully loaded MD2 at ${path}`);
-                md2GeometryCache.set(key, geometry);
-                return geometry;
+                if (geometry) {
+                    console.log(`Successfully loaded MD2 at ${path}`);
+                    return geometry;
+                }
+            } catch (e) {
+                // Try next variant
             }
-        } catch (e) {
-            // Try next variant
         }
-    }
 
-    console.warn(`Could not load MD2 model at ${modelDef.filepath}`);
-    md2GeometryCache.set(key, null);
-    return null;
+        console.warn(`Could not load MD2 model at ${modelDef.filepath}`);
+        return null;
+    })();
+
+    md2GeometryCache.set(key, loadPromise);
+    return await loadPromise;
 }
 
 async function load3DSModel(modelDef) {
     if (!modelDef || !modelDef.filepath) return null;
     const key = modelDef.filepath.toLowerCase();
     if (tdsModelCache.has(key)) {
-        return tdsModelCache.get(key);
+        return await tdsModelCache.get(key);
     }
 
-    const possiblePaths = [
-        modelDef.filepath,
-        modelDef.filepath.toLowerCase(),
-        modelDef.filepath.replace(/^models\//i, 'Models/').replace(/\.3ds$/i, '.3DS'),
-        modelDef.filepath.replace(/^textures\//i, 'Textures/').replace(/\.3ds$/i, '.3DS'),
-        modelDef.filepath.replace(/^models\//i, 'Models/').replace(/\.3ds$/i, '.3ds'),
-        modelDef.filepath.replace(/^textures\//i, 'Textures/').replace(/\.3ds$/i, '.3ds')
-    ];
-    const uniquePaths = [...new Set(possiblePaths)];
+    const loadPromise = (async () => {
+        const possiblePaths = [
+            modelDef.filepath,
+            modelDef.filepath.toLowerCase(),
+            modelDef.filepath.replace(/^models\//i, 'Models/').replace(/\.3ds$/i, '.3DS'),
+            modelDef.filepath.replace(/^textures\//i, 'Textures/').replace(/\.3ds$/i, '.3DS'),
+            modelDef.filepath.replace(/^models\//i, 'Models/').replace(/\.3ds$/i, '.3ds'),
+            modelDef.filepath.replace(/^textures\//i, 'Textures/').replace(/\.3ds$/i, '.3ds')
+        ];
+        const uniquePaths = [...new Set(possiblePaths)];
 
-    for (const path of uniquePaths) {
-        try {
-            const lastSlash = path.lastIndexOf('/');
-            const dir = lastSlash !== -1 ? path.substring(0, lastSlash + 1) : '';
-            tdsLoader.setResourcePath(dir);
+        for (const path of uniquePaths) {
+            try {
+                const lastSlash = path.lastIndexOf('/');
+                const dir = lastSlash !== -1 ? path.substring(0, lastSlash + 1) : '';
+                tdsLoader.setResourcePath(dir);
 
-            const object3ds = await new Promise((resolve, reject) => {
-                tdsLoader.load(path, resolve, undefined, reject);
-            });
+                const object3ds = await new Promise((resolve, reject) => {
+                    tdsLoader.load(path, resolve, undefined, reject);
+                });
 
-            if (object3ds) {
-                // 3DS is Z-up: tilt -90deg about X to Y-up. Z rotation is applied first, so it
-                // spins the model about its own up axis. The wrapper keeps the root free for
-                // per-instance scale/position/yaw.
-                object3ds.rotation.set(-Math.PI / 2, 0, Math.PI / 2);
-                const wrapper = new THREE.Group();
-                wrapper.add(object3ds);
-                tdsModelCache.set(key, wrapper);
-                return wrapper;
+                if (object3ds) {
+                    object3ds.rotation.set(-Math.PI / 2, 0, Math.PI / 2);
+                    const wrapper = new THREE.Group();
+                    wrapper.add(object3ds);
+                    return wrapper;
+                }
+            } catch (e) {
+                // Try next variant
             }
-        } catch (e) {
-            // Try next variant
         }
-    }
 
-    console.warn(`Could not load 3DS model at ${modelDef.filepath}`);
-    tdsModelCache.set(key, null);
-    return null;
+        console.warn(`Could not load 3DS model at ${modelDef.filepath}`);
+        return null;
+    })();
+
+    tdsModelCache.set(key, loadPromise);
+    return await loadPromise;
 }
 
 async function loadGameWorld() {
@@ -463,6 +914,7 @@ async function loadGameWorld() {
 
     // Reset level objects tracking
     levelObjects.length = 0;
+    monsters.length = 0;
 
     // Set initial camera position
     controls.getObject().position.set(startPos.x, startPos.y, startPos.z);
@@ -560,13 +1012,14 @@ async function loadGameWorld() {
                         mesh.position.set(inst.x, inst.y + 50, inst.z);
 
                         const angleRad = (inst.rot * Math.PI) / 180.0;
-                        mesh.rotation.y = angleRad;
+                        mesh.rotation.y = angleRad - Math.PI / 2;
 
                         scene.add(mesh);
                         levelObjects.push({ mesh: mesh, position: new THREE.Vector3(inst.x, inst.y + 50, inst.z) });
                         builtObjectCount++;
 
                         // Draw monster weapon if present
+                        let weaponMesh = null;
                         if (modelDef.monsterWeapon && modelDef.monsterWeapon.toUpperCase() !== 'NONE') {
                             const weaponDef = modelListParser.getModelByName(modelDef.monsterWeapon);
                             if (weaponDef) {
@@ -583,37 +1036,42 @@ async function loadGameWorld() {
                                             });
                                             weaponMat.map = wTex;
                                         }
-                                        const weaponMesh = new THREE.Mesh(weaponGeom, weaponMat);
+                                        weaponMesh = new THREE.Mesh(weaponGeom, weaponMat);
                                         weaponMesh.scale.set(weaponScale, weaponScale, weaponScale);
                                         weaponMesh.position.set(inst.x, inst.y + 50, inst.z);
-                                        weaponMesh.rotation.y = angleRad;
+                                        weaponMesh.rotation.y = angleRad - Math.PI / 2;
                                         scene.add(weaponMesh);
                                         levelObjects.push({ mesh: weaponMesh, position: new THREE.Vector3(inst.x, inst.y + 50, inst.z) });
                                     }
                                 } else if (weaponDef.format === '3DS' || weaponDef.filepath.toLowerCase().endsWith('.3ds')) {
                                     const weaponTemplate = await load3DSModel(weaponDef);
                                     if (weaponTemplate) {
-                                        const weaponModel = weaponTemplate.clone(true);
+                                        weaponMesh = weaponTemplate.clone(true);
                                         const weaponScale = weaponDef.scale || scaleFactor;
-                                        weaponModel.scale.set(weaponScale, weaponScale, weaponScale);
-                                        weaponModel.position.set(inst.x, inst.y + 50, inst.z);
-                                        weaponModel.rotation.y = angleRad;
-                                        weaponModel.traverse((child) => {
+                                        weaponMesh.scale.set(weaponScale, weaponScale, weaponScale);
+                                        weaponMesh.position.set(inst.x, inst.y + 50, inst.z);
+                                        weaponMesh.rotation.y = angleRad;
+                                        weaponMesh.traverse((child) => {
                                             if (child.isMesh && child.material) {
                                                 child.material.side = THREE.DoubleSide;
                                             }
                                         });
-                                        scene.add(weaponModel);
-                                        levelObjects.push({ mesh: weaponModel, position: new THREE.Vector3(inst.x, inst.y + 50, inst.z) });
+                                        scene.add(weaponMesh);
+                                        levelObjects.push({ mesh: weaponMesh, position: new THREE.Vector3(inst.x, inst.y + 50, inst.z) });
                                     }
                                 }
                             }
                         }
 
-                        // Add bounding box for MD2 model collision based on current/first frame geometry
-                        const box = computeMD2FrameBoundingBox(mesh, 0);
-                        if (!box.isEmpty()) {
-                            modelBoxes.push(box);
+                        // Instantiate Monster state machine controller
+                        const mConfig = getMonsterConfig(modelDef.name);
+                        const posVec = new THREE.Vector3(inst.x, inst.y + 50, inst.z);
+                        const monster = new Monster(mesh, weaponMesh, mConfig, posVec, angleRad);
+                        monsters.push(monster);
+
+                        // Register monster's dynamic bounding box for capsule collision
+                        if (!monster.boundingBox.isEmpty()) {
+                            modelBoxes.push(monster.boundingBox);
                         }
                         continue;
                     }
@@ -964,12 +1422,119 @@ function closestPointsCapsuleBox(capA, capB, box) {
     return { capP: bestCapP, boxP: bestBoxP, dist: Math.sqrt(minDistSq) };
 }
 
+const MONSTER_CAPSULE_RADIUS = 24.0;
+const MONSTER_CAPSULE_HEIGHT = 80.0;
+const _mCapA = new THREE.Vector3();
+const _mCapB = new THREE.Vector3();
+
 const _capA = new THREE.Vector3();
 const _capB = new THREE.Vector3();
 const _normal = new THREE.Vector3();
 const _faceNormal = new THREE.Vector3();
 const _edge1 = new THREE.Vector3();
 const _edge2 = new THREE.Vector3();
+
+function resolveMonsterCapsuleCollisions(monster) {
+    if (!monster || !monster.position) return;
+    const mPos = monster.position;
+
+    const basePosY = mPos.y;
+
+    const queryMinX = mPos.x - MONSTER_CAPSULE_RADIUS - 10;
+    const queryMaxX = mPos.x + MONSTER_CAPSULE_RADIUS + 10;
+    const queryMinY = basePosY - 10;
+    const queryMaxY = basePosY + MONSTER_CAPSULE_HEIGHT + 10;
+    const queryMinZ = mPos.z - MONSTER_CAPSULE_RADIUS - 10;
+    const queryMaxZ = mPos.z + MONSTER_CAPSULE_RADIUS + 10;
+
+    const minCx = Math.floor(queryMinX / GRID_CELL_SIZE);
+    const maxCx = Math.floor(queryMaxX / GRID_CELL_SIZE);
+    const minCy = Math.floor(queryMinY / GRID_CELL_SIZE);
+    const maxCy = Math.floor(queryMaxY / GRID_CELL_SIZE);
+    const minCz = Math.floor(queryMinZ / GRID_CELL_SIZE);
+    const maxCz = Math.floor(queryMaxZ / GRID_CELL_SIZE);
+
+    const nearbyTriangles = new Set();
+    for (let cx = minCx; cx <= maxCx; cx++) {
+        for (let cy = minCy; cy <= maxCy; cy++) {
+            for (let cz = minCz; cz <= maxCz; cz++) {
+                const cell = collisionGrid.get(getGridKey(cx, cy, cz));
+                if (cell) {
+                    for (let i = 0; i < cell.length; i++) {
+                        nearbyTriangles.add(cell[i]);
+                    }
+                }
+            }
+        }
+    }
+
+    const MAX_ITERATIONS = 4;
+    for (let iter = 0; iter < MAX_ITERATIONS; iter++) {
+        _mCapA.set(mPos.x, mPos.y + MONSTER_CAPSULE_RADIUS, mPos.z);
+        _mCapB.set(mPos.x, mPos.y + MONSTER_CAPSULE_HEIGHT - MONSTER_CAPSULE_RADIUS, mPos.z);
+
+        let maxPenetration = 0;
+        let bestNormal = null;
+
+        for (const tri of nearbyTriangles) {
+            if (tri.maxX < queryMinX || tri.minX > queryMaxX ||
+                tri.maxY < queryMinY || tri.minY > queryMaxY ||
+                tri.maxZ < queryMinZ || tri.minZ > queryMaxZ) {
+                continue;
+            }
+
+            const res = closestPointsCapsuleTriangle(_mCapA, _mCapB, tri.a, tri.b, tri.c);
+            if (res.dist < MONSTER_CAPSULE_RADIUS) {
+                const pen = MONSTER_CAPSULE_RADIUS - res.dist;
+                _normal.subVectors(res.capP, res.triP);
+                if (_normal.lengthSq() > 1e-8) {
+                    _normal.normalize();
+                } else {
+                    _edge1.subVectors(tri.b, tri.a);
+                    _edge2.subVectors(tri.c, tri.a);
+                    _normal.crossVectors(_edge1, _edge2).normalize();
+                }
+
+                if (pen > maxPenetration) {
+                    maxPenetration = pen;
+                    bestNormal = _normal.clone();
+                }
+            }
+        }
+
+        for (let b = 0; b < modelBoxes.length; b++) {
+            const box = modelBoxes[b];
+            if (box === monster.boundingBox) continue;
+            if (box.max.x < queryMinX || box.min.x > queryMaxX ||
+                box.max.y < queryMinY || box.min.y > queryMaxY ||
+                box.max.z < queryMinZ || box.min.z > queryMaxZ) {
+                continue;
+            }
+
+            const res = closestPointsCapsuleBox(_mCapA, _mCapB, box);
+            if (res.dist < MONSTER_CAPSULE_RADIUS) {
+                const pen = MONSTER_CAPSULE_RADIUS - res.dist;
+                _normal.subVectors(res.capP, res.boxP);
+                if (_normal.lengthSq() > 1e-8) {
+                    _normal.normalize();
+                } else {
+                    _normal.set(0, 1, 0);
+                }
+
+                if (pen > maxPenetration) {
+                    maxPenetration = pen;
+                    bestNormal = _normal.clone();
+                }
+            }
+        }
+
+        if (maxPenetration > 0 && bestNormal) {
+            mPos.addScaledVector(bestNormal, maxPenetration + 0.01);
+        } else {
+            break;
+        }
+    }
+}
 
 function resolveCapsuleCollisions(camPos) {
     isGrounded = false;
@@ -1080,6 +1645,89 @@ function resolveCapsuleCollisions(camPos) {
     }
 }
 
+function triggerWeaponAttack() {
+    isWeaponAttacking = true;
+    playerWeaponAnimTimer = 0.0;
+    playerWeaponCurrentAnim = MD2_ANIMATIONS.ATTACK;
+}
+
+function updatePlayerWeaponAnimation(delta) {
+    if (!currentGunMesh) return;
+
+    const geometry = currentGunMesh.geometry;
+    if (!geometry || !geometry.morphAttributes || !geometry.morphAttributes.position) return;
+
+    const influences = currentGunMesh.morphTargetInfluences;
+    if (!influences) return;
+
+    // Determine target animation based on player state
+    let targetAnim = MD2_ANIMATIONS.STAND;
+
+    if (isWeaponAttacking) {
+        targetAnim = MD2_ANIMATIONS.ATTACK;
+    } else if (!isGrounded && !isFlyMode) {
+        targetAnim = MD2_ANIMATIONS.JUMP;
+    } else if (moveForward || moveBackward || moveLeft || moveRight) {
+        targetAnim = MD2_ANIMATIONS.RUN;
+    } else {
+        targetAnim = MD2_ANIMATIONS.STAND;
+    }
+
+    if (playerWeaponCurrentAnim !== targetAnim) {
+        playerWeaponCurrentAnim = targetAnim;
+        playerWeaponAnimTimer = 0.0;
+    }
+
+    playerWeaponAnimTimer += delta;
+
+    const anim = playerWeaponCurrentAnim;
+    const totalFrames = anim.end - anim.start + 1;
+    const totalDuration = totalFrames / anim.fps;
+
+    if (!anim.loop && playerWeaponAnimTimer >= totalDuration) {
+        if (isWeaponAttacking) {
+            isWeaponAttacking = false;
+            playerWeaponCurrentAnim = (moveForward || moveBackward || moveLeft || moveRight)
+                ? MD2_ANIMATIONS.RUN
+                : MD2_ANIMATIONS.STAND;
+            playerWeaponAnimTimer = 0.0;
+        }
+    }
+
+    const curAnim = playerWeaponCurrentAnim;
+    const curTotalFrames = curAnim.end - curAnim.start + 1;
+    const progress = playerWeaponAnimTimer * curAnim.fps;
+
+    let frameA, frameB, alpha;
+    if (curAnim.loop) {
+        const frameIdx = progress % curTotalFrames;
+        frameA = curAnim.start + Math.floor(frameIdx);
+        frameB = curAnim.start + ((Math.floor(frameIdx) + 1) % curTotalFrames);
+        alpha = frameIdx - Math.floor(frameIdx);
+    } else {
+        const frameIdx = Math.min(progress, curTotalFrames - 1);
+        frameA = curAnim.start + Math.floor(frameIdx);
+        frameB = curAnim.start + Math.min(Math.floor(frameIdx) + 1, curTotalFrames - 1);
+        alpha = frameIdx - Math.floor(frameIdx);
+    }
+
+    for (const idx of playerWeaponActiveInfluences) {
+        if (idx >= 0 && idx < influences.length) {
+            influences[idx] = 0;
+        }
+    }
+    playerWeaponActiveInfluences.clear();
+
+    if (frameA >= 0 && frameA < influences.length) {
+        influences[frameA] = (1 - alpha);
+        playerWeaponActiveInfluences.add(frameA);
+    }
+    if (frameB >= 0 && frameB < influences.length && alpha > 0.001) {
+        influences[frameB] = (influences[frameB] || 0) + alpha;
+        playerWeaponActiveInfluences.add(frameB);
+    }
+}
+
 function cycleWeapon(dir) {
     currentGunIndex = (currentGunIndex + dir + PLAYER_GUNS.length) % PLAYER_GUNS.length;
     updateWeaponMesh();
@@ -1096,6 +1744,11 @@ async function updateWeaponMesh() {
         camera.remove(currentGunMesh);
         currentGunMesh = null;
     }
+
+    playerWeaponAnimTimer = 0.0;
+    playerWeaponCurrentAnim = MD2_ANIMATIONS.STAND;
+    playerWeaponActiveInfluences.clear();
+    isWeaponAttacking = false;
 
     const modelDef = modelListParser.getModelByName(gunName);
     if (!modelDef) return;
@@ -1121,7 +1774,7 @@ async function updateWeaponMesh() {
     const mesh = new THREE.Mesh(geometry, material);
     mesh.scale.set(scaleFactor, scaleFactor, scaleFactor);
     mesh.position.set(12, -12, -25);
-    mesh.rotation.set(0, 0, 0);
+    mesh.rotation.set(0, -Math.PI / 2, 0);
 
     camera.add(mesh);
     currentGunMesh = mesh;
@@ -1252,6 +1905,15 @@ function animate() {
 
     const pos = controls.getObject().position;
     document.getElementById('pos-display').textContent = `${Math.round(pos.x)}, ${Math.round(pos.y)}, ${Math.round(pos.z)}`;
+
+    // Update monsters AI, movement, and animations
+    const playerPos = controls.getObject().position;
+    for (let i = 0; i < monsters.length; i++) {
+        monsters[i].update(delta, playerPos, monsters);
+    }
+
+    // Update active player weapon animation
+    updatePlayerWeaponAnimation(delta);
 
     // Distance culling for level objects
     const renderDistSq = RENDER_DISTANCE * RENDER_DISTANCE;
