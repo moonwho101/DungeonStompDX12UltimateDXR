@@ -446,12 +446,9 @@ async function loadGameWorld() {
             continue;
         }
 
-        // Do not draw or collide with excluded placeholder objects
-        if (isExcludedInstance(inst)) {
-            continue;
-        }
-
-        // Check if item instance is a 3DS or MD2 model from modellist.dat
+        // Check if item instance is a 3DS or MD2 model from modellist.dat FIRST
+        // Placeholder objects (e.g. OBJECT !monster1) reference 3DS/MD2 models on their ROT_ANGLE line.
+        // We MUST process and render the model, but NOT draw the placeholder geometry from Objects.dat.
         if (inst.modelName) {
             const modelDef = modelListParser.getModelByName(inst.modelName);
             if (modelDef) {
@@ -520,6 +517,11 @@ async function loadGameWorld() {
                     }
                 }
             }
+        }
+
+        // Do not draw or collide with excluded placeholder objects from Objects.dat
+        if (isExcludedInstance(inst)) {
+            continue;
         }
 
         const objId = checkObjIdByName(inst.name, objectsMap);
