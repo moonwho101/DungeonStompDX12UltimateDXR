@@ -492,6 +492,11 @@ const PLAYER_GUNS = [
 let currentGunIndex = 0;
 let currentGunMesh = null;
 
+let playerWeaponAnimTimer = 0.0;
+let playerWeaponCurrentAnim = MD2_ANIMATIONS.STAND;
+let playerWeaponActiveInfluences = new Set();
+let isWeaponAttacking = false;
+
 const defaultCanvas = document.createElement('canvas');
 defaultCanvas.width = 128;
 defaultCanvas.height = 128;
@@ -631,6 +636,12 @@ async function init() {
     document.addEventListener('keydown', onKeyDown);
     document.addEventListener('keyup', onKeyUp);
 
+    document.addEventListener('mousedown', (event) => {
+        if (event.button === 0 && controls && controls.isLocked) {
+            triggerWeaponAttack();
+        }
+    });
+
     window.addEventListener('resize', onWindowResize);
 
     // Load Game Data & Build Map
@@ -643,6 +654,9 @@ async function init() {
     window.controls = controls;
     window.scene = scene;
     window.monsters = monsters;
+    Object.defineProperty(window, 'playerWeaponCurrentAnim', {
+        get: () => playerWeaponCurrentAnim
+    });
 
     prevTime = performance.now();
     animate();
@@ -1521,6 +1535,89 @@ function resolveCapsuleCollisions(camPos) {
     }
 }
 
+function triggerWeaponAttack() {
+    isWeaponAttacking = true;
+    playerWeaponAnimTimer = 0.0;
+    playerWeaponCurrentAnim = MD2_ANIMATIONS.ATTACK;
+}
+
+function updatePlayerWeaponAnimation(delta) {
+    if (!currentGunMesh) return;
+
+    const geometry = currentGunMesh.geometry;
+    if (!geometry || !geometry.morphAttributes || !geometry.morphAttributes.position) return;
+
+    const influences = currentGunMesh.morphTargetInfluences;
+    if (!influences) return;
+
+    // Determine target animation based on player state
+    let targetAnim = MD2_ANIMATIONS.STAND;
+
+    if (isWeaponAttacking) {
+        targetAnim = MD2_ANIMATIONS.ATTACK;
+    } else if (!isGrounded && !isFlyMode) {
+        targetAnim = MD2_ANIMATIONS.JUMP;
+    } else if (moveForward || moveBackward || moveLeft || moveRight) {
+        targetAnim = MD2_ANIMATIONS.RUN;
+    } else {
+        targetAnim = MD2_ANIMATIONS.STAND;
+    }
+
+    if (playerWeaponCurrentAnim !== targetAnim) {
+        playerWeaponCurrentAnim = targetAnim;
+        playerWeaponAnimTimer = 0.0;
+    }
+
+    playerWeaponAnimTimer += delta;
+
+    const anim = playerWeaponCurrentAnim;
+    const totalFrames = anim.end - anim.start + 1;
+    const totalDuration = totalFrames / anim.fps;
+
+    if (!anim.loop && playerWeaponAnimTimer >= totalDuration) {
+        if (isWeaponAttacking) {
+            isWeaponAttacking = false;
+            playerWeaponCurrentAnim = (moveForward || moveBackward || moveLeft || moveRight)
+                ? MD2_ANIMATIONS.RUN
+                : MD2_ANIMATIONS.STAND;
+            playerWeaponAnimTimer = 0.0;
+        }
+    }
+
+    const curAnim = playerWeaponCurrentAnim;
+    const curTotalFrames = curAnim.end - curAnim.start + 1;
+    const progress = playerWeaponAnimTimer * curAnim.fps;
+
+    let frameA, frameB, alpha;
+    if (curAnim.loop) {
+        const frameIdx = progress % curTotalFrames;
+        frameA = curAnim.start + Math.floor(frameIdx);
+        frameB = curAnim.start + ((Math.floor(frameIdx) + 1) % curTotalFrames);
+        alpha = frameIdx - Math.floor(frameIdx);
+    } else {
+        const frameIdx = Math.min(progress, curTotalFrames - 1);
+        frameA = curAnim.start + Math.floor(frameIdx);
+        frameB = curAnim.start + Math.min(Math.floor(frameIdx) + 1, curTotalFrames - 1);
+        alpha = frameIdx - Math.floor(frameIdx);
+    }
+
+    for (const idx of playerWeaponActiveInfluences) {
+        if (idx >= 0 && idx < influences.length) {
+            influences[idx] = 0;
+        }
+    }
+    playerWeaponActiveInfluences.clear();
+
+    if (frameA >= 0 && frameA < influences.length) {
+        influences[frameA] = (1 - alpha);
+        playerWeaponActiveInfluences.add(frameA);
+    }
+    if (frameB >= 0 && frameB < influences.length && alpha > 0.001) {
+        influences[frameB] = (influences[frameB] || 0) + alpha;
+        playerWeaponActiveInfluences.add(frameB);
+    }
+}
+
 function cycleWeapon(dir) {
     currentGunIndex = (currentGunIndex + dir + PLAYER_GUNS.length) % PLAYER_GUNS.length;
     updateWeaponMesh();
@@ -1537,6 +1634,11 @@ async function updateWeaponMesh() {
         camera.remove(currentGunMesh);
         currentGunMesh = null;
     }
+
+    playerWeaponAnimTimer = 0.0;
+    playerWeaponCurrentAnim = MD2_ANIMATIONS.STAND;
+    playerWeaponActiveInfluences.clear();
+    isWeaponAttacking = false;
 
     const modelDef = modelListParser.getModelByName(gunName);
     if (!modelDef) return;
@@ -1699,6 +1801,9 @@ function animate() {
     for (let i = 0; i < monsters.length; i++) {
         monsters[i].update(delta, playerPos, monsters);
     }
+
+    // Update active player weapon animation
+    updatePlayerWeaponAnimation(delta);
 
     // Distance culling for level objects
     const renderDistSq = RENDER_DISTANCE * RENDER_DISTANCE;
