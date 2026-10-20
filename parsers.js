@@ -247,10 +247,14 @@ export class ModelListParser {
                 }
 
                 let name = '';
+                let monsterWeapon = 'NONE';
                 if (typeCmd === 'PLAYER') {
                     const thacoIdx = tokens.findIndex(t => t.toUpperCase() === 'THACO');
                     if (thacoIdx !== -1 && thacoIdx + 2 < tokens.length) {
                         name = tokens[thacoIdx + 2];
+                    }
+                    if (thacoIdx !== -1 && thacoIdx + 4 < tokens.length) {
+                        monsterWeapon = tokens[thacoIdx + 4];
                     }
                 } else if (typeCmd === 'YOURGUN') {
                     const dIdx = tokens.lastIndexOf('D');
@@ -275,7 +279,8 @@ export class ModelListParser {
                     filepath: cleanPath,
                     rawFilepath: filePath,
                     scale: scale,
-                    textureAlias: textureAlias
+                    textureAlias: textureAlias,
+                    monsterWeapon: monsterWeapon
                 };
 
                 if (name) {

@@ -534,6 +534,48 @@ async function loadGameWorld() {
                         scene.add(mesh);
                         builtObjectCount++;
 
+                        // Draw monster weapon if present
+                        if (modelDef.monsterWeapon && modelDef.monsterWeapon.toUpperCase() !== 'NONE') {
+                            const weaponDef = modelListParser.getModelByName(modelDef.monsterWeapon);
+                            if (weaponDef) {
+                                if (weaponDef.format === 'MD2' || weaponDef.filepath.toLowerCase().endsWith('.md2')) {
+                                    const weaponGeom = await loadMD2Geometry(weaponDef);
+                                    if (weaponGeom) {
+                                        const weaponScale = weaponDef.scale || scaleFactor;
+                                        const weaponTexAlias = weaponDef.textureAlias;
+                                        const weaponMat = new THREE.MeshLambertMaterial({ side: THREE.DoubleSide });
+                                        if (weaponTexAlias) {
+                                            const wTex = getTexture(weaponTexAlias, (loadedTex) => {
+                                                weaponMat.map = loadedTex;
+                                                weaponMat.needsUpdate = true;
+                                            });
+                                            weaponMat.map = wTex;
+                                        }
+                                        const weaponMesh = new THREE.Mesh(weaponGeom, weaponMat);
+                                        weaponMesh.scale.set(weaponScale, weaponScale, weaponScale);
+                                        weaponMesh.position.set(inst.x, inst.y + 50, inst.z);
+                                        weaponMesh.rotation.y = angleRad;
+                                        scene.add(weaponMesh);
+                                    }
+                                } else if (weaponDef.format === '3DS' || weaponDef.filepath.toLowerCase().endsWith('.3ds')) {
+                                    const weaponTemplate = await load3DSModel(weaponDef);
+                                    if (weaponTemplate) {
+                                        const weaponModel = weaponTemplate.clone(true);
+                                        const weaponScale = weaponDef.scale || scaleFactor;
+                                        weaponModel.scale.set(weaponScale, weaponScale, weaponScale);
+                                        weaponModel.position.set(inst.x, inst.y + 50, inst.z);
+                                        weaponModel.rotation.y = angleRad;
+                                        weaponModel.traverse((child) => {
+                                            if (child.isMesh && child.material) {
+                                                child.material.side = THREE.DoubleSide;
+                                            }
+                                        });
+                                        scene.add(weaponModel);
+                                    }
+                                }
+                            }
+                        }
+
                         // Add bounding box for MD2 model collision based on current/first frame geometry
                         const box = computeMD2FrameBoundingBox(mesh, 0);
                         if (!box.isEmpty()) {
