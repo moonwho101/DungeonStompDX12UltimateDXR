@@ -108,11 +108,11 @@ export class Monster {
         this.position = initialPosition.clone();
         this.rotationY = initialRotationY;
         this.mesh.position.copy(this.position);
-        this.mesh.rotation.y = this.rotationY;
+        this.mesh.rotation.y = this.rotationY - Math.PI / 2;
 
         if (this.weaponMesh) {
             this.weaponMesh.position.copy(this.position);
-            this.weaponMesh.rotation.y = this.rotationY;
+            this.weaponMesh.rotation.y = this.rotationY - Math.PI / 2;
         }
 
         this.state = MonsterState.IDLE;
@@ -342,11 +342,11 @@ export class Monster {
         }
 
         this.mesh.position.copy(this.position);
-        this.mesh.rotation.y = this.rotationY;
+        this.mesh.rotation.y = this.rotationY - Math.PI / 2;
 
         if (this.weaponMesh) {
             this.weaponMesh.position.copy(this.position);
-            this.weaponMesh.rotation.y = this.rotationY;
+            this.weaponMesh.rotation.y = this.rotationY - Math.PI / 2;
         }
 
         this.updateMorphTargets(dt);
@@ -976,7 +976,7 @@ async function loadGameWorld() {
                         mesh.position.set(inst.x, inst.y + 50, inst.z);
 
                         const angleRad = (inst.rot * Math.PI) / 180.0;
-                        mesh.rotation.y = angleRad;
+                        mesh.rotation.y = angleRad - Math.PI / 2;
 
                         scene.add(mesh);
                         levelObjects.push({ mesh: mesh, position: new THREE.Vector3(inst.x, inst.y + 50, inst.z) });
@@ -1003,7 +1003,7 @@ async function loadGameWorld() {
                                         weaponMesh = new THREE.Mesh(weaponGeom, weaponMat);
                                         weaponMesh.scale.set(weaponScale, weaponScale, weaponScale);
                                         weaponMesh.position.set(inst.x, inst.y + 50, inst.z);
-                                        weaponMesh.rotation.y = angleRad;
+                                        weaponMesh.rotation.y = angleRad - Math.PI / 2;
                                         scene.add(weaponMesh);
                                         levelObjects.push({ mesh: weaponMesh, position: new THREE.Vector3(inst.x, inst.y + 50, inst.z) });
                                     }
