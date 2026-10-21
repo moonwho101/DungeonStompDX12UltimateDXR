@@ -975,6 +975,7 @@ int SceneInBox(D3DVECTOR point) {
 	int angle = 0;
 
 	angle = (int)360 - (int)angy;
+	angle = (angle % 360 + 360) % 360;
 
 	cosine = cos_table[angle];
 	sine = sin_table[angle];
