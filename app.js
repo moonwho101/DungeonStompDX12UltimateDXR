@@ -1005,7 +1005,7 @@ async function loadGameWorld() {
                         const scaleFactor = modelDef.scale || 1.0;
                         model.scale.set(scaleFactor, scaleFactor, scaleFactor);
 
-                        model.position.set(inst.x, inst.y, inst.z);
+                        model.position.set(inst.x, inst.y + 50, inst.z);
 
                         const angleRad = (inst.rot * Math.PI) / 180.0;
                         model.rotation.y = angleRad;
@@ -1017,7 +1017,7 @@ async function loadGameWorld() {
                         });
 
                         scene.add(model);
-                        levelObjects.push({ mesh: model, position: new THREE.Vector3(inst.x, inst.y, inst.z) });
+                        levelObjects.push({ mesh: model, position: new THREE.Vector3(inst.x, inst.y + 50, inst.z) });
                         builtObjectCount++;
 
                         // Add bounding box for 3DS model collision (must update matrixWorld first)
@@ -1048,13 +1048,13 @@ async function loadGameWorld() {
 
                         const mesh = new THREE.Mesh(geometry, material);
                         mesh.scale.set(scaleFactor, scaleFactor, scaleFactor);
-                        mesh.position.set(inst.x, inst.y, inst.z);
+                        mesh.position.set(inst.x, inst.y + 50, inst.z);
 
                         const angleRad = (inst.rot * Math.PI) / 180.0;
                         mesh.rotation.y = angleRad - Math.PI / 2;
 
                         scene.add(mesh);
-                        levelObjects.push({ mesh: mesh, position: new THREE.Vector3(inst.x, inst.y, inst.z) });
+                        levelObjects.push({ mesh: mesh, position: new THREE.Vector3(inst.x, inst.y + 50, inst.z) });
                         builtObjectCount++;
 
                         // Draw monster weapon if present
@@ -1077,10 +1077,10 @@ async function loadGameWorld() {
                                         }
                                         weaponMesh = new THREE.Mesh(weaponGeom, weaponMat);
                                         weaponMesh.scale.set(weaponScale, weaponScale, weaponScale);
-                                        weaponMesh.position.set(inst.x, inst.y, inst.z);
+                                        weaponMesh.position.set(inst.x, inst.y + 50, inst.z);
                                         weaponMesh.rotation.y = angleRad - Math.PI / 2;
                                         scene.add(weaponMesh);
-                                        levelObjects.push({ mesh: weaponMesh, position: new THREE.Vector3(inst.x, inst.y, inst.z) });
+                                        levelObjects.push({ mesh: weaponMesh, position: new THREE.Vector3(inst.x, inst.y + 50, inst.z) });
                                     }
                                 } else if (weaponDef.format === '3DS' || weaponDef.filepath.toLowerCase().endsWith('.3ds')) {
                                     const weaponTemplate = await load3DSModel(weaponDef);
@@ -1088,7 +1088,7 @@ async function loadGameWorld() {
                                         weaponMesh = weaponTemplate.clone(true);
                                         const weaponScale = weaponDef.scale || scaleFactor;
                                         weaponMesh.scale.set(weaponScale, weaponScale, weaponScale);
-                                        weaponMesh.position.set(inst.x, inst.y, inst.z);
+                                        weaponMesh.position.set(inst.x, inst.y + 50, inst.z);
                                         weaponMesh.rotation.y = angleRad;
                                         weaponMesh.traverse((child) => {
                                             if (child.isMesh && child.material) {
@@ -1096,7 +1096,7 @@ async function loadGameWorld() {
                                             }
                                         });
                                         scene.add(weaponMesh);
-                                        levelObjects.push({ mesh: weaponMesh, position: new THREE.Vector3(inst.x, inst.y, inst.z) });
+                                        levelObjects.push({ mesh: weaponMesh, position: new THREE.Vector3(inst.x, inst.y + 50, inst.z) });
                                     }
                                 }
                             }
@@ -1104,7 +1104,7 @@ async function loadGameWorld() {
 
                         // Instantiate Monster state machine controller
                         const mConfig = getMonsterConfig(modelDef.name);
-                        const posVec = new THREE.Vector3(inst.x, inst.y, inst.z);
+                        const posVec = new THREE.Vector3(inst.x, inst.y + 50, inst.z);
                         const monster = new Monster(mesh, weaponMesh, mConfig, posVec, angleRad);
                         monsters.push(monster);
 
@@ -1533,8 +1533,8 @@ function resolveMonsterCapsuleCollisions(monster) {
 
     const MAX_ITERATIONS = 4;
     for (let iter = 0; iter < MAX_ITERATIONS; iter++) {
-        _mCapA.set(mPos.x, mPos.y + MONSTER_CAPSULE_RADIUS, mPos.z);
-        _mCapB.set(mPos.x, mPos.y + MONSTER_CAPSULE_HEIGHT - MONSTER_CAPSULE_RADIUS, mPos.z);
+        _mCapA.set(mPos.x, mPos.y - 50.0 + MONSTER_CAPSULE_RADIUS, mPos.z);
+        _mCapB.set(mPos.x, mPos.y - 50.0 + MONSTER_CAPSULE_HEIGHT - MONSTER_CAPSULE_RADIUS, mPos.z);
 
         let maxPenetration = 0;
         let bestNormal = null;
@@ -1965,8 +1965,8 @@ async function updateWeaponMesh() {
 
     const mesh = new THREE.Mesh(geometry, material);
     mesh.scale.set(scaleFactor, scaleFactor, scaleFactor);
-    mesh.position.set(12, -12, -25);
-    mesh.rotation.set(0, Math.PI / 2, 0);
+    mesh.position.set(8, -8, -14);
+    mesh.rotation.set(0, -Math.PI / 2, 0);
 
     camera.add(mesh);
     currentGunMesh = mesh;
