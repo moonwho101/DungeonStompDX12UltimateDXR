@@ -191,58 +191,113 @@ void CalculateVertNormal(VERT &vertex1, VERT &vertex2, VERT &vertex3, const VERT
 }
 
 void SmoothVertArrayNoHash(VERT *verts, int num_verts, float smooth_threshold) {
-	const float epsilon = 0.0001f;
+	if (num_verts <= 1)
+		return;
 
-	std::vector<uint8_t> tracked(num_verts, 0);
+	const float epsilon = 0.0001f;
+	const float invCellSize = 1000.0f; // Cell size 0.001f guarantees epsilon=0.0001f is within 3x3x3 neighborhood
+
+	thread_local std::vector<uint8_t> tracked;
+	thread_local std::vector<int> shared;
+	thread_local std::vector<int> head;
+	thread_local std::vector<int> next_node;
+
+	int hash_size = 1024;
+	while (hash_size < num_verts * 2) {
+		hash_size <<= 1;
+	}
+	uint32_t hash_mask = (uint32_t)(hash_size - 1);
+
+	head.assign(hash_size, -1);
+	next_node.resize(num_verts);
+	tracked.assign(num_verts, 0);
+
+	auto hash_cell = [](int gx, int gy, int gz) -> uint32_t {
+		return (uint32_t)((gx * 73856093) ^ (gy * 19349663) ^ (gz * 83492791));
+	};
 
 	for (int i = 0; i < num_verts; i++) {
-		if (tracked[i] == 0) {
-			float x = verts[i].x;
-			float y = verts[i].y;
-			float z = verts[i].z;
+		int gx = (int)floorf(verts[i].x * invCellSize);
+		int gy = (int)floorf(verts[i].y * invCellSize);
+		int gz = (int)floorf(verts[i].z * invCellSize);
+		uint32_t h = hash_cell(gx, gy, gz) & hash_mask;
 
-			XMVECTOR ni = XMVectorSet(verts[i].nx, verts[i].ny, verts[i].nz, 0.0f);
+		next_node[i] = head[h];
+		head[h] = i;
+	}
 
-			std::vector<int> shared;
-			shared.push_back(i);
+	for (int i = 0; i < num_verts; i++) {
+		if (tracked[i] != 0)
+			continue;
 
-			for (int j = i + 1; j < num_verts; j++) {
-				if (tracked[j] == 0) {
-					if (fabsf(verts[j].x - x) < epsilon &&
-					    fabsf(verts[j].y - y) < epsilon &&
-					    fabsf(verts[j].z - z) < epsilon) {
+		float x = verts[i].x;
+		float y = verts[i].y;
+		float z = verts[i].z;
 
-						XMVECTOR nj = XMVectorSet(verts[j].nx, verts[j].ny, verts[j].nz, 0.0f);
-						float dot = XMVectorGetX(XMVector3Dot(ni, nj));
+		float nx = verts[i].nx;
+		float ny = verts[i].ny;
+		float nz = verts[i].nz;
 
-						if (dot > smooth_threshold) {
-							shared.push_back(j);
+		int gx = (int)floorf(x * invCellSize);
+		int gy = (int)floorf(y * invCellSize);
+		int gz = (int)floorf(z * invCellSize);
+
+		shared.clear();
+		shared.push_back(i);
+
+		for (int dx = -1; dx <= 1; dx++) {
+			for (int dy = -1; dy <= 1; dy++) {
+				for (int dz = -1; dz <= 1; dz++) {
+					uint32_t h = hash_cell(gx + dx, gy + dy, gz + dz) & hash_mask;
+					int curr = head[h];
+					while (curr != -1) {
+						if (curr > i && tracked[curr] == 0) {
+							if (fabsf(verts[curr].x - x) < epsilon &&
+							    fabsf(verts[curr].y - y) < epsilon &&
+							    fabsf(verts[curr].z - z) < epsilon) {
+
+								float dot = verts[curr].nx * nx + verts[curr].ny * ny + verts[curr].nz * nz;
+								if (dot > smooth_threshold) {
+									shared.push_back(curr);
+								}
+							}
 						}
+						curr = next_node[curr];
 					}
 				}
 			}
+		}
 
-			if (shared.size() > 1) {
-				XMVECTOR sumN = XMVectorZero();
+		if (shared.size() > 1) {
+			float sumX = 0.0f;
+			float sumY = 0.0f;
+			float sumZ = 0.0f;
 
-				for (int idx : shared) {
-					sumN = XMVectorAdd(sumN, XMVectorSet(verts[idx].nx, verts[idx].ny, verts[idx].nz, 0.0f));
-				}
-
-				XMVECTOR avgN = XMVector3Normalize(sumN);
-
-				XMFLOAT3 fN;
-				XMStoreFloat3(&fN, avgN);
-
-				for (int idx : shared) {
-					verts[idx].nx = fN.x;
-					verts[idx].ny = fN.y;
-					verts[idx].nz = fN.z;
-					tracked[idx] = 1;
-				}
-			} else {
-				tracked[i] = 1;
+			for (int idx : shared) {
+				sumX += verts[idx].nx;
+				sumY += verts[idx].ny;
+				sumZ += verts[idx].nz;
 			}
+
+			float len = sqrtf(sumX * sumX + sumY * sumY + sumZ * sumZ);
+			if (len > 1e-6f) {
+				sumX /= len;
+				sumY /= len;
+				sumZ /= len;
+			} else {
+				sumX = 0.0f;
+				sumY = 1.0f;
+				sumZ = 0.0f;
+			}
+
+			for (int idx : shared) {
+				verts[idx].nx = sumX;
+				verts[idx].ny = sumY;
+				verts[idx].nz = sumZ;
+				tracked[idx] = 1;
+			}
+		} else {
+			tracked[i] = 1;
 		}
 	}
 }
@@ -435,7 +490,6 @@ void Compute3DSModelNormals(int pmodel_id) {
 		mikkContext.m_pUserData = &userData;
 
 		genTangSpaceDefault(&mikkContext);
-
 	}
 }
 
@@ -612,8 +666,6 @@ void ComputeMD2ModelNormals(int pmodel_id) {
 		mikkContext.m_pUserData = &userData;
 
 		genTangSpaceDefault(&mikkContext);
-
-		
 	}
 }
 
