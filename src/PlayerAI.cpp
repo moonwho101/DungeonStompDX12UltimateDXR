@@ -75,8 +75,18 @@ constexpr float kRespawnDelay = 2.5f;
 constexpr float kVisitedCell = 150.0f;
 constexpr int kMaxBans = 48;
 
+constexpr size_t kMaxBreadcrumbs = 150;
+constexpr float kBreadcrumbMinDist = 75.0f;
+constexpr float kRecentBreadcrumbTime = 25.0f;
+
 struct V3 {
 	float x, y, z;
+};
+
+struct Breadcrumb {
+	V3 pos;
+	float time;
+	bool isJunction;
 };
 
 inline V3 Sub(const V3 &a, const V3 &b) {
@@ -175,6 +185,12 @@ struct State {
 	float switchCooldown = 0.0f;
 	float switchBan = 0.0f;
 	int switchAttempts = 0;
+
+	// Breadcrumb navigation.
+	std::vector<Breadcrumb> breadcrumbs;
+	V3 lastBreadcrumbPos = { 1e9f, 1e9f, 1e9f };
+	float backtrackTimer = 0.0f;
+	int backtrackTargetIdx = -1;
 
 	Ban bans[kMaxBans];
 	int nextBan = 0;
@@ -682,6 +698,40 @@ void SelectGoal(State &s) {
 	s.idleTime = 0.0f;
 }
 
+void DropBreadcrumb(State &s, const V3 &pos) {
+	float dx = pos.x - s.lastBreadcrumbPos.x;
+	float dy = pos.y - s.lastBreadcrumbPos.y;
+	float dz = pos.z - s.lastBreadcrumbPos.z;
+	float distSq = dx * dx + dy * dy + dz * dz;
+
+	if (s.lastBreadcrumbPos.x > 1e8f || distSq >= kBreadcrumbMinDist * kBreadcrumbMinDist) {
+		int clearCount = 0;
+		for (int i = 0; i < kSlots; i += 2) {
+			V3 dir = { g_slotX[i], 0.0f, g_slotZ[i] };
+			float rayDist = fminf(CastRay(V3{ pos.x, pos.y + kLowWhiskerY, pos.z }, dir, 250.0f, RAY_WALLS),
+			                      CastRay(V3{ pos.x, pos.y + kHighWhiskerY, pos.z }, dir, 250.0f, RAY_WALLS));
+			if (rayDist > 200.0f)
+				clearCount++;
+		}
+		bool junction = (clearCount >= 3) || (s.nearDoor >= 0);
+
+		Breadcrumb bc;
+		bc.pos = pos;
+		bc.time = s.clock;
+		bc.isJunction = junction;
+
+		if (s.breadcrumbs.size() >= kMaxBreadcrumbs) {
+			s.breadcrumbs.erase(s.breadcrumbs.begin());
+			if (s.backtrackTargetIdx > 0)
+				s.backtrackTargetIdx--;
+			else if (s.backtrackTargetIdx == 0)
+				s.backtrackTargetIdx = -1;
+		}
+		s.breadcrumbs.push_back(bc);
+		s.lastBreadcrumbPos = pos;
+	}
+}
+
 // Closed door within reach of the use key (the game measures from the look-at point).
 void ScanDoors(State &s) {
 	s.nearDoor = -1;
@@ -730,7 +780,27 @@ void PickExploreDirection(State &s, const V3 &o) {
 		float v1 = (float)Visits(o.x + dir.x * near1, o.z + dir.z * near1);
 		float v2 = open > 380.0f ? (float)Visits(o.x + dir.x * 380.0f, o.z + dir.z * 380.0f) : 3.0f;
 		float novelty = 0.65f / (1.0f + v1) + 0.35f / (1.0f + v2);
-		float score = 0.5f * Sat(open / kExploreLook) + 1.2f * novelty +
+
+		float loopPenalty = 0.0f;
+		if (!s.breadcrumbs.empty()) {
+			V3 candPos = { o.x + dir.x * 180.0f, o.y, o.z + dir.z * 180.0f };
+			size_t sz = s.breadcrumbs.size();
+			size_t start = sz > 15 ? sz - 15 : 0;
+			size_t end = sz > 2 ? sz - 2 : 0;
+			for (size_t b = start; b < end; b++) {
+				if (s.clock - s.breadcrumbs[b].time < kRecentBreadcrumbTime) {
+					float bdx = candPos.x - s.breadcrumbs[b].pos.x;
+					float bdz = candPos.z - s.breadcrumbs[b].pos.z;
+					float bdistSq = bdx * bdx + bdz * bdz;
+					if (bdistSq < 130.0f * 130.0f) {
+						float dist = sqrtf(bdistSq);
+						loopPenalty = fmaxf(loopPenalty, Sat(1.0f - dist / 130.0f) * 0.75f);
+					}
+				}
+			}
+		}
+
+		float score = 0.5f * Sat(open / kExploreLook) + 1.2f * novelty - loopPenalty +
 		              0.3f * fmaxf(0.0f, g_slotX[i] * s.exploreX + g_slotZ[i] * s.exploreZ) + 0.2f * Rand01(s);
 		if (score > bestScore) {
 			bestScore = score;
@@ -759,6 +829,28 @@ void Think(State &s) {
 	MarkVisited(origin.x, origin.z);
 	SelectGoal(s);
 	ScanDoors(s);
+	DropBreadcrumb(s, origin);
+
+	s.backtrackTimer = fmaxf(0.0f, s.backtrackTimer - kThinkInterval);
+
+	if (s.kind == T_EXPLORE && (s.stuckCount >= 2 || s.escapeTimer > 0.0f) && s.backtrackTimer <= 0.0f) {
+		if (!s.breadcrumbs.empty()) {
+			int targetIdx = -1;
+			for (int b = (int)s.breadcrumbs.size() - 1; b >= 0; b--) {
+				float bdx = s.breadcrumbs[b].pos.x - origin.x;
+				float bdz = s.breadcrumbs[b].pos.z - origin.z;
+				float bdist = sqrtf(bdx * bdx + bdz * bdz);
+				if (bdist > 160.0f && (s.breadcrumbs[b].isJunction || b == 0)) {
+					targetIdx = b;
+					break;
+				}
+			}
+			if (targetIdx >= 0) {
+				s.backtrackTargetIdx = targetIdx;
+				s.backtrackTimer = 3.5f;
+			}
+		}
+	}
 
 	// Direction and distance to the goal.
 	const bool hasPos = s.kind == T_MONSTER || s.kind == T_ITEM || s.kind == T_DOOR || s.kind == T_EXIT;
@@ -819,7 +911,25 @@ void Think(State &s) {
 	}
 
 	// Base direction of travel.
-	if (s.kind == T_EXPLORE) {
+	if (s.kind == T_EXPLORE && s.backtrackTimer > 0.0f && s.backtrackTargetIdx >= 0 &&
+	    s.backtrackTargetIdx < (int)s.breadcrumbs.size()) {
+		const Breadcrumb &targetB = s.breadcrumbs[s.backtrackTargetIdx];
+		float bdx = targetB.pos.x - origin.x;
+		float bdz = targetB.pos.z - origin.z;
+		float bdist = sqrtf(bdx * bdx + bdz * bdz);
+		if (bdist > 20.0f) {
+			tx = bdx / bdist;
+			tz = bdz / bdist;
+			s.exploreX = tx;
+			s.exploreZ = tz;
+		} else {
+			s.backtrackTimer = 0.0f;
+			s.backtrackTargetIdx = -1;
+			PickExploreDirection(s, origin);
+			tx = s.exploreX;
+			tz = s.exploreZ;
+		}
+	} else if (s.kind == T_EXPLORE) {
 		if (s.exploreTimer <= 0.0f || (s.exploreX == 0.0f && s.exploreZ == 0.0f))
 			PickExploreDirection(s, origin);
 		tx = s.exploreX;
@@ -1054,6 +1164,10 @@ void ResetState(State &s) {
 	s.switchCooldown = 0.0f;
 	s.switchBan = 0.0f;
 	s.switchAttempts = 0;
+	s.breadcrumbs.clear();
+	s.lastBreadcrumbPos = { 1e9f, 1e9f, 1e9f };
+	s.backtrackTimer = 0.0f;
+	s.backtrackTargetIdx = -1;
 	for (Ban &b : s.bans)
 		b = Ban();
 	s.nextBan = 0;
