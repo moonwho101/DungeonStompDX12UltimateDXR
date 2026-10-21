@@ -372,27 +372,28 @@ export class Monster {
 
             case MonsterState.ATTACK:
                 this.setAnimation(this.config.animations.ATTACK);
-                if (this.stateTimer < 0.2) {
-                    this.smoothTurn(targetAngle, dt);
-                }
+                this.smoothTurn(targetAngle, dt);
 
-                // Trigger monster attack hit calculation once midway through attack animation
-                if (!this.hasAttackedThisCycle && this.stateTimer >= 0.3) {
+                // Calculate halfway duration of monster attack animation
+                const attackAnim = this.config.animations.ATTACK;
+                const totalAttackFrames = attackAnim.end - attackAnim.start + 1;
+                const attackDuration = totalAttackFrames / attackAnim.fps;
+
+                // Trigger damage check midway through monster swing
+                if (!this.hasAttackedThisCycle && this.animTimer >= attackDuration * 0.5) {
                     this.hasAttackedThisCycle = true;
-                    if (distToPlayer <= this.config.attackRange + 20.0) {
+                    if (distToPlayer <= this.config.attackRange + 30.0) {
                         monsterAttackPlayer(this);
                     }
                 }
 
                 if (this.animComplete) {
-                    this.attackCooldown = 0.5;
                     this.hasAttackedThisCycle = false;
                     if (distToPlayer <= this.config.attackRange) {
-                        this.setState(MonsterState.CHASE);
-                    } else if (distToPlayer <= this.config.deaggroRadius) {
-                        this.setState(MonsterState.CHASE);
+                        // Reset animation to loop attack while in range and stationary
+                        this.setAnimation(this.config.animations.ATTACK, true);
                     } else {
-                        this.setState(MonsterState.IDLE);
+                        this.setState(MonsterState.CHASE);
                     }
                 }
                 break;
@@ -663,6 +664,7 @@ let playerWeaponAnimTimer = 0.0;
 let playerWeaponCurrentAnim = MD2_ANIMATIONS.STAND;
 let playerWeaponActiveInfluences = new Set();
 let isWeaponAttacking = false;
+let hasPlayerAttackedThisSwing = false;
 
 const defaultCanvas = document.createElement('canvas');
 defaultCanvas.width = 128;
@@ -1911,49 +1913,49 @@ const _attackDir = new THREE.Vector3();
 function triggerWeaponAttack() {
     if (isWeaponAttacking) return;
     isWeaponAttacking = true;
+    hasPlayerAttackedThisSwing = false;
     playerWeaponAnimTimer = 0.0;
     playerWeaponCurrentAnim = MD2_ANIMATIONS.ATTACK;
+}
 
-    // Perform melee attack check against monsters
-    if (camera && monsters && monsters.length > 0) {
-        camera.getWorldDirection(_attackDir);
-        _attackRaycaster.set(camera.position, _attackDir);
-        _attackRaycaster.far = 180.0; // Melee reach distance
+function processPlayerMeleeHit() {
+    if (!camera || !monsters || monsters.length === 0) return;
 
-        const activeMonsters = monsters.filter(m => m.state !== MonsterState.DEATH);
-        let targetMonster = null;
-        let minDistance = 180.0;
+    camera.getWorldDirection(_attackDir);
+    _attackRaycaster.set(camera.position, _attackDir);
+    _attackRaycaster.far = 180.0; // Melee reach distance
 
-        for (const m of activeMonsters) {
-            if (!m.mesh) continue;
-            // Raycast check against monster mesh or check proximity
-            const dist = camera.position.distanceTo(m.position);
-            const intersects = _attackRaycaster.intersectObject(m.mesh, true);
-            if (intersects.length > 0) {
-                if (intersects[0].distance < minDistance) {
-                    minDistance = intersects[0].distance;
-                    targetMonster = m;
-                }
-            } else if (dist <= 110.0) {
-                // Sphere/cone fallback proximity hit if looking directly towards monster
-                const toMonster = _tempDiff.subVectors(m.position, camera.position).normalize();
-                const dot = _attackDir.dot(toMonster);
-                if (dot > 0.5 && dist < minDistance) {
-                    minDistance = dist;
-                    targetMonster = m;
-                }
+    const activeMonsters = monsters.filter(m => m.state !== MonsterState.DEATH);
+    let targetMonster = null;
+    let minDistance = 180.0;
+
+    for (const m of activeMonsters) {
+        if (!m.mesh) continue;
+        const dist = camera.position.distanceTo(m.position);
+        const intersects = _attackRaycaster.intersectObject(m.mesh, true);
+        if (intersects.length > 0) {
+            if (intersects[0].distance < minDistance) {
+                minDistance = intersects[0].distance;
+                targetMonster = m;
+            }
+        } else if (dist <= 120.0) {
+            const toMonster = _tempDiff.subVectors(m.position, camera.position).normalize();
+            const dot = _attackDir.dot(toMonster);
+            if (dot > 0.4 && dist < minDistance) {
+                minDistance = dist;
+                targetMonster = m;
             }
         }
+    }
 
-        if (targetMonster) {
-            const monsterAc = targetMonster.config.ac !== undefined ? targetMonster.config.ac : 2;
-            const hitResult = rollThacoAttack(playerStats.thaco, monsterAc);
-            if (hitResult.isHit) {
-                const currentGun = PLAYER_GUNS[currentGunIndex];
-                const dmgRange = WEAPON_DAMAGE[currentGun] || [1, 6];
-                const damage = Math.floor(Math.random() * (dmgRange[1] - dmgRange[0] + 1)) + dmgRange[0];
-                targetMonster.takeDamage(damage);
-            }
+    if (targetMonster) {
+        const monsterAc = targetMonster.config.ac !== undefined ? targetMonster.config.ac : 2;
+        const hitResult = rollThacoAttack(playerStats.thaco, monsterAc);
+        if (hitResult.isHit) {
+            const currentGun = PLAYER_GUNS[currentGunIndex];
+            const dmgRange = WEAPON_DAMAGE[currentGun] || [1, 6];
+            const damage = Math.floor(Math.random() * (dmgRange[1] - dmgRange[0] + 1)) + dmgRange[0];
+            targetMonster.takeDamage(damage);
         }
     }
 }
@@ -1991,9 +1993,16 @@ function updatePlayerWeaponAnimation(delta) {
     const totalFrames = anim.end - anim.start + 1;
     const totalDuration = totalFrames / anim.fps;
 
+    // Perform attack hit calculation halfway through swing animation
+    if (isWeaponAttacking && !hasPlayerAttackedThisSwing && playerWeaponAnimTimer >= totalDuration * 0.5) {
+        hasPlayerAttackedThisSwing = true;
+        processPlayerMeleeHit();
+    }
+
     if (!anim.loop && playerWeaponAnimTimer >= totalDuration) {
         if (isWeaponAttacking) {
             isWeaponAttacking = false;
+            hasPlayerAttackedThisSwing = false;
             playerWeaponCurrentAnim = (moveForward || moveBackward || moveLeft || moveRight)
                 ? MD2_ANIMATIONS.RUN
                 : MD2_ANIMATIONS.STAND;
