@@ -216,6 +216,11 @@ BOOL CLoadWorld::LoadWorldMap(char *filename) {
 			if (lwm_start_flag == FALSE)
 				object_count++;
 
+			if (object_count >= 3000) {
+				fclose(fp);
+				return FALSE;
+			}
+
 			oblist[object_count].type = object_id;
 			oblist[object_count].castshadow = 1;
 			strcpy_s(oblist[object_count].name, 10000, p);

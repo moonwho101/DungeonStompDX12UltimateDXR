@@ -3239,17 +3239,13 @@ int ResetPlayer() {
 
 void ClearObjectList() {
 
-	int q = 0;
-
-	// for (q = 0; q < oblist_length; q++)
-	//{
-
-	//    delete oblist[q].light_source;
-	//}
-	// delete oblist;
-
-	////TODO: FIx this
-	// oblist = new OBJECTLIST[3000];
+	for (int q = 0; q < oblist_length; q++) {
+		if (oblist[q].light_source != nullptr) {
+			delete oblist[q].light_source;
+			oblist[q].light_source = nullptr;
+		}
+	}
+	oblist_length = 0;
 
 	for (int i = 0; i < MAX_NUM_ITEMS; i++) {
 		item_list[i].frags = 0;
