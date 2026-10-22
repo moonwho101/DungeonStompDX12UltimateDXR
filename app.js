@@ -1490,6 +1490,7 @@ function closestPointsCapsuleBox(capA, capB, box) {
 const MONSTER_CAPSULE_RADIUS = 24.0;
 const MONSTER_CAPSULE_HEIGHT = 80.0;
 const MONSTER_FOOT_OFFSET = 50.0; // monster.position sits this far above its feet
+const STAND_ON_MAX_LIFT = 20.0;   // feet this close to a monster's head stand on it instead of being pushed sideways
 
 const _capA = new THREE.Vector3();
 const _capB = new THREE.Vector3();
@@ -1501,13 +1502,22 @@ const _contactNormal = new THREE.Vector3();
 const _nearbyTriangles = new Set();
 
 // Penetration of the vertical capsule axis point (px, pz) against another
-// upright cylinder. Writes a horizontal push-out direction to _contactNormal.
-function cylinderContact(px, pz, baseY, topY, ox, oz, oBaseY, oTopY, sumRadius) {
+// upright cylinder. Writes the push-out direction to _contactNormal: horizontal,
+// or straight up when `standOn` is set and the feet are just below the other
+// body's top, so a player can jump over and land on monsters.
+function cylinderContact(px, pz, baseY, topY, ox, oz, oBaseY, oTopY, sumRadius, standOn) {
     if (baseY >= oTopY || oBaseY >= topY) return 0;
     const dx = px - ox;
     const dz = pz - oz;
     const distSq = dx * dx + dz * dz;
     if (distSq >= sumRadius * sumRadius) return 0;
+    if (standOn) {
+        const lift = oTopY - baseY;
+        if (lift <= STAND_ON_MAX_LIFT) {
+            _contactNormal.set(0, 1, 0);
+            return lift;
+        }
+    }
     if (distSq > 1e-8) {
         const dist = Math.sqrt(distSq);
         _contactNormal.set(dx / dist, 0, dz / dist);
@@ -1659,7 +1669,8 @@ function resolveCapsuleWorld(pos, footOffset, radius, height, vel, selfMonster, 
                 if (other === selfMonster || other.state === MonsterState.DEATH) continue;
                 const oBaseY = other.position.y - MONSTER_FOOT_OFFSET;
                 const pen = cylinderContact(pos.x, pos.z, curBaseY, topY,
-                    other.position.x, other.position.z, oBaseY, oBaseY + MONSTER_CAPSULE_HEIGHT, sumRadius);
+                    other.position.x, other.position.z, oBaseY, oBaseY + MONSTER_CAPSULE_HEIGHT, sumRadius,
+                    !selfMonster);
                 if (pen > maxPenetration) {
                     maxPenetration = pen;
                     _bestNormal.copy(_contactNormal);
