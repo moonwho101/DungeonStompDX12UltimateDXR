@@ -288,7 +288,12 @@ export class Monster {
         if (this.state === MonsterState.DEATH) {
             this.mesh.position.copy(this.position);
             if (this.weaponMesh) {
-                this.weaponMesh.visible = false;
+                scene.remove(this.weaponMesh);
+                const idx = levelObjects.findIndex(o => o.mesh === this.weaponMesh);
+                if (idx !== -1) {
+                    levelObjects.splice(idx, 1);
+                }
+                this.weaponMesh = null;
             }
             this.updateMorphTargets(dt);
             this.updateBoundingBox();
