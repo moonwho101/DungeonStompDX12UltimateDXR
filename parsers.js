@@ -378,6 +378,27 @@ export class LevelMapParser {
                 if (tokens.length >= 6) {
                     currentObj.ability = parseInt(tokens[5], 10) || 0;
                 }
+            } else if (currentObj && cmd === 'LIGHT_SOURCE') {
+                // LIGHT_SOURCE <flicker|Spotlight> POS x y z DIR x y z COLOUR r g b
+                const num = (i) => parseFloat(tokens[i]) || 0;
+                const posIdx = tokens.indexOf('POS');
+                const dirIdx = tokens.indexOf('DIR');
+                const colIdx = tokens.indexOf('COLOUR');
+                const hasPos = posIdx >= 0;
+                const light = {
+                    type: (tokens[1] || 'flicker').toLowerCase() === 'spotlight' ? 'spotlight' : 'flicker',
+                    x: hasPos ? num(posIdx + 1) : currentObj.x,
+                    y: hasPos ? num(posIdx + 2) + 28.0 : currentObj.y,
+                    z: hasPos ? num(posIdx + 3) : currentObj.z,
+                    dx: dirIdx >= 0 ? num(dirIdx + 1) : 0,
+                    dy: dirIdx >= 0 ? num(dirIdx + 2) : -1,
+                    dz: dirIdx >= 0 ? num(dirIdx + 3) : 0,
+                    r: colIdx >= 0 ? num(colIdx + 1) : 1,
+                    g: colIdx >= 0 ? num(colIdx + 2) : 1,
+                    b: colIdx >= 0 ? num(colIdx + 3) : 1
+                };
+                currentObj.light = light;
+                this.lights.push(light);
             } else if (currentObj && cmd === 'SHADOW') {
                 currentObj.shadow = parseInt(tokens[1], 10) || 0;
             }

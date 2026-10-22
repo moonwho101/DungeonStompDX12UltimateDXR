@@ -455,6 +455,24 @@ const levelObjects = [];
 const monsters = [];
 const doors = [];
 
+// Dungeon lighting (lamp_post LIGHT_SOURCE entries)
+const LIGHT_RANGE = 1000.0;
+const MAX_POINT_LIGHTS = 8;
+const MAX_SPOT_LIGHTS = 4;
+const POINT_LIGHT_INTENSITY = 8500;
+const SPOT_LIGHT_INTENSITY = 12000;
+const LIGHT_DECAY = 1.5; // softer than inverse-square to avoid harsh hotspots next to lamps
+const LIGHT_FADE_SPEED = 4.0;
+const LIGHT_REFRESH_INTERVAL = 0.1;
+const FLICKER_COLOUR_REF = 14.0; // flicker colours are authored on a 0..~14 scale
+const SPOT_COLOUR_REF = 0.9;
+
+const lamps = [];
+const lightSlots = { flicker: [], spotlight: [] };
+let lightRefreshTimer = LIGHT_REFRESH_INTERVAL;
+let haloTexture = null;
+let coreTexture = null;
+
 // Spatial Collision Structures
 const levelTriangles = [];
 const modelBoxes = [];
@@ -513,6 +531,260 @@ ctx.fillStyle = '#444455';
 ctx.fillRect(0, 0, 64, 64);
 ctx.fillRect(64, 64, 64, 64);
 
+function createGlareTexture(kind) {
+    const size = 256;
+    const c = document.createElement('canvas');
+    c.width = size;
+    c.height = size;
+    const g = c.getContext('2d');
+    const half = size / 2;
+
+    const radial = (stops) => {
+        const grad = g.createRadialGradient(half, half, 0, half, half, half);
+        for (const [offset, alpha] of stops) grad.addColorStop(offset, `rgba(255,255,255,${alpha})`);
+        return grad;
+    };
+
+    if (kind === 'halo') {
+        g.fillStyle = radial([[0, 0.55], [0.2, 0.32], [0.45, 0.12], [0.75, 0.03], [1, 0]]);
+        g.fillRect(0, 0, size, size);
+    } else {
+        // Bright core with soft four-point streaks
+        g.save();
+        g.translate(half, half);
+        g.scale(1, 0.05);
+        g.translate(-half, -half);
+        g.fillStyle = radial([[0, 0.9], [0.3, 0.35], [1, 0]]);
+        g.fillRect(0, 0, size, size);
+        g.restore();
+        g.save();
+        g.translate(half, half);
+        g.scale(0.05, 1);
+        g.translate(-half, -half);
+        g.fillStyle = radial([[0, 0.7], [0.3, 0.25], [1, 0]]);
+        g.fillRect(0, 0, size, size);
+        g.restore();
+        g.fillStyle = radial([[0, 1], [0.12, 0.9], [0.3, 0.3], [0.6, 0.05], [1, 0]]);
+        g.fillRect(0, 0, size, size);
+    }
+
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+}
+
+function setupSceneLighting() {
+    // Dim cool ambient so the dungeon stays moody and the lamps carry the scene
+    const ambientLight = new THREE.AmbientLight(0x7a82a8, 0.9);
+    scene.add(ambientLight);
+
+    // Faint cool "moonlight" directional fill so unlit corridors remain readable
+    const dirLight = new THREE.DirectionalLight(0xaab6ff, 0.9);
+    dirLight.position.set(2500, 6000, 1500);
+    scene.add(dirLight);
+
+    scene.fog = new THREE.Fog(0x08080e, 1200, 3400);
+    scene.background = new THREE.Color(0x08080e);
+
+    // Fixed-size light pools keep the shader light count constant (no recompiles while walking)
+    for (let i = 0; i < MAX_POINT_LIGHTS; i++) {
+        const light = new THREE.PointLight(0xffffff, 0, LIGHT_RANGE, LIGHT_DECAY);
+        scene.add(light);
+        lightSlots.flicker.push({ light, lamp: null, fade: 0, releasing: false });
+    }
+    for (let i = 0; i < MAX_SPOT_LIGHTS; i++) {
+        const light = new THREE.SpotLight(0xffffff, 0, LIGHT_RANGE, Math.PI / 3.2, 0.65, LIGHT_DECAY);
+        scene.add(light);
+        scene.add(light.target);
+        lightSlots.spotlight.push({ light, lamp: null, fade: 0, releasing: false });
+    }
+
+    haloTexture = createGlareTexture('halo');
+    coreTexture = createGlareTexture('core');
+}
+
+function clearLamps() {
+    for (const lamp of lamps) {
+        scene.remove(lamp.halo);
+        scene.remove(lamp.core);
+        lamp.halo.material.dispose();
+        lamp.core.material.dispose();
+    }
+    lamps.length = 0;
+    for (const type of ['flicker', 'spotlight']) {
+        for (const slot of lightSlots[type]) {
+            slot.lamp = null;
+            slot.fade = 0;
+            slot.releasing = false;
+            slot.light.intensity = 0;
+        }
+    }
+}
+
+function registerLamp(src) {
+    const isSpot = src.type === 'spotlight';
+    const ref = isSpot ? SPOT_COLOUR_REF : FLICKER_COLOUR_REF;
+    const maxComp = Math.max(src.r, src.g, src.b);
+
+    // Keep the authored hue at full saturation; the authored magnitude only sets brightness
+    const color = new THREE.Color();
+    if (maxComp > 1e-4) {
+        color.setRGB(src.r / maxComp, src.g / maxComp, src.b / maxComp, THREE.SRGBColorSpace);
+    } else {
+        color.setRGB(1.0, 0.7, 0.4, THREE.SRGBColorSpace);
+    }
+    const brightness = THREE.MathUtils.clamp(maxComp / ref, 0.6, 1.15);
+
+    const dir = new THREE.Vector3(src.dx, src.dy, src.dz);
+    if (dir.lengthSq() < 1e-6) dir.set(0, -1, 0);
+    dir.normalize();
+
+    const coreColor = color.clone().lerp(new THREE.Color(1, 1, 1), 0.55);
+    const halo = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: haloTexture, color, transparent: true, opacity: 0,
+        blending: THREE.AdditiveBlending, depthWrite: false, fog: false
+    }));
+    const core = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: coreTexture, color: coreColor, transparent: true, opacity: 0,
+        blending: THREE.AdditiveBlending, depthWrite: false, fog: false
+    }));
+    const pos = new THREE.Vector3(src.x, src.y + 40, src.z);
+    halo.position.copy(pos);
+    core.position.copy(pos);
+    halo.visible = false;
+    core.visible = false;
+    halo.renderOrder = 10;
+    core.renderOrder = 11;
+    scene.add(halo);
+    scene.add(core);
+
+    lamps.push({
+        type: isSpot ? 'spotlight' : 'flicker',
+        pos, dir, color, brightness,
+        phase: Math.random() * Math.PI * 2,
+        haloSize: isSpot ? 170 : 340,
+        coreSize: isSpot ? 55 : 120,
+        halo, core,
+        slot: null,
+        dist: Infinity,
+        flicker: 1
+    });
+}
+
+function flickerValue(lamp, t) {
+    const p = lamp.phase;
+    if (lamp.type === 'spotlight') {
+        return 0.97 + 0.03 * Math.sin(t * 2.0 + p);
+    }
+    return 0.86
+        + 0.07 * Math.sin(t * 9.0 + p)
+        + 0.045 * Math.sin(t * 23.0 + p * 1.7)
+        + 0.03 * Math.sin(t * 47.0 + p * 0.6)
+        + 0.06 * Math.sin(t * 3.1 + p) * Math.sin(t * 5.3 + p * 2.0);
+}
+
+function smoothstep01(edge0, edge1, x) {
+    const k = THREE.MathUtils.clamp((x - edge0) / (edge1 - edge0), 0, 1);
+    return k * k * (3 - 2 * k);
+}
+
+function refreshLightSlots(type, slots) {
+    const nearest = [];
+    for (const lamp of lamps) {
+        if (lamp.type === type && lamp.dist <= LIGHT_RANGE) nearest.push(lamp);
+    }
+    nearest.sort((a, b) => a.dist - b.dist);
+    const wanted = new Set(nearest.slice(0, slots.length));
+
+    for (const slot of slots) {
+        if (slot.lamp && !wanted.has(slot.lamp)) slot.releasing = true;
+    }
+    for (const lamp of wanted) {
+        if (lamp.slot) {
+            lamp.slot.releasing = false;
+            continue;
+        }
+        const free = slots.find((s) => !s.lamp);
+        if (free) {
+            free.lamp = lamp;
+            free.fade = 0;
+            free.releasing = false;
+            lamp.slot = free;
+            free.light.color.copy(lamp.color);
+            if (lamp.type === 'spotlight') {
+                free.light.position.copy(lamp.pos);
+                free.light.target.position.copy(lamp.pos).addScaledVector(lamp.dir, 100);
+                free.light.target.updateMatrixWorld();
+            }
+        }
+    }
+}
+
+// Lights the lamp_post objects closest to the player (within LIGHT_RANGE) with their authored light type/colour.
+function updateLighting(t, delta, playerPos) {
+    for (const lamp of lamps) {
+        lamp.dist = lamp.pos.distanceTo(playerPos);
+        lamp.flicker = flickerValue(lamp, t);
+
+        // Glare sprites
+        if (lamp.dist > LIGHT_RANGE) {
+            lamp.halo.visible = false;
+            lamp.core.visible = false;
+            continue;
+        }
+        const fade = (1 - smoothstep01(LIGHT_RANGE * 0.6, LIGHT_RANGE, lamp.dist)) * smoothstep01(40, 160, lamp.dist);
+        const f = lamp.flicker;
+        const visible = fade > 0.01;
+        lamp.halo.visible = visible;
+        lamp.core.visible = visible;
+        if (visible) {
+            const haloScale = lamp.haloSize * (0.9 + 0.2 * f);
+            const coreScale = lamp.coreSize * (0.85 + 0.3 * f);
+            lamp.halo.scale.set(haloScale, haloScale, 1);
+            lamp.core.scale.set(coreScale, coreScale, 1);
+            lamp.halo.material.opacity = fade * Math.min(1, 0.45 + 0.5 * f) * lamp.brightness;
+            lamp.core.material.opacity = fade * Math.min(1, 0.5 + 0.5 * f);
+        }
+    }
+
+    lightRefreshTimer += delta;
+    if (lightRefreshTimer >= LIGHT_REFRESH_INTERVAL) {
+        lightRefreshTimer = 0;
+        refreshLightSlots('flicker', lightSlots.flicker);
+        refreshLightSlots('spotlight', lightSlots.spotlight);
+    }
+
+    for (const type of ['flicker', 'spotlight']) {
+        const base = type === 'flicker' ? POINT_LIGHT_INTENSITY : SPOT_LIGHT_INTENSITY;
+        for (const slot of lightSlots[type]) {
+            const lamp = slot.lamp;
+            if (!lamp) continue;
+
+            slot.fade += (slot.releasing ? -1 : 1) * LIGHT_FADE_SPEED * delta;
+            slot.fade = THREE.MathUtils.clamp(slot.fade, 0, 1);
+            if (slot.releasing && slot.fade <= 0) {
+                slot.light.intensity = 0;
+                lamp.slot = null;
+                slot.lamp = null;
+                slot.releasing = false;
+                continue;
+            }
+
+            const light = slot.light;
+            if (type === 'flicker') {
+                // Slight positional wobble makes the flame light dance across walls
+                const p = lamp.phase;
+                light.position.set(
+                    lamp.pos.x + Math.sin(t * 11.0 + p) * 3,
+                    lamp.pos.y + Math.sin(t * 17.0 + p * 1.3) * 4,
+                    lamp.pos.z + Math.cos(t * 13.0 + p * 0.7) * 3
+                );
+            }
+            light.intensity = base * lamp.brightness * lamp.flicker * slot.fade;
+        }
+    }
+}
+
 async function init() {
     const container = document.getElementById('canvas-container');
 
@@ -523,14 +795,8 @@ async function init() {
     // Camera setup
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 50000);
 
-    // Ambient Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 2.0);
-    scene.add(ambientLight);
-
-    // Directional Light for general visibility
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
-    dirLight.position.set(5000, 10000, 5000);
-    scene.add(dirLight);
+    // Ambient, directional and lamp light pools
+    setupSceneLighting();
 
     // Renderer setup
     renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -924,6 +1190,7 @@ async function loadGameWorld() {
 
     // Reset level objects tracking
     levelObjects.length = 0;
+    clearLamps();
     monsters.length = 0;
     levelTriangles.length = 0;
     modelBoxes.length = 0;
@@ -959,11 +1226,12 @@ async function loadGameWorld() {
     for (const inst of instances) {
         if (inst.isStartPos) continue;
 
-        if (inst.isLight) {
+        if (inst.light || inst.isLight) {
             lightCount++;
-            const pointLight = new THREE.PointLight(0xffd29d, 3.0, 1500);
-            pointLight.position.set(inst.x, inst.y + 100, inst.z);
-            scene.add(pointLight);
+            registerLamp(inst.light || {
+                type: 'flicker', x: inst.x, y: inst.y, z: inst.z,
+                dx: 0, dy: -1, dz: 0, r: 10, g: 8, b: 5
+            });
             continue;
         }
 
@@ -2077,6 +2345,8 @@ function animate() {
 
     // Update moving doors animation and collision
     updateDoors(delta);
+
+    updateLighting(time / 1000, delta, pos);
 
     // Distance culling for level objects
     const renderDistSq = RENDER_DISTANCE * RENDER_DISTANCE;
