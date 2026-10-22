@@ -43,6 +43,9 @@ export const DEFAULT_MONSTER_CONFIG = Object.freeze({
     alertDuration: 0.6,     // time spent in ALERT before entering CHASE
     damage: 10,
     maxHealth: 100,
+    level: 1,
+    ac: 2,
+    thaco: 19,
     animations: MD2_ANIMATIONS
 });
 
@@ -52,35 +55,50 @@ export const MONSTER_CONFIGS = {
         moveSpeed: 190.0,
         aggroRadius: 750.0,
         damage: 6,
-        maxHealth: 30
+        maxHealth: 30,
+        level: 1,
+        ac: 2,
+        thaco: 19
     },
     KNIGHT: {
         ...DEFAULT_MONSTER_CONFIG,
         moveSpeed: 150.0,
         aggroRadius: 850.0,
         damage: 15,
-        maxHealth: 120
+        maxHealth: 120,
+        level: 5,
+        ac: 6,
+        thaco: 15
     },
     BAUUL: {
         ...DEFAULT_MONSTER_CONFIG,
         moveSpeed: 140.0,
         aggroRadius: 900.0,
         damage: 20,
-        maxHealth: 150
+        maxHealth: 150,
+        level: 7,
+        ac: 5,
+        thaco: 13
     },
     OGRE: {
         ...DEFAULT_MONSTER_CONFIG,
         moveSpeed: 130.0,
         aggroRadius: 800.0,
         damage: 25,
-        maxHealth: 180
+        maxHealth: 180,
+        level: 8,
+        ac: 4,
+        thaco: 11
     },
     WRAITH: {
         ...DEFAULT_MONSTER_CONFIG,
         moveSpeed: 180.0,
         aggroRadius: 950.0,
         damage: 12,
-        maxHealth: 80
+        maxHealth: 80,
+        level: 6,
+        ac: 7,
+        thaco: 14
     }
 };
 
@@ -349,18 +367,28 @@ export class Monster {
 
             case MonsterState.ATTACK:
                 this.setAnimation(this.config.animations.ATTACK);
-                if (this.stateTimer < 0.2) {
-                    this.smoothTurn(targetAngle, dt);
+                this.smoothTurn(targetAngle, dt);
+
+                // Calculate halfway duration of monster attack animation
+                const attackAnim = this.config.animations.ATTACK;
+                const totalAttackFrames = attackAnim.end - attackAnim.start + 1;
+                const attackDuration = totalAttackFrames / attackAnim.fps;
+
+                // Trigger damage check midway through monster swing
+                if (!this.hasAttackedThisCycle && this.animTimer >= attackDuration * 0.5) {
+                    this.hasAttackedThisCycle = true;
+                    if (distToPlayer <= this.config.attackRange + 30.0) {
+                        monsterAttackPlayer(this);
+                    }
                 }
 
                 if (this.animComplete) {
-                    this.attackCooldown = 0.5;
+                    this.hasAttackedThisCycle = false;
                     if (distToPlayer <= this.config.attackRange) {
-                        this.setState(MonsterState.CHASE);
-                    } else if (distToPlayer <= this.config.deaggroRadius) {
-                        this.setState(MonsterState.CHASE);
+                        // Reset animation to loop attack while in range and stationary
+                        this.setAnimation(this.config.animations.ATTACK, true);
                     } else {
-                        this.setState(MonsterState.IDLE);
+                        this.setState(MonsterState.CHASE);
                     }
                 }
                 break;
@@ -388,6 +416,9 @@ export class Monster {
         if (this.state === newState || this.state === MonsterState.DEATH) return;
         this.state = newState;
         this.stateTimer = 0.0;
+        if (newState === MonsterState.ATTACK) {
+            this.hasAttackedThisCycle = false;
+        }
     }
 
     smoothTurn(targetAngle, dt) {
@@ -417,6 +448,7 @@ export class Monster {
         if (this.health <= 0) {
             this.health = 0;
             this.setState(MonsterState.DEATH);
+            this.velocity.set(0, 0, 0);
             this.boundingBox.makeEmpty();
             const deaths = [this.config.animations.DEATH1, this.config.animations.DEATH2, this.config.animations.DEATH3];
             const chosenDeath = deaths[Math.floor(Math.random() * deaths.length)];
@@ -482,6 +514,111 @@ const textureCache = new Map();
 const tdsModelCache = new Map();
 const md2GeometryCache = new Map();
 
+export const WEAPON_DAMAGE = Object.freeze({
+    'AXE': [1, 4],
+    'FLAMESWORD': [1, 6],
+    'BASTARDSWORD': [1, 6],
+    'BATTLEAXE': [1, 8],
+    'ICESWORD': [2, 8],
+    'LIGHTNINGSWORD': [4, 8],
+    'MORNINGSTAR': [6, 10],
+    'SPIKEDFLAIL': [6, 12],
+    'SPLITSWORD': [8, 14],
+    'SUPERFLAMESWORD': [8, 16]
+});
+
+export const playerStats = {
+    level: 5,
+    ac: 5,
+    hp: 100,
+    maxHp: 100,
+    thaco: 16
+};
+
+/**
+ * Calculates whether an attack hits according to THAC0 rules where larger AC = better armour.
+ * Roll 1d20 (1 to 20).
+ * Natural 20 always hits.
+ * Natural 1 always misses.
+ * Targeted roll needed = attackerThaco + defenderAc.
+ *
+ * @param {number} attackerThaco
+ * @param {number} defenderAc
+ * @returns {{ isHit: boolean, roll: number, targetNeeded: number }}
+ */
+export function rollThacoAttack(attackerThaco, defenderAc) {
+    const roll = Math.floor(Math.random() * 20) + 1; // 1d20
+    const targetNeeded = attackerThaco + defenderAc;
+
+    let isHit = false;
+    if (roll === 20) {
+        isHit = true;
+    } else if (roll === 1) {
+        isHit = false;
+    } else {
+        isHit = (roll >= targetNeeded);
+    }
+
+    return { isHit, roll, targetNeeded };
+}
+
+let isPlayerDead = false;
+
+export function monsterAttackPlayer(monster) {
+    if (isPlayerDead) return;
+
+    const monsterThaco = monster.config.thaco !== undefined ? monster.config.thaco : 19;
+    const hitResult = rollThacoAttack(monsterThaco, playerStats.ac);
+
+    if (hitResult.isHit) {
+        const dmg = monster.config.damage !== undefined ? monster.config.damage : 10;
+        playerStats.hp = Math.max(0, playerStats.hp - dmg);
+        updatePlayerUI();
+
+        if (playerStats.hp <= 0) {
+            handlePlayerDeath();
+        } else {
+            triggerPlayerPain();
+        }
+    }
+}
+
+export function triggerPlayerPain() {
+    const pains = [MD2_ANIMATIONS.PAIN1, MD2_ANIMATIONS.PAIN2, MD2_ANIMATIONS.PAIN3];
+    const chosenPain = pains[Math.floor(Math.random() * pains.length)];
+    playerWeaponCurrentAnim = chosenPain;
+    playerWeaponAnimTimer = 0.0;
+}
+
+export function handlePlayerDeath() {
+    if (isPlayerDead) return;
+    isPlayerDead = true;
+
+    // Play player death animation on gun mesh
+    const deaths = [MD2_ANIMATIONS.DEATH1, MD2_ANIMATIONS.DEATH2, MD2_ANIMATIONS.DEATH3, MD2_ANIMATIONS.FLIP];
+    const chosenDeath = deaths[Math.floor(Math.random() * deaths.length)];
+    playerWeaponCurrentAnim = chosenDeath;
+    playerWeaponAnimTimer = 0.0;
+
+    if (controls) {
+        controls.unlock();
+    }
+
+    setTimeout(() => {
+        const choice = window.confirm("Your hit points reached 0! Continue game?");
+        if (choice) {
+            playerStats.hp = playerStats.maxHp;
+            isPlayerDead = false;
+            updatePlayerUI();
+            playerWeaponCurrentAnim = MD2_ANIMATIONS.STAND;
+            playerWeaponAnimTimer = 0.0;
+            if (controls) {
+                controls.lock();
+            }
+        }
+    }, 300);
+}
+
 // Player Guns list
 const PLAYER_GUNS = [
     'AXE',
@@ -502,6 +639,7 @@ let playerWeaponAnimTimer = 0.0;
 let playerWeaponCurrentAnim = MD2_ANIMATIONS.STAND;
 let playerWeaponActiveInfluences = new Set();
 let isWeaponAttacking = false;
+let hasPlayerAttackedThisSwing = false;
 
 const defaultCanvas = document.createElement('canvas');
 defaultCanvas.width = 128;
@@ -1724,10 +1862,57 @@ function resolveCapsuleCollisions(camPos) {
         velocity, null, monsters, null);
 }
 
+const _attackRaycaster = new THREE.Raycaster();
+const _attackDir = new THREE.Vector3();
+
 function triggerWeaponAttack() {
+    if (isWeaponAttacking) return;
     isWeaponAttacking = true;
+    hasPlayerAttackedThisSwing = false;
     playerWeaponAnimTimer = 0.0;
     playerWeaponCurrentAnim = MD2_ANIMATIONS.ATTACK;
+}
+
+function processPlayerMeleeHit() {
+    if (!camera || !monsters || monsters.length === 0) return;
+
+    camera.getWorldDirection(_attackDir);
+    _attackRaycaster.set(camera.position, _attackDir);
+    _attackRaycaster.far = 180.0; // Melee reach distance
+
+    const activeMonsters = monsters.filter(m => m.state !== MonsterState.DEATH);
+    let targetMonster = null;
+    let minDistance = 180.0;
+
+    for (const m of activeMonsters) {
+        if (!m.mesh) continue;
+        const dist = camera.position.distanceTo(m.position);
+        const intersects = _attackRaycaster.intersectObject(m.mesh, true);
+        if (intersects.length > 0) {
+            if (intersects[0].distance < minDistance) {
+                minDistance = intersects[0].distance;
+                targetMonster = m;
+            }
+        } else if (dist <= 120.0) {
+            const toMonster = _tempDiff.subVectors(m.position, camera.position).normalize();
+            const dot = _attackDir.dot(toMonster);
+            if (dot > 0.4 && dist < minDistance) {
+                minDistance = dist;
+                targetMonster = m;
+            }
+        }
+    }
+
+    if (targetMonster) {
+        const monsterAc = targetMonster.config.ac !== undefined ? targetMonster.config.ac : 2;
+        const hitResult = rollThacoAttack(playerStats.thaco, monsterAc);
+        if (hitResult.isHit) {
+            const currentGun = PLAYER_GUNS[currentGunIndex];
+            const dmgRange = WEAPON_DAMAGE[currentGun] || [1, 6];
+            const damage = Math.floor(Math.random() * (dmgRange[1] - dmgRange[0] + 1)) + dmgRange[0];
+            targetMonster.takeDamage(damage);
+        }
+    }
 }
 
 function updatePlayerWeaponAnimation(delta) {
@@ -1763,9 +1948,16 @@ function updatePlayerWeaponAnimation(delta) {
     const totalFrames = anim.end - anim.start + 1;
     const totalDuration = totalFrames / anim.fps;
 
+    // Perform attack hit calculation halfway through swing animation
+    if (isWeaponAttacking && !hasPlayerAttackedThisSwing && playerWeaponAnimTimer >= totalDuration * 0.5) {
+        hasPlayerAttackedThisSwing = true;
+        processPlayerMeleeHit();
+    }
+
     if (!anim.loop && playerWeaponAnimTimer >= totalDuration) {
         if (isWeaponAttacking) {
             isWeaponAttacking = false;
+            hasPlayerAttackedThisSwing = false;
             playerWeaponCurrentAnim = (moveForward || moveBackward || moveLeft || moveRight)
                 ? MD2_ANIMATIONS.RUN
                 : MD2_ANIMATIONS.STAND;
@@ -1880,12 +2072,32 @@ function cycleWeapon(dir) {
     updateWeaponMesh();
 }
 
+export function updatePlayerUI() {
+    const lvlDisplay = document.getElementById('player-level-display');
+    if (lvlDisplay) lvlDisplay.textContent = playerStats.level;
+
+    const hpDisplay = document.getElementById('player-hp-display');
+    if (hpDisplay) hpDisplay.textContent = `${playerStats.hp}/${playerStats.maxHp}`;
+
+    const acDisplay = document.getElementById('player-ac-display');
+    if (acDisplay) acDisplay.textContent = playerStats.ac;
+
+    const thacoDisplay = document.getElementById('player-thaco-display');
+    if (thacoDisplay) thacoDisplay.textContent = playerStats.thaco;
+
+    const gunName = PLAYER_GUNS[currentGunIndex];
+    const dmgRange = WEAPON_DAMAGE[gunName] || [1, 6];
+    const dmgDisplay = document.getElementById('weapon-dmg-display');
+    if (dmgDisplay) dmgDisplay.textContent = `${dmgRange[0]}-${dmgRange[1]}`;
+}
+
 async function updateWeaponMesh() {
     const gunName = PLAYER_GUNS[currentGunIndex];
     const gunDisplay = document.getElementById('gun-display');
     if (gunDisplay) {
         gunDisplay.textContent = gunName;
     }
+    updatePlayerUI();
 
     if (currentGunMesh) {
         camera.remove(currentGunMesh);
