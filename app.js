@@ -293,7 +293,7 @@ export class Monster {
         if (this.state === MonsterState.DEATH) {
             this.mesh.position.copy(this.position);
             if (this.weaponMesh) {
-                this.weaponMesh.position.copy(this.position);
+                this.weaponMesh.visible = false;
             }
             this.updateMorphTargets(dt);
             this.updateBoundingBox();
@@ -500,7 +500,7 @@ const textureCache = new Map();
 const tdsModelCache = new Map();
 const md2GeometryCache = new Map();
 
-// Player Guns list
+// Player Guns list & Damage Table
 const PLAYER_GUNS = [
     'AXE',
     'FLAMESWORD',
@@ -513,6 +513,18 @@ const PLAYER_GUNS = [
     'SPLITSWORD',
     'SUPERFLAMESWORD'
 ];
+const WEAPON_DAMAGE = {
+    'AXE': 20,
+    'FLAMESWORD': 25,
+    'BASTARDSWORD': 30,
+    'BATTLEAXE': 35,
+    'ICESWORD': 30,
+    'LIGHTNINGSWORD': 35,
+    'MORNINGSTAR': 25,
+    'SPIKEDFLAIL': 25,
+    'SPLITSWORD': 30,
+    'SUPERFLAMESWORD': 40
+};
 let currentGunIndex = 0;
 let currentGunMesh = null;
 
@@ -520,6 +532,7 @@ let playerWeaponAnimTimer = 0.0;
 let playerWeaponCurrentAnim = MD2_ANIMATIONS.STAND;
 let playerWeaponActiveInfluences = new Set();
 let isWeaponAttacking = false;
+let hasWeaponHitThisSwing = false;
 
 const defaultCanvas = document.createElement('canvas');
 defaultCanvas.width = 128;
@@ -1994,8 +2007,47 @@ function resolveCapsuleCollisions(camPos) {
 
 function triggerWeaponAttack() {
     isWeaponAttacking = true;
+    hasWeaponHitThisSwing = false;
     playerWeaponAnimTimer = 0.0;
     playerWeaponCurrentAnim = MD2_ANIMATIONS.ATTACK;
+}
+
+function checkPlayerAttackHit() {
+    if (!controls) return;
+    const playerPos = controls.getObject().position;
+    const playerDir = new THREE.Vector3();
+    camera.getWorldDirection(playerDir);
+
+    const ATTACK_HIT_RANGE = 140.0;
+    let closestMonster = null;
+    let closestDist = Infinity;
+
+    const toMonster = new THREE.Vector3();
+
+    for (let i = 0; i < monsters.length; i++) {
+        const monster = monsters[i];
+        if (!monster || monster.state === MonsterState.DEATH || monster.health <= 0) continue;
+
+        toMonster.subVectors(monster.position, playerPos);
+        const dist = toMonster.length();
+
+        if (dist <= ATTACK_HIT_RANGE) {
+            toMonster.normalize();
+            const dot = playerDir.dot(toMonster);
+            if (dot >= 0.5) { // Monster is in front of player
+                if (dist < closestDist) {
+                    closestDist = dist;
+                    closestMonster = monster;
+                }
+            }
+        }
+    }
+
+    if (closestMonster) {
+        const gunName = PLAYER_GUNS[currentGunIndex] || '';
+        const damage = WEAPON_DAMAGE[gunName] || 25;
+        closestMonster.takeDamage(damage);
+    }
 }
 
 function updatePlayerWeaponAnimation(delta) {
@@ -2031,9 +2083,17 @@ function updatePlayerWeaponAnimation(delta) {
     const totalFrames = anim.end - anim.start + 1;
     const totalDuration = totalFrames / anim.fps;
 
+    if (isWeaponAttacking && playerWeaponCurrentAnim === MD2_ANIMATIONS.ATTACK) {
+        if (!hasWeaponHitThisSwing && playerWeaponAnimTimer >= totalDuration * 0.5) {
+            hasWeaponHitThisSwing = true;
+            checkPlayerAttackHit();
+        }
+    }
+
     if (!anim.loop && playerWeaponAnimTimer >= totalDuration) {
         if (isWeaponAttacking) {
             isWeaponAttacking = false;
+            hasWeaponHitThisSwing = false;
             playerWeaponCurrentAnim = (moveForward || moveBackward || moveLeft || moveRight)
                 ? MD2_ANIMATIONS.RUN
                 : MD2_ANIMATIONS.STAND;
@@ -2164,6 +2224,7 @@ async function updateWeaponMesh() {
     playerWeaponCurrentAnim = MD2_ANIMATIONS.STAND;
     playerWeaponActiveInfluences.clear();
     isWeaponAttacking = false;
+    hasWeaponHitThisSwing = false;
 
     const modelDef = modelListParser.getModelByName(gunName);
     if (!modelDef) return;
