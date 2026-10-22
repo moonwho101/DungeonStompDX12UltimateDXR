@@ -163,6 +163,65 @@
             font-size: 22px;
             letter-spacing: 1px;
         }
+        /* Game Over / Death Overlay */
+        #death-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(15, 0, 0, 0.88);
+            backdrop-filter: blur(16px);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            color: #fff;
+            text-align: center;
+        }
+        #death-overlay h1 {
+            font-size: 48px;
+            color: #ef4444;
+            margin: 0 0 10px 0;
+            letter-spacing: 4px;
+            text-shadow: 0 0 20px rgba(239, 68, 68, 0.8);
+        }
+        #death-overlay p {
+            font-size: 18px;
+            color: #cbd5e1;
+            margin-bottom: 25px;
+        }
+        .death-btn-group {
+            display: flex;
+            gap: 16px;
+        }
+        .death-btn {
+            background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #fff;
+            padding: 12px 28px;
+            font-size: 15px;
+            font-weight: 700;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+        .death-btn:hover {
+            border-color: #f59e0b;
+            color: #f59e0b;
+            transform: translateY(-2px);
+        }
+        .death-btn-primary {
+            background: linear-gradient(180deg, #dc2626 0%, #991b1b 100%);
+            border-color: #f87171;
+        }
+        .death-btn-primary:hover {
+            border-color: #fff;
+            color: #fff;
+            box-shadow: 0 0 16px rgba(239, 68, 68, 0.8);
+        }
     </style>
 
     <!-- Import Map for Three.js -->
@@ -235,6 +294,16 @@
         <h2>Dungeon Stomp JS</h2>
         <p>Click anywhere to Start & Lock Pointer</p>
         <p><small>WASD = Move | Space = Jump | F = Fly | Shift = Sprint | Q/Z = Weapon</small></p>
+    </div>
+
+    <!-- Death / Game Over Modal -->
+    <div id="death-overlay">
+        <h1>YOU DIED</h1>
+        <p>Do you want to continue?</p>
+        <div class="death-btn-group">
+            <button class="death-btn death-btn-primary" onclick="window.continueGame()">YES / CONTINUE</button>
+            <button class="death-btn" onclick="window.restartGame()">RESTART LEVEL</button>
+        </div>
     </div>
 
     <script type="module" src="app.js"></script>

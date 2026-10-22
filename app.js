@@ -492,7 +492,59 @@ export function damagePlayer(amount) {
         setTimeout(() => { flashEl.style.opacity = '0'; }, 150);
     }
 
+    // Play random pain animation on player weapon if not attacking
+    if (!isWeaponAttacking) {
+        const pains = [MD2_ANIMATIONS.PAIN1, MD2_ANIMATIONS.PAIN2, MD2_ANIMATIONS.PAIN3];
+        playerWeaponPainAnim = pains[Math.floor(Math.random() * pains.length)];
+        isWeaponHurt = true;
+        playerWeaponAnimTimer = 0.0;
+        playerWeaponCurrentAnim = playerWeaponPainAnim;
+    }
+
+    if (playerStats.health <= 0) {
+        showDeathOverlay();
+    }
+
     updatePlayerHud();
+}
+
+export function showDeathOverlay() {
+    const deathOverlay = document.getElementById('death-overlay');
+    if (deathOverlay) {
+        deathOverlay.style.display = 'flex';
+    }
+    if (controls) {
+        controls.unlock();
+    }
+}
+
+export function hideDeathOverlay() {
+    const deathOverlay = document.getElementById('death-overlay');
+    if (deathOverlay) {
+        deathOverlay.style.display = 'none';
+    }
+}
+
+export function continueGame() {
+    playerStats.health = playerStats.maxHealth;
+    hideDeathOverlay();
+    updatePlayerHud();
+    if (controls) {
+        controls.lock();
+    }
+}
+
+export function restartGame() {
+    playerStats.health = playerStats.maxHealth;
+    playerStats.xp = 0;
+    playerStats.level = 1;
+    playerStats.nextXp = 100;
+    playerStats.kills = 0;
+    hideDeathOverlay();
+    updatePlayerHud();
+    if (controls) {
+        controls.lock();
+    }
 }
 
 export function awardPlayerXp(amount) {
@@ -614,6 +666,8 @@ let playerWeaponCurrentAnim = MD2_ANIMATIONS.STAND;
 let playerWeaponActiveInfluences = new Set();
 let isWeaponAttacking = false;
 let hasWeaponHitThisSwing = false;
+let isWeaponHurt = false;
+let playerWeaponPainAnim = MD2_ANIMATIONS.PAIN1;
 
 const defaultCanvas = document.createElement('canvas');
 defaultCanvas.width = 128;
@@ -1027,6 +1081,8 @@ async function init() {
     window.resolveMonsterCapsuleCollisions = resolveMonsterCapsuleCollisions;
     window.doors = doors;
     window.openNearbyDoor = openNearbyDoor;
+    window.continueGame = continueGame;
+    window.restartGame = restartGame;
     Object.defineProperty(window, 'playerWeaponCurrentAnim', {
         get: () => playerWeaponCurrentAnim
     });
@@ -2145,6 +2201,8 @@ function updatePlayerWeaponAnimation(delta) {
 
     if (isWeaponAttacking) {
         targetAnim = MD2_ANIMATIONS.ATTACK;
+    } else if (isWeaponHurt) {
+        targetAnim = playerWeaponPainAnim;
     } else if (!isGrounded && !isFlyMode) {
         targetAnim = MD2_ANIMATIONS.JUMP;
     } else if (moveForward || moveBackward || moveLeft || moveRight) {
@@ -2175,6 +2233,12 @@ function updatePlayerWeaponAnimation(delta) {
         if (isWeaponAttacking) {
             isWeaponAttacking = false;
             hasWeaponHitThisSwing = false;
+            playerWeaponCurrentAnim = (moveForward || moveBackward || moveLeft || moveRight)
+                ? MD2_ANIMATIONS.RUN
+                : MD2_ANIMATIONS.STAND;
+            playerWeaponAnimTimer = 0.0;
+        } else if (isWeaponHurt) {
+            isWeaponHurt = false;
             playerWeaponCurrentAnim = (moveForward || moveBackward || moveLeft || moveRight)
                 ? MD2_ANIMATIONS.RUN
                 : MD2_ANIMATIONS.STAND;
