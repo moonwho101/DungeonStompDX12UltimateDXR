@@ -10,36 +10,136 @@
             padding: 0;
             overflow: hidden;
             background-color: #000;
-            font-family: monospace;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             user-select: none;
         }
         #canvas-container {
             width: 100vw;
             height: 100vh;
         }
+        #damage-flash {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: radial-gradient(circle, rgba(255,0,0,0) 40%, rgba(255,0,0,0.8) 100%);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.15s ease-out;
+            z-index: 10;
+        }
         #ui-overlay {
             position: absolute;
-            top: 10px;
-            left: 10px;
-            color: #fff;
-            background: rgba(0, 0, 0, 0.6);
-            padding: 10px 15px;
-            border-radius: 5px;
+            top: 15px;
+            left: 15px;
+            color: #d1d5db;
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 10px 14px;
+            border-radius: 8px;
             pointer-events: none;
-            font-size: 14px;
+            font-family: monospace;
+            font-size: 13px;
             line-height: 1.5;
+            z-index: 20;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+        }
+        /* Modern Bottom Crawler HUD */
+        #hud-container {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            background: linear-gradient(180deg, rgba(20, 24, 33, 0.85) 0%, rgba(10, 12, 18, 0.95) 100%);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 170, 0, 0.25);
+            border-radius: 12px;
+            padding: 12px 24px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            pointer-events: none;
+            z-index: 20;
+            color: #fff;
+        }
+        .hud-stat-box {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .hud-label-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #94a3b8;
+        }
+        .hud-bar-bg {
+            width: 180px;
+            height: 16px;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6);
+        }
+        .hud-bar-fill {
+            height: 100%;
+            width: 100%;
+            transition: width 0.2s ease-out;
+            border-radius: 6px;
+        }
+        #hud-hp-bar {
+            background: linear-gradient(90deg, #dc2626 0%, #ef4444 50%, #f87171 100%);
+            box-shadow: 0 0 10px rgba(239, 68, 68, 0.6);
+        }
+        #hud-xp-bar {
+            background: linear-gradient(90deg, #0284c7 0%, #38bdf8 50%, #7dd3fc 100%);
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.6);
+        }
+        .hud-badge {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 8px;
+            padding: 6px 14px;
+            min-width: 60px;
+        }
+        .hud-badge-title {
+            font-size: 10px;
+            color: #64748b;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+        }
+        .hud-badge-value {
+            font-size: 15px;
+            font-weight: 800;
+            color: #f59e0b;
         }
         #crosshair {
             position: absolute;
             top: 50%;
             left: 50%;
-            width: 10px;
-            height: 10px;
-            margin-top: -5px;
-            margin-left: -5px;
+            width: 8px;
+            height: 8px;
+            margin-top: -4px;
+            margin-left: -4px;
             border-radius: 50%;
-            background: rgba(255, 255, 255, 0.5);
+            background: rgba(255, 255, 255, 0.7);
+            border: 1px solid rgba(0, 0, 0, 0.5);
             pointer-events: none;
+            z-index: 20;
         }
         #instructions {
             position: absolute;
@@ -48,15 +148,20 @@
             transform: translate(-50%, -50%);
             color: #fff;
             text-align: center;
-            background: rgba(0, 0, 0, 0.85);
-            padding: 20px 30px;
-            border-radius: 8px;
+            background: rgba(10, 12, 18, 0.92);
+            backdrop-filter: blur(12px);
+            padding: 24px 36px;
+            border-radius: 12px;
             cursor: pointer;
-            border: 2px solid #555;
+            border: 1px solid rgba(255, 170, 0, 0.3);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.8);
+            z-index: 30;
         }
         #instructions h2 {
             margin-top: 0;
-            color: #ffaa00;
+            color: #f59e0b;
+            font-size: 22px;
+            letter-spacing: 1px;
         }
     </style>
 
@@ -72,15 +177,58 @@
 </head>
 <body>
     <div id="canvas-container"></div>
+    <div id="damage-flash"></div>
     <div id="crosshair"></div>
 
     <div id="ui-overlay">
-        <strong style="color: #ffaa00;">Dungeon Stomp Three.js</strong><br>
-        Mode: <span id="mode-display" style="color: #00ff88;">FPS (WALK)</span><br>
+        <strong style="color: #f59e0b;">Dungeon Stomp Three.js</strong><br>
+        Mode: <span id="mode-display" style="color: #10b981;">FPS (WALK)</span><br>
         Position: <span id="pos-display">0, 0, 0</span><br>
         Objects: <span id="obj-display">0</span> | Lights: <span id="light-display">0</span><br>
-        Weapon: <span id="gun-display" style="color: #ffaa00;">FLAMESWORD</span><br>
-        Controls: WASD (Move), Space (Jump), F (Fly Mode), Shift (Run), Q/Z (Weapon)
+        Controls: WASD (Move) | Space (Jump) | Q/Z (Weapon)
+    </div>
+
+    <!-- Modern Crawler HUD -->
+    <div id="hud-container">
+        <!-- Level Badge -->
+        <div class="hud-badge">
+            <span class="hud-badge-title">Hero</span>
+            <span class="hud-badge-value" id="hud-level-text" style="color: #38bdf8;">LVL 1</span>
+        </div>
+
+        <!-- Health Bar Box -->
+        <div class="hud-stat-box">
+            <div class="hud-label-row">
+                <span>HEALTH</span>
+                <span id="hud-hp-text" style="color: #f87171;">100 / 100</span>
+            </div>
+            <div class="hud-bar-bg">
+                <div id="hud-hp-bar" class="hud-bar-fill"></div>
+            </div>
+        </div>
+
+        <!-- XP Bar Box -->
+        <div class="hud-stat-box">
+            <div class="hud-label-row">
+                <span>EXP</span>
+                <span>PROGRESS</span>
+            </div>
+            <div class="hud-bar-bg">
+                <div id="hud-xp-bar" class="hud-bar-fill" style="width: 0%;"></div>
+            </div>
+        </div>
+
+        <!-- Kills Badge -->
+        <div class="hud-badge">
+            <span class="hud-badge-title">KILLS</span>
+            <span class="hud-badge-value" id="hud-kills-text" style="color: #f43f5e;">0</span>
+        </div>
+
+        <!-- Active Weapon Badge -->
+        <div class="hud-badge" style="min-width: 120px;">
+            <span class="hud-badge-title">WEAPON</span>
+            <span class="hud-badge-value" id="hud-gun-text" style="font-size: 13px; color: #f59e0b;">FLAMESWORD</span>
+        </div>
     </div>
 
     <div id="instructions">
