@@ -115,6 +115,7 @@ export class Monster {
         this.alertTimer = 0.0;
         this.stateTimer = 0.0;
         this.attackCooldown = 0.0;
+        this.hasDealtDamageThisAttack = false;
 
         // Animation state tracking
         this.currentAnim = this.config.animations.STAND;
@@ -353,8 +354,22 @@ export class Monster {
                     this.smoothTurn(targetAngle, dt);
                 }
 
+                // Monster strikes player halfway through attack swing
+                if (!this.hasDealtDamageThisAttack) {
+                    const anim = this.currentAnim;
+                    const totalFrames = anim.end - anim.start + 1;
+                    const totalDuration = totalFrames / anim.fps;
+                    if (this.animTimer >= totalDuration * 0.5) {
+                        this.hasDealtDamageThisAttack = true;
+                        if (distToPlayer <= this.config.attackRange + 20.0) {
+                            damagePlayer(this.config.damage);
+                        }
+                    }
+                }
+
                 if (this.animComplete) {
                     this.attackCooldown = 0.5;
+                    this.hasDealtDamageThisAttack = false;
                     if (distToPlayer <= this.config.attackRange) {
                         this.setState(MonsterState.CHASE);
                     } else if (distToPlayer <= this.config.deaggroRadius) {
@@ -388,6 +403,9 @@ export class Monster {
         if (this.state === newState || this.state === MonsterState.DEATH) return;
         this.state = newState;
         this.stateTimer = 0.0;
+        if (newState === MonsterState.ATTACK) {
+            this.hasDealtDamageThisAttack = false;
+        }
     }
 
     smoothTurn(targetAngle, dt) {
@@ -421,6 +439,10 @@ export class Monster {
             const deaths = [this.config.animations.DEATH1, this.config.animations.DEATH2, this.config.animations.DEATH3];
             const chosenDeath = deaths[Math.floor(Math.random() * deaths.length)];
             this.setAnimation(chosenDeath, true);
+
+            // Award XP and kills to player
+            const xpGained = (this.config.maxHealth || 20) * 2;
+            awardPlayerXp(xpGained);
         } else {
             this.setState(MonsterState.HURT);
             const pains = [this.config.animations.PAIN1, this.config.animations.PAIN2, this.config.animations.PAIN3];
@@ -448,6 +470,65 @@ const velocity = new THREE.Vector3();
 const direction = new THREE.Vector3();
 const cameraQuaternion = new THREE.Quaternion();
 const worldDir = new THREE.Vector3();
+
+// Player Stats Tracking
+export const playerStats = {
+    health: 100,
+    maxHealth: 100,
+    level: 1,
+    xp: 0,
+    nextXp: 100,
+    kills: 0
+};
+
+export function damagePlayer(amount) {
+    if (playerStats.health <= 0) return;
+    playerStats.health = Math.max(0, playerStats.health - amount);
+
+    // Flash damage screen effect
+    const flashEl = document.getElementById('damage-flash');
+    if (flashEl) {
+        flashEl.style.opacity = '0.6';
+        setTimeout(() => { flashEl.style.opacity = '0'; }, 150);
+    }
+
+    updatePlayerHud();
+}
+
+export function awardPlayerXp(amount) {
+    playerStats.kills += 1;
+    playerStats.xp += amount;
+    while (playerStats.xp >= playerStats.nextXp) {
+        playerStats.xp -= playerStats.nextXp;
+        playerStats.level += 1;
+        playerStats.nextXp = Math.floor(playerStats.nextXp * 1.5);
+        playerStats.maxHealth += 20;
+        playerStats.health = playerStats.maxHealth; // Full heal on level up
+    }
+    updatePlayerHud();
+}
+
+export function updatePlayerHud() {
+    const hpBar = document.getElementById('hud-hp-bar');
+    const hpText = document.getElementById('hud-hp-text');
+    const xpBar = document.getElementById('hud-xp-bar');
+    const levelText = document.getElementById('hud-level-text');
+    const killsText = document.getElementById('hud-kills-text');
+    const gunText = document.getElementById('hud-gun-text');
+
+    const hpPercent = Math.max(0, Math.min(100, (playerStats.health / playerStats.maxHealth) * 100));
+    const xpPercent = Math.max(0, Math.min(100, (playerStats.xp / playerStats.nextXp) * 100));
+
+    if (hpBar) hpBar.style.width = `${hpPercent}%`;
+    if (hpText) hpText.textContent = `${Math.ceil(playerStats.health)} / ${playerStats.maxHealth}`;
+    if (xpBar) xpBar.style.width = `${xpPercent}%`;
+    if (levelText) levelText.textContent = `LVL ${playerStats.level}`;
+    if (killsText) killsText.textContent = `${playerStats.kills}`;
+
+    if (gunText && typeof PLAYER_GUNS !== 'undefined' && typeof currentGunIndex !== 'undefined') {
+        gunText.textContent = PLAYER_GUNS[currentGunIndex] || 'FLAMESWORD';
+    }
+}
 
 // Level Objects & Distance Culling
 const RENDER_DISTANCE = 3000.0;
