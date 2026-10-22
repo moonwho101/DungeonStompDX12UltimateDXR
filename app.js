@@ -39,7 +39,7 @@ export const DEFAULT_MONSTER_CONFIG = Object.freeze({
     aggroRadius: 800.0,     // detection distance to player
     deaggroRadius: 1200.0,  // distance to lose interest and return to idle
     attackRange: 85.0,      // melee attack trigger range
-    stopDistance: 60.0,     // minimum distance to maintain when attacking/moving
+    stopDistance: 85.0,     // minimum distance to maintain when attacking/moving
     alertDuration: 0.6,     // time spent in ALERT before entering CHASE
     damage: 10,
     maxHealth: 100,
@@ -50,7 +50,6 @@ export const MONSTER_CONFIGS = {
     GOBLIN: {
         ...DEFAULT_MONSTER_CONFIG,
         moveSpeed: 190.0,
-        attackRange: 75.0,
         aggroRadius: 750.0,
         damage: 6,
         maxHealth: 30
@@ -58,7 +57,6 @@ export const MONSTER_CONFIGS = {
     KNIGHT: {
         ...DEFAULT_MONSTER_CONFIG,
         moveSpeed: 150.0,
-        attackRange: 95.0,
         aggroRadius: 850.0,
         damage: 15,
         maxHealth: 120
@@ -66,7 +64,6 @@ export const MONSTER_CONFIGS = {
     BAUUL: {
         ...DEFAULT_MONSTER_CONFIG,
         moveSpeed: 140.0,
-        attackRange: 110.0,
         aggroRadius: 900.0,
         damage: 20,
         maxHealth: 150
@@ -74,7 +71,6 @@ export const MONSTER_CONFIGS = {
     OGRE: {
         ...DEFAULT_MONSTER_CONFIG,
         moveSpeed: 130.0,
-        attackRange: 120.0,
         aggroRadius: 800.0,
         damage: 25,
         maxHealth: 180
@@ -82,7 +78,6 @@ export const MONSTER_CONFIGS = {
     WRAITH: {
         ...DEFAULT_MONSTER_CONFIG,
         moveSpeed: 180.0,
-        attackRange: 180.0,
         aggroRadius: 950.0,
         damage: 12,
         maxHealth: 80
@@ -347,7 +342,7 @@ export class Monster {
                     this.setState(MonsterState.IDLE);
                 } else {
                     if (distToPlayer > this.config.stopDistance) {
-                        this.moveForward(dt, otherMonsters);
+                        this.moveForward(dt, otherMonsters, playerPos);
                     }
                 }
                 break;
@@ -405,35 +400,15 @@ export class Monster {
         this.rotationY += turn;
     }
 
-    moveForward(dt, otherMonsters) {
+    moveForward(dt, otherMonsters, playerPos) {
         const moveDist = this.config.moveSpeed * dt;
-        const dirX = Math.sin(this.rotationY);
-        const dirZ = Math.cos(this.rotationY);
+        this.position.x += Math.sin(this.rotationY) * moveDist;
+        this.position.z += Math.cos(this.rotationY) * moveDist;
 
-        let newX = this.position.x + dirX * moveDist;
-        let newZ = this.position.z + dirZ * moveDist;
-
-        if (otherMonsters) {
-            const minMonsterDist = 50.0;
-            for (const other of otherMonsters) {
-                if (other === this || other.state === MonsterState.DEATH) continue;
-                const mdx = newX - other.position.x;
-                const mdz = newZ - other.position.z;
-                const mdistSq = mdx * mdx + mdz * mdz;
-                if (mdistSq < minMonsterDist * minMonsterDist && mdistSq > 0.001) {
-                    const mdist = Math.sqrt(mdistSq);
-                    const push = (minMonsterDist - mdist) * 0.5;
-                    newX += (mdx / mdist) * push;
-                    newZ += (mdz / mdist) * push;
-                }
-            }
-        }
-
-        this.position.x = newX;
-        this.position.z = newZ;
-
-        // Resolve capsule collisions against level geometry and model bounding boxes
-        resolveMonsterCapsuleCollisions(this);
+        // Only this monster is pushed out of level geometry, other monsters and the
+        // player. Nothing it bumps into is displaced, so it cannot shove a pack of
+        // monsters (or the player) around.
+        resolveMonsterCapsuleCollisions(this, otherMonsters, playerPos);
     }
 
     takeDamage(damage) {
@@ -1107,11 +1082,6 @@ async function loadGameWorld() {
                         const posVec = new THREE.Vector3(inst.x, inst.y + 50, inst.z);
                         const monster = new Monster(mesh, weaponMesh, mConfig, posVec, angleRad);
                         monsters.push(monster);
-
-                        // Register monster's dynamic bounding box for capsule collision
-                        if (!monster.boundingBox.isEmpty()) {
-                            modelBoxes.push(monster.boundingBox);
-                        }
                         continue;
                     }
                 }
@@ -1421,9 +1391,39 @@ const _pSeg2 = new THREE.Vector3();
 
 const _bestCapP = new THREE.Vector3();
 const _bestTriP = new THREE.Vector3();
-const _triRes = { capP: _bestCapP, triP: _bestTriP, dist: 0 };
+const _triPlaneN = new THREE.Vector3();
+const _triPierceP = new THREE.Vector3();
+const _triRes = { capP: _bestCapP, triP: _bestTriP, dist: 0, pierced: false, normal: _triPlaneN };
 
+// Closest points between a capsule axis (capA-capB) and a triangle.
+// If the axis passes straight through the triangle the closest points are not
+// on its endpoints or edges, so that case is detected first and reported as a
+// negative distance (how far the nearest axis end must travel to clear the plane).
 function closestPointsCapsuleTriangle(capA, capB, v0, v1, v2) {
+    _triRes.pierced = false;
+
+    _triPlaneN.crossVectors(_v10.subVectors(v1, v0), _v20.subVectors(v2, v0));
+    if (_triPlaneN.lengthSq() > 1e-10) {
+        _triPlaneN.normalize();
+        const dA = _triPlaneN.dot(_tempDiff.subVectors(capA, v0));
+        const dB = _triPlaneN.dot(_tempDiff.subVectors(capB, v0));
+        if (dA * dB < 0) {
+            const t = dA / (dA - dB);
+            _triPierceP.lerpVectors(capA, capB, t);
+            closestPointTrianglePoint(v0, v1, v2, _triPierceP, _pTriA);
+            if (_pTriA.distanceToSquared(_triPierceP) < 1e-6) {
+                // Leave through the side the far end is on, so the near end only has to cross the plane
+                const aNear = Math.abs(dA) <= Math.abs(dB);
+                if ((aNear ? dA : dB) > 0) _triPlaneN.negate();
+                _bestCapP.copy(_triPierceP);
+                _bestTriP.copy(_triPierceP);
+                _triRes.dist = -Math.min(Math.abs(dA), Math.abs(dB));
+                _triRes.pierced = true;
+                return _triRes;
+            }
+        }
+    }
+
     let minDistSq = Infinity;
 
     closestPointTrianglePoint(v0, v1, v2, capA, _pTriA);
@@ -1444,9 +1444,10 @@ function closestPointsCapsuleTriangle(capA, capB, v0, v1, v2) {
         _bestTriP.copy(_pTriB);
     }
 
-    const edges = [[v0, v1], [v1, v2], [v2, v0]];
     for (let i = 0; i < 3; i++) {
-        closestPointsSegmentSegment(capA, capB, edges[i][0], edges[i][1], _pSeg1, _pSeg2);
+        const e0 = i === 0 ? v0 : (i === 1 ? v1 : v2);
+        const e1 = i === 0 ? v1 : (i === 1 ? v2 : v0);
+        closestPointsSegmentSegment(capA, capB, e0, e1, _pSeg1, _pSeg2);
         dSq = _pSeg1.distanceToSquared(_pSeg2);
         if (dSq < minDistSq) {
             minDistSq = dSq;
@@ -1459,192 +1460,81 @@ function closestPointsCapsuleTriangle(capA, capB, v0, v1, v2) {
     return _triRes;
 }
 
-const _boxP = new THREE.Vector3();
-const _segP = new THREE.Vector3();
+const _boxRes = { capP: new THREE.Vector3(), boxP: new THREE.Vector3(), dist: 0 };
 
+// Capsule axes in this game are always vertical, so the closest points to an
+// AABB can be solved exactly instead of sampling along the axis.
 function closestPointsCapsuleBox(capA, capB, box) {
-    let minDistSq = Infinity;
-    const bestCapP = new THREE.Vector3();
-    const bestBoxP = new THREE.Vector3();
+    const bx = Math.min(Math.max(capA.x, box.min.x), box.max.x);
+    const bz = Math.min(Math.max(capA.z, box.min.z), box.max.z);
 
-    const SAMPLES = 5;
-    for (let i = 0; i <= SAMPLES; i++) {
-        const t = i / SAMPLES;
-        _segP.lerpVectors(capA, capB, t);
-        box.clampPoint(_segP, _boxP);
-        const dSq = _segP.distanceToSquared(_boxP);
-        if (dSq < minDistSq) {
-            minDistSq = dSq;
-            bestCapP.copy(_segP);
-            bestBoxP.copy(_boxP);
-        }
+    const lo = Math.max(capA.y, box.min.y);
+    const hi = Math.min(capB.y, box.max.y);
+    let capY, boxY;
+    if (lo <= hi) {
+        capY = boxY = (lo + hi) * 0.5;
+    } else if (capB.y < box.min.y) {
+        capY = capB.y;
+        boxY = box.min.y;
+    } else {
+        capY = capA.y;
+        boxY = box.max.y;
     }
 
-    return { capP: bestCapP, boxP: bestBoxP, dist: Math.sqrt(minDistSq) };
+    _boxRes.capP.set(capA.x, capY, capA.z);
+    _boxRes.boxP.set(bx, boxY, bz);
+    _boxRes.dist = _boxRes.capP.distanceTo(_boxRes.boxP);
+    return _boxRes;
 }
 
 const MONSTER_CAPSULE_RADIUS = 24.0;
 const MONSTER_CAPSULE_HEIGHT = 80.0;
-const _mCapA = new THREE.Vector3();
-const _mCapB = new THREE.Vector3();
+const MONSTER_FOOT_OFFSET = 50.0; // monster.position sits this far above its feet
 
 const _capA = new THREE.Vector3();
 const _capB = new THREE.Vector3();
-const _normal = new THREE.Vector3();
 const _faceNormal = new THREE.Vector3();
 const _edge1 = new THREE.Vector3();
 const _edge2 = new THREE.Vector3();
+const _bestNormal = new THREE.Vector3();
+const _contactNormal = new THREE.Vector3();
+const _nearbyTriangles = new Set();
 
-function resolveMonsterCapsuleCollisions(monster) {
-    if (!monster || !monster.position) return;
-    monster.isGrounded = false;
-    const mPos = monster.position;
-
-    const basePosY = mPos.y;
-
-    const velYPadding = Math.abs(monster.velocity ? monster.velocity.y * 0.2 : 0);
-    const queryMinX = mPos.x - MONSTER_CAPSULE_RADIUS - 30;
-    const queryMaxX = mPos.x + MONSTER_CAPSULE_RADIUS + 30;
-    const queryMinY = basePosY - 50 - velYPadding;
-    const queryMaxY = basePosY + MONSTER_CAPSULE_HEIGHT + 50 + velYPadding;
-    const queryMinZ = mPos.z - MONSTER_CAPSULE_RADIUS - 30;
-    const queryMaxZ = mPos.z + MONSTER_CAPSULE_RADIUS + 30;
-
-    const minCx = Math.floor(queryMinX / GRID_CELL_SIZE);
-    const maxCx = Math.floor(queryMaxX / GRID_CELL_SIZE);
-    const minCy = Math.floor(queryMinY / GRID_CELL_SIZE);
-    const maxCy = Math.floor(queryMaxY / GRID_CELL_SIZE);
-    const minCz = Math.floor(queryMinZ / GRID_CELL_SIZE);
-    const maxCz = Math.floor(queryMaxZ / GRID_CELL_SIZE);
-
-    const nearbyTriangles = new Set();
-    for (let cx = minCx; cx <= maxCx; cx++) {
-        for (let cy = minCy; cy <= maxCy; cy++) {
-            for (let cz = minCz; cz <= maxCz; cz++) {
-                const cell = collisionGrid.get(getGridKey(cx, cy, cz));
-                if (cell) {
-                    for (let i = 0; i < cell.length; i++) {
-                        nearbyTriangles.add(cell[i]);
-                    }
-                }
-            }
-        }
+// Penetration of the vertical capsule axis point (px, pz) against another
+// upright cylinder. Writes a horizontal push-out direction to _contactNormal.
+function cylinderContact(px, pz, baseY, topY, ox, oz, oBaseY, oTopY, sumRadius) {
+    if (baseY >= oTopY || oBaseY >= topY) return 0;
+    const dx = px - ox;
+    const dz = pz - oz;
+    const distSq = dx * dx + dz * dz;
+    if (distSq >= sumRadius * sumRadius) return 0;
+    if (distSq > 1e-8) {
+        const dist = Math.sqrt(distSq);
+        _contactNormal.set(dx / dist, 0, dz / dist);
+        return sumRadius - dist;
     }
-
-    const MAX_ITERATIONS = 4;
-    for (let iter = 0; iter < MAX_ITERATIONS; iter++) {
-        _mCapA.set(mPos.x, mPos.y - 50.0 + MONSTER_CAPSULE_RADIUS, mPos.z);
-        _mCapB.set(mPos.x, mPos.y - 50.0 + MONSTER_CAPSULE_HEIGHT - MONSTER_CAPSULE_RADIUS, mPos.z);
-
-        let maxPenetration = 0;
-        let bestNormal = null;
-
-        for (const tri of nearbyTriangles) {
-            if (tri.maxX < queryMinX || tri.minX > queryMaxX ||
-                tri.maxY < queryMinY || tri.minY > queryMaxY ||
-                tri.maxZ < queryMinZ || tri.minZ > queryMaxZ) {
-                continue;
-            }
-
-            const res = closestPointsCapsuleTriangle(_mCapA, _mCapB, tri.a, tri.b, tri.c);
-            if (res.dist < MONSTER_CAPSULE_RADIUS) {
-                const pen = MONSTER_CAPSULE_RADIUS - res.dist;
-                _normal.subVectors(res.capP, res.triP);
-
-                _edge1.subVectors(tri.b, tri.a);
-                _edge2.subVectors(tri.c, tri.a);
-                _faceNormal.crossVectors(_edge1, _edge2).normalize();
-
-                if (_normal.lengthSq() > 1e-8) {
-                    _normal.normalize();
-                } else {
-                    _normal.copy(_faceNormal);
-                }
-
-                if (_faceNormal.y > 0.3) {
-                    if (res.capP.y < res.triP.y || _normal.y < 0) {
-                        _normal.set(0, 1, 0);
-                    }
-                } else if (_faceNormal.y < -0.3) {
-                    if (res.capP.y > res.triP.y || _normal.y > 0) {
-                        _normal.set(0, -1, 0);
-                    }
-                }
-
-                if (pen > maxPenetration) {
-                    maxPenetration = pen;
-                    bestNormal = _normal.clone();
-                }
-            }
-        }
-
-        for (let b = 0; b < modelBoxes.length; b++) {
-            const box = modelBoxes[b];
-            if (box === monster.boundingBox || box.isEmpty()) continue;
-            if (box.max.x < queryMinX || box.min.x > queryMaxX ||
-                box.max.y < queryMinY || box.min.y > queryMaxY ||
-                box.max.z < queryMinZ || box.min.z > queryMaxZ) {
-                continue;
-            }
-
-            const res = closestPointsCapsuleBox(_mCapA, _mCapB, box);
-            if (res.dist < MONSTER_CAPSULE_RADIUS) {
-                const pen = MONSTER_CAPSULE_RADIUS - res.dist;
-                _normal.subVectors(res.capP, res.boxP);
-                if (_normal.lengthSq() > 1e-8) {
-                    _normal.normalize();
-                } else {
-                    const boxCenter = _tempDiff.addVectors(box.min, box.max).multiplyScalar(0.5);
-                    _normal.subVectors(res.capP, boxCenter);
-                    if (res.capP.y >= box.max.y - 15) {
-                        _normal.set(0, 1, 0);
-                    } else {
-                        _normal.y = 0;
-                        if (_normal.lengthSq() > 1e-8) {
-                            _normal.normalize();
-                        } else {
-                            _normal.set(0, 1, 0);
-                        }
-                    }
-                }
-
-                if (pen > maxPenetration) {
-                    maxPenetration = pen;
-                    bestNormal = _normal.clone();
-                }
-            }
-        }
-
-        if (maxPenetration > 0 && bestNormal) {
-            mPos.addScaledVector(bestNormal, maxPenetration + 0.01);
-
-            if (bestNormal.y > 0.5) {
-                monster.isGrounded = true;
-            }
-
-            if (monster.velocity) {
-                const dotVel = monster.velocity.dot(bestNormal);
-                if (dotVel < 0) {
-                    monster.velocity.addScaledVector(bestNormal, -dotVel);
-                }
-            }
-        } else {
-            break;
-        }
-    }
+    _contactNormal.set(1, 0, 0);
+    return sumRadius;
 }
 
-function resolveCapsuleCollisions(camPos) {
-    isGrounded = false;
-    const basePosY = camPos.y - EYE_HEIGHT;
-
-    const velYPadding = Math.abs(velocity.y * 0.2);
-    const queryMinX = camPos.x - CAPSULE_RADIUS - 30;
-    const queryMaxX = camPos.x + CAPSULE_RADIUS + 30;
-    const queryMinY = basePosY - 50 - velYPadding;
-    const queryMaxY = basePosY + CAPSULE_HEIGHT + 50 + velYPadding;
-    const queryMinZ = camPos.z - CAPSULE_RADIUS - 30;
-    const queryMaxZ = camPos.z + CAPSULE_RADIUS + 30;
+// Shared capsule collide-and-slide for the player and monsters. Pushes `pos`
+// out of level triangles, static model boxes and (optionally) other upright
+// bodies, removing the velocity component into each contact. Only `pos` is
+// ever moved, so a body never displaces what it touches. Returns true when
+// standing on a walkable surface.
+//   footOffset  - distance from pos.y down to the capsule's feet
+//   selfMonster - monster being resolved (excluded from monsterList)
+//   monsterList - monsters treated as immovable cylinders
+//   playerPos   - player eye position treated as an immovable cylinder
+function resolveCapsuleWorld(pos, footOffset, radius, height, vel, selfMonster, monsterList, playerPos) {
+    const baseY = pos.y - footOffset;
+    const velYPadding = vel ? Math.abs(vel.y * 0.2) : 0;
+    const queryMinX = pos.x - radius - 30;
+    const queryMaxX = pos.x + radius + 30;
+    const queryMinY = baseY - 50 - velYPadding;
+    const queryMaxY = baseY + height + 50 + velYPadding;
+    const queryMinZ = pos.z - radius - 30;
+    const queryMaxZ = pos.z + radius + 30;
 
     const minCx = Math.floor(queryMinX / GRID_CELL_SIZE);
     const maxCx = Math.floor(queryMaxX / GRID_CELL_SIZE);
@@ -1653,30 +1543,30 @@ function resolveCapsuleCollisions(camPos) {
     const minCz = Math.floor(queryMinZ / GRID_CELL_SIZE);
     const maxCz = Math.floor(queryMaxZ / GRID_CELL_SIZE);
 
-    const nearbyTriangles = new Set();
+    _nearbyTriangles.clear();
     for (let cx = minCx; cx <= maxCx; cx++) {
         for (let cy = minCy; cy <= maxCy; cy++) {
             for (let cz = minCz; cz <= maxCz; cz++) {
                 const cell = collisionGrid.get(getGridKey(cx, cy, cz));
                 if (cell) {
                     for (let i = 0; i < cell.length; i++) {
-                        nearbyTriangles.add(cell[i]);
+                        _nearbyTriangles.add(cell[i]);
                     }
                 }
             }
         }
     }
 
-    const MAX_ITERATIONS = 4;
+    let grounded = false;
+    const MAX_ITERATIONS = 6;
     for (let iter = 0; iter < MAX_ITERATIONS; iter++) {
-        const curBaseY = camPos.y - EYE_HEIGHT;
-        _capA.set(camPos.x, curBaseY + CAPSULE_RADIUS, camPos.z);
-        _capB.set(camPos.x, curBaseY + CAPSULE_HEIGHT - CAPSULE_RADIUS, camPos.z);
+        const curBaseY = pos.y - footOffset;
+        _capA.set(pos.x, curBaseY + radius, pos.z);
+        _capB.set(pos.x, curBaseY + height - radius, pos.z);
 
         let maxPenetration = 0;
-        let bestNormal = null;
 
-        for (const tri of nearbyTriangles) {
+        for (const tri of _nearbyTriangles) {
             if (tri.maxX < queryMinX || tri.minX > queryMaxX ||
                 tri.maxY < queryMinY || tri.minY > queryMaxY ||
                 tri.maxZ < queryMinZ || tri.minZ > queryMaxZ) {
@@ -1684,35 +1574,40 @@ function resolveCapsuleCollisions(camPos) {
             }
 
             const res = closestPointsCapsuleTriangle(_capA, _capB, tri.a, tri.b, tri.c);
-            if (res.dist < CAPSULE_RADIUS) {
-                const pen = CAPSULE_RADIUS - res.dist;
-                _normal.subVectors(res.capP, res.triP);
+            if (res.dist >= radius) continue;
+            const pen = radius - res.dist;
+            if (pen <= maxPenetration) continue;
 
+            if (res.pierced) {
+                _contactNormal.copy(res.normal);
+            } else {
+                _contactNormal.subVectors(res.capP, res.triP);
                 _edge1.subVectors(tri.b, tri.a);
                 _edge2.subVectors(tri.c, tri.a);
                 _faceNormal.crossVectors(_edge1, _edge2).normalize();
 
-                if (_normal.lengthSq() > 1e-8) {
-                    _normal.normalize();
+                if (_contactNormal.lengthSq() > 1e-8) {
+                    _contactNormal.normalize();
                 } else {
-                    _normal.copy(_faceNormal);
-                }
-
-                if (_faceNormal.y > 0.3) {
-                    if (res.capP.y < res.triP.y || _normal.y < 0) {
-                        _normal.set(0, 1, 0);
-                    }
-                } else if (_faceNormal.y < -0.3) {
-                    if (res.capP.y > res.triP.y || _normal.y > 0) {
-                        _normal.set(0, -1, 0);
+                    // Touching exactly: use the face normal, facing the capsule
+                    _contactNormal.copy(_faceNormal);
+                    const midY = (_capA.y + _capB.y) * 0.5;
+                    if (_contactNormal.x * (pos.x - res.triP.x) + _contactNormal.y * (midY - res.triP.y) +
+                        _contactNormal.z * (pos.z - res.triP.z) < 0) {
+                        _contactNormal.negate();
                     }
                 }
 
-                if (pen > maxPenetration) {
-                    maxPenetration = pen;
-                    bestNormal = _normal.clone();
+                // Flat floors/ceilings push straight up/down so slight slopes don't make the
+                // body creep sideways. Walls and steep faces keep their true contact normal,
+                // otherwise a body beside a bar or ledge would be lifted onto it.
+                if (Math.abs(_faceNormal.y) > 0.7 && Math.abs(_contactNormal.y) > 0.5) {
+                    _contactNormal.set(0, _contactNormal.y > 0 ? 1 : -1, 0);
                 }
             }
+
+            maxPenetration = pen;
+            _bestNormal.copy(_contactNormal);
         }
 
         for (let b = 0; b < modelBoxes.length; b++) {
@@ -1725,48 +1620,97 @@ function resolveCapsuleCollisions(camPos) {
             }
 
             const res = closestPointsCapsuleBox(_capA, _capB, box);
-            if (res.dist < CAPSULE_RADIUS) {
-                const pen = CAPSULE_RADIUS - res.dist;
-                _normal.subVectors(res.capP, res.boxP);
-                if (_normal.lengthSq() > 1e-8) {
-                    _normal.normalize();
-                } else {
-                    const boxCenter = _tempDiff.addVectors(box.min, box.max).multiplyScalar(0.5);
-                    _normal.subVectors(res.capP, boxCenter);
-                    if (res.capP.y >= box.max.y - 15) {
-                        _normal.set(0, 1, 0);
-                    } else {
-                        _normal.y = 0;
-                        if (_normal.lengthSq() > 1e-8) {
-                            _normal.normalize();
-                        } else {
-                            _normal.set(0, 1, 0);
-                        }
-                    }
-                }
+            if (res.dist >= radius) continue;
 
+            let pen;
+            if (res.dist > 1e-4) {
+                pen = radius - res.dist;
+                _contactNormal.subVectors(res.capP, res.boxP).normalize();
+            } else {
+                // Axis is inside the box: leave through the nearest face (never downwards)
+                const cx = res.capP.x;
+                const cz = res.capP.z;
+                const outMinX = cx + radius - box.min.x;
+                const outMaxX = box.max.x - (cx - radius);
+                const outMinZ = cz + radius - box.min.z;
+                const outMaxZ = box.max.z - (cz - radius);
+                const outUp = box.max.y - curBaseY;
+
+                pen = outUp;
+                _contactNormal.set(0, 1, 0);
+                if (outMinX < pen) { pen = outMinX; _contactNormal.set(-1, 0, 0); }
+                if (outMaxX < pen) { pen = outMaxX; _contactNormal.set(1, 0, 0); }
+                if (outMinZ < pen) { pen = outMinZ; _contactNormal.set(0, 0, -1); }
+                if (outMaxZ < pen) { pen = outMaxZ; _contactNormal.set(0, 0, 1); }
+            }
+
+            if (pen > maxPenetration) {
+                maxPenetration = pen;
+                _bestNormal.copy(_contactNormal);
+            }
+        }
+
+        // Dynamic bodies are immovable here: only this body gets pushed out
+        const topY = curBaseY + height;
+        if (monsterList) {
+            const sumRadius = radius + MONSTER_CAPSULE_RADIUS;
+            for (let m = 0; m < monsterList.length; m++) {
+                const other = monsterList[m];
+                if (other === selfMonster || other.state === MonsterState.DEATH) continue;
+                const oBaseY = other.position.y - MONSTER_FOOT_OFFSET;
+                const pen = cylinderContact(pos.x, pos.z, curBaseY, topY,
+                    other.position.x, other.position.z, oBaseY, oBaseY + MONSTER_CAPSULE_HEIGHT, sumRadius);
                 if (pen > maxPenetration) {
                     maxPenetration = pen;
-                    bestNormal = _normal.clone();
+                    _bestNormal.copy(_contactNormal);
                 }
             }
         }
-
-        if (maxPenetration > 0 && bestNormal) {
-            camPos.addScaledVector(bestNormal, maxPenetration + 0.01);
-
-            if (bestNormal.y > 0.5) {
-                isGrounded = true;
+        if (playerPos) {
+            const oBaseY = playerPos.y - EYE_HEIGHT;
+            const pen = cylinderContact(pos.x, pos.z, curBaseY, topY,
+                playerPos.x, playerPos.z, oBaseY, oBaseY + CAPSULE_HEIGHT, radius + CAPSULE_RADIUS);
+            if (pen > maxPenetration) {
+                maxPenetration = pen;
+                _bestNormal.copy(_contactNormal);
             }
+        }
 
-            const dotVel = velocity.dot(bestNormal);
+        if (maxPenetration <= 0) break;
+
+        pos.addScaledVector(_bestNormal, maxPenetration + 0.01);
+
+        if (_bestNormal.y > 0.5) {
+            grounded = true;
+        }
+
+        if (vel) {
+            const dotVel = vel.dot(_bestNormal);
             if (dotVel < 0) {
-                velocity.addScaledVector(bestNormal, -dotVel);
+                vel.addScaledVector(_bestNormal, -dotVel);
             }
-        } else {
-            break;
         }
     }
+
+    return grounded;
+}
+
+// Monster vs level geometry and static model boxes. Pass `otherMonsters` and
+// `playerPos` (while the monster is walking) to also stop it from walking into
+// them; those bodies are never moved by this call.
+function resolveMonsterCapsuleCollisions(monster, otherMonsters = null, playerPos = null) {
+    if (!monster || !monster.position) return;
+    monster.isGrounded = resolveCapsuleWorld(
+        monster.position, MONSTER_FOOT_OFFSET, MONSTER_CAPSULE_RADIUS, MONSTER_CAPSULE_HEIGHT,
+        monster.velocity, monster, otherMonsters, playerPos);
+}
+
+// Player vs level geometry, static model boxes and monsters. Monsters are
+// immovable here, so the player is never shoved by them (and vice versa).
+function resolveCapsuleCollisions(camPos) {
+    isGrounded = resolveCapsuleWorld(
+        camPos, EYE_HEIGHT, CAPSULE_RADIUS, CAPSULE_HEIGHT,
+        velocity, null, monsters, null);
 }
 
 function triggerWeaponAttack() {
@@ -2087,12 +2031,23 @@ function animate() {
         }
 
         const camPos = controls.getObject().position;
-        camPos.x += velocity.x * delta;
-        camPos.y += velocity.y * delta;
-        camPos.z += velocity.z * delta;
 
-        // Collide and slide against dungeon geometry and model boxes
-        resolveCapsuleCollisions(camPos);
+        // Sub-step so fast falls or sprints can't tunnel through thin walls and floors
+        const maxStep = CAPSULE_RADIUS * 0.5;
+        const travel = Math.max(Math.abs(velocity.x), Math.abs(velocity.y), Math.abs(velocity.z)) * delta;
+        const steps = Math.min(8, Math.max(1, Math.ceil(travel / maxStep)));
+        const stepDt = delta / steps;
+        let grounded = false;
+        for (let s = 0; s < steps; s++) {
+            camPos.x += velocity.x * stepDt;
+            camPos.y += velocity.y * stepDt;
+            camPos.z += velocity.z * stepDt;
+
+            // Collide and slide against dungeon geometry, model boxes and monsters
+            resolveCapsuleCollisions(camPos);
+            grounded = grounded || isGrounded;
+        }
+        isGrounded = grounded;
     }
 
     prevTime = time;
