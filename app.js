@@ -2249,8 +2249,10 @@ async function updateWeaponMesh() {
 
     const mesh = new THREE.Mesh(geometry, material);
     mesh.scale.set(scaleFactor, scaleFactor, scaleFactor);
-    mesh.position.set(8, -8, -14);
-    mesh.rotation.set(0, -Math.PI / 2, 0);
+    //mesh.position.set(40, -20, 5);
+    mesh.position.set(0, -25, 5);
+
+    mesh.rotation.set(0, Math.PI / 2, 0);
 
     camera.add(mesh);
     currentGunMesh = mesh;
