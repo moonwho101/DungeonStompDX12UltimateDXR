@@ -2224,7 +2224,7 @@ function animate() {
     let delta = (time - prevTime) / 1000;
     if (delta > 0.1) delta = 0.1;
 
-    const moveSpeed = isSprinting ? 450.0 : 250.0;
+    const moveSpeed = isSprinting ? 400.0 : 200.0;
 
     if (isFlyMode) {
         // Fly Mode: Full 3D camera look-based movement
