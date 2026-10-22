@@ -1817,6 +1817,15 @@ Alias  599   tree_foliage           OPAQUE  WHOLE  default
 AddTexture  ..\Models\Players\faerie\weaponfaerie.dds
 Alias  600   weaponfaerie           OPAQUE  WHOLE  monsterweapon
 
+AddTexture  ..\Textures\Dungeon02\entrance_uni1.dds
+Alias  601  e1           OPAQUE  WHOLE  stonemain
+
+AddTexture  ..\Textures\Dungeon02\entrance_uni2.dds
+Alias  602  e2           OPAQUE  WHOLE  stonemain
+
+AddTexture  ..\Textures\Dungeon02\corridor07.dds
+Alias  603  c07          OPAQUE  WHOLE  stonemain
+
 
 END_FILE
 
