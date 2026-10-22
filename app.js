@@ -481,7 +481,7 @@ const GRID_CELL_SIZE = 256;
 
 // Player Capsule parameters
 const CAPSULE_RADIUS = 28.0;
-const CAPSULE_HEIGHT = 120.0;
+const CAPSULE_HEIGHT = 105.0;
 const EYE_HEIGHT = 100.0;
 const GRAVITY = 1600.0;
 const JUMP_SPEED = 520.0;
