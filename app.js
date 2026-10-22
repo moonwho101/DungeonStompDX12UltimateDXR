@@ -47,41 +47,36 @@ export const DEFAULT_MONSTER_CONFIG = Object.freeze({
 });
 
 export const MONSTER_CONFIGS = {
-    GOBLIN: {
-        ...DEFAULT_MONSTER_CONFIG,
-        moveSpeed: 190.0,
-        aggroRadius: 750.0,
-        damage: 6,
-        maxHealth: 30
-    },
-    KNIGHT: {
-        ...DEFAULT_MONSTER_CONFIG,
-        moveSpeed: 150.0,
-        aggroRadius: 850.0,
-        damage: 15,
-        maxHealth: 120
-    },
-    BAUUL: {
-        ...DEFAULT_MONSTER_CONFIG,
-        moveSpeed: 140.0,
-        aggroRadius: 900.0,
-        damage: 20,
-        maxHealth: 150
-    },
-    OGRE: {
-        ...DEFAULT_MONSTER_CONFIG,
-        moveSpeed: 130.0,
-        aggroRadius: 800.0,
-        damage: 25,
-        maxHealth: 180
-    },
-    WRAITH: {
-        ...DEFAULT_MONSTER_CONFIG,
-        moveSpeed: 180.0,
-        aggroRadius: 950.0,
-        damage: 12,
-        maxHealth: 80
-    }
+    KNIGHT: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 150.0, aggroRadius: 850.0, damage: 15, maxHealth: 20 },
+    GOBLIN: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 190.0, aggroRadius: 750.0, damage: 6, maxHealth: 18 },
+    BAUUL: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 140.0, aggroRadius: 900.0, damage: 20, maxHealth: 25 },
+    CORPSE: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 110.0, aggroRadius: 650.0, damage: 8, maxHealth: 15 },
+    SORCERER: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 160.0, aggroRadius: 950.0, damage: 18, maxHealth: 20 },
+    TENTACLE: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 120.0, aggroRadius: 700.0, damage: 5, maxHealth: 17 },
+    WRAITH: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 180.0, aggroRadius: 950.0, damage: 12, maxHealth: 28 },
+    OGRE: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 130.0, aggroRadius: 800.0, damage: 25, maxHealth: 25 },
+    PHANTOM: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 170.0, aggroRadius: 900.0, damage: 16, maxHealth: 20 },
+    OGRO: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 135.0, aggroRadius: 800.0, damage: 14, maxHealth: 20 },
+    SKELETON2: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 165.0, aggroRadius: 800.0, damage: 10, maxHealth: 15 },
+    DEMONESS: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 175.0, aggroRadius: 950.0, damage: 22, maxHealth: 35 },
+    FAERIE: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 185.0, aggroRadius: 900.0, damage: 15, maxHealth: 30 },
+    SLAVE: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 140.0, aggroRadius: 600.0, damage: 5, maxHealth: 5 },
+    WOLF: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 210.0, aggroRadius: 850.0, damage: 12, maxHealth: 20 },
+    INSECT: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 195.0, aggroRadius: 800.0, damage: 10, maxHealth: 20 },
+    OLUVE: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 150.0, aggroRadius: 700.0, damage: 6, maxHealth: 17 },
+    MUMMY: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 125.0, aggroRadius: 750.0, damage: 12, maxHealth: 18 },
+    HYDRA: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 145.0, aggroRadius: 850.0, damage: 16, maxHealth: 20 },
+    NECROMANCER: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 160.0, aggroRadius: 1000.0, damage: 24, maxHealth: 35 },
+    IMP: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 180.0, aggroRadius: 800.0, damage: 10, maxHealth: 20 },
+    DEMON: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 165.0, aggroRadius: 950.0, damage: 20, maxHealth: 25 },
+    FULIMO: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 170.0, aggroRadius: 900.0, damage: 18, maxHealth: 25 },
+    COBRA: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 190.0, aggroRadius: 800.0, damage: 14, maxHealth: 30 },
+    DRAGON: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 160.0, aggroRadius: 1000.0, damage: 28, maxHealth: 30 },
+    CENTAUR: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 190.0, aggroRadius: 850.0, damage: 12, maxHealth: 16 },
+    CRAZ: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 175.0, aggroRadius: 800.0, damage: 14, maxHealth: 20 },
+    RIDER: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 180.0, aggroRadius: 900.0, damage: 20, maxHealth: 26 },
+    OKTA: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 165.0, aggroRadius: 850.0, damage: 16, maxHealth: 25 },
+    SORB: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 170.0, aggroRadius: 950.0, damage: 22, maxHealth: 29 }
 };
 
 export function getMonsterConfig(name) {
