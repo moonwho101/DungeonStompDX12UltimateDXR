@@ -578,6 +578,9 @@ const md2Loader = new MD2Loader();
 const textureLoader = new THREE.TextureLoader();
 
 const textureCache = new Map();
+const normalMapCache = new Map();
+const normalMapMaterials = new Set();
+let normalMapsEnabled = true;
 const tdsModelCache = new Map();
 const md2GeometryCache = new Map();
 
@@ -966,6 +969,9 @@ async function init() {
             case 'KeyE':
                 openNearbyDoor();
                 break;
+            case 'KeyN':
+                setNormalMapsEnabled(!normalMapsEnabled);
+                break;
         }
     };
 
@@ -1081,34 +1087,98 @@ function getTexture(texAlias, onLoadCallback) {
 
     possiblePaths = [...new Set(possiblePaths)];
 
-    function tryLoad(index) {
-        if (index >= possiblePaths.length) return;
-        const path = possiblePaths[index];
-        const loader = path.toLowerCase().endsWith('.dds') ? ddsLoader : textureLoader;
+    loadTextureFromPaths(possiblePaths, (loadedTex) => {
+        cacheEntry.loadedTex = loadedTex;
+        cacheEntry.isLoading = false;
 
-        loader.load(
-            path,
-            (loadedTex) => {
-                loadedTex.wrapS = THREE.RepeatWrapping;
-                loadedTex.wrapT = THREE.RepeatWrapping;
-                cacheEntry.loadedTex = loadedTex;
-                cacheEntry.isLoading = false;
-
-                for (const cb of cacheEntry.callbacks) {
-                    cb(loadedTex);
-                }
-                cacheEntry.callbacks = [];
-            },
-            undefined,
-            () => {
-                tryLoad(index + 1);
-            }
-        );
-    }
-
-    tryLoad(0);
+        for (const cb of cacheEntry.callbacks) {
+            cb(loadedTex);
+        }
+        cacheEntry.callbacks = [];
+    });
 
     return fallbackTex;
+}
+
+// Tries each path in order. Every texture is normalized to the same orientation:
+// image-loader textures use flipY=true, but compressed DDS textures cannot be flipped on
+// upload and keep the file's top row at v=0, so flip them through the UV transform instead.
+function loadTextureFromPaths(paths, onLoad, index = 0) {
+    if (index >= paths.length) return;
+    const path = paths[index];
+    const isDds = path.toLowerCase().endsWith('.dds');
+    const loader = isDds ? ddsLoader : textureLoader;
+
+    loader.load(
+        path,
+        (loadedTex) => {
+            loadedTex.wrapS = THREE.RepeatWrapping;
+            loadedTex.wrapT = THREE.RepeatWrapping;
+            if (isDds && !loadedTex.flipY) {
+                loadedTex.repeat.y = -1;
+                loadedTex.offset.y = 1;
+            }
+            onLoad(loadedTex);
+        },
+        undefined,
+        () => loadTextureFromPaths(paths, onLoad, index + 1)
+    );
+}
+
+// A texture "foo" has a normal map when a texture named "foo_nm" exists in textures.dat.
+function getNormalMap(texAlias, onLoadCallback) {
+    if (!texAlias) return;
+    const nmAlias = `${texAlias.toLowerCase().trim()}_nm`;
+    if (!textureManager.aliases.has(nmAlias)) return;
+
+    if (normalMapCache.has(nmAlias)) {
+        const cached = normalMapCache.get(nmAlias);
+        if (cached.loadedTex) onLoadCallback(cached.loadedTex);
+        else if (cached.isLoading) cached.callbacks.push(onLoadCallback);
+        return;
+    }
+
+    const cacheEntry = { loadedTex: null, isLoading: true, callbacks: [onLoadCallback] };
+    normalMapCache.set(nmAlias, cacheEntry);
+
+    const texPath = textureManager.getTexturePath(nmAlias);
+    const base = `Textures/${texPath.replace(/\.[^./]+$/, '')}`;
+    const paths = [...new Set([`Textures/${texPath}`, `${base}.png`, `${base}.jpg`, `${base}.bmp`])];
+
+    loadTextureFromPaths(paths, (loadedTex) => {
+        // Normal maps hold data, not color
+        loadedTex.colorSpace = THREE.NoColorSpace;
+        cacheEntry.loadedTex = loadedTex;
+        cacheEntry.isLoading = false;
+        for (const cb of cacheEntry.callbacks) cb(loadedTex);
+        cacheEntry.callbacks = [];
+    });
+}
+
+// The normal maps are DirectX style (green channel points down). three.js builds the tangent
+// frame from the UVs, so flipY=true textures (image files) need Y inverted, while DDS textures,
+// which are flipped through the UV transform, are already in the right orientation.
+function applyNormalMap(material, texAlias) {
+    getNormalMap(texAlias, (normalTex) => {
+        material.userData.normalMapTex = normalTex;
+        normalMapMaterials.add(material);
+        material.normalMap = normalMapsEnabled ? normalTex : null;
+        material.normalScale.set(1, normalTex.flipY ? -1 : 1);
+        material.needsUpdate = true;
+    });
+}
+
+function setNormalMapsEnabled(enabled) {
+    normalMapsEnabled = enabled;
+    for (const material of normalMapMaterials) {
+        material.normalMap = enabled ? material.userData.normalMapTex : null;
+        material.needsUpdate = true;
+    }
+    const elem = document.getElementById('normalmap-display');
+    if (elem) {
+        elem.textContent = enabled ? 'ON' : 'OFF';
+        elem.style.color = enabled ? '#00ff88' : '#ef4444';
+    }
 }
 
 function generatePathVariations(filepath) {
@@ -1220,6 +1290,36 @@ async function loadMD2Geometry(modelDef) {
     return await loadPromise;
 }
 
+// 3DS textures are loaded by TDSLoader from files, so the texture name is only known once the
+// image has loaded. Look for a "<name>_nm" texture at that point.
+const tdsNormalMapChecked = new Set();
+function applyNormalMapTo3DSMesh(child) {
+    if (!child.isMesh) return;
+    const materials = Array.isArray(child.material) ? child.material : [child.material];
+    for (const material of materials) {
+        const map = material && material.map;
+        if (!map || tdsNormalMapChecked.has(material)) continue;
+        tdsNormalMapChecked.add(material);
+
+        const check = () => {
+            const src = map.image && map.image.src;
+            if (!src) return false;
+            const file = decodeURIComponent(src.split('?')[0].split('/').pop());
+            applyNormalMap(material, file.replace(/\.[^.]+$/, ''));
+            return true;
+        };
+
+        if (!check()) {
+            const prevOnUpdate = map.onUpdate;
+            map.onUpdate = (...args) => {
+                map.onUpdate = prevOnUpdate;
+                if (prevOnUpdate) prevOnUpdate.apply(map, args);
+                check();
+            };
+        }
+    }
+}
+
 async function load3DSModel(modelDef) {
     if (!modelDef || !modelDef.filepath) return null;
     const key = modelDef.filepath.toLowerCase();
@@ -1249,6 +1349,7 @@ async function load3DSModel(modelDef) {
                 });
 
                 if (object3ds) {
+                    object3ds.traverse(applyNormalMapTo3DSMesh);
                     object3ds.rotation.set(-Math.PI / 2, 0, Math.PI / 2);
                     const wrapper = new THREE.Group();
                     wrapper.add(object3ds);
@@ -1381,6 +1482,7 @@ async function loadGameWorld() {
                                 material.needsUpdate = true;
                             });
                             material.map = tex;
+                            applyNormalMap(material, texAlias);
                         }
 
                         const mesh = new THREE.Mesh(geometry, material);
@@ -1411,6 +1513,7 @@ async function loadGameWorld() {
                                                 weaponMat.needsUpdate = true;
                                             });
                                             weaponMat.map = wTex;
+                                            applyNormalMap(weaponMat, weaponTexAlias);
                                         }
                                         weaponMesh = new THREE.Mesh(weaponGeom, weaponMat);
                                         weaponMesh.scale.set(weaponScale, weaponScale, weaponScale);
@@ -1538,6 +1641,7 @@ async function loadGameWorld() {
                 material.needsUpdate = true;
             });
             material.map = initialTexture;
+            applyNormalMap(material, texAlias);
 
             const mesh = new THREE.Mesh(geometry, material);
             objGroup.add(mesh);
@@ -2326,6 +2430,7 @@ async function updateWeaponMesh() {
             material.needsUpdate = true;
         });
         material.map = tex;
+        applyNormalMap(material, texAlias);
     }
 
     const mesh = new THREE.Mesh(geometry, material);
