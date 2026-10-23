@@ -2926,7 +2926,7 @@ export const SWISH_SOUNDS = [
 export const IMPACT_SOUNDS = [
     'impact.wav', 'impact2.wav', 'impact3.wav', 'impact4.wav',
     'impact5.wav', 'impact6.wav', 'impact7.wav', 'impact8.wav',
-    'impact9.wav', 'impact10.wav'
+    'impact10.wav'
 ];
 
 export const PLAYER_IMPACT_SOUNDS = [
