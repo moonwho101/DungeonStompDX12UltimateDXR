@@ -1053,6 +1053,7 @@ function getTexture(texAlias, onLoadCallback) {
     const fallbackTex = new THREE.CanvasTexture(defaultCanvas);
     fallbackTex.wrapS = THREE.RepeatWrapping;
     fallbackTex.wrapT = THREE.RepeatWrapping;
+    fallbackTex.flipY = false;
 
     const cacheEntry = {
         loadedTex: null,
@@ -1092,6 +1093,8 @@ function getTexture(texAlias, onLoadCallback) {
             (loadedTex) => {
                 loadedTex.wrapS = THREE.RepeatWrapping;
                 loadedTex.wrapT = THREE.RepeatWrapping;
+                loadedTex.flipY = false;
+                loadedTex.needsUpdate = true;
                 cacheEntry.loadedTex = loadedTex;
                 cacheEntry.isLoading = false;
 
@@ -1188,6 +1191,8 @@ function getNormalMapTexture(texAlias, onLoadCallback) {
             (loadedTex) => {
                 loadedTex.wrapS = THREE.RepeatWrapping;
                 loadedTex.wrapT = THREE.RepeatWrapping;
+                loadedTex.flipY = false;
+                loadedTex.needsUpdate = true;
                 cacheEntry.loadedTex = loadedTex;
                 cacheEntry.isLoading = false;
 
