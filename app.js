@@ -578,6 +578,7 @@ const md2Loader = new MD2Loader();
 const textureLoader = new THREE.TextureLoader();
 
 const textureCache = new Map();
+const normalMapCache = new Map();
 const tdsModelCache = new Map();
 const md2GeometryCache = new Map();
 
@@ -1052,6 +1053,7 @@ function getTexture(texAlias, onLoadCallback) {
     const fallbackTex = new THREE.CanvasTexture(defaultCanvas);
     fallbackTex.wrapS = THREE.RepeatWrapping;
     fallbackTex.wrapT = THREE.RepeatWrapping;
+    fallbackTex.flipY = false;
 
     const cacheEntry = {
         loadedTex: null,
@@ -1091,6 +1093,8 @@ function getTexture(texAlias, onLoadCallback) {
             (loadedTex) => {
                 loadedTex.wrapS = THREE.RepeatWrapping;
                 loadedTex.wrapT = THREE.RepeatWrapping;
+                loadedTex.flipY = false;
+                loadedTex.needsUpdate = true;
                 cacheEntry.loadedTex = loadedTex;
                 cacheEntry.isLoading = false;
 
@@ -1109,6 +1113,104 @@ function getTexture(texAlias, onLoadCallback) {
     tryLoad(0);
 
     return fallbackTex;
+}
+
+function getNormalMapTexture(texAlias, onLoadCallback) {
+    if (!texAlias) return null;
+    const cleanAlias = texAlias.toLowerCase().trim();
+
+    if (normalMapCache.has(cleanAlias)) {
+        const cached = normalMapCache.get(cleanAlias);
+        if (cached.loadedTex) {
+            if (onLoadCallback) onLoadCallback(cached.loadedTex);
+            return cached.loadedTex;
+        } else if (cached.hasNoNormalMap) {
+            return null;
+        } else if (cached.isLoading) {
+            if (onLoadCallback) cached.callbacks.push(onLoadCallback);
+            return null;
+        }
+    }
+
+    const cacheEntry = {
+        loadedTex: null,
+        hasNoNormalMap: false,
+        isLoading: true,
+        callbacks: onLoadCallback ? [onLoadCallback] : []
+    };
+    normalMapCache.set(cleanAlias, cacheEntry);
+
+    const nmAlias = cleanAlias + '_nm';
+    const nmTexPath = textureManager.getTexturePath(nmAlias);
+    const texPath = textureManager.getTexturePath(cleanAlias);
+
+    let possiblePaths = [];
+
+    if (nmTexPath) {
+        const ddsPath = `Textures/${nmTexPath}`;
+        const jpgPath = `Textures/${nmTexPath.replace(/\.dds$/i, '.jpg')}`;
+        const pngPath = `Textures/${nmTexPath.replace(/\.dds$/i, '.png')}`;
+        const bmpPath = `Textures/${nmTexPath.replace(/\.dds$/i, '.bmp')}`;
+        possiblePaths.push(jpgPath, pngPath, bmpPath, ddsPath);
+    }
+
+    if (texPath) {
+        const lastDot = texPath.lastIndexOf('.');
+        const basePath = lastDot !== -1 ? texPath.substring(0, lastDot) : texPath;
+        const nmBasePath = basePath + '_nm';
+        possiblePaths.push(
+            `Textures/${nmBasePath}.jpg`,
+            `Textures/${nmBasePath}.png`,
+            `Textures/${nmBasePath}.bmp`,
+            `Textures/${nmBasePath}.dds`
+        );
+    }
+
+    possiblePaths.push(
+        `Textures/${nmAlias}.jpg`,
+        `Textures/${nmAlias}.png`,
+        `Textures/${nmAlias}.bmp`,
+        `Textures/${nmAlias}.dds`
+    );
+
+    possiblePaths = [...new Set(possiblePaths)];
+
+    function tryLoad(index) {
+        if (index >= possiblePaths.length) {
+            cacheEntry.isLoading = false;
+            cacheEntry.hasNoNormalMap = true;
+            cacheEntry.callbacks = [];
+            return;
+        }
+
+        const path = possiblePaths[index];
+        const loader = path.toLowerCase().endsWith('.dds') ? ddsLoader : textureLoader;
+
+        loader.load(
+            path,
+            (loadedTex) => {
+                loadedTex.wrapS = THREE.RepeatWrapping;
+                loadedTex.wrapT = THREE.RepeatWrapping;
+                loadedTex.flipY = false;
+                loadedTex.needsUpdate = true;
+                cacheEntry.loadedTex = loadedTex;
+                cacheEntry.isLoading = false;
+
+                for (const cb of cacheEntry.callbacks) {
+                    cb(loadedTex);
+                }
+                cacheEntry.callbacks = [];
+            },
+            undefined,
+            () => {
+                tryLoad(index + 1);
+            }
+        );
+    }
+
+    tryLoad(0);
+
+    return null;
 }
 
 function generatePathVariations(filepath) {
@@ -1350,6 +1452,14 @@ async function loadGameWorld() {
                         model.traverse((child) => {
                             if (child.isMesh && child.material) {
                                 child.material.side = THREE.DoubleSide;
+                                const alias = (inst.textureAlias && inst.textureAlias !== '-1') ? inst.textureAlias : modelDef.textureAlias;
+                                if (alias) {
+                                    getNormalMapTexture(alias, (loadedNormalMap) => {
+                                        child.material.normalMap = loadedNormalMap;
+                                        child.material.normalScale.set(1, -1);
+                                        child.material.needsUpdate = true;
+                                    });
+                                }
                             }
                         });
 
@@ -1371,7 +1481,7 @@ async function loadGameWorld() {
                         const scaleFactor = modelDef.scale || 1.0;
                         const texAlias = (inst.textureAlias && inst.textureAlias !== '-1') ? inst.textureAlias : modelDef.textureAlias;
 
-                        const material = new THREE.MeshLambertMaterial({
+                        const material = new THREE.MeshPhongMaterial({
                             side: THREE.DoubleSide
                         });
 
@@ -1381,6 +1491,12 @@ async function loadGameWorld() {
                                 material.needsUpdate = true;
                             });
                             material.map = tex;
+
+                            getNormalMapTexture(texAlias, (loadedNormalMap) => {
+                                material.normalMap = loadedNormalMap;
+                                material.normalScale.set(1, -1);
+                                material.needsUpdate = true;
+                            });
                         }
 
                         const mesh = new THREE.Mesh(geometry, material);
@@ -1404,13 +1520,19 @@ async function loadGameWorld() {
                                     if (weaponGeom) {
                                         const weaponScale = weaponDef.scale || scaleFactor;
                                         const weaponTexAlias = weaponDef.textureAlias;
-                                        const weaponMat = new THREE.MeshLambertMaterial({ side: THREE.DoubleSide });
+                                        const weaponMat = new THREE.MeshPhongMaterial({ side: THREE.DoubleSide });
                                         if (weaponTexAlias) {
                                             const wTex = getTexture(weaponTexAlias, (loadedTex) => {
                                                 weaponMat.map = loadedTex;
                                                 weaponMat.needsUpdate = true;
                                             });
                                             weaponMat.map = wTex;
+
+                                            getNormalMapTexture(weaponTexAlias, (loadedNormalMap) => {
+                                                weaponMat.normalMap = loadedNormalMap;
+                                                weaponMat.normalScale.set(1, -1);
+                                                weaponMat.needsUpdate = true;
+                                            });
                                         }
                                         weaponMesh = new THREE.Mesh(weaponGeom, weaponMat);
                                         weaponMesh.scale.set(weaponScale, weaponScale, weaponScale);
@@ -1430,6 +1552,13 @@ async function loadGameWorld() {
                                         weaponMesh.traverse((child) => {
                                             if (child.isMesh && child.material) {
                                                 child.material.side = THREE.DoubleSide;
+                                                if (weaponDef.textureAlias) {
+                                                    getNormalMapTexture(weaponDef.textureAlias, (loadedNormalMap) => {
+                                                        child.material.normalMap = loadedNormalMap;
+                                                        child.material.normalScale.set(1, -1);
+                                                        child.material.needsUpdate = true;
+                                                    });
+                                                }
                                             }
                                         });
                                         scene.add(weaponMesh);
@@ -1529,7 +1658,7 @@ async function loadGameWorld() {
             geometry.setAttribute('uv', new THREE.Float32BufferAttribute(data.uvs, 2));
             geometry.computeVertexNormals();
 
-            const material = new THREE.MeshLambertMaterial({
+            const material = new THREE.MeshPhongMaterial({
                 side: THREE.DoubleSide
             });
 
@@ -1538,6 +1667,12 @@ async function loadGameWorld() {
                 material.needsUpdate = true;
             });
             material.map = initialTexture;
+
+            getNormalMapTexture(texAlias, (loadedNormalMap) => {
+                material.normalMap = loadedNormalMap;
+                material.normalScale.set(1, -1);
+                material.needsUpdate = true;
+            });
 
             const mesh = new THREE.Mesh(geometry, material);
             objGroup.add(mesh);
@@ -2316,7 +2451,7 @@ async function updateWeaponMesh() {
     const scaleFactor = modelDef.scale || 1.0;
     const texAlias = modelDef.textureAlias;
 
-    const material = new THREE.MeshLambertMaterial({
+    const material = new THREE.MeshPhongMaterial({
         side: THREE.DoubleSide
     });
 
@@ -2326,6 +2461,12 @@ async function updateWeaponMesh() {
             material.needsUpdate = true;
         });
         material.map = tex;
+
+        getNormalMapTexture(texAlias, (loadedNormalMap) => {
+            material.normalMap = loadedNormalMap;
+            material.normalScale.set(1, -1);
+            material.needsUpdate = true;
+        });
     }
 
     const mesh = new THREE.Mesh(geometry, material);
