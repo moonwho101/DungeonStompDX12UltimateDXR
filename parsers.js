@@ -102,9 +102,9 @@ export class ObjectsDatParser {
                 i++;
                 const verts = [];
                 const triUvs = [
-                    { u: 0, v: 1 },
                     { u: 0, v: 0 },
-                    { u: 1, v: 1 }
+                    { u: 0, v: 1 },
+                    { u: 1, v: 0 }
                 ];
                 for (let v = 0; v < 3; v++) {
                     const x = parseFloat(tokens[i++]);
@@ -123,10 +123,10 @@ export class ObjectsDatParser {
                 i++;
                 const qv = [];
                 const quadUvs = [
-                    { u: 0, v: 1 },
                     { u: 0, v: 0 },
-                    { u: 1, v: 0 },
-                    { u: 1, v: 1 }
+                    { u: 0, v: 1 },
+                    { u: 1, v: 1 },
+                    { u: 1, v: 0 }
                 ];
                 for (let v = 0; v < 4; v++) {
                     const x = parseFloat(tokens[i++]);
@@ -154,7 +154,7 @@ export class ObjectsDatParser {
                     const z = parseFloat(tokens[i++]);
                     const u = parseFloat(tokens[i++]);
                     const vt = parseFloat(tokens[i++]);
-                    verts.push({ x, y, z, u, v: vt });
+                    verts.push({ x, y, z, u, v: 1 - vt });
                 }
                 currentObject.polys.push({
                     texture: currentTexture,
@@ -172,7 +172,7 @@ export class ObjectsDatParser {
                     const z = parseFloat(tokens[i++]);
                     const u = parseFloat(tokens[i++]);
                     const vt = parseFloat(tokens[i++]);
-                    qv.push({ x, y, z, u, v: vt });
+                    qv.push({ x, y, z, u, v: 1 - vt });
                 }
                 const verts = [
                     qv[0], qv[1], qv[3],
