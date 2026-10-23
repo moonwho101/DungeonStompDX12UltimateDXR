@@ -43,40 +43,41 @@ export const DEFAULT_MONSTER_CONFIG = Object.freeze({
     alertDuration: 0.6,     // time spent in ALERT before entering CHASE
     damage: 10,
     maxHealth: 100,
+    sound: 'goblin.wav',
     animations: MD2_ANIMATIONS
 });
 
 export const MONSTER_CONFIGS = {
-    KNIGHT: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 150.0, aggroRadius: 850.0, damage: 15, maxHealth: 20 },
-    GOBLIN: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 190.0, aggroRadius: 750.0, damage: 6, maxHealth: 18 },
-    BAUUL: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 140.0, aggroRadius: 900.0, damage: 20, maxHealth: 25 },
-    CORPSE: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 110.0, aggroRadius: 650.0, damage: 8, maxHealth: 15 },
-    SORCERER: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 160.0, aggroRadius: 950.0, damage: 18, maxHealth: 20 },
-    TENTACLE: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 120.0, aggroRadius: 700.0, damage: 5, maxHealth: 17 },
-    WRAITH: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 180.0, aggroRadius: 950.0, damage: 12, maxHealth: 28 },
-    OGRE: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 130.0, aggroRadius: 800.0, damage: 25, maxHealth: 25 },
-    PHANTOM: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 170.0, aggroRadius: 900.0, damage: 16, maxHealth: 20 },
-    OGRO: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 135.0, aggroRadius: 800.0, damage: 14, maxHealth: 20 },
-    SKELETON2: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 165.0, aggroRadius: 800.0, damage: 10, maxHealth: 15 },
-    DEMONESS: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 175.0, aggroRadius: 950.0, damage: 22, maxHealth: 35 },
-    FAERIE: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 185.0, aggroRadius: 900.0, damage: 15, maxHealth: 30 },
-    SLAVE: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 140.0, aggroRadius: 600.0, damage: 5, maxHealth: 5 },
-    WOLF: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 210.0, aggroRadius: 850.0, damage: 12, maxHealth: 20 },
-    INSECT: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 195.0, aggroRadius: 800.0, damage: 10, maxHealth: 20 },
-    OLUVE: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 150.0, aggroRadius: 700.0, damage: 6, maxHealth: 17 },
-    MUMMY: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 125.0, aggroRadius: 750.0, damage: 12, maxHealth: 18 },
-    HYDRA: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 145.0, aggroRadius: 850.0, damage: 16, maxHealth: 20 },
-    NECROMANCER: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 160.0, aggroRadius: 1000.0, damage: 24, maxHealth: 35 },
-    IMP: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 180.0, aggroRadius: 800.0, damage: 10, maxHealth: 20 },
-    DEMON: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 165.0, aggroRadius: 950.0, damage: 20, maxHealth: 25 },
-    FULIMO: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 170.0, aggroRadius: 900.0, damage: 18, maxHealth: 25 },
-    COBRA: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 190.0, aggroRadius: 800.0, damage: 14, maxHealth: 30 },
-    DRAGON: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 160.0, aggroRadius: 1000.0, damage: 28, maxHealth: 30 },
-    CENTAUR: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 190.0, aggroRadius: 850.0, damage: 12, maxHealth: 16 },
-    CRAZ: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 175.0, aggroRadius: 800.0, damage: 14, maxHealth: 20 },
-    RIDER: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 180.0, aggroRadius: 900.0, damage: 20, maxHealth: 26 },
-    OKTA: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 165.0, aggroRadius: 850.0, damage: 16, maxHealth: 25 },
-    SORB: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 170.0, aggroRadius: 950.0, damage: 22, maxHealth: 29 }
+    KNIGHT: { ...DEFAULT_MONSTER_CONFIG, sound: 'knightyell.wav', moveSpeed: 150.0, aggroRadius: 850.0, damage: 15, maxHealth: 20 },
+    GOBLIN: { ...DEFAULT_MONSTER_CONFIG, sound: 'goblin.wav', moveSpeed: 190.0, aggroRadius: 750.0, damage: 6, maxHealth: 18 },
+    BAUUL: { ...DEFAULT_MONSTER_CONFIG, sound: 'baullspeak.wav', moveSpeed: 140.0, aggroRadius: 900.0, damage: 20, maxHealth: 25 },
+    CORPSE: { ...DEFAULT_MONSTER_CONFIG, sound: 'corpse.wav', moveSpeed: 110.0, aggroRadius: 650.0, damage: 8, maxHealth: 15 },
+    SORCERER: { ...DEFAULT_MONSTER_CONFIG, sound: 'sorcererspeak.wav', moveSpeed: 160.0, aggroRadius: 950.0, damage: 18, maxHealth: 20 },
+    TENTACLE: { ...DEFAULT_MONSTER_CONFIG, sound: 'mouther.wav', moveSpeed: 120.0, aggroRadius: 700.0, damage: 5, maxHealth: 17 },
+    WRAITH: { ...DEFAULT_MONSTER_CONFIG, sound: 'wraithspeak.wav', moveSpeed: 180.0, aggroRadius: 950.0, damage: 12, maxHealth: 28 },
+    OGRE: { ...DEFAULT_MONSTER_CONFIG, sound: 'ogre.wav', moveSpeed: 130.0, aggroRadius: 800.0, damage: 25, maxHealth: 25 },
+    PHANTOM: { ...DEFAULT_MONSTER_CONFIG, sound: 'alive.wav', moveSpeed: 170.0, aggroRadius: 900.0, damage: 16, maxHealth: 20 },
+    OGRO: { ...DEFAULT_MONSTER_CONFIG, sound: 'orc.wav', moveSpeed: 135.0, aggroRadius: 800.0, damage: 14, maxHealth: 20 },
+    SKELETON2: { ...DEFAULT_MONSTER_CONFIG, sound: 'Skeleton.wav', moveSpeed: 165.0, aggroRadius: 800.0, damage: 10, maxHealth: 15 },
+    DEMONESS: { ...DEFAULT_MONSTER_CONFIG, sound: 'demonspeak.wav', moveSpeed: 175.0, aggroRadius: 950.0, damage: 22, maxHealth: 35 },
+    FAERIE: { ...DEFAULT_MONSTER_CONFIG, sound: 'faeriespeak.wav', moveSpeed: 185.0, aggroRadius: 900.0, damage: 15, maxHealth: 30 },
+    SLAVE: { ...DEFAULT_MONSTER_CONFIG, sound: 'dmspeak.wav', moveSpeed: 140.0, aggroRadius: 600.0, damage: 5, maxHealth: 5 },
+    WOLF: { ...DEFAULT_MONSTER_CONFIG, sound: 'wolfhowl.wav', moveSpeed: 210.0, aggroRadius: 850.0, damage: 12, maxHealth: 20 },
+    INSECT: { ...DEFAULT_MONSTER_CONFIG, sound: 'Drip2.wav', moveSpeed: 195.0, aggroRadius: 800.0, damage: 10, maxHealth: 20 },
+    OLUVE: { ...DEFAULT_MONSTER_CONFIG, sound: 'ghoul.wav', moveSpeed: 150.0, aggroRadius: 700.0, damage: 6, maxHealth: 17 },
+    MUMMY: { ...DEFAULT_MONSTER_CONFIG, sound: 'mummyspeak.wav', moveSpeed: 125.0, aggroRadius: 750.0, damage: 12, maxHealth: 18 },
+    HYDRA: { ...DEFAULT_MONSTER_CONFIG, sound: 'hydraspeak.wav', moveSpeed: 145.0, aggroRadius: 850.0, damage: 16, maxHealth: 20 },
+    NECROMANCER: { ...DEFAULT_MONSTER_CONFIG, sound: 'necrospeak.wav', moveSpeed: 160.0, aggroRadius: 1000.0, damage: 24, maxHealth: 35 },
+    IMP: { ...DEFAULT_MONSTER_CONFIG, sound: 'impspeak.wav', moveSpeed: 180.0, aggroRadius: 800.0, damage: 10, maxHealth: 20 },
+    DEMON: { ...DEFAULT_MONSTER_CONFIG, sound: 'demonpain.wav', moveSpeed: 165.0, aggroRadius: 950.0, damage: 20, maxHealth: 25 },
+    FULIMO: { ...DEFAULT_MONSTER_CONFIG, sound: 'fulimospeak.wav', moveSpeed: 170.0, aggroRadius: 900.0, damage: 18, maxHealth: 25 },
+    COBRA: { ...DEFAULT_MONSTER_CONFIG, sound: 'snakehiss.wav', moveSpeed: 190.0, aggroRadius: 800.0, damage: 14, maxHealth: 30 },
+    DRAGON: { ...DEFAULT_MONSTER_CONFIG, sound: 'DRAGON.WAV', moveSpeed: 160.0, aggroRadius: 1000.0, damage: 28, maxHealth: 30 },
+    CENTAUR: { ...DEFAULT_MONSTER_CONFIG, sound: 'tsword.wav', moveSpeed: 190.0, aggroRadius: 850.0, damage: 12, maxHealth: 16 },
+    CRAZ: { ...DEFAULT_MONSTER_CONFIG, sound: 'effect1.wav', moveSpeed: 175.0, aggroRadius: 800.0, damage: 14, maxHealth: 20 },
+    RIDER: { ...DEFAULT_MONSTER_CONFIG, sound: 'effect2.wav', moveSpeed: 180.0, aggroRadius: 900.0, damage: 20, maxHealth: 26 },
+    OKTA: { ...DEFAULT_MONSTER_CONFIG, sound: 'effect3.wav', moveSpeed: 165.0, aggroRadius: 850.0, damage: 16, maxHealth: 25 },
+    SORB: { ...DEFAULT_MONSTER_CONFIG, sound: 'sorb.wav', moveSpeed: 170.0, aggroRadius: 950.0, damage: 22, maxHealth: 29 }
 };
 
 export function getMonsterConfig(name) {
@@ -134,9 +135,19 @@ export class Monster {
         this.boundingBox = new THREE.Box3();
         this.updateBoundingBox();
 
+        // Initial random noise timer for ambient growls
+        this.noiseTimer = 3.0 + Math.random() * 8.0;
+
         // Apply initial animation pose
         this.setAnimation(this.config.animations.STAND, true);
         this.updateMorphTargets(0);
+    }
+
+    playMonsterNoise(distToPlayer) {
+        if (distToPlayer > 1200.0) return;
+        const soundFile = this.config.sound || 'goblin.wav';
+        const volume = Math.max(0.05, (1.0 - (distToPlayer / 1200.0)) * 0.7);
+        playSound(soundFile, volume);
     }
 
     updateBoundingBox() {
@@ -312,6 +323,13 @@ export class Monster {
         const distToPlayer = Math.sqrt(dx * dx + dz * dz);
         const targetAngle = Math.atan2(dx, dz);
 
+        // Randomly play monster ambient sound/growl periodically
+        this.noiseTimer -= dt;
+        if (this.noiseTimer <= 0) {
+            this.noiseTimer = 5.0 + Math.random() * 10.0;
+            this.playMonsterNoise(distToPlayer);
+        }
+
         switch (this.state) {
             case MonsterState.IDLE:
                 this.setAnimation(this.config.animations.STAND);
@@ -401,10 +419,18 @@ export class Monster {
 
     setState(newState) {
         if (this.state === newState || this.state === MonsterState.DEATH) return;
+        const oldState = this.state;
         this.state = newState;
         this.stateTimer = 0.0;
         if (newState === MonsterState.ATTACK) {
             this.hasDealtDamageThisAttack = false;
+        }
+        if ((oldState === MonsterState.IDLE) && (newState === MonsterState.ALERT || newState === MonsterState.CHASE)) {
+            const playerPos = window.controls ? window.controls.getObject().position : null;
+            if (playerPos) {
+                const dist = this.position.distanceTo(playerPos);
+                this.playMonsterNoise(dist);
+            }
         }
     }
 
@@ -439,6 +465,16 @@ export class Monster {
             const deaths = [this.config.animations.DEATH1, this.config.animations.DEATH2, this.config.animations.DEATH3];
             const chosenDeath = deaths[Math.floor(Math.random() * deaths.length)];
             this.setAnimation(chosenDeath, true);
+
+            const deathSounds = ['death1.wav', 'death2.wav', 'death3.wav', 'death4.wav', 'die.wav'];
+            const chosenSound = deathSounds[Math.floor(Math.random() * deathSounds.length)];
+            const playerPos = window.controls ? window.controls.getObject().position : null;
+            if (playerPos) {
+                const dist = this.position.distanceTo(playerPos);
+                if (dist <= 1200.0) {
+                    playSound(chosenSound, Math.max(0.05, (1.0 - (dist / 1200.0)) * 0.7));
+                }
+            }
 
             // Award XP and kills to player
             const xpGained = (this.config.maxHealth || 20) * 2;
@@ -520,6 +556,8 @@ export const playerStats = {
 export function damagePlayer(amount) {
     if (playerStats.health <= 0) return;
     playerStats.health = Math.max(0, playerStats.health - amount);
+
+    playSound(getRandomSound(PLAYER_IMPACT_SOUNDS), 0.6);
 
     // Flash damage screen effect
     const flashEl = document.getElementById('damage-flash');
@@ -646,7 +684,11 @@ const PLAYER_GUNS = [
     'MORNINGSTAR',
     'SPIKEDFLAIL',
     'SPLITSWORD',
-    'SUPERFLAMESWORD'
+    'SUPERFLAMESWORD',
+    'MAGIC MISSILE',
+    'FIREBALL',
+    'LIGHTNING',
+    'HEALING'
 ];
 const WEAPON_DAMAGE = {
     'AXE': 20,
@@ -658,7 +700,11 @@ const WEAPON_DAMAGE = {
     'MORNINGSTAR': 25,
     'SPIKEDFLAIL': 25,
     'SPLITSWORD': 30,
-    'SUPERFLAMESWORD': 40
+    'SUPERFLAMESWORD': 40,
+    'MAGIC MISSILE': 35,
+    'FIREBALL': 50,
+    'LIGHTNING': 45,
+    'HEALING': 0
 };
 let currentGunIndex = 0;
 let currentGunMesh = null;
@@ -1265,6 +1311,8 @@ function generatePathVariations(filepath) {
     const ext = dotIdx !== -1 ? file.substring(dotIdx) : '';
 
     const paths = [
+        `Models/${clean}`,
+        `Models/Players/MagicUser/WEAPONsorcerer.MD2`,
         `Models/Players/${d2Cap}/${base.toLowerCase()}${ext.toLowerCase()}`,
         `Models/Players/${d2Cap}/${base.toLowerCase()}${ext.toUpperCase()}`,
         `Models/Players/${d2.toLowerCase()}/${base.toLowerCase()}${ext.toLowerCase()}`,
@@ -2297,11 +2345,429 @@ function resolveCapsuleCollisions(camPos) {
         velocity, null, monsters, null);
 }
 
+let footstepTimer = 0.0;
+const activeProjectiles = [];
+
 function triggerWeaponAttack() {
+    if (!controls) return;
+    const gunName = PLAYER_GUNS[currentGunIndex] || '';
+
     isWeaponAttacking = true;
     hasWeaponHitThisSwing = false;
     playerWeaponAnimTimer = 0.0;
     playerWeaponCurrentAnim = MD2_ANIMATIONS.ATTACK;
+
+    if (gunName === 'MAGIC MISSILE') {
+        hasWeaponHitThisSwing = true; // Handled by projectile
+        playSound('spell1.wav', 0.7);
+        launchMagicMissile();
+    } else if (gunName === 'FIREBALL') {
+        hasWeaponHitThisSwing = true; // Handled by projectile
+        playSound('fireball.wav', 0.8);
+        launchFireball();
+    } else if (gunName === 'LIGHTNING') {
+        hasWeaponHitThisSwing = true; // Handled by projectile
+        playSound('spell3.wav', 0.8);
+        launchLightning();
+    } else if (gunName === 'HEALING') {
+        hasWeaponHitThisSwing = true; // Handled by healing spell
+        playSound('spell2.wav', 0.8);
+        castHealingSpell();
+    } else {
+        playSound(getRandomSound(SWISH_SOUNDS), 0.5);
+    }
+}
+
+function castHealingSpell() {
+    healPlayer(10);
+    const playerPos = controls.getObject().position;
+    createPickupFloatingText('+10 HP', playerPos, '#22c55e');
+
+    // Create healing ring / aura around player
+    const particleCount = 40;
+    const geometry = new THREE.BufferGeometry();
+    const positions = new Float32Array(particleCount * 3);
+    const velocities = [];
+
+    for (let i = 0; i < particleCount; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const rad = 20 + Math.random() * 30;
+        positions[i * 3] = playerPos.x + Math.cos(angle) * rad;
+        positions[i * 3 + 1] = playerPos.y - 60 + Math.random() * 20;
+        positions[i * 3 + 2] = playerPos.z + Math.sin(angle) * rad;
+
+        velocities.push(new THREE.Vector3(
+            (Math.random() - 0.5) * 20,
+            120 + Math.random() * 100,
+            (Math.random() - 0.5) * 20
+        ));
+    }
+
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    const material = new THREE.PointsMaterial({
+        color: 0x4ade80,
+        size: 10,
+        transparent: true,
+        opacity: 1.0,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+    });
+
+    const points = new THREE.Points(geometry, material);
+    scene.add(points);
+
+    activeParticleBursts.push({
+        points,
+        geometry,
+        material,
+        velocities,
+        timer: 0,
+        duration: 1.0
+    });
+
+    // Subtle green screen vignette flash
+    const flashEl = document.getElementById('damage-flash');
+    if (flashEl) {
+        flashEl.style.background = 'radial-gradient(circle, rgba(34,197,94,0) 30%, rgba(34,197,94,0.5) 100%)';
+        flashEl.style.opacity = '0.6';
+        setTimeout(() => {
+            flashEl.style.opacity = '0';
+            setTimeout(() => {
+                flashEl.style.background = 'radial-gradient(circle, rgba(255,0,0,0) 40%, rgba(255,0,0,0.8) 100%)';
+            }, 150);
+        }, 200);
+    }
+}
+
+function launchMagicMissile() {
+    const playerPos = controls.getObject().position.clone();
+    const lookDir = new THREE.Vector3();
+    camera.getWorldDirection(lookDir);
+
+    // Spawn origin slightly in front of camera
+    const spawnPos = playerPos.clone().addScaledVector(lookDir, 40).add(new THREE.Vector3(0, -10, 0));
+
+    const group = new THREE.Group();
+    group.position.copy(spawnPos);
+
+    // Core energy sphere
+    const coreMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.9 });
+    const coreMesh = new THREE.Mesh(new THREE.SphereGeometry(12, 16, 16), coreMat);
+    group.add(coreMesh);
+
+    // Outer glow halo sprite
+    const haloMat = new THREE.SpriteMaterial({
+        map: haloTexture,
+        color: 0x00e5ff,
+        transparent: true,
+        opacity: 0.8,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+    });
+    const haloSprite = new THREE.Sprite(haloMat);
+    haloSprite.scale.set(70, 70, 1);
+    group.add(haloSprite);
+
+    // Point Light
+    const light = new THREE.PointLight(0x00e5ff, 12, 350);
+    group.add(light);
+
+    scene.add(group);
+
+    const speed = 1300.0;
+    const velocity = lookDir.clone().multiplyScalar(speed);
+
+    activeProjectiles.push({
+        type: 'MAGIC MISSILE',
+        group,
+        light,
+        position: spawnPos,
+        velocity,
+        gravity: 0,
+        radius: 20.0,
+        aoeRadius: 120.0,
+        damage: WEAPON_DAMAGE['MAGIC MISSILE'],
+        lifeTimer: 0,
+        maxLife: 4.0,
+        colorHex: 0x38bdf8
+    });
+}
+
+function launchFireball() {
+    const playerPos = controls.getObject().position.clone();
+    const lookDir = new THREE.Vector3();
+    camera.getWorldDirection(lookDir);
+
+    const spawnPos = playerPos.clone().addScaledVector(lookDir, 40).add(new THREE.Vector3(0, -10, 0));
+
+    const group = new THREE.Group();
+    group.position.copy(spawnPos);
+
+    // Flaming fiery sphere
+    const coreMat = new THREE.MeshBasicMaterial({ color: 0xff4500, transparent: true, opacity: 0.95 });
+    const coreMesh = new THREE.Mesh(new THREE.SphereGeometry(18, 16, 16), coreMat);
+    group.add(coreMesh);
+
+    const haloMat = new THREE.SpriteMaterial({
+        map: haloTexture,
+        color: 0xffaa00,
+        transparent: true,
+        opacity: 0.9,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+    });
+    const haloSprite = new THREE.Sprite(haloMat);
+    haloSprite.scale.set(110, 110, 1);
+    group.add(haloSprite);
+
+    const light = new THREE.PointLight(0xff6600, 18, 450);
+    group.add(light);
+
+    scene.add(group);
+
+    const speed = 1050.0;
+    const velocity = lookDir.clone().multiplyScalar(speed);
+
+    activeProjectiles.push({
+        type: 'FIREBALL',
+        group,
+        light,
+        position: spawnPos,
+        velocity,
+        gravity: -200.0, // slight parabolic drop
+        radius: 26.0,
+        aoeRadius: 220.0,
+        damage: WEAPON_DAMAGE['FIREBALL'],
+        lifeTimer: 0,
+        maxLife: 4.5,
+        colorHex: 0xff5500
+    });
+}
+
+function launchLightning() {
+    const playerPos = controls.getObject().position.clone();
+    const lookDir = new THREE.Vector3();
+    camera.getWorldDirection(lookDir);
+
+    const spawnPos = playerPos.clone().addScaledVector(lookDir, 40).add(new THREE.Vector3(0, -10, 0));
+
+    const group = new THREE.Group();
+    group.position.copy(spawnPos);
+
+    // Electric bolt core
+    const coreMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95 });
+    const coreMesh = new THREE.Mesh(new THREE.SphereGeometry(14, 16, 16), coreMat);
+    group.add(coreMesh);
+
+    const haloMat = new THREE.SpriteMaterial({
+        map: haloTexture,
+        color: 0x00ffff,
+        transparent: true,
+        opacity: 0.9,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+    });
+    const haloSprite = new THREE.Sprite(haloMat);
+    haloSprite.scale.set(90, 90, 1);
+    group.add(haloSprite);
+
+    const light = new THREE.PointLight(0x00ffff, 16, 400);
+    group.add(light);
+
+    scene.add(group);
+
+    const speed = 1600.0;
+    const velocity = lookDir.clone().multiplyScalar(speed);
+
+    activeProjectiles.push({
+        type: 'LIGHTNING',
+        group,
+        light,
+        position: spawnPos,
+        velocity,
+        gravity: 0,
+        radius: 22.0,
+        aoeRadius: 160.0,
+        damage: WEAPON_DAMAGE['LIGHTNING'],
+        lifeTimer: 0,
+        maxLife: 3.5,
+        colorHex: 0x00ffff
+    });
+}
+
+function triggerSpellExplosion(pos, type, damage, aoeRadius, colorHex) {
+    const explosionSound = (type === 'FIREBALL') ? 'explod1.wav' : 'explod2.wav';
+    playSound(explosionSound, 0.85);
+
+    // Spawn explosion particle burst
+    const particleCount = (type === 'FIREBALL') ? 60 : 40;
+    const geometry = new THREE.BufferGeometry();
+    const positions = new Float32Array(particleCount * 3);
+    const velocities = [];
+
+    for (let i = 0; i < particleCount; i++) {
+        positions[i * 3] = pos.x;
+        positions[i * 3 + 1] = pos.y;
+        positions[i * 3 + 2] = pos.z;
+
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.random() * Math.PI - Math.PI / 2;
+        const speed = 120 + Math.random() * 250;
+
+        velocities.push(new THREE.Vector3(
+            Math.cos(phi) * Math.cos(theta) * speed,
+            Math.sin(phi) * speed,
+            Math.cos(phi) * Math.sin(theta) * speed
+        ));
+    }
+
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+
+    const material = new THREE.PointsMaterial({
+        color: colorHex || 0xffaa00,
+        size: 14,
+        transparent: true,
+        opacity: 1.0,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+    });
+
+    const points = new THREE.Points(geometry, material);
+    scene.add(points);
+
+    // Bright flash light
+    const flashLight = new THREE.PointLight(colorHex || 0xffaa00, 30, aoeRadius * 2);
+    flashLight.position.copy(pos);
+    scene.add(flashLight);
+
+    activeParticleBursts.push({
+        points,
+        geometry,
+        material,
+        velocities,
+        timer: 0,
+        duration: 0.6
+    });
+
+    // Animate flash light fading
+    let flashTimer = 0;
+    const animateFlash = () => {
+        flashTimer += 0.05;
+        flashLight.intensity = Math.max(0, 30 * (1 - flashTimer / 0.3));
+        if (flashTimer < 0.3) {
+            setTimeout(animateFlash, 16);
+        } else {
+            scene.remove(flashLight);
+        }
+    };
+    animateFlash();
+
+    // Damage all monsters within AoE radius
+    for (let i = 0; i < monsters.length; i++) {
+        const monster = monsters[i];
+        if (!monster || monster.state === MonsterState.DEATH || monster.health <= 0) continue;
+
+        const dist = pos.distanceTo(monster.position);
+        if (dist <= aoeRadius) {
+            // Full damage at center, scaled slightly at edge
+            const scale = Math.max(0.5, 1.0 - (dist / aoeRadius) * 0.5);
+            const actualDamage = Math.round(damage * scale);
+            monster.takeDamage(actualDamage);
+            playSound(getRandomSound(IMPACT_SOUNDS), 0.7);
+        }
+    }
+}
+
+function updateProjectiles(delta) {
+    for (let i = activeProjectiles.length - 1; i >= 0; i--) {
+        const proj = activeProjectiles[i];
+        proj.lifeTimer += delta;
+
+        if (proj.lifeTimer >= proj.maxLife) {
+            triggerSpellExplosion(proj.position, proj.type, proj.damage, proj.aoeRadius, proj.colorHex);
+            scene.remove(proj.group);
+            activeProjectiles.splice(i, 1);
+            continue;
+        }
+
+        // Apply physics movement
+        proj.velocity.y += proj.gravity * delta;
+        const step = proj.velocity.clone().multiplyScalar(delta);
+        const nextPos = proj.position.clone().add(step);
+
+        let hasExploded = false;
+
+        // Check monster collisions
+        for (let m = 0; m < monsters.length; m++) {
+            const monster = monsters[m];
+            if (!monster || monster.state === MonsterState.DEATH || monster.health <= 0) continue;
+
+            const dist = nextPos.distanceTo(monster.position);
+            if (dist <= proj.radius + MONSTER_CAPSULE_RADIUS) {
+                hasExploded = true;
+                triggerSpellExplosion(nextPos, proj.type, proj.damage, proj.aoeRadius, proj.colorHex);
+                break;
+            }
+        }
+
+        // Check static level triangles and bounding boxes collision
+        if (!hasExploded) {
+            const queryMinX = nextPos.x - proj.radius;
+            const queryMaxX = nextPos.x + proj.radius;
+            const queryMinY = nextPos.y - proj.radius;
+            const queryMaxY = nextPos.y + proj.radius;
+            const queryMinZ = nextPos.z - proj.radius;
+            const queryMaxZ = nextPos.z + proj.radius;
+
+            const minCx = Math.floor(queryMinX / GRID_CELL_SIZE);
+            const maxCx = Math.floor(queryMaxX / GRID_CELL_SIZE);
+            const minCy = Math.floor(queryMinY / GRID_CELL_SIZE);
+            const maxCy = Math.floor(queryMaxY / GRID_CELL_SIZE);
+            const minCz = Math.floor(queryMinZ / GRID_CELL_SIZE);
+            const maxCz = Math.floor(queryMaxZ / GRID_CELL_SIZE);
+
+            for (let cx = minCx; cx <= maxCx; cx++) {
+                if (hasExploded) break;
+                for (let cy = minCy; cy <= maxCy; cy++) {
+                    if (hasExploded) break;
+                    for (let cz = minCz; cz <= maxCz; cz++) {
+                        const cell = collisionGrid.get(getGridKey(cx, cy, cz));
+                        if (cell) {
+                            for (let t = 0; t < cell.length; t++) {
+                                const tri = cell[t];
+                                _tempMD2Vec.set(0, 0, 0);
+                                closestPointTrianglePoint(tri.a, tri.b, tri.c, nextPos, _tempMD2Vec);
+                                if (nextPos.distanceToSquared(_tempMD2Vec) <= proj.radius * proj.radius) {
+                                    hasExploded = true;
+                                    triggerSpellExplosion(nextPos, proj.type, proj.damage, proj.aoeRadius, proj.colorHex);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (hasExploded) {
+            scene.remove(proj.group);
+            activeProjectiles.splice(i, 1);
+            continue;
+        }
+
+        // Update position and trail particles
+        proj.position.copy(nextPos);
+        proj.group.position.copy(proj.position);
+
+        // Spawn particle trail
+        if (Math.random() < 0.7) {
+            createPickupParticleBurst(proj.position.clone().add(new THREE.Vector3(
+                (Math.random() - 0.5) * 10,
+                (Math.random() - 0.5) * 10,
+                (Math.random() - 0.5) * 10
+            )), proj.colorHex);
+        }
+    }
 }
 
 function checkPlayerAttackHit() {
@@ -2339,6 +2805,7 @@ function checkPlayerAttackHit() {
         const gunName = PLAYER_GUNS[currentGunIndex] || '';
         const damage = WEAPON_DAMAGE[gunName] || 25;
         closestMonster.takeDamage(damage);
+        playSound(getRandomSound(IMPACT_SOUNDS), 0.6);
     }
 }
 
@@ -2448,6 +2915,42 @@ function openNearbyDoor() {
     if (nearestDoor) {
         nearestDoor.isOpening = true;
     }
+}
+
+// Sound Manager Utility Functions & Sound Collections
+export const SWISH_SOUNDS = [
+    'swish1.wav', 'swish4.wav', 'swish5.wav',
+    'swish7.wav', 'swish8.wav', 'swish9.wav', 'swing_02.wav'
+];
+
+export const IMPACT_SOUNDS = [
+    'impact.wav', 'impact2.wav', 'impact3.wav', 'impact4.wav',
+    'impact5.wav', 'impact6.wav', 'impact7.wav', 'impact8.wav',
+    'impact9.wav', 'impact10.wav'
+];
+
+export const PLAYER_IMPACT_SOUNDS = [
+    'pimpact.wav', 'ouch.wav', 'pain1.wav'
+];
+
+export function playSound(filename, volume = 1.0) {
+    if (!filename) return;
+    try {
+        const audioPath = filename.startsWith('Sounds/') ? filename : `Sounds/${filename}`;
+        const audio = new Audio(audioPath);
+        audio.volume = Math.max(0, Math.min(1, volume));
+        audio.play().catch(() => {
+            // Unhandled autoplay block by browser before user interaction
+        });
+    } catch (e) {
+        // Fallback
+    }
+}
+
+export function getRandomSound(soundArray) {
+    if (!soundArray || soundArray.length === 0) return null;
+    const index = Math.floor(Math.random() * soundArray.length);
+    return soundArray[index];
 }
 
 // Audio Context for synthesized pickup sound chimes
@@ -2783,6 +3286,7 @@ function cycleWeapon(dir) {
 
 async function updateWeaponMesh() {
     const gunName = PLAYER_GUNS[currentGunIndex];
+    updatePlayerHud();
     const gunDisplay = document.getElementById('gun-display');
     if (gunDisplay) {
         gunDisplay.textContent = gunName;
@@ -2799,7 +3303,10 @@ async function updateWeaponMesh() {
     isWeaponAttacking = false;
     hasWeaponHitThisSwing = false;
 
-    const modelDef = modelListParser.getModelByName(gunName);
+    let modelDef = modelListParser.getModelByName(gunName);
+    if (!modelDef && ['MAGIC MISSILE', 'FIREBALL', 'LIGHTNING', 'HEALING'].includes(gunName)) {
+        modelDef = modelListParser.getModelByName('weaponsorcerer');
+    }
     if (!modelDef) return;
 
     const geometry = await loadMD2Geometry(modelDef);
@@ -2962,6 +3469,22 @@ function animate() {
             grounded = grounded || isGrounded;
         }
         isGrounded = grounded;
+
+        // Play light footstep sounds when moving on the ground
+        if (isGrounded && (moveForward || moveBackward || moveLeft || moveRight)) {
+            const speedSq = velocity.x * velocity.x + velocity.z * velocity.z;
+            if (speedSq > 400.0) { // Moving faster than threshold
+                footstepTimer += delta * (isSprinting ? 1.5 : 1.0);
+                if (footstepTimer >= 0.38) {
+                    footstepTimer = 0.0;
+                    playSound('walk.wav', 0.18);
+                }
+            } else {
+                footstepTimer = 0.3;
+            }
+        } else {
+            footstepTimer = 0.3;
+        }
     }
 
     prevTime = time;
@@ -2977,6 +3500,9 @@ function animate() {
 
     // Update active player weapon animation
     updatePlayerWeaponAnimation(delta);
+
+    // Update active magic spell projectiles
+    updateProjectiles(delta);
 
     // Update item pickups detection and ascension animation
     updatePickups(delta, pos);
