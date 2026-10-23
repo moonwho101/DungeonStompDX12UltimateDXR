@@ -43,40 +43,41 @@ export const DEFAULT_MONSTER_CONFIG = Object.freeze({
     alertDuration: 0.6,     // time spent in ALERT before entering CHASE
     damage: 10,
     maxHealth: 100,
+    sound: 'goblin.wav',
     animations: MD2_ANIMATIONS
 });
 
 export const MONSTER_CONFIGS = {
-    KNIGHT: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 150.0, aggroRadius: 850.0, damage: 15, maxHealth: 20 },
-    GOBLIN: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 190.0, aggroRadius: 750.0, damage: 6, maxHealth: 18 },
-    BAUUL: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 140.0, aggroRadius: 900.0, damage: 20, maxHealth: 25 },
-    CORPSE: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 110.0, aggroRadius: 650.0, damage: 8, maxHealth: 15 },
-    SORCERER: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 160.0, aggroRadius: 950.0, damage: 18, maxHealth: 20 },
-    TENTACLE: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 120.0, aggroRadius: 700.0, damage: 5, maxHealth: 17 },
-    WRAITH: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 180.0, aggroRadius: 950.0, damage: 12, maxHealth: 28 },
-    OGRE: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 130.0, aggroRadius: 800.0, damage: 25, maxHealth: 25 },
-    PHANTOM: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 170.0, aggroRadius: 900.0, damage: 16, maxHealth: 20 },
-    OGRO: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 135.0, aggroRadius: 800.0, damage: 14, maxHealth: 20 },
-    SKELETON2: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 165.0, aggroRadius: 800.0, damage: 10, maxHealth: 15 },
-    DEMONESS: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 175.0, aggroRadius: 950.0, damage: 22, maxHealth: 35 },
-    FAERIE: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 185.0, aggroRadius: 900.0, damage: 15, maxHealth: 30 },
-    SLAVE: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 140.0, aggroRadius: 600.0, damage: 5, maxHealth: 5 },
-    WOLF: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 210.0, aggroRadius: 850.0, damage: 12, maxHealth: 20 },
-    INSECT: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 195.0, aggroRadius: 800.0, damage: 10, maxHealth: 20 },
-    OLUVE: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 150.0, aggroRadius: 700.0, damage: 6, maxHealth: 17 },
-    MUMMY: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 125.0, aggroRadius: 750.0, damage: 12, maxHealth: 18 },
-    HYDRA: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 145.0, aggroRadius: 850.0, damage: 16, maxHealth: 20 },
-    NECROMANCER: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 160.0, aggroRadius: 1000.0, damage: 24, maxHealth: 35 },
-    IMP: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 180.0, aggroRadius: 800.0, damage: 10, maxHealth: 20 },
-    DEMON: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 165.0, aggroRadius: 950.0, damage: 20, maxHealth: 25 },
-    FULIMO: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 170.0, aggroRadius: 900.0, damage: 18, maxHealth: 25 },
-    COBRA: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 190.0, aggroRadius: 800.0, damage: 14, maxHealth: 30 },
-    DRAGON: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 160.0, aggroRadius: 1000.0, damage: 28, maxHealth: 30 },
-    CENTAUR: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 190.0, aggroRadius: 850.0, damage: 12, maxHealth: 16 },
-    CRAZ: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 175.0, aggroRadius: 800.0, damage: 14, maxHealth: 20 },
-    RIDER: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 180.0, aggroRadius: 900.0, damage: 20, maxHealth: 26 },
-    OKTA: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 165.0, aggroRadius: 850.0, damage: 16, maxHealth: 25 },
-    SORB: { ...DEFAULT_MONSTER_CONFIG, moveSpeed: 170.0, aggroRadius: 950.0, damage: 22, maxHealth: 29 }
+    KNIGHT: { ...DEFAULT_MONSTER_CONFIG, sound: 'knightyell.wav', moveSpeed: 150.0, aggroRadius: 850.0, damage: 15, maxHealth: 20 },
+    GOBLIN: { ...DEFAULT_MONSTER_CONFIG, sound: 'goblin.wav', moveSpeed: 190.0, aggroRadius: 750.0, damage: 6, maxHealth: 18 },
+    BAUUL: { ...DEFAULT_MONSTER_CONFIG, sound: 'baullspeak.wav', moveSpeed: 140.0, aggroRadius: 900.0, damage: 20, maxHealth: 25 },
+    CORPSE: { ...DEFAULT_MONSTER_CONFIG, sound: 'corpse.wav', moveSpeed: 110.0, aggroRadius: 650.0, damage: 8, maxHealth: 15 },
+    SORCERER: { ...DEFAULT_MONSTER_CONFIG, sound: 'sorcererspeak.wav', moveSpeed: 160.0, aggroRadius: 950.0, damage: 18, maxHealth: 20 },
+    TENTACLE: { ...DEFAULT_MONSTER_CONFIG, sound: 'mouther.wav', moveSpeed: 120.0, aggroRadius: 700.0, damage: 5, maxHealth: 17 },
+    WRAITH: { ...DEFAULT_MONSTER_CONFIG, sound: 'wraithspeak.wav', moveSpeed: 180.0, aggroRadius: 950.0, damage: 12, maxHealth: 28 },
+    OGRE: { ...DEFAULT_MONSTER_CONFIG, sound: 'ogre.wav', moveSpeed: 130.0, aggroRadius: 800.0, damage: 25, maxHealth: 25 },
+    PHANTOM: { ...DEFAULT_MONSTER_CONFIG, sound: 'alive.wav', moveSpeed: 170.0, aggroRadius: 900.0, damage: 16, maxHealth: 20 },
+    OGRO: { ...DEFAULT_MONSTER_CONFIG, sound: 'orc.wav', moveSpeed: 135.0, aggroRadius: 800.0, damage: 14, maxHealth: 20 },
+    SKELETON2: { ...DEFAULT_MONSTER_CONFIG, sound: 'Skeleton.wav', moveSpeed: 165.0, aggroRadius: 800.0, damage: 10, maxHealth: 15 },
+    DEMONESS: { ...DEFAULT_MONSTER_CONFIG, sound: 'demonspeak.wav', moveSpeed: 175.0, aggroRadius: 950.0, damage: 22, maxHealth: 35 },
+    FAERIE: { ...DEFAULT_MONSTER_CONFIG, sound: 'faeriespeak.wav', moveSpeed: 185.0, aggroRadius: 900.0, damage: 15, maxHealth: 30 },
+    SLAVE: { ...DEFAULT_MONSTER_CONFIG, sound: 'dmspeak.wav', moveSpeed: 140.0, aggroRadius: 600.0, damage: 5, maxHealth: 5 },
+    WOLF: { ...DEFAULT_MONSTER_CONFIG, sound: 'wolfhowl.wav', moveSpeed: 210.0, aggroRadius: 850.0, damage: 12, maxHealth: 20 },
+    INSECT: { ...DEFAULT_MONSTER_CONFIG, sound: 'Drip2.wav', moveSpeed: 195.0, aggroRadius: 800.0, damage: 10, maxHealth: 20 },
+    OLUVE: { ...DEFAULT_MONSTER_CONFIG, sound: 'ghoul.wav', moveSpeed: 150.0, aggroRadius: 700.0, damage: 6, maxHealth: 17 },
+    MUMMY: { ...DEFAULT_MONSTER_CONFIG, sound: 'mummyspeak.wav', moveSpeed: 125.0, aggroRadius: 750.0, damage: 12, maxHealth: 18 },
+    HYDRA: { ...DEFAULT_MONSTER_CONFIG, sound: 'hydraspeak.wav', moveSpeed: 145.0, aggroRadius: 850.0, damage: 16, maxHealth: 20 },
+    NECROMANCER: { ...DEFAULT_MONSTER_CONFIG, sound: 'necrospeak.wav', moveSpeed: 160.0, aggroRadius: 1000.0, damage: 24, maxHealth: 35 },
+    IMP: { ...DEFAULT_MONSTER_CONFIG, sound: 'impspeak.wav', moveSpeed: 180.0, aggroRadius: 800.0, damage: 10, maxHealth: 20 },
+    DEMON: { ...DEFAULT_MONSTER_CONFIG, sound: 'demonpain.wav', moveSpeed: 165.0, aggroRadius: 950.0, damage: 20, maxHealth: 25 },
+    FULIMO: { ...DEFAULT_MONSTER_CONFIG, sound: 'fulimospeak.wav', moveSpeed: 170.0, aggroRadius: 900.0, damage: 18, maxHealth: 25 },
+    COBRA: { ...DEFAULT_MONSTER_CONFIG, sound: 'snakehiss.wav', moveSpeed: 190.0, aggroRadius: 800.0, damage: 14, maxHealth: 30 },
+    DRAGON: { ...DEFAULT_MONSTER_CONFIG, sound: 'DRAGON.WAV', moveSpeed: 160.0, aggroRadius: 1000.0, damage: 28, maxHealth: 30 },
+    CENTAUR: { ...DEFAULT_MONSTER_CONFIG, sound: 'tsword.wav', moveSpeed: 190.0, aggroRadius: 850.0, damage: 12, maxHealth: 16 },
+    CRAZ: { ...DEFAULT_MONSTER_CONFIG, sound: 'effect1.wav', moveSpeed: 175.0, aggroRadius: 800.0, damage: 14, maxHealth: 20 },
+    RIDER: { ...DEFAULT_MONSTER_CONFIG, sound: 'effect2.wav', moveSpeed: 180.0, aggroRadius: 900.0, damage: 20, maxHealth: 26 },
+    OKTA: { ...DEFAULT_MONSTER_CONFIG, sound: 'effect3.wav', moveSpeed: 165.0, aggroRadius: 850.0, damage: 16, maxHealth: 25 },
+    SORB: { ...DEFAULT_MONSTER_CONFIG, sound: 'sorb.wav', moveSpeed: 170.0, aggroRadius: 950.0, damage: 22, maxHealth: 29 }
 };
 
 export function getMonsterConfig(name) {
@@ -134,9 +135,19 @@ export class Monster {
         this.boundingBox = new THREE.Box3();
         this.updateBoundingBox();
 
+        // Initial random noise timer for ambient growls
+        this.noiseTimer = 3.0 + Math.random() * 8.0;
+
         // Apply initial animation pose
         this.setAnimation(this.config.animations.STAND, true);
         this.updateMorphTargets(0);
+    }
+
+    playMonsterNoise(distToPlayer) {
+        if (distToPlayer > 1200.0) return;
+        const soundFile = this.config.sound || 'goblin.wav';
+        const volume = Math.max(0.05, (1.0 - (distToPlayer / 1200.0)) * 0.7);
+        playSound(soundFile, volume);
     }
 
     updateBoundingBox() {
@@ -312,6 +323,13 @@ export class Monster {
         const distToPlayer = Math.sqrt(dx * dx + dz * dz);
         const targetAngle = Math.atan2(dx, dz);
 
+        // Randomly play monster ambient sound/growl periodically
+        this.noiseTimer -= dt;
+        if (this.noiseTimer <= 0) {
+            this.noiseTimer = 5.0 + Math.random() * 10.0;
+            this.playMonsterNoise(distToPlayer);
+        }
+
         switch (this.state) {
             case MonsterState.IDLE:
                 this.setAnimation(this.config.animations.STAND);
@@ -401,10 +419,18 @@ export class Monster {
 
     setState(newState) {
         if (this.state === newState || this.state === MonsterState.DEATH) return;
+        const oldState = this.state;
         this.state = newState;
         this.stateTimer = 0.0;
         if (newState === MonsterState.ATTACK) {
             this.hasDealtDamageThisAttack = false;
+        }
+        if ((oldState === MonsterState.IDLE) && (newState === MonsterState.ALERT || newState === MonsterState.CHASE)) {
+            const playerPos = window.controls ? window.controls.getObject().position : null;
+            if (playerPos) {
+                const dist = this.position.distanceTo(playerPos);
+                this.playMonsterNoise(dist);
+            }
         }
     }
 
@@ -439,6 +465,16 @@ export class Monster {
             const deaths = [this.config.animations.DEATH1, this.config.animations.DEATH2, this.config.animations.DEATH3];
             const chosenDeath = deaths[Math.floor(Math.random() * deaths.length)];
             this.setAnimation(chosenDeath, true);
+
+            const deathSounds = ['death1.wav', 'death2.wav', 'death3.wav', 'death4.wav', 'die.wav'];
+            const chosenSound = deathSounds[Math.floor(Math.random() * deathSounds.length)];
+            const playerPos = window.controls ? window.controls.getObject().position : null;
+            if (playerPos) {
+                const dist = this.position.distanceTo(playerPos);
+                if (dist <= 1200.0) {
+                    playSound(chosenSound, Math.max(0.05, (1.0 - (dist / 1200.0)) * 0.7));
+                }
+            }
 
             // Award XP and kills to player
             const xpGained = (this.config.maxHealth || 20) * 2;
@@ -520,6 +556,8 @@ export const playerStats = {
 export function damagePlayer(amount) {
     if (playerStats.health <= 0) return;
     playerStats.health = Math.max(0, playerStats.health - amount);
+
+    playSound(getRandomSound(PLAYER_IMPACT_SOUNDS), 0.6);
 
     // Flash damage screen effect
     const flashEl = document.getElementById('damage-flash');
@@ -2297,11 +2335,14 @@ function resolveCapsuleCollisions(camPos) {
         velocity, null, monsters, null);
 }
 
+let footstepTimer = 0.0;
+
 function triggerWeaponAttack() {
     isWeaponAttacking = true;
     hasWeaponHitThisSwing = false;
     playerWeaponAnimTimer = 0.0;
     playerWeaponCurrentAnim = MD2_ANIMATIONS.ATTACK;
+    playSound(getRandomSound(SWISH_SOUNDS), 0.5);
 }
 
 function checkPlayerAttackHit() {
@@ -2339,6 +2380,7 @@ function checkPlayerAttackHit() {
         const gunName = PLAYER_GUNS[currentGunIndex] || '';
         const damage = WEAPON_DAMAGE[gunName] || 25;
         closestMonster.takeDamage(damage);
+        playSound(getRandomSound(IMPACT_SOUNDS), 0.6);
     }
 }
 
@@ -2448,6 +2490,42 @@ function openNearbyDoor() {
     if (nearestDoor) {
         nearestDoor.isOpening = true;
     }
+}
+
+// Sound Manager Utility Functions & Sound Collections
+export const SWISH_SOUNDS = [
+    'swish1.wav', 'swish4.wav', 'swish5.wav',
+    'swish7.wav', 'swish8.wav', 'swish9.wav', 'swing_02.wav'
+];
+
+export const IMPACT_SOUNDS = [
+    'impact.wav', 'impact2.wav', 'impact3.wav', 'impact4.wav',
+    'impact5.wav', 'impact6.wav', 'impact7.wav', 'impact8.wav',
+    'impact9.wav', 'impact10.wav'
+];
+
+export const PLAYER_IMPACT_SOUNDS = [
+    'pimpact.wav', 'ouch.wav', 'pain1.wav'
+];
+
+export function playSound(filename, volume = 1.0) {
+    if (!filename) return;
+    try {
+        const audioPath = filename.startsWith('Sounds/') ? filename : `Sounds/${filename}`;
+        const audio = new Audio(audioPath);
+        audio.volume = Math.max(0, Math.min(1, volume));
+        audio.play().catch(() => {
+            // Unhandled autoplay block by browser before user interaction
+        });
+    } catch (e) {
+        // Fallback
+    }
+}
+
+export function getRandomSound(soundArray) {
+    if (!soundArray || soundArray.length === 0) return null;
+    const index = Math.floor(Math.random() * soundArray.length);
+    return soundArray[index];
 }
 
 // Audio Context for synthesized pickup sound chimes
@@ -2962,6 +3040,22 @@ function animate() {
             grounded = grounded || isGrounded;
         }
         isGrounded = grounded;
+
+        // Play light footstep sounds when moving on the ground
+        if (isGrounded && (moveForward || moveBackward || moveLeft || moveRight)) {
+            const speedSq = velocity.x * velocity.x + velocity.z * velocity.z;
+            if (speedSq > 400.0) { // Moving faster than threshold
+                footstepTimer += delta * (isSprinting ? 1.5 : 1.0);
+                if (footstepTimer >= 0.38) {
+                    footstepTimer = 0.0;
+                    playSound('walk.wav', 0.18);
+                }
+            } else {
+                footstepTimer = 0.3;
+            }
+        } else {
+            footstepTimer = 0.3;
+        }
     }
 
     prevTime = time;
