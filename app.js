@@ -1475,12 +1475,12 @@ async function loadGameWorld() {
 
                             const normTex = getNormalMapTexture(texAlias, (loadedNormalTex) => {
                                 material.normalMap = loadedNormalTex;
-                                material.normalScale.set(1, -1);
+                                material.normalScale.set(1, 1);
                                 material.needsUpdate = true;
                             });
                             if (normTex) {
                                 material.normalMap = normTex;
-                                material.normalScale.set(1, -1);
+                                material.normalScale.set(1, 1);
                             }
                         }
 
@@ -1515,12 +1515,12 @@ async function loadGameWorld() {
 
                                             const wNormTex = getNormalMapTexture(weaponTexAlias, (loadedNormalTex) => {
                                                 weaponMat.normalMap = loadedNormalTex;
-                                                weaponMat.normalScale.set(1, -1);
+                                                weaponMat.normalScale.set(1, 1);
                                                 weaponMat.needsUpdate = true;
                                             });
                                             if (wNormTex) {
                                                 weaponMat.normalMap = wNormTex;
-                                                weaponMat.normalScale.set(1, -1);
+                                                weaponMat.normalScale.set(1, 1);
                                             }
                                         }
                                         weaponMesh = new THREE.Mesh(weaponGeom, weaponMat);
@@ -1652,12 +1652,12 @@ async function loadGameWorld() {
 
             const normTex = getNormalMapTexture(texAlias, (loadedNormalTex) => {
                 material.normalMap = loadedNormalTex;
-                material.normalScale.set(1, -1);
+                material.normalScale.set(1, 1);
                 material.needsUpdate = true;
             });
             if (normTex) {
                 material.normalMap = normTex;
-                material.normalScale.set(1, -1);
+                material.normalScale.set(1, 1);
             }
 
             const mesh = new THREE.Mesh(geometry, material);
@@ -2450,12 +2450,12 @@ async function updateWeaponMesh() {
 
         const normTex = getNormalMapTexture(texAlias, (loadedNormalTex) => {
             material.normalMap = loadedNormalTex;
-            material.normalScale.set(1, -1);
+            material.normalScale.set(1, 1);
             material.needsUpdate = true;
         });
         if (normTex) {
             material.normalMap = normTex;
-            material.normalScale.set(1, -1);
+            material.normalScale.set(1, 1);
         }
     }
 
