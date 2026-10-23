@@ -471,6 +471,42 @@ const direction = new THREE.Vector3();
 const cameraQuaternion = new THREE.Quaternion();
 const worldDir = new THREE.Vector3();
 
+// Item Pickup Definitions & Rewards Table
+export const PICKUP_DEFINITIONS = Object.freeze({
+    'POTION': { type: 'health', amount: 10, label: '+10 HP' },
+    'CHEESE1': { type: 'health', amount: 15, label: '+15 HP' },
+    'POT1': { type: 'health', amount: 10, label: '+10 HP' },
+    'POT2': { type: 'health', amount: 15, label: '+15 HP' },
+    'POT3': { type: 'health', amount: 20, label: '+20 HP' },
+    'MUSHROOM': { type: 'health', amount: 'full', label: 'FULL HP' },
+
+    'GOBLET': { type: 'xp', amount: 50, label: '+50 XP' },
+    'ARMOUR': { type: 'xp', amount: 10, label: '+10 XP' },
+    'COIN': { type: 'xp', amount: 10, label: '+10 XP' },
+    'SPELLBOOK': { type: 'xp', amount: 50, label: '+50 XP' },
+    'SCROLL-HEALING-': { type: 'xp', amount: 10, label: '+10 XP' },
+    'SCROLL-MAGICMISSLE-': { type: 'xp', amount: 20, label: '+20 XP' },
+    'SCROLL-FIREBALL-': { type: 'xp', amount: 30, label: '+30 XP' },
+    'SCROLL-LIGHTNING-': { type: 'xp', amount: 40, label: '+40 XP' }
+});
+
+export function getPickupDefinition(name) {
+    if (!name) return null;
+    const clean = name.toUpperCase().trim();
+    if (PICKUP_DEFINITIONS[clean]) return PICKUP_DEFINITIONS[clean];
+
+    // Check if clean name matches key with/without trailing dashes or numbers (e.g. SCROLL1, POTION01)
+    const noDash = clean.replace(/-+$/, '');
+
+    for (const key in PICKUP_DEFINITIONS) {
+        const keyNoDash = key.replace(/-+$/, '');
+        if (clean === key || noDash === keyNoDash || clean.startsWith(keyNoDash) || keyNoDash.startsWith(noDash)) {
+            return PICKUP_DEFINITIONS[key];
+        }
+    }
+    return null;
+}
+
 // Player Stats Tracking
 export const playerStats = {
     health: 100,
@@ -495,8 +531,17 @@ export function damagePlayer(amount) {
     updatePlayerHud();
 }
 
-export function awardPlayerXp(amount) {
-    playerStats.kills += 1;
+export function healPlayer(amount) {
+    if (playerStats.health <= 0) return;
+    if (amount === 'full') {
+        playerStats.health = playerStats.maxHealth;
+    } else {
+        playerStats.health = Math.min(playerStats.maxHealth, playerStats.health + Number(amount));
+    }
+    updatePlayerHud();
+}
+
+export function addPlayerXp(amount) {
     playerStats.xp += amount;
     while (playerStats.xp >= playerStats.nextXp) {
         playerStats.xp -= playerStats.nextXp;
@@ -506,6 +551,11 @@ export function awardPlayerXp(amount) {
         playerStats.health = playerStats.maxHealth; // Full heal on level up
     }
     updatePlayerHud();
+}
+
+export function awardPlayerXp(amount) {
+    playerStats.kills += 1;
+    addPlayerXp(amount);
 }
 
 export function updatePlayerHud() {
@@ -533,6 +583,7 @@ export function updatePlayerHud() {
 // Level Objects & Distance Culling
 const RENDER_DISTANCE = 3000.0;
 const levelObjects = [];
+const activePickups = [];
 const monsters = [];
 const doors = [];
 
@@ -1033,6 +1084,9 @@ async function init() {
     window.resolveMonsterCapsuleCollisions = resolveMonsterCapsuleCollisions;
     window.doors = doors;
     window.openNearbyDoor = openNearbyDoor;
+    window.activePickups = activePickups;
+    window.playerStats = playerStats;
+    window.damagePlayer = damagePlayer;
     Object.defineProperty(window, 'playerWeaponCurrentAnim', {
         get: () => playerWeaponCurrentAnim
     });
@@ -1385,6 +1439,7 @@ async function loadGameWorld() {
 
     // Reset level objects tracking
     levelObjects.length = 0;
+    activePickups.length = 0;
     clearLamps();
     monsters.length = 0;
     levelTriangles.length = 0;
@@ -1458,11 +1513,37 @@ async function loadGameWorld() {
                         levelObjects.push({ mesh: model, position: new THREE.Vector3(inst.x, inst.y + 50, inst.z) });
                         builtObjectCount++;
 
-                        // Add bounding box for 3DS model collision (must update matrixWorld first)
-                        model.updateMatrixWorld(true);
-                        const box = new THREE.Box3().setFromObject(model);
-                        if (!box.isEmpty()) {
-                            modelBoxes.push(box);
+                        // Check if this 3DS model is a pickup item (checking modelDef.name, modelDef.filepath, inst.modelName, inst.name, or child mesh names)
+                        let detectedPickupDef = getPickupDefinition(modelDef.name) || getPickupDefinition(inst.modelName) || getPickupDefinition(inst.name);
+                        if (!detectedPickupDef && modelDef.filepath) {
+                            const filename = modelDef.filepath.split('/').pop().replace(/\.[^.]+$/, '');
+                            detectedPickupDef = getPickupDefinition(filename);
+                        }
+                        if (!detectedPickupDef) {
+                            model.traverse(c => {
+                                if (!detectedPickupDef && c.name) {
+                                    detectedPickupDef = getPickupDefinition(c.name);
+                                }
+                            });
+                        }
+
+                        if (detectedPickupDef) {
+                            activePickups.push({
+                                mesh: model,
+                                position: new THREE.Vector3(inst.x, inst.y + 50, inst.z),
+                                originalY: inst.y + 50,
+                                name: modelDef.name || inst.modelName || inst.name,
+                                def: detectedPickupDef,
+                                state: 'ACTIVE',
+                                floatTimer: 0
+                            });
+                        } else {
+                            // Add bounding box for non-pickup 3DS model collision (must update matrixWorld first)
+                            model.updateMatrixWorld(true);
+                            const box = new THREE.Box3().setFromObject(model);
+                            if (!box.isEmpty()) {
+                                modelBoxes.push(box);
+                            }
                         }
                         continue;
                     }
@@ -1495,6 +1576,19 @@ async function loadGameWorld() {
                         scene.add(mesh);
                         levelObjects.push({ mesh: mesh, position: new THREE.Vector3(inst.x, inst.y + 50, inst.z) });
                         builtObjectCount++;
+
+                        const pickupDefMD2 = getPickupDefinition(modelDef.name) || getPickupDefinition(inst.modelName) || getPickupDefinition(inst.name);
+                        if (pickupDefMD2) {
+                            activePickups.push({
+                                mesh: mesh,
+                                position: new THREE.Vector3(inst.x, inst.y + 50, inst.z),
+                                originalY: inst.y + 50,
+                                name: modelDef.name || inst.modelName || inst.name,
+                                def: pickupDefMD2,
+                                state: 'ACTIVE',
+                                floatTimer: 0
+                            });
+                        }
 
                         // Draw monster weapon if present
                         let weaponMesh = null;
@@ -1650,6 +1744,19 @@ async function loadGameWorld() {
         const levelObj = { mesh: objGroup, position: new THREE.Vector3(inst.x, inst.y, inst.z) };
         scene.add(objGroup);
         levelObjects.push(levelObj);
+
+        const pickupDefObj = getPickupDefinition(inst.name) || (objDef && getPickupDefinition(objDef.name));
+        if (pickupDefObj) {
+            activePickups.push({
+                mesh: objGroup,
+                position: new THREE.Vector3(inst.x, inst.y, inst.z),
+                originalY: inst.y,
+                name: inst.name || (objDef && objDef.name),
+                def: pickupDefObj,
+                state: 'ACTIVE',
+                floatTimer: 0
+            });
+        }
 
         if (isDoor55) {
             doors.push({
@@ -2343,6 +2450,287 @@ function openNearbyDoor() {
     }
 }
 
+// Audio Context for synthesized pickup sound chimes
+let audioCtx = null;
+
+function playPickupSound(isHealth = true) {
+    try {
+        if (!audioCtx) {
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            if (AudioContextClass) audioCtx = new AudioContextClass();
+        }
+        if (!audioCtx) return;
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+
+        const now = audioCtx.currentTime;
+        const osc1 = audioCtx.createOscillator();
+        const osc2 = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+
+        osc1.type = isHealth ? 'sine' : 'triangle';
+        osc2.type = 'sine';
+
+        // Arpeggio chime notes
+        const freq1 = isHealth ? 523.25 : 659.25; // C5 / E5
+        const freq2 = isHealth ? 659.25 : 880.00; // E5 / A5
+        const freq3 = isHealth ? 783.99 : 1046.50; // G5 / C6
+
+        osc1.frequency.setValueAtTime(freq1, now);
+        osc1.frequency.setValueAtTime(freq2, now + 0.08);
+        osc1.frequency.setValueAtTime(freq3, now + 0.16);
+
+        osc2.frequency.setValueAtTime(freq1 * 1.5, now);
+        osc2.frequency.setValueAtTime(freq2 * 1.5, now + 0.08);
+        osc2.frequency.setValueAtTime(freq3 * 1.5, now + 0.16);
+
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+
+        osc1.connect(gain);
+        osc2.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        osc1.start(now);
+        osc2.start(now);
+        osc1.stop(now + 0.45);
+        osc2.stop(now + 0.45);
+    } catch (e) {
+        // Audio playback error fallback
+    }
+}
+
+// Visual Floating 3D Text & Particle Effects
+const activeFloatingTexts = [];
+const activeParticleBursts = [];
+
+function createPickupFloatingText(text, pos, color = '#38bdf8') {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+
+    ctx.font = '900 42px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 8;
+    ctx.strokeText(text, 128, 64);
+
+    ctx.fillStyle = color;
+    ctx.fillText(text, 128, 64);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    const spriteMat = new THREE.SpriteMaterial({
+        map: texture,
+        transparent: true,
+        opacity: 1.0,
+        depthWrite: false,
+        fog: false
+    });
+
+    const sprite = new THREE.Sprite(spriteMat);
+    sprite.position.copy(pos).add(new THREE.Vector3(0, 30, 0));
+    sprite.scale.set(120, 60, 1);
+    scene.add(sprite);
+
+    activeFloatingTexts.push({
+        sprite,
+        mat: spriteMat,
+        timer: 0,
+        duration: 1.2
+    });
+}
+
+function createPickupParticleBurst(pos, colorHex = 0x38bdf8) {
+    const particleCount = 24;
+    const geometry = new THREE.BufferGeometry();
+    const positions = new Float32Array(particleCount * 3);
+    const velocities = [];
+
+    for (let i = 0; i < particleCount; i++) {
+        positions[i * 3] = pos.x;
+        positions[i * 3 + 1] = pos.y + 10;
+        positions[i * 3 + 2] = pos.z;
+
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.random() * Math.PI - Math.PI / 2;
+        const speed = 80 + Math.random() * 120;
+
+        velocities.push(new THREE.Vector3(
+            Math.cos(phi) * Math.cos(theta) * speed,
+            Math.sin(phi) * speed + 50,
+            Math.cos(phi) * Math.sin(theta) * speed
+        ));
+    }
+
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+
+    const material = new THREE.PointsMaterial({
+        color: colorHex,
+        size: 8,
+        transparent: true,
+        opacity: 1.0,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+    });
+
+    const points = new THREE.Points(geometry, material);
+    scene.add(points);
+
+    activeParticleBursts.push({
+        points,
+        geometry,
+        material,
+        velocities,
+        timer: 0,
+        duration: 0.8
+    });
+}
+
+function updatePickupEffects(delta) {
+    // Update floating text popups
+    for (let i = activeFloatingTexts.length - 1; i >= 0; i--) {
+        const item = activeFloatingTexts[i];
+        item.timer += delta;
+        const progress = item.timer / item.duration;
+
+        item.sprite.position.y += 60 * delta;
+        item.mat.opacity = Math.max(0, 1 - progress);
+
+        if (progress >= 1.0) {
+            scene.remove(item.sprite);
+            item.mat.dispose();
+            if (item.mat.map) item.mat.map.dispose();
+            activeFloatingTexts.splice(i, 1);
+        }
+    }
+
+    // Update particle bursts
+    for (let i = activeParticleBursts.length - 1; i >= 0; i--) {
+        const item = activeParticleBursts[i];
+        item.timer += delta;
+        const progress = item.timer / item.duration;
+
+        const posAttr = item.geometry.attributes.position;
+        const positions = posAttr.array;
+
+        for (let p = 0; p < item.velocities.length; p++) {
+            const vel = item.velocities[p];
+            positions[p * 3] += vel.x * delta;
+            positions[p * 3 + 1] += vel.y * delta;
+            positions[p * 3 + 2] += vel.z * delta;
+
+            vel.y -= 180 * delta; // particle gravity
+        }
+
+        posAttr.needsUpdate = true;
+        item.material.opacity = Math.max(0, 1 - progress);
+
+        if (progress >= 1.0) {
+            scene.remove(item.points);
+            item.geometry.dispose();
+            item.material.dispose();
+            activeParticleBursts.splice(i, 1);
+        }
+    }
+}
+
+// Pickup Proximity Detection & Ascension Animation
+const PICKUP_DISTANCE = 70.0;
+const PICKUP_DISTANCE_SQ = PICKUP_DISTANCE * PICKUP_DISTANCE;
+
+function updatePickups(delta, playerPos) {
+    updatePickupEffects(delta);
+
+    for (let i = activePickups.length - 1; i >= 0; i--) {
+        const pickup = activePickups[i];
+        if (!pickup || !pickup.mesh) continue;
+
+        if (pickup.state === 'ACTIVE') {
+            const distSq = playerPos.distanceToSquared(pickup.position);
+
+            if (distSq <= PICKUP_DISTANCE_SQ) {
+                // Trigger reward
+                pickup.state = 'FLOATING';
+                pickup.floatTimer = 0.0;
+
+                const def = pickup.def;
+                const isHealth = def.type === 'health';
+
+                if (isHealth) {
+                    healPlayer(def.amount);
+                } else {
+                    addPlayerXp(def.amount);
+                }
+
+                // Special Effects
+                const colorHex = isHealth ? 0x22c55e : 0xeab308;
+                const colorCss = isHealth ? '#4ade80' : '#facc15';
+
+                playPickupSound(isHealth);
+                createPickupFloatingText(def.label, pickup.position, colorCss);
+                createPickupParticleBurst(pickup.position, colorHex);
+
+                // Flash screen border subtly
+                const flashEl = document.getElementById('damage-flash');
+                if (flashEl) {
+                    flashEl.style.background = isHealth
+                        ? 'radial-gradient(circle, rgba(34,197,94,0) 40%, rgba(34,197,94,0.4) 100%)'
+                        : 'radial-gradient(circle, rgba(234,179,8,0) 40%, rgba(234,179,8,0.4) 100%)';
+                    flashEl.style.opacity = '0.5';
+                    setTimeout(() => {
+                        flashEl.style.opacity = '0';
+                        setTimeout(() => {
+                            flashEl.style.background = 'radial-gradient(circle, rgba(255,0,0,0) 40%, rgba(255,0,0,0.8) 100%)';
+                        }, 150);
+                    }, 150);
+                }
+            }
+        } else if (pickup.state === 'FLOATING') {
+            pickup.floatTimer += delta;
+            const floatDuration = 0.7; // 0.7 seconds float up animation
+            const progress = pickup.floatTimer / floatDuration;
+
+            // Float up into the sky rapidly
+            pickup.mesh.position.y = pickup.originalY + (progress * progress) * 350.0;
+
+            // Rotate smoothly as it floats up
+            pickup.mesh.rotation.y += delta * 12.0;
+
+            // Scale down to 0
+            const scaleFactor = Math.max(0, 1 - progress);
+            pickup.mesh.scale.multiplyScalar(scaleFactor / (scaleFactor + delta * 3));
+
+            if (progress >= 1.0) {
+                // Remove mesh from scene and cleanup level tracking
+                scene.remove(pickup.mesh);
+                pickup.mesh.traverse((child) => {
+                    if (child.isMesh) {
+                        if (child.geometry) child.geometry.dispose();
+                        if (child.material) {
+                            if (Array.isArray(child.material)) {
+                                child.material.forEach(m => m.dispose());
+                            } else {
+                                child.material.dispose();
+                            }
+                        }
+                    }
+                });
+
+                const objIdx = levelObjects.findIndex(o => o.mesh === pickup.mesh);
+                if (objIdx !== -1) {
+                    levelObjects.splice(objIdx, 1);
+                }
+
+                activePickups.splice(i, 1);
+            }
+        }
+    }
+}
+
 function updateDoors(delta) {
     let gridNeedsUpdate = false;
     const RISE_SPEED = 200.0;
@@ -2589,6 +2977,9 @@ function animate() {
 
     // Update active player weapon animation
     updatePlayerWeaponAnimation(delta);
+
+    // Update item pickups detection and ascension animation
+    updatePickups(delta, pos);
 
     // Update moving doors animation and collision
     updateDoors(delta);
