@@ -700,7 +700,12 @@ export function updatePlayerHud() {
     if (killsText) killsText.textContent = `${playerStats.kills}`;
 
     if (gunText && typeof PLAYER_GUNS !== 'undefined' && typeof currentGunIndex !== 'undefined') {
-        gunText.textContent = PLAYER_GUNS[currentGunIndex] || 'FLAMESWORD';
+        const gunName = PLAYER_GUNS[currentGunIndex] || 'AXE';
+        if (typeof spellCounts !== 'undefined' && spellCounts[gunName] !== undefined) {
+            gunText.textContent = `${gunName} (${spellCounts[gunName]})`;
+        } else {
+            gunText.textContent = gunName;
+        }
     }
 }
 
@@ -783,7 +788,7 @@ const tdsModelCache = new Map();
 const md2GeometryCache = new Map();
 
 // Player Guns list & Damage Table
-const PLAYER_GUNS = [
+export const PLAYER_GUNS = [
     'AXE',
     'FLAMESWORD',
     'BASTARDSWORD',
@@ -799,6 +804,21 @@ const PLAYER_GUNS = [
     'LIGHTNING',
     'HEALING'
 ];
+
+export const unlockedWeapons = new Set([
+    'AXE',
+    'MAGIC MISSILE',
+    'FIREBALL',
+    'LIGHTNING',
+    'HEALING'
+]);
+
+export const spellCounts = {
+    'MAGIC MISSILE': 5,
+    'FIREBALL': 5,
+    'LIGHTNING': 5,
+    'HEALING': 5
+};
 const WEAPON_DAMAGE = {
     'AXE': 20,
     'FLAMESWORD': 25,
@@ -1221,6 +1241,18 @@ async function init() {
                 break;
             case 'KeyN':
                 setNormalMapsEnabled(!normalMapsEnabled);
+                break;
+            case 'KeyK':
+            case 'KeyP':
+                PLAYER_GUNS.forEach(g => unlockedWeapons.add(g));
+                for (const spell in spellCounts) {
+                    spellCounts[spell] = Math.max(99, spellCounts[spell] + 50);
+                }
+                updatePlayerHud();
+                if (controls && controls.getObject()) {
+                    createPickupFloatingText('ALL WEAPONS & SPELLS UNLOCKED', controls.getObject().position, '#facc15');
+                }
+                playSound('treasure.wav', 0.8);
                 break;
         }
     };
@@ -2705,6 +2737,15 @@ function triggerWeaponAttack() {
     if (!controls || playerDead) return;
     const gunName = PLAYER_GUNS[currentGunIndex] || '';
 
+    if (spellCounts[gunName] !== undefined) {
+        if (spellCounts[gunName] <= 0) {
+            playSound('buttonselect111.wav', 0.5);
+            return;
+        }
+        spellCounts[gunName]--;
+        updatePlayerHud();
+    }
+
     isWeaponAttacking = true;
     hasWeaponHitThisSwing = false;
     playerWeaponAnimTimer = 0.0;
@@ -3667,21 +3708,77 @@ function updatePickups(delta, playerPos) {
                 pickup.state = 'FLOATING';
                 pickup.floatTimer = 0.0;
 
+                const nameClean = (pickup.name || '').toUpperCase().trim();
                 const def = pickup.def;
-                const isHealth = def.type === 'health';
+                const isHealth = def && def.type === 'health';
 
-                if (isHealth) {
+                // Check for weapon unlock
+                let unlockedWeapon = null;
+                for (const gun of PLAYER_GUNS) {
+                    if (nameClean.includes(gun.toUpperCase()) || gun.toUpperCase().includes(nameClean)) {
+                        unlockedWeapon = gun;
+                        break;
+                    }
+                }
+                if (!unlockedWeapon && def && def.type === 'weapon') {
+                    unlockedWeapon = pickup.name;
+                }
+
+                let popupLabel = def ? def.label : `+${pickup.name}`;
+                let colorHex = isHealth ? 0x22c55e : 0xeab308;
+                let colorCss = isHealth ? '#4ade80' : '#facc15';
+
+                if (unlockedWeapon) {
+                    unlockedWeapons.add(unlockedWeapon);
+                    popupLabel = `+${unlockedWeapon}`;
+                    colorHex = 0x38bdf8;
+                    colorCss = '#38bdf8';
+                    const newIndex = PLAYER_GUNS.indexOf(unlockedWeapon);
+                    if (newIndex !== -1) {
+                        currentGunIndex = newIndex;
+                        updateWeaponMesh();
+                    }
+                } else if (nameClean.includes('SPELLBOOK')) {
+                    spellCounts['MAGIC MISSILE'] += 5;
+                    spellCounts['FIREBALL'] += 5;
+                    spellCounts['LIGHTNING'] += 5;
+                    spellCounts['HEALING'] += 5;
+                    popupLabel = '+5 ALL SPELLS';
+                    colorHex = 0xa855f7;
+                    colorCss = '#c084fc';
+                    updatePlayerHud();
+                } else if (nameClean.includes('SCROLL-MAGICMISSLE') || nameClean.includes('MAGICMISSLE')) {
+                    spellCounts['MAGIC MISSILE'] += 5;
+                    popupLabel = '+5 MAGIC MISSILE';
+                    colorHex = 0x38bdf8;
+                    colorCss = '#38bdf8';
+                    updatePlayerHud();
+                } else if (nameClean.includes('SCROLL-FIREBALL') || nameClean.includes('FIREBALL')) {
+                    spellCounts['FIREBALL'] += 5;
+                    popupLabel = '+5 FIREBALL';
+                    colorHex = 0xff5500;
+                    colorCss = '#ff7700';
+                    updatePlayerHud();
+                } else if (nameClean.includes('SCROLL-LIGHTNING') || nameClean.includes('LIGHTNING')) {
+                    spellCounts['LIGHTNING'] += 5;
+                    popupLabel = '+5 LIGHTNING';
+                    colorHex = 0x00ffff;
+                    colorCss = '#00ffff';
+                    updatePlayerHud();
+                } else if (nameClean.includes('SCROLL-HEALING') || nameClean.includes('HEALING')) {
+                    spellCounts['HEALING'] += 5;
+                    popupLabel = '+5 HEALING';
+                    colorHex = 0x22c55e;
+                    colorCss = '#4ade80';
+                    updatePlayerHud();
+                } else if (isHealth) {
                     healPlayer(def.amount);
-                } else {
+                } else if (def && def.amount) {
                     addPlayerXp(def.amount);
                 }
 
-                // Special Effects
-                const colorHex = isHealth ? 0x22c55e : 0xeab308;
-                const colorCss = isHealth ? '#4ade80' : '#facc15';
-
                 playPickupSound(isHealth);
-                createPickupFloatingText(def.label, pickup.position, colorCss);
+                createPickupFloatingText(popupLabel, pickup.position, colorCss);
                 createPickupParticleBurst(pickup.position, colorHex);
 
                 // Flash screen border subtly
@@ -3759,7 +3856,12 @@ function updateDoors(delta) {
 }
 
 function cycleWeapon(dir) {
-    currentGunIndex = (currentGunIndex + dir + PLAYER_GUNS.length) % PLAYER_GUNS.length;
+    let attempts = 0;
+    do {
+        currentGunIndex = (currentGunIndex + dir + PLAYER_GUNS.length) % PLAYER_GUNS.length;
+        attempts++;
+    } while (!unlockedWeapons.has(PLAYER_GUNS[currentGunIndex]) && attempts < PLAYER_GUNS.length);
+
     updateWeaponMesh();
 }
 
