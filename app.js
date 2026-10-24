@@ -3492,6 +3492,7 @@ function createTreasureDropEffect(pos) {
 
 async function dropTreasure(position) {
     if (!position) return;
+    if (Math.random() >= 0.8) return; // 80% chance to drop treasure
     const randomTreasure = TREASURE_DROPS[Math.floor(Math.random() * TREASURE_DROPS.length)];
     const modelDef = modelListParser.getModelByName(randomTreasure);
     if (!modelDef) return;
