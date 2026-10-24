@@ -1912,6 +1912,12 @@ async function loadGameWorld() {
                         if (detectedPickupDef) {
                             addPickup(model, model.position, modelDef.name || inst.modelName || inst.name, detectedPickupDef);
                         } else {
+                            model.updateMatrixWorld(true);
+                            const box = new THREE.Box3().setFromObject(model);
+                            if (!box.isEmpty()) {
+                                modelBoxes.push(box);
+                            }
+
                             const cleanModelName = (modelDef.name || inst.modelName || '').toLowerCase().trim();
                             if (cleanModelName === 'cdoorclosedchest' || cleanModelName === 'cdoorclosedchest.3ds') {
                                 chests.push({
@@ -1919,15 +1925,10 @@ async function loadGameWorld() {
                                     position: model.position.clone(),
                                     rotationY: angleRad,
                                     scale: scaleFactor,
-                                    isOpen: false
+                                    isOpen: false,
+                                    box: box
                                 });
                             } else {
-                                // Add bounding box for non-pickup 3DS model collision (must update matrixWorld first)
-                                model.updateMatrixWorld(true);
-                                const box = new THREE.Box3().setFromObject(model);
-                                if (!box.isEmpty()) {
-                                    modelBoxes.push(box);
-                                }
                                 freezeStaticObject(model);
                             }
                         }
@@ -3179,9 +3180,21 @@ async function openChest(chest) {
             disposeOwnedResources(chest.model);
 
             // Add new open chest model
+            openModel.updateMatrixWorld(true);
             scene.add(openModel);
             addLevelObject(openModel, chest.position.clone());
             chest.model = openModel;
+
+            // Update bounding box for collision
+            const newBox = new THREE.Box3().setFromObject(openModel);
+            if (!newBox.isEmpty()) {
+                if (chest.box) {
+                    chest.box.copy(newBox);
+                } else {
+                    modelBoxes.push(newBox);
+                    chest.box = newBox;
+                }
+            }
         }
     }
 
