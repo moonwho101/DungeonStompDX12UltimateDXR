@@ -367,8 +367,15 @@ void InitDS() {
 		your_missle[i].z_offset = 0;
 	}
 
-	player_list[trueplayernum].gunid = your_gun[current_gun].model_id;
-	player_list[trueplayernum].guntex = your_gun[current_gun].skin_tex_id;
+	if (strstr(your_gun[current_gun].gunname, "SCROLL") != NULL) {
+		usespell = 1;
+		player_list[trueplayernum].gunid = FindModelID("weaponsorcerer");
+		player_list[trueplayernum].guntex = FindGunTexture("weaponsorcerer");
+	} else {
+		usespell = 0;
+		player_list[trueplayernum].gunid = your_gun[current_gun].model_id;
+		player_list[trueplayernum].guntex = your_gun[current_gun].skin_tex_id;
+	}
 	player_list[trueplayernum].damage1 = your_gun[current_gun].damage1;
 	player_list[trueplayernum].damage2 = your_gun[current_gun].damage2;
 
@@ -397,8 +404,15 @@ void InitDS() {
 		cos_table[i] = (float)cos(fangle);
 	}
 
-	player_list[trueplayernum].gunid = FindModelID("AXE");
-	player_list[trueplayernum].guntex = FindGunTexture("AXE");
+	if (strstr(your_gun[current_gun].gunname, "SCROLL") != NULL) {
+		usespell = 1;
+		player_list[trueplayernum].gunid = FindModelID("weaponsorcerer");
+		player_list[trueplayernum].guntex = FindGunTexture("weaponsorcerer");
+	} else {
+		usespell = 0;
+		player_list[trueplayernum].gunid = FindModelID("AXE");
+		player_list[trueplayernum].guntex = FindGunTexture("AXE");
+	}
 
 	// GiveWeapons();
 	initDSTimer();

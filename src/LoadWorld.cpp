@@ -2008,16 +2008,17 @@ int load_game(char *filename) {
 	}
 
 	// SwitchGun(current_gun);
-	player_list[trueplayernum].gunid = your_gun[current_gun].model_id;
-	player_list[trueplayernum].guntex = your_gun[current_gun].skin_tex_id;
-	player_list[trueplayernum].damage1 = your_gun[current_gun].damage1;
-	player_list[trueplayernum].damage2 = your_gun[current_gun].damage2;
-
 	if (strstr(your_gun[current_gun].gunname, "SCROLL") != NULL) {
 		usespell = 1;
+		player_list[trueplayernum].gunid = FindModelID("weaponsorcerer");
+		player_list[trueplayernum].guntex = FindGunTexture("weaponsorcerer");
 	} else {
 		usespell = 0;
+		player_list[trueplayernum].gunid = your_gun[current_gun].model_id;
+		player_list[trueplayernum].guntex = your_gun[current_gun].skin_tex_id;
 	}
+	player_list[trueplayernum].damage1 = your_gun[current_gun].damage1;
+	player_list[trueplayernum].damage2 = your_gun[current_gun].damage2;
 
 	fread(&countswitches, sizeof(int), 1, fp);
 	for (montry = 0; montry < countswitches; montry++) {
@@ -2108,8 +2109,15 @@ int load_level(char *filename) {
 		}
 	}
 
-	player_list[trueplayernum].gunid = your_gun[current_gun].model_id;
-	player_list[trueplayernum].guntex = your_gun[current_gun].skin_tex_id;
+	if (strstr(your_gun[current_gun].gunname, "SCROLL") != NULL) {
+		usespell = 1;
+		player_list[trueplayernum].gunid = FindModelID("weaponsorcerer");
+		player_list[trueplayernum].guntex = FindGunTexture("weaponsorcerer");
+	} else {
+		usespell = 0;
+		player_list[trueplayernum].gunid = your_gun[current_gun].model_id;
+		player_list[trueplayernum].guntex = your_gun[current_gun].skin_tex_id;
+	}
 	player_list[trueplayernum].damage1 = your_gun[current_gun].damage1;
 	player_list[trueplayernum].damage2 = your_gun[current_gun].damage2;
 
