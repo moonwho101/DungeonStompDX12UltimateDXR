@@ -1986,16 +1986,7 @@ void MonsterHit() {
 
 				d20roll = action;
 
-				int a;
-
-				int gunmodel = 0;
-				for (a = 0; a < num_your_guns; a++) {
-
-					if (your_gun[a].model_id == player_list[trueplayernum].gunid) {
-
-						gunmodel = a;
-					}
-				}
+				int gunmodel = current_gun;
 
 				int attackbonus = your_gun[gunmodel].sattack;
 				int damagebonus = your_gun[gunmodel].sdamage;
@@ -2124,8 +2115,7 @@ void DrawPlayerGun(int shadow) {
 	int perspectiveview = 1;
 
 	if (player_list[trueplayernum].model_id == 0 &&
-	    player_list[trueplayernum].bIsPlayerAlive &&
-	    strstr(your_gun[current_gun].gunname, "SCROLL") == NULL) {
+	    player_list[trueplayernum].bIsPlayerAlive) {
 		skx = (float)0.40000000 / (float)256;
 		sky = (float)1.28000000 / (float)256;
 		use_player_skins_flag = 1;
@@ -2178,8 +2168,7 @@ void DrawPlayerGun(int shadow) {
 			//				}
 		}
 	} else if (player_list[trueplayernum].model_id != 0 &&
-	           player_list[trueplayernum].bIsPlayerAlive &&
-	           strstr(your_gun[current_gun].gunname, "SCROLL") == NULL) {
+	           player_list[trueplayernum].bIsPlayerAlive) {
 
 		ob_type = player_list[trueplayernum].gunid;
 		current_frame = player_list[trueplayernum].current_frame;

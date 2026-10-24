@@ -730,6 +730,9 @@ VOID WalkMode(CONTROLS *Controls) {
 
 		player_list[trueplayernum].firespeed = pspeed;
 		firemissle = 1;
+		if (jump == 0 && (player_list[trueplayernum].current_sequence != 2) && player_list[trueplayernum].bIsPlayerAlive == TRUE) {
+			SetPlayerAnimationSequence(trueplayernum, 2);
+		}
 	}
 
 	if (Controls->bCameraleft) {
@@ -1122,8 +1125,15 @@ void SwitchGun(int gun) {
 
 		current_gun = gun;
 
-		player_list[trueplayernum].gunid = your_gun[current_gun].model_id;
-		player_list[trueplayernum].guntex = your_gun[current_gun].skin_tex_id;
+		if (strstr(your_gun[current_gun].gunname, "SCROLL") != NULL) {
+			usespell = 1;
+			player_list[trueplayernum].gunid = FindModelID("weaponsorcerer");
+			player_list[trueplayernum].guntex = FindGunTexture("weaponsorcerer");
+		} else {
+			usespell = 0;
+			player_list[trueplayernum].gunid = your_gun[current_gun].model_id;
+			player_list[trueplayernum].guntex = your_gun[current_gun].skin_tex_id;
+		}
 		player_list[trueplayernum].damage1 = your_gun[current_gun].damage1;
 		player_list[trueplayernum].damage2 = your_gun[current_gun].damage2;
 
@@ -1150,12 +1160,13 @@ void CyclePreviousWeapon() {
 
 	if (strstr(your_gun[current_gun].gunname, "SCROLL") != NULL) {
 		usespell = 1;
+		player_list[trueplayernum].gunid = FindModelID("weaponsorcerer");
+		player_list[trueplayernum].guntex = FindGunTexture("weaponsorcerer");
 	} else {
-
 		usespell = 0;
+		player_list[trueplayernum].gunid = your_gun[current_gun].model_id;
+		player_list[trueplayernum].guntex = your_gun[current_gun].skin_tex_id;
 	}
-	player_list[trueplayernum].gunid = your_gun[current_gun].model_id;
-	player_list[trueplayernum].guntex = your_gun[current_gun].skin_tex_id;
 	player_list[trueplayernum].damage1 = your_gun[current_gun].damage1;
 	player_list[trueplayernum].damage2 = your_gun[current_gun].damage2;
 
@@ -1180,13 +1191,14 @@ void CycleNextWeapon() {
 
 	if (strstr(your_gun[current_gun].gunname, "SCROLL") != NULL) {
 		usespell = 1;
+		player_list[trueplayernum].gunid = FindModelID("weaponsorcerer");
+		player_list[trueplayernum].guntex = FindGunTexture("weaponsorcerer");
 	} else {
-
 		usespell = 0;
+		player_list[trueplayernum].gunid = your_gun[current_gun].model_id;
+		player_list[trueplayernum].guntex = your_gun[current_gun].skin_tex_id;
 	}
 
-	player_list[trueplayernum].gunid = your_gun[current_gun].model_id;
-	player_list[trueplayernum].guntex = your_gun[current_gun].skin_tex_id;
 	player_list[trueplayernum].damage1 = your_gun[current_gun].damage1;
 	player_list[trueplayernum].damage2 = your_gun[current_gun].damage2;
 

@@ -171,12 +171,7 @@ void MakeDamageDice() {
 
 	int a;
 
-	int gunmodel = 0;
-	for (a = 0; a < num_your_guns; a++) {
-		if (your_gun[a].model_id == player_list[trueplayernum].gunid) {
-			gunmodel = a;
-		}
-	}
+	int gunmodel = current_gun;
 
 	if (your_gun[gunmodel].damage2 == 4) {
 		strcpy_s(dice[1].name, "die4s4");
@@ -297,14 +292,7 @@ void SetDiceTexture(bool showroll) {
 		sprintf_s(junk, "           X %d", spellhiton);
 		display_message((wWidth / 2) - 30.0f, wHeight - 130.0f, junk, 0, 255, 0, 12.5, 16, 0);
 	} else {
-		int gunmodel = 0;
-		for (int a = 0; a < num_your_guns; a++) {
-
-			if (your_gun[a].model_id == player_list[trueplayernum].gunid) {
-
-				gunmodel = a;
-			}
-		}
+		int gunmodel = current_gun;
 
 		int attackbonus = your_gun[gunmodel].sattack;
 		int damagebonus = your_gun[gunmodel].sdamage;
