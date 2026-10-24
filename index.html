@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dungeon Stomp - Three.js Edition</title>
+    <link rel="icon" href="data:,">
+    <link rel="preconnect" href="https://unpkg.com" crossorigin>
+    <link rel="modulepreload" href="https://unpkg.com/three@0.160.0/build/three.module.js">
+    <link rel="modulepreload" href="./parsers.js">
     <style>
         body {
             margin: 0;
@@ -17,6 +21,9 @@
             width: 100vw;
             height: 100vh;
         }
+        #canvas-container canvas {
+            display: block;
+        }
         #damage-flash {
             position: absolute;
             top: 0;
@@ -27,15 +34,37 @@
             pointer-events: none;
             opacity: 0;
             transition: opacity 0.15s ease-out;
+            will-change: opacity;
             z-index: 10;
+        }
+        #death-screen {
+            position: absolute;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            background: rgba(60, 0, 0, 0.7);
+            color: #fecaca;
+            font-size: 56px;
+            font-weight: 800;
+            letter-spacing: 6px;
+            pointer-events: none;
+            z-index: 25;
+        }
+        #death-screen small {
+            font-size: 16px;
+            font-weight: 600;
+            letter-spacing: 2px;
+            margin-top: 12px;
+            color: #fca5a5;
         }
         #ui-overlay {
             position: absolute;
             top: 15px;
             left: 15px;
             color: #d1d5db;
-            background: rgba(15, 23, 42, 0.75);
-            backdrop-filter: blur(8px);
+            background: rgba(15, 23, 42, 0.85);
             border: 1px solid rgba(255, 255, 255, 0.1);
             padding: 10px 14px;
             border-radius: 8px;
@@ -55,8 +84,7 @@
             display: flex;
             align-items: center;
             gap: 16px;
-            background: linear-gradient(180deg, rgba(20, 24, 33, 0.85) 0%, rgba(10, 12, 18, 0.95) 100%);
-            backdrop-filter: blur(10px);
+            background: linear-gradient(180deg, rgba(20, 24, 33, 0.9) 0%, rgba(10, 12, 18, 0.96) 100%);
             border: 1px solid rgba(255, 170, 0, 0.25);
             border-radius: 12px;
             padding: 12px 24px;
@@ -148,8 +176,7 @@
             transform: translate(-50%, -50%);
             color: #fff;
             text-align: center;
-            background: rgba(10, 12, 18, 0.92);
-            backdrop-filter: blur(12px);
+            background: rgba(10, 12, 18, 0.94);
             padding: 24px 36px;
             border-radius: 12px;
             cursor: pointer;
@@ -178,6 +205,7 @@
 <body>
     <div id="canvas-container"></div>
     <div id="damage-flash"></div>
+    <div id="death-screen">YOU DIED<small>Respawning at the dungeon entrance...</small></div>
     <div id="crosshair"></div>
 
     <div id="ui-overlay">
@@ -186,7 +214,7 @@
         Position: <span id="pos-display">0, 0, 0</span><br>
         Objects: <span id="obj-display">0</span> | Lights: <span id="light-display">0</span><br>
         Normal Maps: <span id="normalmap-display" style="color: #00ff88;">ON</span> (N)<br>
-        Controls: WASD (Move) | Space (Jump) | Q/Z (Weapon)
+        Controls: WASD (Move) | Space (Jump) | E (Open Door) | Q/Z (Weapon)
     </div>
 
     <!-- Modern Crawler HUD -->
@@ -234,8 +262,8 @@
 
     <div id="instructions">
         <h2>Dungeon Stomp JS</h2>
-        <p>Click anywhere to Start & Lock Pointer</p>
-        <p><small>WASD = Move | Space = Jump | F = Fly | N = Normal Maps | Shift = Sprint | Q/Z = Weapon</small></p>
+        <p id="instructions-prompt">Loading dungeon...</p>
+        <p><small>WASD = Move | Space = Jump | F = Fly | E = Open Door | N = Normal Maps | Shift = Sprint | Q/Z = Weapon</small></p>
     </div>
 
     <script type="module" src="app.js"></script>

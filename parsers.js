@@ -8,7 +8,10 @@ export class TextureManager {
     async loadTexturesDat(url) {
         try {
             const resp = await fetch(url);
-            if (!resp.ok) return;
+            if (!resp.ok) {
+                console.warn(`HTTP error ${resp.status} loading ${url}`);
+                return;
+            }
             const text = await resp.text();
             const lines = text.split(/\r?\n/);
 
@@ -50,9 +53,18 @@ export class TextureManager {
     }
 }
 
+const TRI_UVS = [0, 0, 0, 1, 1, 0];
+const QUAD_UVS = [0, 0, 0, 1, 1, 1, 1, 0];
+// A quad is emitted as two triangles: corners (0,1,3) and (2,3,1)
+const QUAD_ORDER = [0, 1, 3, 2, 3, 1];
+
+export const OBJECT_VERT_STRIDE = 5; // x, y, z, u, v
+
 export class ObjectsDatParser {
     constructor() {
-        this.objects = new Map(); // object_id -> { id, name, polys: [] }
+        // object_id -> { id, name, polys: [{ texture, verts }] }
+        // `verts` is a flat Float32Array of triangle-list vertices (x, y, z, u, v), a multiple of 3 vertices long.
+        this.objects = new Map();
     }
 
     async parse(url) {
@@ -60,12 +72,43 @@ export class ObjectsDatParser {
         if (!resp.ok) throw new Error(`HTTP error ${resp.status} loading ${url}`);
         const text = await resp.text();
         const tokens = text.trim().split(/\s+/);
+        const count = tokens.length;
+        this.objects.clear();
 
         let i = 0;
         let currentObject = null;
         let currentTexture = 'wall1';
 
-        while (i < tokens.length) {
+        const addPoly = (corners, order) => {
+            const verts = new Float32Array(order.length * OBJECT_VERT_STRIDE);
+            for (let k = 0; k < order.length; k++) {
+                const src = order[k] * OBJECT_VERT_STRIDE;
+                const dst = k * OBJECT_VERT_STRIDE;
+                for (let c = 0; c < OBJECT_VERT_STRIDE; c++) verts[dst + c] = corners[src + c];
+            }
+            currentObject.polys.push({ texture: currentTexture, verts });
+        };
+
+        // Reads `n` corners; each has xyz and either given uv (textured) or the preset uv table
+        const readCorners = (n, textured, presetUvs) => {
+            const corners = new Array(n * OBJECT_VERT_STRIDE);
+            for (let v = 0; v < n; v++) {
+                const o = v * OBJECT_VERT_STRIDE;
+                corners[o] = parseFloat(tokens[i++]);
+                corners[o + 1] = parseFloat(tokens[i++]);
+                corners[o + 2] = parseFloat(tokens[i++]);
+                if (textured) {
+                    corners[o + 3] = parseFloat(tokens[i++]);
+                    corners[o + 4] = 1.0 - parseFloat(tokens[i++]);
+                } else {
+                    corners[o + 3] = presetUvs[v * 2];
+                    corners[o + 4] = presetUvs[v * 2 + 1];
+                }
+            }
+            return corners;
+        };
+
+        while (i < count) {
             const tok = tokens[i];
 
             if (tok === 'OBJECT' || tok === 'Q2M_OBJECT') {
@@ -86,106 +129,36 @@ export class ObjectsDatParser {
                 continue;
             }
 
-            if (tok === 'TEXTURE') {
-                i++;
-                currentTexture = tokens[i++];
-                continue;
+            switch (tok) {
+                case 'TEXTURE':
+                    i++;
+                    currentTexture = tokens[i++];
+                    break;
+                case 'TYPE':
+                case 'SCALE':
+                case 'SHADOW':
+                case 'CONNECTION':
+                    i += 2; // keyword and its single parameter
+                    break;
+                case 'TRI':
+                    i++;
+                    addPoly(readCorners(3, false, TRI_UVS), [0, 1, 2]);
+                    break;
+                case 'QUAD':
+                    i++;
+                    addPoly(readCorners(4, false, QUAD_UVS), QUAD_ORDER);
+                    break;
+                case 'TRITEX':
+                    i++;
+                    addPoly(readCorners(3, true), [0, 1, 2]);
+                    break;
+                case 'QUADTEX':
+                    i++;
+                    addPoly(readCorners(4, true), QUAD_ORDER);
+                    break;
+                default:
+                    i++;
             }
-
-            if (tok === 'TYPE' || tok === 'SCALE' || tok === 'SHADOW' || tok === 'CONNECTION') {
-                i++;
-                i++; // Skip key and value or parameter
-                continue;
-            }
-
-            if (tok === 'TRI') {
-                i++;
-                const verts = [];
-                const triUvs = [
-                    { u: 0, v: 0 },
-                    { u: 0, v: 1 },
-                    { u: 1, v: 0 }
-                ];
-                for (let v = 0; v < 3; v++) {
-                    const x = parseFloat(tokens[i++]);
-                    const y = parseFloat(tokens[i++]);
-                    const z = parseFloat(tokens[i++]);
-                    verts.push({ x, y, z, u: triUvs[v].u, v: triUvs[v].v });
-                }
-                currentObject.polys.push({
-                    texture: currentTexture,
-                    verts: verts
-                });
-                continue;
-            }
-
-            if (tok === 'QUAD') {
-                i++;
-                const qv = [];
-                const quadUvs = [
-                    { u: 0, v: 0 },
-                    { u: 0, v: 1 },
-                    { u: 1, v: 1 },
-                    { u: 1, v: 0 }
-                ];
-                for (let v = 0; v < 4; v++) {
-                    const x = parseFloat(tokens[i++]);
-                    const y = parseFloat(tokens[i++]);
-                    const z = parseFloat(tokens[i++]);
-                    qv.push({ x, y, z, u: quadUvs[v].u, v: quadUvs[v].v });
-                }
-                const verts = [
-                    qv[0], qv[1], qv[3],
-                    qv[2], qv[3], qv[1]
-                ];
-                currentObject.polys.push({
-                    texture: currentTexture,
-                    verts: verts
-                });
-                continue;
-            }
-
-            if (tok === 'TRITEX') {
-                i++;
-                const verts = [];
-                for (let v = 0; v < 3; v++) {
-                    const x = parseFloat(tokens[i++]);
-                    const y = parseFloat(tokens[i++]);
-                    const z = parseFloat(tokens[i++]);
-                    const u = parseFloat(tokens[i++]);
-                    const vt = parseFloat(tokens[i++]);
-                    verts.push({ x, y, z, u, v: 1.0 - vt });
-                }
-                currentObject.polys.push({
-                    texture: currentTexture,
-                    verts: verts
-                });
-                continue;
-            }
-
-            if (tok === 'QUADTEX') {
-                i++;
-                const qv = [];
-                for (let v = 0; v < 4; v++) {
-                    const x = parseFloat(tokens[i++]);
-                    const y = parseFloat(tokens[i++]);
-                    const z = parseFloat(tokens[i++]);
-                    const u = parseFloat(tokens[i++]);
-                    const vt = parseFloat(tokens[i++]);
-                    qv.push({ x, y, z, u, v: 1.0 - vt });
-                }
-                const verts = [
-                    qv[0], qv[1], qv[3],
-                    qv[2], qv[3], qv[1]
-                ];
-                currentObject.polys.push({
-                    texture: currentTexture,
-                    verts: verts
-                });
-                continue;
-            }
-
-            i++;
         }
 
         return this.objects;
@@ -204,6 +177,8 @@ export class ModelListParser {
             if (!resp.ok) throw new Error(`HTTP error ${resp.status} loading ${url}`);
             const text = await resp.text();
             const lines = text.split(/\r?\n/);
+            this.modelsByName.clear();
+            this.modelsById.clear();
 
             for (let line of lines) {
                 line = line.trim();
@@ -217,31 +192,34 @@ export class ModelListParser {
                 const typeCmd = tokens[0].toUpperCase();
                 if (typeCmd !== 'PLAYER' && typeCmd !== 'YOURGUN') continue;
 
+                // Index the keywords once (first occurrence wins) instead of scanning the line per keyword
+                const upper = tokens.map(t => t.toUpperCase());
+                const idxOf = (kw) => upper.indexOf(kw);
+
                 let format = '';
                 for (let j = 1; j < Math.min(5, tokens.length); j++) {
-                    const tokUpper = tokens[j].toUpperCase();
-                    if (tokUpper === '3DS' || tokUpper === 'MD2') {
-                        format = tokUpper;
+                    if (upper[j] === '3DS' || upper[j] === 'MD2') {
+                        format = upper[j];
                         break;
                     }
                 }
 
                 let modelId = -1;
                 let filePath = '';
-                const modelIdIdx = tokens.findIndex(t => t.toUpperCase() === 'MODEL_ID');
+                const modelIdIdx = idxOf('MODEL_ID');
                 if (modelIdIdx !== -1 && modelIdIdx + 2 < tokens.length) {
                     modelId = parseInt(tokens[modelIdIdx + 1], 10);
                     filePath = tokens[modelIdIdx + 2];
                 }
 
                 let scale = 1.0;
-                const scaleIdx = tokens.findIndex(t => t.toUpperCase() === 'SCALE');
+                const scaleIdx = idxOf('SCALE');
                 if (scaleIdx !== -1 && scaleIdx + 1 < tokens.length) {
                     scale = parseFloat(tokens[scaleIdx + 1]) || 1.0;
                 }
 
                 let textureAlias = '';
-                const texIdx = tokens.findIndex(t => t.toUpperCase() === 'TEX');
+                const texIdx = idxOf('TEX');
                 if (texIdx !== -1 && texIdx + 1 < tokens.length) {
                     textureAlias = tokens[texIdx + 1];
                 }
@@ -249,7 +227,7 @@ export class ModelListParser {
                 let name = '';
                 let monsterWeapon = 'NONE';
                 if (typeCmd === 'PLAYER') {
-                    const thacoIdx = tokens.findIndex(t => t.toUpperCase() === 'THACO');
+                    const thacoIdx = idxOf('THACO');
                     if (thacoIdx !== -1 && thacoIdx + 2 < tokens.length) {
                         name = tokens[thacoIdx + 2];
                     }
@@ -324,6 +302,8 @@ export class LevelMapParser {
         const text = await resp.text();
         const lines = text.split(/\r?\n/);
 
+        this.instances = [];
+        this.lights = [];
         let currentObj = null;
 
         for (let line of lines) {

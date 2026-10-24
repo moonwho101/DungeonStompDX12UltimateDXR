@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import { DDSLoader } from 'three/addons/loaders/DDSLoader.js';
-import { TextureManager, ObjectsDatParser, LevelMapParser, ModelListParser } from './parsers.js';
+import { TextureManager, ObjectsDatParser, LevelMapParser, ModelListParser, OBJECT_VERT_STRIDE } from './parsers.js';
 import { TDSLoader } from 'three/addons/loaders/TDSLoader.js';
 import { MD2Loader } from 'three/addons/loaders/MD2Loader.js';
 
@@ -128,8 +128,11 @@ export class Monster {
         this.fadeTimer = 0.0;
         this.fadeDuration = 0.15; // 150ms cross-fade
 
-        // Active morph target influences set tracking
-        this.activeInfluences = new Set();
+        // Active morph target influences (frame indices written last update), reused every frame
+        this.activeFrames = [0, 0, 0, 0];
+        this.activeFrameCount = 0;
+        this.frameWeights = [0, 0, 0, 0];
+        this.scratchPose = { frameA: 0, frameB: 0, alpha: 0 };
 
         // Bounding box for dynamic collision
         this.boundingBox = new THREE.Box3();
@@ -156,7 +159,7 @@ export class Monster {
             this.boundingBox.makeEmpty();
             return;
         }
-        const curPose = this.getCurrentPose();
+        const curPose = this.getCurrentPose(this.scratchPose);
         computeMD2FrameBoundingBox(this.mesh, curPose.frameA, this.boundingBox);
     }
 
@@ -177,43 +180,60 @@ export class Monster {
         this.animComplete = false;
     }
 
-    getCurrentPose() {
+    getCurrentPose(out = { frameA: 0, frameB: 0, alpha: 0 }) {
         const anim = this.currentAnim;
         const totalFrames = anim.end - anim.start + 1;
         const progress = this.animTimer * anim.fps;
 
-        let frameA, frameB, alpha;
+        let frameOffset, nextOffset;
         if (anim.loop) {
             const frameIdx = progress % totalFrames;
-            frameA = anim.start + Math.floor(frameIdx);
-            frameB = anim.start + ((Math.floor(frameIdx) + 1) % totalFrames);
-            alpha = frameIdx - Math.floor(frameIdx);
+            frameOffset = Math.floor(frameIdx);
+            nextOffset = (frameOffset + 1) % totalFrames;
+            out.alpha = frameIdx - frameOffset;
         } else {
             const frameIdx = Math.min(progress, totalFrames - 1);
-            frameA = anim.start + Math.floor(frameIdx);
-            frameB = anim.start + Math.min(Math.floor(frameIdx) + 1, totalFrames - 1);
-            alpha = frameIdx - Math.floor(frameIdx);
+            frameOffset = Math.floor(frameIdx);
+            nextOffset = Math.min(frameOffset + 1, totalFrames - 1);
+            out.alpha = frameIdx - frameOffset;
         }
+        out.frameA = anim.start + frameOffset;
+        out.frameB = anim.start + nextOffset;
+        return out;
+    }
 
-        return { frameA, frameB, alpha };
+    // Adds a blend weight for a frame, merging with an already queued entry for the same frame
+    addFrameWeight(frame, weight) {
+        const n = this.activeFrameCount;
+        for (let k = 0; k < n; k++) {
+            if (this.activeFrames[k] === frame) {
+                this.frameWeights[k] += weight;
+                return;
+            }
+        }
+        this.activeFrames[n] = frame;
+        this.frameWeights[n] = weight;
+        this.activeFrameCount = n + 1;
     }
 
     updateMorphTargets(delta) {
-        const meshGeometry = this.mesh ? this.mesh.geometry : null;
+        const mesh = this.mesh;
+        const meshGeometry = mesh ? mesh.geometry : null;
         if (!meshGeometry || !meshGeometry.morphAttributes || !meshGeometry.morphAttributes.position) {
             return;
         }
 
-        const influences = this.mesh.morphTargetInfluences;
+        const influences = mesh.morphTargetInfluences;
         if (!influences) return;
+        const wInfluences = this.weaponMesh ? this.weaponMesh.morphTargetInfluences : null;
 
-        // Reset previously active morph influences to 0
-        for (const idx of this.activeInfluences) {
-            if (idx >= 0 && idx < influences.length) {
-                influences[idx] = 0;
-            }
+        // Reset the influences written last update
+        for (let k = 0; k < this.activeFrameCount; k++) {
+            const idx = this.activeFrames[k];
+            if (idx >= 0 && idx < influences.length) influences[idx] = 0;
+            if (wInfluences && idx >= 0 && idx < wInfluences.length) wInfluences[idx] = 0;
         }
-        this.activeInfluences.clear();
+        this.activeFrameCount = 0;
 
         // Advance animation timer
         this.animTimer += delta;
@@ -226,63 +246,71 @@ export class Monster {
             this.animComplete = true;
         }
 
-        const curPose = this.getCurrentPose();
-        const finalWeights = new Map();
+        const curPose = this.getCurrentPose(this.scratchPose);
 
         if (this.prevAnimFrames && this.fadeTimer < this.fadeDuration) {
             this.fadeTimer += delta;
             const blend = Math.min(1.0, this.fadeTimer / this.fadeDuration);
             const invBlend = 1.0 - blend;
+            const prev = this.prevAnimFrames;
 
-            const pA = this.prevAnimFrames.frameA;
-            const pB = this.prevAnimFrames.frameB;
-            const pAlpha = this.prevAnimFrames.alpha;
-
-            finalWeights.set(pA, (finalWeights.get(pA) || 0) + (1 - pAlpha) * invBlend);
-            finalWeights.set(pB, (finalWeights.get(pB) || 0) + pAlpha * invBlend);
-
-            const cA = curPose.frameA;
-            const cB = curPose.frameB;
-            const cAlpha = curPose.alpha;
-
-            finalWeights.set(cA, (finalWeights.get(cA) || 0) + (1 - cAlpha) * blend);
-            finalWeights.set(cB, (finalWeights.get(cB) || 0) + cAlpha * blend);
+            this.addFrameWeight(prev.frameA, (1 - prev.alpha) * invBlend);
+            this.addFrameWeight(prev.frameB, prev.alpha * invBlend);
+            this.addFrameWeight(curPose.frameA, (1 - curPose.alpha) * blend);
+            this.addFrameWeight(curPose.frameB, curPose.alpha * blend);
         } else {
             this.prevAnimFrames = null;
-            const cA = curPose.frameA;
-            const cB = curPose.frameB;
-            const cAlpha = curPose.alpha;
-
-            finalWeights.set(cA, (1 - cAlpha));
-            if (cAlpha > 1e-4) {
-                finalWeights.set(cB, (finalWeights.get(cB) || 0) + cAlpha);
+            this.addFrameWeight(curPose.frameA, 1 - curPose.alpha);
+            if (curPose.alpha > 1e-4) {
+                this.addFrameWeight(curPose.frameB, curPose.alpha);
             }
         }
 
-        // Apply calculated weights to mesh influences
-        for (const [frameIdx, weight] of finalWeights.entries()) {
-            if (frameIdx >= 0 && frameIdx < influences.length && weight > 0.001) {
-                influences[frameIdx] = weight;
-                this.activeInfluences.add(frameIdx);
-            }
+        // Apply the weights to the mesh and the identical weights to its attached weapon
+        let kept = 0;
+        for (let k = 0; k < this.activeFrameCount; k++) {
+            const frameIdx = this.activeFrames[k];
+            const weight = this.frameWeights[k];
+            if (frameIdx < 0 || weight <= 0.001) continue;
+            if (frameIdx < influences.length) influences[frameIdx] = weight;
+            if (wInfluences && frameIdx < wInfluences.length) wInfluences[frameIdx] = weight;
+            this.activeFrames[kept++] = frameIdx;
         }
+        this.activeFrameCount = kept;
+    }
 
-        // Apply identical morph target weights to attached weapon mesh if available
-        if (this.weaponMesh && this.weaponMesh.morphTargetInfluences) {
-            const wInfluences = this.weaponMesh.morphTargetInfluences;
-            for (let i = 0; i < wInfluences.length; i++) {
-                wInfluences[i] = 0;
-            }
-            for (const [frameIdx, weight] of finalWeights.entries()) {
-                if (frameIdx >= 0 && frameIdx < wInfluences.length && weight > 0.001) {
-                    wInfluences[frameIdx] = weight;
-                }
-            }
+    // Randomly plays a monster ambient sound/growl periodically
+    tickAmbientNoise(dt, distToPlayer) {
+        this.noiseTimer -= dt;
+        if (this.noiseTimer <= 0) {
+            this.noiseTimer = 5.0 + Math.random() * 10.0;
+            this.playMonsterNoise(distToPlayer);
         }
     }
 
     update(delta, playerPos, otherMonsters) {
         const dt = Math.min(delta, 0.1);
+
+        const dx = playerPos.x - this.position.x;
+        const dz = playerPos.z - this.position.z;
+        const distSq = dx * dx + dz * dz;
+        const distToPlayer = Math.sqrt(distSq);
+
+        if (this.isGrounded) {
+            // A settled corpse has nothing left to simulate
+            if (this.state === MonsterState.DEATH && this.animComplete && !this.weaponMesh) return;
+
+            // Idle monsters well outside their aggro radius only need their idle animation,
+            // and only while they are close enough to be drawn
+            if (this.state === MonsterState.IDLE && distSq > this.config.aggroRadius * this.config.aggroRadius) {
+                this.tickAmbientNoise(dt, distToPlayer);
+                if (distSq <= RENDER_DISTANCE * RENDER_DISTANCE) {
+                    this.updateMorphTargets(dt);
+                    this.updateBoundingBox();
+                }
+                return;
+            }
+        }
 
         // Sub-step vertical movement & gravity to prevent tunneling through floor geometry
         const maxSubStep = 12.0;
@@ -318,17 +346,9 @@ export class Monster {
             this.attackCooldown = Math.max(0, this.attackCooldown - dt);
         }
 
-        const dx = playerPos.x - this.position.x;
-        const dz = playerPos.z - this.position.z;
-        const distToPlayer = Math.sqrt(dx * dx + dz * dz);
         const targetAngle = Math.atan2(dx, dz);
 
-        // Randomly play monster ambient sound/growl periodically
-        this.noiseTimer -= dt;
-        if (this.noiseTimer <= 0) {
-            this.noiseTimer = 5.0 + Math.random() * 10.0;
-            this.playMonsterNoise(distToPlayer);
-        }
+        this.tickAmbientNoise(dt, distToPlayer);
 
         switch (this.state) {
             case MonsterState.IDLE:
@@ -352,14 +372,19 @@ export class Monster {
                 break;
 
             case MonsterState.CHASE:
-                this.setAnimation(this.config.animations.RUN);
                 this.smoothTurn(targetAngle, dt);
 
                 if (distToPlayer <= this.config.attackRange) {
-                    this.setState(MonsterState.ATTACK);
+                    if (this.attackCooldown <= 0) {
+                        this.setState(MonsterState.ATTACK);
+                    } else {
+                        // Recovering from the last swing: hold position facing the player
+                        this.setAnimation(this.config.animations.STAND);
+                    }
                 } else if (distToPlayer > this.config.deaggroRadius) {
                     this.setState(MonsterState.IDLE);
                 } else {
+                    this.setAnimation(this.config.animations.RUN);
                     if (distToPlayer > this.config.stopDistance) {
                         this.moveForward(dt, otherMonsters, playerPos);
                     }
@@ -388,13 +413,7 @@ export class Monster {
                 if (this.animComplete) {
                     this.attackCooldown = 0.5;
                     this.hasDealtDamageThisAttack = false;
-                    if (distToPlayer <= this.config.attackRange) {
-                        this.setState(MonsterState.CHASE);
-                    } else if (distToPlayer <= this.config.deaggroRadius) {
-                        this.setState(MonsterState.CHASE);
-                    } else {
-                        this.setState(MonsterState.IDLE);
-                    }
+                    this.setState(distToPlayer <= this.config.deaggroRadius ? MonsterState.CHASE : MonsterState.IDLE);
                 }
                 break;
 
@@ -553,19 +572,76 @@ export const playerStats = {
     kills: 0
 };
 
+const hudElements = new Map();
+function hudEl(id) {
+    let el = hudElements.get(id);
+    if (!el) {
+        el = document.getElementById(id);
+        if (el) hudElements.set(id, el);
+    }
+    return el;
+}
+
+// Full-screen vignette flash (damage, healing, pickups). Re-triggering restarts the fade.
+const FLASH_RED = 'radial-gradient(circle, rgba(255,0,0,0) 40%, rgba(255,0,0,0.8) 100%)';
+const FLASH_GREEN = 'radial-gradient(circle, rgba(34,197,94,0) 30%, rgba(34,197,94,0.5) 100%)';
+const FLASH_PICKUP_HEALTH = 'radial-gradient(circle, rgba(34,197,94,0) 40%, rgba(34,197,94,0.4) 100%)';
+const FLASH_PICKUP_XP = 'radial-gradient(circle, rgba(234,179,8,0) 40%, rgba(234,179,8,0.4) 100%)';
+let flashBackground = FLASH_RED;
+let flashTimeout = 0;
+
+function flashScreen(background, opacity, holdMs) {
+    const flashEl = hudEl('damage-flash');
+    if (!flashEl) return;
+    if (background !== flashBackground) {
+        flashBackground = background;
+        flashEl.style.background = background;
+    }
+    flashEl.style.opacity = String(opacity);
+    clearTimeout(flashTimeout);
+    flashTimeout = setTimeout(() => { flashEl.style.opacity = '0'; }, holdMs);
+}
+
+let playerDead = false;
+let playerDeathTimer = 0.0;
+let playerStartPos = null;
+const PLAYER_RESPAWN_DELAY = 3.0;
+
 export function damagePlayer(amount) {
     if (playerStats.health <= 0) return;
     playerStats.health = Math.max(0, playerStats.health - amount);
 
     playSound(getRandomSound(PLAYER_IMPACT_SOUNDS), 0.6);
+    flashScreen(FLASH_RED, 0.6, 150);
+    updatePlayerHud();
 
-    // Flash damage screen effect
-    const flashEl = document.getElementById('damage-flash');
-    if (flashEl) {
-        flashEl.style.opacity = '0.6';
-        setTimeout(() => { flashEl.style.opacity = '0'; }, 150);
+    if (playerStats.health <= 0) {
+        killPlayer();
     }
+}
 
+function killPlayer() {
+    playerDead = true;
+    playerDeathTimer = PLAYER_RESPAWN_DELAY;
+    moveForward = moveBackward = moveLeft = moveRight = moveUp = moveDown = false;
+    isSprinting = false;
+    jumpRequested = false;
+    isWeaponAttacking = false;
+    playSound('die.wav', 0.8);
+    const deathEl = hudEl('death-screen');
+    if (deathEl) deathEl.style.display = 'flex';
+}
+
+function respawnPlayer() {
+    playerDead = false;
+    playerStats.health = playerStats.maxHealth;
+    const deathEl = hudEl('death-screen');
+    if (deathEl) deathEl.style.display = 'none';
+
+    if (controls && playerStartPos) {
+        controls.getObject().position.set(playerStartPos.x, playerStartPos.y, playerStartPos.z);
+    }
+    velocity.set(0, 0, 0);
     updatePlayerHud();
 }
 
@@ -597,12 +673,12 @@ export function awardPlayerXp(amount) {
 }
 
 export function updatePlayerHud() {
-    const hpBar = document.getElementById('hud-hp-bar');
-    const hpText = document.getElementById('hud-hp-text');
-    const xpBar = document.getElementById('hud-xp-bar');
-    const levelText = document.getElementById('hud-level-text');
-    const killsText = document.getElementById('hud-kills-text');
-    const gunText = document.getElementById('hud-gun-text');
+    const hpBar = hudEl('hud-hp-bar');
+    const hpText = hudEl('hud-hp-text');
+    const xpBar = hudEl('hud-xp-bar');
+    const levelText = hudEl('hud-level-text');
+    const killsText = hudEl('hud-kills-text');
+    const gunText = hudEl('hud-gun-text');
 
     const hpPercent = Math.max(0, Math.min(100, (playerStats.health / playerStats.maxHealth) * 100));
     const xpPercent = Math.max(0, Math.min(100, (playerStats.xp / playerStats.nextXp) * 100));
@@ -629,6 +705,7 @@ const doors = [];
 const LIGHT_RANGE = 1000.0;
 const MAX_POINT_LIGHTS = 8;
 const MAX_SPOT_LIGHTS = 4;
+const MAX_DYNAMIC_LIGHTS = 4; // projectile glow and explosion flashes
 const POINT_LIGHT_INTENSITY = 8500;
 const SPOT_LIGHT_INTENSITY = 12000;
 const LIGHT_DECAY = 1.5; // softer than inverse-square to avoid harsh hotspots next to lamps
@@ -639,6 +716,7 @@ const SPOT_COLOUR_REF = 0.9;
 
 const lamps = [];
 const lightSlots = { flicker: [], spotlight: [] };
+const dynamicLights = [];
 let lightRefreshTimer = LIGHT_REFRESH_INTERVAL;
 let haloTexture = null;
 let coreTexture = null;
@@ -662,14 +740,15 @@ const levelParser = new LevelMapParser();
 const modelListParser = new ModelListParser();
 
 const ddsLoader = new DDSLoader();
-const tdsLoader = new TDSLoader();
 const md2Loader = new MD2Loader();
 const textureLoader = new THREE.TextureLoader();
 
 const textureCache = new Map();
 const normalMapCache = new Map();
 const normalMapMaterials = new Set();
+const sharedMaterials = new Map();
 let normalMapsEnabled = true;
+let maxAnisotropy = 1;
 const tdsModelCache = new Map();
 const md2GeometryCache = new Map();
 
@@ -795,6 +874,31 @@ function setupSceneLighting() {
 
     haloTexture = createGlareTexture('halo');
     coreTexture = createGlareTexture('core');
+
+    // Spell lights come from a fixed pool too, so casting never changes the shader light count
+    for (let i = 0; i < MAX_DYNAMIC_LIGHTS; i++) {
+        const light = new THREE.PointLight(0xffffff, 0, 400, LIGHT_DECAY);
+        scene.add(light);
+        dynamicLights.push({ light, busy: false });
+    }
+}
+
+function acquireDynamicLight(colorHex, intensity, distance) {
+    for (const slot of dynamicLights) {
+        if (slot.busy) continue;
+        slot.busy = true;
+        slot.light.color.setHex(colorHex);
+        slot.light.intensity = intensity;
+        slot.light.distance = distance;
+        return slot;
+    }
+    return null;
+}
+
+function releaseDynamicLight(slot) {
+    if (!slot) return;
+    slot.busy = false;
+    slot.light.intensity = 0;
 }
 
 function clearLamps() {
@@ -916,16 +1020,24 @@ function refreshLightSlots(type, slots) {
 
 // Lights the lamp_post objects closest to the player (within LIGHT_RANGE) with their authored light type/colour.
 function updateLighting(t, delta, playerPos) {
+    const rangeSq = LIGHT_RANGE * LIGHT_RANGE;
     for (const lamp of lamps) {
-        lamp.dist = lamp.pos.distanceTo(playerPos);
+        const distSq = lamp.pos.distanceToSquared(playerPos);
+
+        // Lamps out of range need no flicker or sprite work
+        if (distSq > rangeSq) {
+            lamp.dist = Infinity;
+            if (lamp.halo.visible) {
+                lamp.halo.visible = false;
+                lamp.core.visible = false;
+            }
+            continue;
+        }
+
+        lamp.dist = Math.sqrt(distSq);
         lamp.flicker = flickerValue(lamp, t);
 
         // Glare sprites
-        if (lamp.dist > LIGHT_RANGE) {
-            lamp.halo.visible = false;
-            lamp.core.visible = false;
-            continue;
-        }
         const fade = (1 - smoothstep01(LIGHT_RANGE * 0.6, LIGHT_RANGE, lamp.dist)) * smoothstep01(40, 160, lamp.dist);
         const f = lamp.flicker;
         const visible = fade > 0.01;
@@ -986,23 +1098,25 @@ async function init() {
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x1a1a24);
 
-    // Camera setup
-    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 50000);
+    // Camera setup (far plane just past the fog so depth precision stays high)
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 3600);
 
     // Ambient, directional and lamp light pools
     setupSceneLighting();
 
     // Renderer setup
-    renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(window.innerWidth, window.innerHeight);
     container.appendChild(renderer.domElement);
+    maxAnisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
 
     // Pointer Lock Controls
     controls = new PointerLockControls(camera, document.body);
 
     const instructions = document.getElementById('instructions');
     instructions.addEventListener('click', () => {
+        resumeAudio();
         controls.lock();
     });
 
@@ -1010,14 +1124,23 @@ async function init() {
         instructions.style.display = 'none';
     });
 
+    const releaseInputs = () => {
+        moveForward = moveBackward = moveLeft = moveRight = moveUp = moveDown = false;
+        isSprinting = false;
+    };
+
     controls.addEventListener('unlock', () => {
         instructions.style.display = 'block';
+        releaseInputs(); // keyup events are not delivered once focus leaves the page
     });
+    window.addEventListener('blur', releaseInputs);
 
     scene.add(controls.getObject());
 
     // Keyboard Listeners
     const onKeyDown = function (event) {
+        // Held keys must not retrigger toggles (fly mode, weapon cycling, normal maps)
+        if (event.repeat || playerDead) return;
         switch (event.code) {
             case 'ArrowUp':
             case 'KeyW':
@@ -1117,12 +1240,26 @@ async function init() {
     window.addEventListener('resize', onWindowResize);
 
     // Load Game Data & Build Map
-    await loadGameWorld();
+    try {
+        await loadGameWorld();
+    } catch (e) {
+        console.error('Failed to load the dungeon:', e);
+        hudEl('instructions-prompt').textContent = 'Failed to load the dungeon. Check the console for details.';
+        return;
+    }
 
     // Initialize Active Weapon
     await updateWeaponMesh();
 
+    preloadSounds([
+        ...SWISH_SOUNDS, ...IMPACT_SOUNDS, ...PLAYER_IMPACT_SOUNDS,
+        'spell1.wav', 'spell2.wav', 'spell3.wav', 'fireball.wav', 'explod1.wav', 'explod2.wav',
+        'walk.wav', 'die.wav', 'death1.wav', 'death2.wav', 'death3.wav', 'death4.wav',
+        ...monsters.map(m => m.config.sound)
+    ]);
+
     window.camera = camera;
+    window.renderer = renderer;
     window.controls = controls;
     window.scene = scene;
     window.monsters = monsters;
@@ -1138,56 +1275,52 @@ async function init() {
     });
 
     prevTime = performance.now();
+    hudEl('instructions-prompt').textContent = 'Click anywhere to Start & Lock Pointer';
     animate();
 }
+
+const fallbackTexture = new THREE.CanvasTexture(defaultCanvas);
+fallbackTexture.wrapS = THREE.RepeatWrapping;
+fallbackTexture.wrapT = THREE.RepeatWrapping;
 
 function getTexture(texAlias, onLoadCallback) {
     if (!texAlias) return null;
 
-    if (textureCache.has(texAlias)) {
-        const cached = textureCache.get(texAlias);
-        if (cached.loadedTex) {
-            if (onLoadCallback) onLoadCallback(cached.loadedTex);
-            return cached.loadedTex;
-        } else if (cached.isLoading) {
-            if (onLoadCallback) cached.callbacks.push(onLoadCallback);
-            return cached.fallbackTex;
+    const existing = textureCache.get(texAlias);
+    if (existing) {
+        if (existing.loadedTex) {
+            if (onLoadCallback) onLoadCallback(existing.loadedTex);
+            return existing.loadedTex;
         }
+        if (onLoadCallback) existing.callbacks.push(onLoadCallback);
+        return fallbackTexture;
     }
-
-    const fallbackTex = new THREE.CanvasTexture(defaultCanvas);
-    fallbackTex.wrapS = THREE.RepeatWrapping;
-    fallbackTex.wrapT = THREE.RepeatWrapping;
 
     const cacheEntry = {
         loadedTex: null,
-        fallbackTex: fallbackTex,
         isLoading: true,
         callbacks: onLoadCallback ? [onLoadCallback] : []
     };
     textureCache.set(texAlias, cacheEntry);
 
+    // Image files are preferred over DDS when both exist (DDS is the last resort for a texture)
     const texPath = textureManager.getTexturePath(texAlias);
-
-    let possiblePaths = [];
+    const possiblePaths = new Set();
     if (texPath) {
-        const ddsPath = `Textures/${texPath}`;
-        const jpgPath = `Textures/${texPath.replace(/\.dds$/i, '.jpg')}`;
-        const pngPath = `Textures/${texPath.replace(/\.dds$/i, '.png')}`;
-        const bmpPath = `Textures/${texPath.replace(/\.dds$/i, '.bmp')}`;
-
-        possiblePaths.push(jpgPath, pngPath, bmpPath, ddsPath);
+        if (/\.dds$/i.test(texPath)) {
+            const stem = texPath.replace(/\.dds$/i, '');
+            possiblePaths.add(`Textures/${stem}.jpg`);
+            possiblePaths.add(`Textures/${stem}.png`);
+            possiblePaths.add(`Textures/${stem}.bmp`);
+        }
+        possiblePaths.add(`Textures/${texPath}`);
     }
+    possiblePaths.add(`Textures/${texAlias}.jpg`);
+    possiblePaths.add(`Textures/${texAlias}.png`);
+    possiblePaths.add(`Textures/${texAlias}.bmp`);
+    possiblePaths.add(`Textures/${texAlias}.dds`);
 
-    const aliasJpg = `Textures/${texAlias}.jpg`;
-    const aliasPng = `Textures/${texAlias}.png`;
-    const aliasBmp = `Textures/${texAlias}.bmp`;
-    const aliasDds = `Textures/${texAlias}.dds`;
-    possiblePaths.push(aliasJpg, aliasPng, aliasBmp, aliasDds);
-
-    possiblePaths = [...new Set(possiblePaths)];
-
-    loadTextureFromPaths(possiblePaths, (loadedTex) => {
+    loadTextureFromPaths([...possiblePaths], (loadedTex) => {
         cacheEntry.loadedTex = loadedTex;
         cacheEntry.isLoading = false;
 
@@ -1197,7 +1330,7 @@ function getTexture(texAlias, onLoadCallback) {
         cacheEntry.callbacks = [];
     });
 
-    return fallbackTex;
+    return fallbackTexture;
 }
 
 // Tries each path in order. Every texture is normalized to the same orientation:
@@ -1214,6 +1347,7 @@ function loadTextureFromPaths(paths, onLoad, index = 0) {
         (loadedTex) => {
             loadedTex.wrapS = THREE.RepeatWrapping;
             loadedTex.wrapT = THREE.RepeatWrapping;
+            loadedTex.anisotropy = maxAnisotropy;
             if (isDds && !loadedTex.flipY) {
                 loadedTex.repeat.y = -1;
                 loadedTex.offset.y = 1;
@@ -1312,51 +1446,48 @@ function generatePathVariations(filepath) {
 
     const paths = [
         `Models/${clean}`,
-        `Models/Players/MagicUser/WEAPONsorcerer.MD2`,
         `Models/Players/${d2Cap}/${base.toLowerCase()}${ext.toLowerCase()}`,
         `Models/Players/${d2Cap}/${base.toLowerCase()}${ext.toUpperCase()}`,
         `Models/Players/${d2.toLowerCase()}/${base.toLowerCase()}${ext.toLowerCase()}`,
         `Models/Players/${d2.toLowerCase()}/${base.toLowerCase()}${ext.toUpperCase()}`,
         `Models/Players/${d2.toLowerCase()}/${base}${ext}`,
         `Models/3ds/${d2Cap}/${base.toLowerCase()}${ext.toLowerCase()}`,
-        `Models/3ds/${d2.toLowerCase()}/${base.toLowerCase()}${ext.toLowerCase()}`
+        `Models/3ds/${d2.toLowerCase()}/${base.toLowerCase()}${ext.toLowerCase()}`,
+        // Last resort stand-in, only after every spelling of the real file has failed
+        `Models/Players/MagicUser/WEAPONsorcerer.MD2`
     ];
 
     return [...new Set(paths)];
 }
 
-const _tempMD2Vec = new THREE.Vector3();
+// Per-frame bounding box in the mesh's local space, computed once per frame and cached on the shared geometry
+function getMD2FrameLocalBox(geometry, frameIndex) {
+    let boxes = geometry.userData.frameBoxes;
+    if (!boxes) boxes = geometry.userData.frameBoxes = [];
+
+    let box = boxes[frameIndex];
+    if (!box) {
+        const morphPositions = geometry.morphAttributes && geometry.morphAttributes.position;
+        const posAttr = (morphPositions && morphPositions.length > frameIndex)
+            ? morphPositions[frameIndex]
+            : geometry.attributes.position;
+        box = boxes[frameIndex] = new THREE.Box3();
+        if (posAttr) box.setFromBufferAttribute(posAttr);
+    }
+    return box;
+}
 
 function computeMD2FrameBoundingBox(mesh, frameIndex = 0, targetBox = null) {
     const box = targetBox || new THREE.Box3();
-    box.makeEmpty();
-
     const geometry = mesh.geometry;
-    if (!geometry) {
+    if (!geometry || !geometry.attributes.position) {
+        box.makeEmpty();
         box.setFromObject(mesh);
         return box;
     }
 
-    mesh.updateMatrixWorld(true);
-
-    const morphPositions = geometry.morphAttributes && geometry.morphAttributes.position;
-    let posAttr = (morphPositions && morphPositions.length > frameIndex)
-        ? morphPositions[frameIndex]
-        : geometry.attributes.position;
-
-    if (!posAttr) {
-        box.setFromObject(mesh);
-        return box;
-    }
-
-    const array = posAttr.array;
-    for (let i = 0; i < array.length; i += 3) {
-        _tempMD2Vec.set(array[i], array[i + 1], array[i + 2]);
-        _tempMD2Vec.applyMatrix4(mesh.matrixWorld);
-        box.expandByPoint(_tempMD2Vec);
-    }
-
-    return box;
+    mesh.updateWorldMatrix(true, false);
+    return box.copy(getMD2FrameLocalBox(geometry, frameIndex)).applyMatrix4(mesh.matrixWorld);
 }
 
 async function loadMD2Geometry(modelDef) {
@@ -1376,7 +1507,7 @@ async function loadMD2Geometry(modelDef) {
                 });
 
                 if (geometry) {
-                    console.log(`Successfully loaded MD2 at ${path}`);
+                    geometry.userData.shared = true;
                     return geometry;
                 }
             } catch (e) {
@@ -1422,6 +1553,49 @@ function applyNormalMapTo3DSMesh(child) {
     }
 }
 
+// Template meshes are cloned per placed instance, so every clone shares their geometry and materials
+function markSharedMesh(child) {
+    if (!child.isMesh) return;
+    child.geometry.userData.shared = true;
+    const materials = Array.isArray(child.material) ? child.material : [child.material];
+    for (const material of materials) {
+        material.userData.shared = true;
+        material.side = THREE.DoubleSide;
+    }
+}
+
+// Frees GPU resources of a removed object, skipping anything shared with other instances
+function disposeOwnedResources(root) {
+    root.traverse((child) => {
+        if (!child.isMesh) return;
+        if (child.geometry && !child.geometry.userData.shared) child.geometry.dispose();
+        const materials = Array.isArray(child.material) ? child.material : [child.material];
+        for (const material of materials) {
+            if (material && !material.userData.shared) material.dispose();
+        }
+    });
+}
+
+// One Lambert material per texture alias, shared by all level geometry, models and weapons
+function getSharedMaterial(texAlias) {
+    const key = texAlias ? texAlias.toLowerCase().trim() : '';
+    let material = sharedMaterials.get(key);
+    if (material) return material;
+
+    material = new THREE.MeshLambertMaterial({ side: THREE.DoubleSide });
+    material.userData.shared = true;
+    sharedMaterials.set(key, material);
+
+    if (texAlias) {
+        material.map = getTexture(texAlias, (loadedTex) => {
+            material.map = loadedTex;
+            material.needsUpdate = true;
+        });
+        applyNormalMap(material, texAlias);
+    }
+    return material;
+}
+
 async function load3DSModel(modelDef) {
     if (!modelDef || !modelDef.filepath) return null;
     const key = modelDef.filepath.toLowerCase();
@@ -1444,6 +1618,10 @@ async function load3DSModel(modelDef) {
             try {
                 const lastSlash = path.lastIndexOf('/');
                 const dir = lastSlash !== -1 ? path.substring(0, lastSlash + 1) : '';
+
+                // TDSLoader resolves textures from its resource path while parsing, so models
+                // loading concurrently each need their own loader instance
+                const tdsLoader = new TDSLoader();
                 tdsLoader.setResourcePath(dir);
 
                 const object3ds = await new Promise((resolve, reject) => {
@@ -1452,6 +1630,7 @@ async function load3DSModel(modelDef) {
 
                 if (object3ds) {
                     object3ds.traverse(applyNormalMapTo3DSMesh);
+                    object3ds.traverse(markSharedMesh);
                     object3ds.rotation.set(-Math.PI / 2, 0, Math.PI / 2);
                     const wrapper = new THREE.Group();
                     wrapper.add(object3ds);
@@ -1470,20 +1649,97 @@ async function load3DSModel(modelDef) {
     return await loadPromise;
 }
 
+const isModel3DS = (def) => def.format === '3DS' || def.filepath.toLowerCase().endsWith('.3ds');
+const isModelMD2 = (def) => def.format === 'MD2' || def.filepath.toLowerCase().endsWith('.md2');
+
+function getMonsterWeaponDef(modelDef) {
+    if (!modelDef.monsterWeapon || modelDef.monsterWeapon.toUpperCase() === 'NONE') return null;
+    return modelListParser.getModelByName(modelDef.monsterWeapon);
+}
+
+// Starts loading every distinct model the level uses at once; the build loop below then
+// only awaits results that are already cached
+function prefetchLevelModels(instances) {
+    const seen = new Set();
+    const loads = [];
+    const request = (def) => {
+        if (!def || seen.has(def)) return;
+        seen.add(def);
+        if (isModel3DS(def)) loads.push(load3DSModel(def));
+        else if (isModelMD2(def)) loads.push(loadMD2Geometry(def));
+    };
+    for (const inst of instances) {
+        if (!inst.modelName) continue;
+        const def = modelListParser.getModelByName(inst.modelName);
+        request(def);
+        if (def) request(getMonsterWeaponDef(def));
+    }
+    return Promise.all(loads);
+}
+
+// Static level geometry is merged per texture into chunks of this size, so each chunk can be
+// frustum/distance culled while thousands of tiny meshes collapse into a few draw calls
+const STATIC_CHUNK_SIZE = 1024;
+
+const _triEdge1 = new THREE.Vector3();
+const _triEdge2 = new THREE.Vector3();
+
+function makeCollisionTriangle(ax, ay, az, bx, by, bz, cx, cy, cz) {
+    const a = new THREE.Vector3(ax, ay, az);
+    const b = new THREE.Vector3(bx, by, bz);
+    const c = new THREE.Vector3(cx, cy, cz);
+    const n = new THREE.Vector3().crossVectors(_triEdge1.subVectors(b, a), _triEdge2.subVectors(c, a));
+    const planar = n.lengthSq() > 1e-10;
+    n.normalize();
+    return {
+        a, b, c, n, planar, stamp: 0,
+        minX: Math.min(ax, bx, cx), maxX: Math.max(ax, bx, cx),
+        minY: Math.min(ay, by, cy), maxY: Math.max(ay, by, cy),
+        minZ: Math.min(az, bz, cz), maxZ: Math.max(az, bz, cz)
+    };
+}
+
+function computeTriangleBounds(triangles) {
+    const bounds = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity, minZ: Infinity, maxZ: -Infinity };
+    for (const tri of triangles) {
+        bounds.minX = Math.min(bounds.minX, tri.minX);
+        bounds.maxX = Math.max(bounds.maxX, tri.maxX);
+        bounds.minY = Math.min(bounds.minY, tri.minY);
+        bounds.maxY = Math.max(bounds.maxY, tri.maxY);
+        bounds.minZ = Math.min(bounds.minZ, tri.minZ);
+        bounds.maxZ = Math.max(bounds.maxZ, tri.maxZ);
+    }
+    return bounds;
+}
+
+// Objects that never move do not need their matrices rebuilt every frame
+function freezeStaticObject(root) {
+    root.traverse((child) => {
+        child.updateMatrix();
+        child.matrixAutoUpdate = false;
+    });
+}
+
+function createTexturedMesh(texAlias, positions, uvs) {
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    geometry.computeVertexNormals();
+    return new THREE.Mesh(geometry, getSharedMaterial(texAlias));
+}
+
 async function loadGameWorld() {
-    console.log('Loading textures.dat...');
-    await textureManager.loadTexturesDat('bin/textures.dat');
-
-    console.log('Parsing Objects.dat...');
-    const objectsMap = await objectsParser.parse('bin/Objects.dat');
-
-    console.log('Parsing modellist.dat...');
-    await modelListParser.parse('bin/modellist.dat');
-
-    console.log('Parsing level1.map...');
-    const { instances, startPos } = await levelParser.parse('bin/level1.map');
+    const [, objectsMap, , level] = await Promise.all([
+        textureManager.loadTexturesDat('bin/textures.dat'),
+        objectsParser.parse('bin/Objects.dat'),
+        modelListParser.parse('bin/modellist.dat'),
+        levelParser.parse('bin/level1.map')
+    ]);
+    const { instances, startPos } = level;
 
     console.log(`Loaded ${instances.length} objects in level1.map. StartPos:`, startPos);
+
+    await prefetchLevelModels(instances);
 
     // Reset level objects tracking
     levelObjects.length = 0;
@@ -1495,11 +1751,41 @@ async function loadGameWorld() {
     doors.length = 0;
 
     // Set initial camera position
-    controls.getObject().position.set(startPos.x, startPos.y, startPos.z);
+    playerStartPos = new THREE.Vector3(startPos.x, startPos.y, startPos.z);
+    controls.getObject().position.copy(playerStartPos);
 
     // Look along level start direction
     const rotRad = (startPos.rot * Math.PI) / 180.0;
     camera.rotation.y = rotRad;
+
+    const objectIdByName = new Map();
+    for (const [id, obj] of objectsMap) {
+        const name = obj.name && obj.name.toLowerCase().trim();
+        if (name && !objectIdByName.has(name)) objectIdByName.set(name, id);
+    }
+    const getObjectId = (name) => (name ? objectIdByName.get(name.toLowerCase().trim()) ?? -1 : -1);
+
+    const addLevelObject = (mesh, position, radius = 0) => {
+        const entry = { mesh, position, radius };
+        levelObjects.push(entry);
+        return entry;
+    };
+
+    const addPickup = (mesh, position, name, def) => {
+        activePickups.push({
+            mesh,
+            position: position.clone(),
+            originalY: position.y,
+            name,
+            def,
+            state: 'ACTIVE',
+            floatTimer: 0,
+            baseScale: mesh.scale.x
+        });
+    };
+
+    // Merged static geometry: chunkKey -> { cx, cy, cz, textures: Map(alias -> { positions, uvs }) }
+    const staticChunks = new Map();
 
     // Placeholder exclusion list: 6 (lamp_post), 35 (!monster1), 131 (startpos), 120 (text)
     const EXCLUDED_IDS = new Set([6, 35, 131, 120]);
@@ -1512,9 +1798,7 @@ async function loadGameWorld() {
             const cleanName = inst.name.toLowerCase().trim();
             if (EXCLUDED_NAMES.has(cleanName)) return true;
         }
-        const objId = checkObjIdByName(inst.name, objectsMap);
-        if (EXCLUDED_IDS.has(objId)) return true;
-        return false;
+        return EXCLUDED_IDS.has(getObjectId(inst.name));
     }
 
     // Build map geometry
@@ -1539,8 +1823,8 @@ async function loadGameWorld() {
         if (inst.modelName) {
             const modelDef = modelListParser.getModelByName(inst.modelName);
             if (modelDef) {
-                const is3DSModel = modelDef.format === '3DS' || modelDef.filepath.toLowerCase().endsWith('.3ds');
-                const isMD2Model = modelDef.format === 'MD2' || modelDef.filepath.toLowerCase().endsWith('.md2');
+                const is3DSModel = isModel3DS(modelDef);
+                const isMD2Model = isModelMD2(modelDef);
 
                 if (is3DSModel) {
                     const template = await load3DSModel(modelDef);
@@ -1554,14 +1838,8 @@ async function loadGameWorld() {
                         const angleRad = (inst.rot * Math.PI) / 180.0;
                         model.rotation.y = angleRad;
 
-                        model.traverse((child) => {
-                            if (child.isMesh && child.material) {
-                                child.material.side = THREE.DoubleSide;
-                            }
-                        });
-
                         scene.add(model);
-                        levelObjects.push({ mesh: model, position: new THREE.Vector3(inst.x, inst.y + 50, inst.z) });
+                        addLevelObject(model, new THREE.Vector3(inst.x, inst.y + 50, inst.z));
                         builtObjectCount++;
 
                         // Check if this 3DS model is a pickup item (checking modelDef.name, modelDef.filepath, inst.modelName, inst.name, or child mesh names)
@@ -1579,15 +1857,7 @@ async function loadGameWorld() {
                         }
 
                         if (detectedPickupDef) {
-                            activePickups.push({
-                                mesh: model,
-                                position: new THREE.Vector3(inst.x, inst.y + 50, inst.z),
-                                originalY: inst.y + 50,
-                                name: modelDef.name || inst.modelName || inst.name,
-                                def: detectedPickupDef,
-                                state: 'ACTIVE',
-                                floatTimer: 0
-                            });
+                            addPickup(model, model.position, modelDef.name || inst.modelName || inst.name, detectedPickupDef);
                         } else {
                             // Add bounding box for non-pickup 3DS model collision (must update matrixWorld first)
                             model.updateMatrixWorld(true);
@@ -1595,6 +1865,7 @@ async function loadGameWorld() {
                             if (!box.isEmpty()) {
                                 modelBoxes.push(box);
                             }
+                            freezeStaticObject(model);
                         }
                         continue;
                     }
@@ -1604,20 +1875,7 @@ async function loadGameWorld() {
                         const scaleFactor = modelDef.scale || 1.0;
                         const texAlias = (inst.textureAlias && inst.textureAlias !== '-1') ? inst.textureAlias : modelDef.textureAlias;
 
-                        const material = new THREE.MeshLambertMaterial({
-                            side: THREE.DoubleSide
-                        });
-
-                        if (texAlias) {
-                            const tex = getTexture(texAlias, (loadedTex) => {
-                                material.map = loadedTex;
-                                material.needsUpdate = true;
-                            });
-                            material.map = tex;
-                            applyNormalMap(material, texAlias);
-                        }
-
-                        const mesh = new THREE.Mesh(geometry, material);
+                        const mesh = new THREE.Mesh(geometry, getSharedMaterial(texAlias));
                         mesh.scale.set(scaleFactor, scaleFactor, scaleFactor);
                         mesh.position.set(inst.x, inst.y + 50, inst.z);
 
@@ -1625,7 +1883,7 @@ async function loadGameWorld() {
                         mesh.rotation.y = angleRad - Math.PI / 2;
 
                         scene.add(mesh);
-                        levelObjects.push({ mesh: mesh, position: new THREE.Vector3(inst.x, inst.y + 50, inst.z) });
+                        const meshEntry = addLevelObject(mesh, new THREE.Vector3(inst.x, inst.y + 50, inst.z));
                         builtObjectCount++;
 
                         if (modelDef.type === 'YOURGUN') {
@@ -1647,73 +1905,42 @@ async function loadGameWorld() {
                                 label: `+${modelDef.name}`
                             };
 
-                            activePickups.push({
-                                mesh: mesh,
-                                position: new THREE.Vector3(inst.x, inst.y + 50, inst.z),
-                                originalY: inst.y + 50,
-                                name: modelDef.name || inst.modelName || inst.name,
-                                def: pickupDefMD2,
-                                state: 'ACTIVE',
-                                floatTimer: 0
-                            });
+                            addPickup(mesh, mesh.position, modelDef.name || inst.modelName || inst.name, pickupDefMD2);
                             continue;
                         }
 
                         const pickupDefMD2 = getPickupDefinition(modelDef.name) || getPickupDefinition(inst.modelName) || getPickupDefinition(inst.name);
                         if (pickupDefMD2) {
-                            activePickups.push({
-                                mesh: mesh,
-                                position: new THREE.Vector3(inst.x, inst.y + 50, inst.z),
-                                originalY: inst.y + 50,
-                                name: modelDef.name || inst.modelName || inst.name,
-                                def: pickupDefMD2,
-                                state: 'ACTIVE',
-                                floatTimer: 0
-                            });
+                            addPickup(mesh, mesh.position, modelDef.name || inst.modelName || inst.name, pickupDefMD2);
+                            continue; // an item is never also a monster
                         }
 
                         // Draw monster weapon if present
                         let weaponMesh = null;
-                        if (modelDef.monsterWeapon && modelDef.monsterWeapon.toUpperCase() !== 'NONE') {
-                            const weaponDef = modelListParser.getModelByName(modelDef.monsterWeapon);
-                            if (weaponDef) {
-                                if (weaponDef.format === 'MD2' || weaponDef.filepath.toLowerCase().endsWith('.md2')) {
-                                    const weaponGeom = await loadMD2Geometry(weaponDef);
-                                    if (weaponGeom) {
-                                        const weaponScale = weaponDef.scale || scaleFactor;
-                                        const weaponTexAlias = weaponDef.textureAlias;
-                                        const weaponMat = new THREE.MeshLambertMaterial({ side: THREE.DoubleSide });
-                                        if (weaponTexAlias) {
-                                            const wTex = getTexture(weaponTexAlias, (loadedTex) => {
-                                                weaponMat.map = loadedTex;
-                                                weaponMat.needsUpdate = true;
-                                            });
-                                            weaponMat.map = wTex;
-                                            applyNormalMap(weaponMat, weaponTexAlias);
-                                        }
-                                        weaponMesh = new THREE.Mesh(weaponGeom, weaponMat);
-                                        weaponMesh.scale.set(weaponScale, weaponScale, weaponScale);
-                                        weaponMesh.position.set(inst.x, inst.y + 50, inst.z);
-                                        weaponMesh.rotation.y = angleRad - Math.PI / 2;
-                                        scene.add(weaponMesh);
-                                        levelObjects.push({ mesh: weaponMesh, position: new THREE.Vector3(inst.x, inst.y + 50, inst.z) });
-                                    }
-                                } else if (weaponDef.format === '3DS' || weaponDef.filepath.toLowerCase().endsWith('.3ds')) {
-                                    const weaponTemplate = await load3DSModel(weaponDef);
-                                    if (weaponTemplate) {
-                                        weaponMesh = weaponTemplate.clone(true);
-                                        const weaponScale = weaponDef.scale || scaleFactor;
-                                        weaponMesh.scale.set(weaponScale, weaponScale, weaponScale);
-                                        weaponMesh.position.set(inst.x, inst.y + 50, inst.z);
-                                        weaponMesh.rotation.y = angleRad;
-                                        weaponMesh.traverse((child) => {
-                                            if (child.isMesh && child.material) {
-                                                child.material.side = THREE.DoubleSide;
-                                            }
-                                        });
-                                        scene.add(weaponMesh);
-                                        levelObjects.push({ mesh: weaponMesh, position: new THREE.Vector3(inst.x, inst.y + 50, inst.z) });
-                                    }
+                        let weaponEntry = null;
+                        const weaponDef = getMonsterWeaponDef(modelDef);
+                        if (weaponDef) {
+                            if (isModelMD2(weaponDef)) {
+                                const weaponGeom = await loadMD2Geometry(weaponDef);
+                                if (weaponGeom) {
+                                    const weaponScale = weaponDef.scale || scaleFactor;
+                                    weaponMesh = new THREE.Mesh(weaponGeom, getSharedMaterial(weaponDef.textureAlias));
+                                    weaponMesh.scale.set(weaponScale, weaponScale, weaponScale);
+                                    weaponMesh.position.set(inst.x, inst.y + 50, inst.z);
+                                    weaponMesh.rotation.y = angleRad - Math.PI / 2;
+                                    scene.add(weaponMesh);
+                                    weaponEntry = addLevelObject(weaponMesh, new THREE.Vector3(inst.x, inst.y + 50, inst.z));
+                                }
+                            } else if (isModel3DS(weaponDef)) {
+                                const weaponTemplate = await load3DSModel(weaponDef);
+                                if (weaponTemplate) {
+                                    weaponMesh = weaponTemplate.clone(true);
+                                    const weaponScale = weaponDef.scale || scaleFactor;
+                                    weaponMesh.scale.set(weaponScale, weaponScale, weaponScale);
+                                    weaponMesh.position.set(inst.x, inst.y + 50, inst.z);
+                                    weaponMesh.rotation.y = angleRad;
+                                    scene.add(weaponMesh);
+                                    weaponEntry = addLevelObject(weaponMesh, new THREE.Vector3(inst.x, inst.y + 50, inst.z));
                                 }
                             }
                         }
@@ -1723,6 +1950,10 @@ async function loadGameWorld() {
                         const posVec = new THREE.Vector3(inst.x, inst.y + 50, inst.z);
                         const monster = new Monster(mesh, weaponMesh, mConfig, posVec, angleRad);
                         monsters.push(monster);
+
+                        // Distance culling follows the monster as it moves, not where it spawned
+                        meshEntry.position = monster.position;
+                        if (weaponEntry) weaponEntry.position = monster.position;
                         continue;
                     }
                 }
@@ -1734,7 +1965,7 @@ async function loadGameWorld() {
             continue;
         }
 
-        const objId = checkObjIdByName(inst.name, objectsMap);
+        const objId = getObjectId(inst.name);
         const objDef = objectsMap.get(objId);
 
         if (!objDef) {
@@ -1745,99 +1976,98 @@ async function loadGameWorld() {
 
         const isDoor55 = (inst.name && inst.name.toLowerCase().trim() === 'door55') ||
                          (objDef && objDef.name && objDef.name.toLowerCase().trim() === 'door55');
+        const pickupDefObj = isDoor55 ? null : (getPickupDefinition(inst.name) || getPickupDefinition(objDef.name));
         const doorTriangles = [];
 
         const angleRad = (inst.rot * Math.PI) / 180.0;
         const cosA = Math.cos(angleRad);
         const sinA = Math.sin(angleRad);
 
-        const objGroup = new THREE.Group();
-
-        const instTexMap = new Map();
+        // Doors and pickups move, so they keep their own meshes. Pickups are built around their
+        // own origin so they can spin and rise in place; doors are built in world space.
+        // Everything else is merged into the shared static chunks.
+        const isDynamic = isDoor55 || !!pickupDefObj;
+        let texBuckets;
+        if (isDynamic) {
+            texBuckets = new Map();
+        } else {
+            const cx = Math.floor(inst.x / STATIC_CHUNK_SIZE);
+            const cy = Math.floor(inst.y / STATIC_CHUNK_SIZE);
+            const cz = Math.floor(inst.z / STATIC_CHUNK_SIZE);
+            const chunkKey = `${cx},${cy},${cz}`;
+            texBuckets = staticChunks.get(chunkKey);
+            if (!texBuckets) {
+                texBuckets = new Map();
+                staticChunks.set(chunkKey, texBuckets);
+            }
+        }
 
         for (const poly of objDef.polys) {
             const texAlias = poly.texture || 'wall1';
-            if (!instTexMap.has(texAlias)) {
-                instTexMap.set(texAlias, { positions: [], uvs: [] });
+            let bucket = texBuckets.get(texAlias);
+            if (!bucket) {
+                bucket = { positions: [], uvs: [] };
+                texBuckets.set(texAlias, bucket);
             }
 
-            const group = instTexMap.get(texAlias);
+            const verts = poly.verts;
+            const vertCount = verts.length / OBJECT_VERT_STRIDE;
+            const world = new Array(vertCount * 3);
 
-            const worldVerts = [];
-            for (const v of poly.verts) {
-                const rx = v.x * cosA - v.z * sinA;
-                const rz = v.x * sinA + v.z * cosA;
+            for (let k = 0; k < vertCount; k++) {
+                const o = k * OBJECT_VERT_STRIDE;
+                const x = verts[o];
+                const y = verts[o + 1];
+                const z = verts[o + 2];
 
-                const wx = rx + inst.x;
-                const wy = v.y + inst.y;
-                const wz = rz + inst.z;
+                const wx = x * cosA - z * sinA + inst.x;
+                const wy = y + inst.y;
+                const wz = x * sinA + z * cosA + inst.z;
+                world[k * 3] = wx;
+                world[k * 3 + 1] = wy;
+                world[k * 3 + 2] = wz;
 
-                group.positions.push(wx, wy, wz);
-                group.uvs.push(v.u, v.v);
-
-                worldVerts.push(new THREE.Vector3(wx, wy, wz));
+                if (pickupDefObj) {
+                    bucket.positions.push(x, y, z);
+                } else {
+                    bucket.positions.push(wx, wy, wz);
+                }
+                bucket.uvs.push(verts[o + 3], verts[o + 4]);
             }
 
-            for (let i = 1; i < worldVerts.length - 1; i++) {
-                const a = worldVerts[0];
-                const b = worldVerts[i];
-                const c = worldVerts[i + 1];
-                if (a && b && c) {
-                    const tri = {
-                        a, b, c,
-                        minX: Math.min(a.x, b.x, c.x),
-                        maxX: Math.max(a.x, b.x, c.x),
-                        minY: Math.min(a.y, b.y, c.y),
-                        maxY: Math.max(a.y, b.y, c.y),
-                        minZ: Math.min(a.z, b.z, c.z),
-                        maxZ: Math.max(a.z, b.z, c.z)
-                    };
+            // Collectable items are not solid; every polygon is already a triangle list
+            if (pickupDefObj) continue;
+            for (let k = 0; k + 2 < vertCount; k += 3) {
+                const j = k * 3;
+                const tri = makeCollisionTriangle(
+                    world[j], world[j + 1], world[j + 2],
+                    world[j + 3], world[j + 4], world[j + 5],
+                    world[j + 6], world[j + 7], world[j + 8]);
+                if (isDoor55) {
+                    doorTriangles.push(tri);
+                } else {
                     levelTriangles.push(tri);
-                    if (isDoor55) {
-                        doorTriangles.push(tri);
-                    }
                 }
             }
         }
 
-        for (const [texAlias, data] of instTexMap.entries()) {
+        if (!isDynamic) continue;
+
+        const objGroup = new THREE.Group();
+        for (const [texAlias, data] of texBuckets) {
             if (data.positions.length === 0) continue;
-
-            const geometry = new THREE.BufferGeometry();
-            geometry.setAttribute('position', new THREE.Float32BufferAttribute(data.positions, 3));
-            geometry.setAttribute('uv', new THREE.Float32BufferAttribute(data.uvs, 2));
-            geometry.computeVertexNormals();
-
-            const material = new THREE.MeshLambertMaterial({
-                side: THREE.DoubleSide
-            });
-
-            const initialTexture = getTexture(texAlias, (loadedTex) => {
-                material.map = loadedTex;
-                material.needsUpdate = true;
-            });
-            material.map = initialTexture;
-            applyNormalMap(material, texAlias);
-
-            const mesh = new THREE.Mesh(geometry, material);
-            objGroup.add(mesh);
+            objGroup.add(createTexturedMesh(texAlias, data.positions, data.uvs));
+        }
+        if (pickupDefObj) {
+            objGroup.position.set(inst.x, inst.y, inst.z);
+            objGroup.rotation.y = -angleRad;
         }
 
-        const levelObj = { mesh: objGroup, position: new THREE.Vector3(inst.x, inst.y, inst.z) };
         scene.add(objGroup);
-        levelObjects.push(levelObj);
+        const levelObj = addLevelObject(objGroup, new THREE.Vector3(inst.x, inst.y, inst.z));
 
-        const pickupDefObj = getPickupDefinition(inst.name) || (objDef && getPickupDefinition(objDef.name));
         if (pickupDefObj) {
-            activePickups.push({
-                mesh: objGroup,
-                position: new THREE.Vector3(inst.x, inst.y, inst.z),
-                originalY: inst.y,
-                name: inst.name || (objDef && objDef.name),
-                def: pickupDefObj,
-                state: 'ACTIVE',
-                floatTimer: 0
-            });
+            addPickup(objGroup, levelObj.position, inst.name || objDef.name, pickupDefObj);
         }
 
         if (isDoor55) {
@@ -1849,16 +2079,30 @@ async function loadGameWorld() {
                 isOpening: false,
                 isOpen: false,
                 triangles: doorTriangles,
+                bounds: computeTriangleBounds(doorTriangles),
                 levelObj: levelObj
             });
+        }
+    }
+
+    // One mesh per texture per chunk: far fewer draw calls, and each chunk culls on its own
+    for (const texBuckets of staticChunks.values()) {
+        for (const [texAlias, data] of texBuckets) {
+            if (data.positions.length === 0) continue;
+            const mesh = createTexturedMesh(texAlias, data.positions, data.uvs);
+            mesh.geometry.computeBoundingSphere();
+            mesh.matrixAutoUpdate = false;
+            scene.add(mesh);
+            const sphere = mesh.geometry.boundingSphere;
+            addLevelObject(mesh, sphere.center.clone(), sphere.radius);
         }
     }
 
     // Build spatial grid for static level triangles
     buildCollisionGrid();
 
-    document.getElementById('obj-display').textContent = builtObjectCount;
-    document.getElementById('light-display').textContent = lightCount;
+    hudEl('obj-display').textContent = builtObjectCount;
+    hudEl('light-display').textContent = lightCount;
     updateModeDisplay();
 }
 
@@ -1883,7 +2127,9 @@ function updateModeDisplay() {
 }
 
 function getGridKey(cx, cy, cz) {
-    return `${cx},${cy},${cz}`;
+    // Cells are offset to be non-negative (+/-512 cells = +/-131k world units) and packed into one number,
+    // which avoids building a string key for every grid lookup
+    return ((cx + 512) * 1024 + (cy + 512)) * 1024 + (cz + 512);
 }
 
 function buildCollisionGrid() {
@@ -1911,6 +2157,79 @@ function buildCollisionGrid() {
             }
         }
     }
+}
+
+const _nearbyTriangles = [];
+const _nearbyBoxes = [];
+let _queryStamp = 0;
+
+// Collects the static triangles (grid) and moving door triangles whose bounds overlap the query box.
+// Triangles spanning several grid cells are de-duplicated with a per-query stamp.
+function gatherNearbyTriangles(minX, maxX, minY, maxY, minZ, maxZ) {
+    _nearbyTriangles.length = 0;
+    const stamp = ++_queryStamp;
+
+    const minCx = Math.floor(minX / GRID_CELL_SIZE);
+    const maxCx = Math.floor(maxX / GRID_CELL_SIZE);
+    const minCy = Math.floor(minY / GRID_CELL_SIZE);
+    const maxCy = Math.floor(maxY / GRID_CELL_SIZE);
+    const minCz = Math.floor(minZ / GRID_CELL_SIZE);
+    const maxCz = Math.floor(maxZ / GRID_CELL_SIZE);
+
+    for (let cx = minCx; cx <= maxCx; cx++) {
+        for (let cy = minCy; cy <= maxCy; cy++) {
+            for (let cz = minCz; cz <= maxCz; cz++) {
+                const cell = collisionGrid.get(getGridKey(cx, cy, cz));
+                if (!cell) continue;
+                for (let i = 0; i < cell.length; i++) {
+                    const tri = cell[i];
+                    if (tri.stamp === stamp) continue;
+                    tri.stamp = stamp;
+                    if (tri.maxX < minX || tri.minX > maxX ||
+                        tri.maxY < minY || tri.minY > maxY ||
+                        tri.maxZ < minZ || tri.minZ > maxZ) {
+                        continue;
+                    }
+                    _nearbyTriangles.push(tri);
+                }
+            }
+        }
+    }
+
+    // Doors move, so they stay out of the static grid and are tested directly
+    for (let d = 0; d < doors.length; d++) {
+        const door = doors[d];
+        const b = door.bounds;
+        if (b.maxX < minX || b.minX > maxX || b.maxY < minY || b.minY > maxY || b.maxZ < minZ || b.minZ > maxZ) {
+            continue;
+        }
+        const tris = door.triangles;
+        for (let i = 0; i < tris.length; i++) {
+            const tri = tris[i];
+            if (tri.maxX < minX || tri.minX > maxX ||
+                tri.maxY < minY || tri.minY > maxY ||
+                tri.maxZ < minZ || tri.minZ > maxZ) {
+                continue;
+            }
+            _nearbyTriangles.push(tri);
+        }
+    }
+    return _nearbyTriangles;
+}
+
+function gatherNearbyBoxes(minX, maxX, minY, maxY, minZ, maxZ) {
+    _nearbyBoxes.length = 0;
+    for (let b = 0; b < modelBoxes.length; b++) {
+        const box = modelBoxes[b];
+        if (box.isEmpty()) continue;
+        if (box.max.x < minX || box.min.x > maxX ||
+            box.max.y < minY || box.min.y > maxY ||
+            box.max.z < minZ || box.min.z > maxZ) {
+            continue;
+        }
+        _nearbyBoxes.push(box);
+    }
+    return _nearbyBoxes;
 }
 
 // Geometric Collision Math
@@ -2054,12 +2373,14 @@ const _triRes = { capP: _bestCapP, triP: _bestTriP, dist: 0, pierced: false, nor
 // If the axis passes straight through the triangle the closest points are not
 // on its endpoints or edges, so that case is detected first and reported as a
 // negative distance (how far the nearest axis end must travel to clear the plane).
-function closestPointsCapsuleTriangle(capA, capB, v0, v1, v2) {
+function closestPointsCapsuleTriangle(capA, capB, tri) {
+    const v0 = tri.a;
+    const v1 = tri.b;
+    const v2 = tri.c;
     _triRes.pierced = false;
 
-    _triPlaneN.crossVectors(_v10.subVectors(v1, v0), _v20.subVectors(v2, v0));
-    if (_triPlaneN.lengthSq() > 1e-10) {
-        _triPlaneN.normalize();
+    if (tri.planar) {
+        _triPlaneN.copy(tri.n);
         const dA = _triPlaneN.dot(_tempDiff.subVectors(capA, v0));
         const dB = _triPlaneN.dot(_tempDiff.subVectors(capB, v0));
         if (dA * dB < 0) {
@@ -2149,12 +2470,8 @@ const STAND_ON_MAX_LIFT = 20.0;   // feet this close to a monster's head stand o
 
 const _capA = new THREE.Vector3();
 const _capB = new THREE.Vector3();
-const _faceNormal = new THREE.Vector3();
-const _edge1 = new THREE.Vector3();
-const _edge2 = new THREE.Vector3();
 const _bestNormal = new THREE.Vector3();
 const _contactNormal = new THREE.Vector3();
-const _nearbyTriangles = new Set();
 
 // Penetration of the vertical capsule axis point (px, pz) against another
 // upright cylinder. Writes the push-out direction to _contactNormal: horizontal,
@@ -2201,26 +2518,8 @@ function resolveCapsuleWorld(pos, footOffset, radius, height, vel, selfMonster, 
     const queryMinZ = pos.z - radius - 30;
     const queryMaxZ = pos.z + radius + 30;
 
-    const minCx = Math.floor(queryMinX / GRID_CELL_SIZE);
-    const maxCx = Math.floor(queryMaxX / GRID_CELL_SIZE);
-    const minCy = Math.floor(queryMinY / GRID_CELL_SIZE);
-    const maxCy = Math.floor(queryMaxY / GRID_CELL_SIZE);
-    const minCz = Math.floor(queryMinZ / GRID_CELL_SIZE);
-    const maxCz = Math.floor(queryMaxZ / GRID_CELL_SIZE);
-
-    _nearbyTriangles.clear();
-    for (let cx = minCx; cx <= maxCx; cx++) {
-        for (let cy = minCy; cy <= maxCy; cy++) {
-            for (let cz = minCz; cz <= maxCz; cz++) {
-                const cell = collisionGrid.get(getGridKey(cx, cy, cz));
-                if (cell) {
-                    for (let i = 0; i < cell.length; i++) {
-                        _nearbyTriangles.add(cell[i]);
-                    }
-                }
-            }
-        }
-    }
+    const nearbyTriangles = gatherNearbyTriangles(queryMinX, queryMaxX, queryMinY, queryMaxY, queryMinZ, queryMaxZ);
+    const nearbyBoxes = gatherNearbyBoxes(queryMinX, queryMaxX, queryMinY, queryMaxY, queryMinZ, queryMaxZ);
 
     let grounded = false;
     const MAX_ITERATIONS = 6;
@@ -2231,14 +2530,10 @@ function resolveCapsuleWorld(pos, footOffset, radius, height, vel, selfMonster, 
 
         let maxPenetration = 0;
 
-        for (const tri of _nearbyTriangles) {
-            if (tri.maxX < queryMinX || tri.minX > queryMaxX ||
-                tri.maxY < queryMinY || tri.minY > queryMaxY ||
-                tri.maxZ < queryMinZ || tri.minZ > queryMaxZ) {
-                continue;
-            }
+        for (let t = 0; t < nearbyTriangles.length; t++) {
+            const tri = nearbyTriangles[t];
 
-            const res = closestPointsCapsuleTriangle(_capA, _capB, tri.a, tri.b, tri.c);
+            const res = closestPointsCapsuleTriangle(_capA, _capB, tri);
             if (res.dist >= radius) continue;
             const pen = radius - res.dist;
             if (pen <= maxPenetration) continue;
@@ -2247,15 +2542,13 @@ function resolveCapsuleWorld(pos, footOffset, radius, height, vel, selfMonster, 
                 _contactNormal.copy(res.normal);
             } else {
                 _contactNormal.subVectors(res.capP, res.triP);
-                _edge1.subVectors(tri.b, tri.a);
-                _edge2.subVectors(tri.c, tri.a);
-                _faceNormal.crossVectors(_edge1, _edge2).normalize();
+                const faceNormal = tri.n;
 
                 if (_contactNormal.lengthSq() > 1e-8) {
                     _contactNormal.normalize();
                 } else {
                     // Touching exactly: use the face normal, facing the capsule
-                    _contactNormal.copy(_faceNormal);
+                    _contactNormal.copy(faceNormal);
                     const midY = (_capA.y + _capB.y) * 0.5;
                     if (_contactNormal.x * (pos.x - res.triP.x) + _contactNormal.y * (midY - res.triP.y) +
                         _contactNormal.z * (pos.z - res.triP.z) < 0) {
@@ -2266,7 +2559,7 @@ function resolveCapsuleWorld(pos, footOffset, radius, height, vel, selfMonster, 
                 // Flat floors/ceilings push straight up/down so slight slopes don't make the
                 // body creep sideways. Walls and steep faces keep their true contact normal,
                 // otherwise a body beside a bar or ledge would be lifted onto it.
-                if (Math.abs(_faceNormal.y) > 0.7 && Math.abs(_contactNormal.y) > 0.5) {
+                if (Math.abs(faceNormal.y) > 0.7 && Math.abs(_contactNormal.y) > 0.5) {
                     _contactNormal.set(0, _contactNormal.y > 0 ? 1 : -1, 0);
                 }
             }
@@ -2275,14 +2568,8 @@ function resolveCapsuleWorld(pos, footOffset, radius, height, vel, selfMonster, 
             _bestNormal.copy(_contactNormal);
         }
 
-        for (let b = 0; b < modelBoxes.length; b++) {
-            const box = modelBoxes[b];
-            if (box.isEmpty()) continue;
-            if (box.max.x < queryMinX || box.min.x > queryMaxX ||
-                box.max.y < queryMinY || box.min.y > queryMaxY ||
-                box.max.z < queryMinZ || box.min.z > queryMaxZ) {
-                continue;
-            }
+        for (let b = 0; b < nearbyBoxes.length; b++) {
+            const box = nearbyBoxes[b];
 
             const res = closestPointsCapsuleBox(_capA, _capB, box);
             if (res.dist >= radius) continue;
@@ -2383,7 +2670,7 @@ let footstepTimer = 0.0;
 const activeProjectiles = [];
 
 function triggerWeaponAttack() {
-    if (!controls) return;
+    if (!controls || playerDead) return;
     const gunName = PLAYER_GUNS[currentGunIndex] || '';
 
     isWeaponAttacking = true;
@@ -2394,15 +2681,15 @@ function triggerWeaponAttack() {
     if (gunName === 'MAGIC MISSILE') {
         hasWeaponHitThisSwing = true; // Handled by projectile
         playSound('spell1.wav', 0.7);
-        launchMagicMissile();
+        launchProjectile('MAGIC MISSILE');
     } else if (gunName === 'FIREBALL') {
         hasWeaponHitThisSwing = true; // Handled by projectile
         playSound('fireball.wav', 0.8);
-        launchFireball();
+        launchProjectile('FIREBALL');
     } else if (gunName === 'LIGHTNING') {
         hasWeaponHitThisSwing = true; // Handled by projectile
         playSound('spell3.wav', 0.8);
-        launchLightning();
+        launchProjectile('LIGHTNING');
     } else if (gunName === 'HEALING') {
         hasWeaponHitThisSwing = true; // Handled by healing spell
         playSound('spell2.wav', 0.8);
@@ -2417,215 +2704,106 @@ function castHealingSpell() {
     const playerPos = controls.getObject().position;
     createPickupFloatingText('+10 HP', playerPos, '#22c55e');
 
-    // Create healing ring / aura around player
-    const particleCount = 40;
-    const geometry = new THREE.BufferGeometry();
-    const positions = new Float32Array(particleCount * 3);
-    const velocities = [];
-
-    for (let i = 0; i < particleCount; i++) {
+    // Healing ring / aura rising around the player
+    for (let i = 0; i < 40; i++) {
         const angle = Math.random() * Math.PI * 2;
         const rad = 20 + Math.random() * 30;
-        positions[i * 3] = playerPos.x + Math.cos(angle) * rad;
-        positions[i * 3 + 1] = playerPos.y - 60 + Math.random() * 20;
-        positions[i * 3 + 2] = playerPos.z + Math.sin(angle) * rad;
-
-        velocities.push(new THREE.Vector3(
+        emitParticle(
+            playerPos.x + Math.cos(angle) * rad,
+            playerPos.y - 60 + Math.random() * 20,
+            playerPos.z + Math.sin(angle) * rad,
             (Math.random() - 0.5) * 20,
             120 + Math.random() * 100,
-            (Math.random() - 0.5) * 20
-        ));
+            (Math.random() - 0.5) * 20,
+            0x4ade80, 10, 1.0);
     }
-
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    const material = new THREE.PointsMaterial({
-        color: 0x4ade80,
-        size: 10,
-        transparent: true,
-        opacity: 1.0,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false
-    });
-
-    const points = new THREE.Points(geometry, material);
-    scene.add(points);
-
-    activeParticleBursts.push({
-        points,
-        geometry,
-        material,
-        velocities,
-        timer: 0,
-        duration: 1.0
-    });
 
     // Subtle green screen vignette flash
-    const flashEl = document.getElementById('damage-flash');
-    if (flashEl) {
-        flashEl.style.background = 'radial-gradient(circle, rgba(34,197,94,0) 30%, rgba(34,197,94,0.5) 100%)';
-        flashEl.style.opacity = '0.6';
-        setTimeout(() => {
-            flashEl.style.opacity = '0';
-            setTimeout(() => {
-                flashEl.style.background = 'radial-gradient(circle, rgba(255,0,0,0) 40%, rgba(255,0,0,0.8) 100%)';
-            }, 150);
-        }, 200);
-    }
+    flashScreen(FLASH_GREEN, 0.6, 200);
 }
 
-function launchMagicMissile() {
-    const playerPos = controls.getObject().position.clone();
+// Spell projectiles. Geometry and materials are shared per type, and the glow light comes from the pooled dynamic lights.
+const PROJECTILE_TYPES = {
+    'MAGIC MISSILE': {
+        speed: 1300.0, gravity: 0, radius: 20.0, aoeRadius: 120.0, maxLife: 4.0,
+        coreRadius: 12, coreColor: 0x38bdf8, coreOpacity: 0.9,
+        haloColor: 0x00e5ff, haloOpacity: 0.8, haloSize: 70,
+        lightColor: 0x00e5ff, lightIntensity: 6000, lightDistance: 350,
+        colorHex: 0x38bdf8
+    },
+    'FIREBALL': {
+        speed: 1050.0, gravity: -200.0, radius: 26.0, aoeRadius: 220.0, maxLife: 4.5,
+        coreRadius: 18, coreColor: 0xff4500, coreOpacity: 0.95,
+        haloColor: 0xffaa00, haloOpacity: 0.9, haloSize: 110,
+        lightColor: 0xff6600, lightIntensity: 9000, lightDistance: 450,
+        colorHex: 0xff5500
+    },
+    'LIGHTNING': {
+        speed: 1600.0, gravity: 0, radius: 22.0, aoeRadius: 160.0, maxLife: 3.5,
+        coreRadius: 14, coreColor: 0xffffff, coreOpacity: 0.95,
+        haloColor: 0x00ffff, haloOpacity: 0.9, haloSize: 90,
+        lightColor: 0x00ffff, lightIntensity: 8000, lightDistance: 400,
+        colorHex: 0x00ffff
+    }
+};
+const projectileResources = new Map();
+
+function getProjectileResources(type) {
+    let res = projectileResources.get(type);
+    if (!res) {
+        const def = PROJECTILE_TYPES[type];
+        res = {
+            coreGeometry: new THREE.SphereGeometry(def.coreRadius, 12, 8),
+            coreMaterial: new THREE.MeshBasicMaterial({ color: def.coreColor, transparent: true, opacity: def.coreOpacity }),
+            haloMaterial: new THREE.SpriteMaterial({
+                map: haloTexture,
+                color: def.haloColor,
+                transparent: true,
+                opacity: def.haloOpacity,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            })
+        };
+        projectileResources.set(type, res);
+    }
+    return res;
+}
+
+function launchProjectile(type) {
+    const def = PROJECTILE_TYPES[type];
+    const res = getProjectileResources(type);
+
     const lookDir = new THREE.Vector3();
     camera.getWorldDirection(lookDir);
 
     // Spawn origin slightly in front of camera
-    const spawnPos = playerPos.clone().addScaledVector(lookDir, 40).add(new THREE.Vector3(0, -10, 0));
+    const spawnPos = controls.getObject().position.clone().addScaledVector(lookDir, 40);
+    spawnPos.y -= 10;
 
     const group = new THREE.Group();
     group.position.copy(spawnPos);
-
-    // Core energy sphere
-    const coreMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.9 });
-    const coreMesh = new THREE.Mesh(new THREE.SphereGeometry(12, 16, 16), coreMat);
-    group.add(coreMesh);
-
-    // Outer glow halo sprite
-    const haloMat = new THREE.SpriteMaterial({
-        map: haloTexture,
-        color: 0x00e5ff,
-        transparent: true,
-        opacity: 0.8,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false
-    });
-    const haloSprite = new THREE.Sprite(haloMat);
-    haloSprite.scale.set(70, 70, 1);
+    group.add(new THREE.Mesh(res.coreGeometry, res.coreMaterial));
+    const haloSprite = new THREE.Sprite(res.haloMaterial);
+    haloSprite.scale.set(def.haloSize, def.haloSize, 1);
     group.add(haloSprite);
-
-    // Point Light
-    const light = new THREE.PointLight(0x00e5ff, 12, 350);
-    group.add(light);
-
     scene.add(group);
 
-    const speed = 1300.0;
-    const velocity = lookDir.clone().multiplyScalar(speed);
+    const lightSlot = acquireDynamicLight(def.lightColor, def.lightIntensity, def.lightDistance);
+    if (lightSlot) lightSlot.light.position.copy(spawnPos);
 
     activeProjectiles.push({
-        type: 'MAGIC MISSILE',
+        type,
         group,
-        light,
+        lightSlot,
         position: spawnPos,
-        velocity,
-        gravity: 0,
-        radius: 20.0,
-        aoeRadius: 120.0,
-        damage: WEAPON_DAMAGE['MAGIC MISSILE'],
+        velocity: lookDir.multiplyScalar(def.speed),
+        gravity: def.gravity,
+        radius: def.radius,
+        aoeRadius: def.aoeRadius,
+        damage: WEAPON_DAMAGE[type],
         lifeTimer: 0,
-        maxLife: 4.0,
-        colorHex: 0x38bdf8
-    });
-}
-
-function launchFireball() {
-    const playerPos = controls.getObject().position.clone();
-    const lookDir = new THREE.Vector3();
-    camera.getWorldDirection(lookDir);
-
-    const spawnPos = playerPos.clone().addScaledVector(lookDir, 40).add(new THREE.Vector3(0, -10, 0));
-
-    const group = new THREE.Group();
-    group.position.copy(spawnPos);
-
-    // Flaming fiery sphere
-    const coreMat = new THREE.MeshBasicMaterial({ color: 0xff4500, transparent: true, opacity: 0.95 });
-    const coreMesh = new THREE.Mesh(new THREE.SphereGeometry(18, 16, 16), coreMat);
-    group.add(coreMesh);
-
-    const haloMat = new THREE.SpriteMaterial({
-        map: haloTexture,
-        color: 0xffaa00,
-        transparent: true,
-        opacity: 0.9,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false
-    });
-    const haloSprite = new THREE.Sprite(haloMat);
-    haloSprite.scale.set(110, 110, 1);
-    group.add(haloSprite);
-
-    const light = new THREE.PointLight(0xff6600, 18, 450);
-    group.add(light);
-
-    scene.add(group);
-
-    const speed = 1050.0;
-    const velocity = lookDir.clone().multiplyScalar(speed);
-
-    activeProjectiles.push({
-        type: 'FIREBALL',
-        group,
-        light,
-        position: spawnPos,
-        velocity,
-        gravity: -200.0, // slight parabolic drop
-        radius: 26.0,
-        aoeRadius: 220.0,
-        damage: WEAPON_DAMAGE['FIREBALL'],
-        lifeTimer: 0,
-        maxLife: 4.5,
-        colorHex: 0xff5500
-    });
-}
-
-function launchLightning() {
-    const playerPos = controls.getObject().position.clone();
-    const lookDir = new THREE.Vector3();
-    camera.getWorldDirection(lookDir);
-
-    const spawnPos = playerPos.clone().addScaledVector(lookDir, 40).add(new THREE.Vector3(0, -10, 0));
-
-    const group = new THREE.Group();
-    group.position.copy(spawnPos);
-
-    // Electric bolt core
-    const coreMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95 });
-    const coreMesh = new THREE.Mesh(new THREE.SphereGeometry(14, 16, 16), coreMat);
-    group.add(coreMesh);
-
-    const haloMat = new THREE.SpriteMaterial({
-        map: haloTexture,
-        color: 0x00ffff,
-        transparent: true,
-        opacity: 0.9,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false
-    });
-    const haloSprite = new THREE.Sprite(haloMat);
-    haloSprite.scale.set(90, 90, 1);
-    group.add(haloSprite);
-
-    const light = new THREE.PointLight(0x00ffff, 16, 400);
-    group.add(light);
-
-    scene.add(group);
-
-    const speed = 1600.0;
-    const velocity = lookDir.clone().multiplyScalar(speed);
-
-    activeProjectiles.push({
-        type: 'LIGHTNING',
-        group,
-        light,
-        position: spawnPos,
-        velocity,
-        gravity: 0,
-        radius: 22.0,
-        aoeRadius: 160.0,
-        damage: WEAPON_DAMAGE['LIGHTNING'],
-        lifeTimer: 0,
-        maxLife: 3.5,
-        colorHex: 0x00ffff
+        maxLife: def.maxLife,
+        colorHex: def.colorHex
     });
 }
 
@@ -2635,66 +2813,24 @@ function triggerSpellExplosion(pos, type, damage, aoeRadius, colorHex) {
 
     // Spawn explosion particle burst
     const particleCount = (type === 'FIREBALL') ? 60 : 40;
-    const geometry = new THREE.BufferGeometry();
-    const positions = new Float32Array(particleCount * 3);
-    const velocities = [];
-
     for (let i = 0; i < particleCount; i++) {
-        positions[i * 3] = pos.x;
-        positions[i * 3 + 1] = pos.y;
-        positions[i * 3 + 2] = pos.z;
-
         const theta = Math.random() * Math.PI * 2;
         const phi = Math.random() * Math.PI - Math.PI / 2;
         const speed = 120 + Math.random() * 250;
-
-        velocities.push(new THREE.Vector3(
+        emitParticle(
+            pos.x, pos.y, pos.z,
             Math.cos(phi) * Math.cos(theta) * speed,
             Math.sin(phi) * speed,
-            Math.cos(phi) * Math.sin(theta) * speed
-        ));
+            Math.cos(phi) * Math.sin(theta) * speed,
+            colorHex || 0xffaa00, 14, 0.6);
     }
 
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-
-    const material = new THREE.PointsMaterial({
-        color: colorHex || 0xffaa00,
-        size: 14,
-        transparent: true,
-        opacity: 1.0,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false
-    });
-
-    const points = new THREE.Points(geometry, material);
-    scene.add(points);
-
-    // Bright flash light
-    const flashLight = new THREE.PointLight(colorHex || 0xffaa00, 30, aoeRadius * 2);
-    flashLight.position.copy(pos);
-    scene.add(flashLight);
-
-    activeParticleBursts.push({
-        points,
-        geometry,
-        material,
-        velocities,
-        timer: 0,
-        duration: 0.6
-    });
-
-    // Animate flash light fading
-    let flashTimer = 0;
-    const animateFlash = () => {
-        flashTimer += 0.05;
-        flashLight.intensity = Math.max(0, 30 * (1 - flashTimer / 0.3));
-        if (flashTimer < 0.3) {
-            setTimeout(animateFlash, 16);
-        } else {
-            scene.remove(flashLight);
-        }
-    };
-    animateFlash();
+    // Bright flash light, faded out by updateExplosionFlashes
+    const flashSlot = acquireDynamicLight(colorHex || 0xffaa00, EXPLOSION_FLASH_INTENSITY, aoeRadius * 2);
+    if (flashSlot) {
+        flashSlot.light.position.copy(pos);
+        explosionFlashes.push({ slot: flashSlot, timer: 0 });
+    }
 
     // Damage all monsters within AoE radius
     for (let i = 0; i < monsters.length; i++) {
@@ -2712,94 +2848,112 @@ function triggerSpellExplosion(pos, type, damage, aoeRadius, colorHex) {
     }
 }
 
+const EXPLOSION_FLASH_INTENSITY = 15000;
+const EXPLOSION_FLASH_DURATION = 0.3;
+const explosionFlashes = [];
+
+function updateExplosionFlashes(delta) {
+    for (let i = explosionFlashes.length - 1; i >= 0; i--) {
+        const flash = explosionFlashes[i];
+        flash.timer += delta;
+        if (flash.timer >= EXPLOSION_FLASH_DURATION) {
+            releaseDynamicLight(flash.slot);
+            explosionFlashes.splice(i, 1);
+        } else {
+            flash.slot.light.intensity = EXPLOSION_FLASH_INTENSITY * (1 - flash.timer / EXPLOSION_FLASH_DURATION);
+        }
+    }
+}
+
+function removeProjectile(index) {
+    const proj = activeProjectiles[index];
+    scene.remove(proj.group);
+    releaseDynamicLight(proj.lightSlot);
+    activeProjectiles.splice(index, 1);
+}
+
+const _projNext = new THREE.Vector3();
+const _projStep = new THREE.Vector3();
+const _projSample = new THREE.Vector3();
+const _projClosest = new THREE.Vector3();
+
+// True when a projectile sphere at `p` touches a monster, level triangle or static model
+function projectileHitsAt(p, radius) {
+    const monsterReach = radius + MONSTER_CAPSULE_RADIUS;
+    const monsterReachSq = monsterReach * monsterReach;
+    for (let m = 0; m < monsters.length; m++) {
+        const monster = monsters[m];
+        if (monster.state === MonsterState.DEATH || monster.health <= 0) continue;
+        if (p.distanceToSquared(monster.position) <= monsterReachSq) return true;
+    }
+
+    const radiusSq = radius * radius;
+    const tris = gatherNearbyTriangles(p.x - radius, p.x + radius, p.y - radius, p.y + radius, p.z - radius, p.z + radius);
+    for (let t = 0; t < tris.length; t++) {
+        const tri = tris[t];
+        closestPointTrianglePoint(tri.a, tri.b, tri.c, p, _projClosest);
+        if (p.distanceToSquared(_projClosest) <= radiusSq) return true;
+    }
+
+    const boxes = gatherNearbyBoxes(p.x - radius, p.x + radius, p.y - radius, p.y + radius, p.z - radius, p.z + radius);
+    for (let b = 0; b < boxes.length; b++) {
+        if (boxes[b].distanceToPoint(p) <= radius) return true;
+    }
+    return false;
+}
+
 function updateProjectiles(delta) {
+    updateExplosionFlashes(delta);
+
     for (let i = activeProjectiles.length - 1; i >= 0; i--) {
         const proj = activeProjectiles[i];
         proj.lifeTimer += delta;
 
         if (proj.lifeTimer >= proj.maxLife) {
             triggerSpellExplosion(proj.position, proj.type, proj.damage, proj.aoeRadius, proj.colorHex);
-            scene.remove(proj.group);
-            activeProjectiles.splice(i, 1);
+            removeProjectile(i);
             continue;
         }
 
         // Apply physics movement
         proj.velocity.y += proj.gravity * delta;
-        const step = proj.velocity.clone().multiplyScalar(delta);
-        const nextPos = proj.position.clone().add(step);
+        _projStep.copy(proj.velocity).multiplyScalar(delta);
+        _projNext.copy(proj.position).add(_projStep);
 
+        // Sample along the path so a fast projectile cannot jump through thin walls or monsters
+        const segments = Math.min(8, Math.max(1, Math.ceil(_projStep.length() / proj.radius)));
         let hasExploded = false;
-
-        // Check monster collisions
-        for (let m = 0; m < monsters.length; m++) {
-            const monster = monsters[m];
-            if (!monster || monster.state === MonsterState.DEATH || monster.health <= 0) continue;
-
-            const dist = nextPos.distanceTo(monster.position);
-            if (dist <= proj.radius + MONSTER_CAPSULE_RADIUS) {
+        for (let s = 1; s <= segments; s++) {
+            _projSample.copy(proj.position).addScaledVector(_projStep, s / segments);
+            if (projectileHitsAt(_projSample, proj.radius)) {
                 hasExploded = true;
-                triggerSpellExplosion(nextPos, proj.type, proj.damage, proj.aoeRadius, proj.colorHex);
+                _projNext.copy(_projSample);
+                triggerSpellExplosion(_projNext, proj.type, proj.damage, proj.aoeRadius, proj.colorHex);
                 break;
             }
         }
 
-        // Check static level triangles and bounding boxes collision
-        if (!hasExploded) {
-            const queryMinX = nextPos.x - proj.radius;
-            const queryMaxX = nextPos.x + proj.radius;
-            const queryMinY = nextPos.y - proj.radius;
-            const queryMaxY = nextPos.y + proj.radius;
-            const queryMinZ = nextPos.z - proj.radius;
-            const queryMaxZ = nextPos.z + proj.radius;
-
-            const minCx = Math.floor(queryMinX / GRID_CELL_SIZE);
-            const maxCx = Math.floor(queryMaxX / GRID_CELL_SIZE);
-            const minCy = Math.floor(queryMinY / GRID_CELL_SIZE);
-            const maxCy = Math.floor(queryMaxY / GRID_CELL_SIZE);
-            const minCz = Math.floor(queryMinZ / GRID_CELL_SIZE);
-            const maxCz = Math.floor(queryMaxZ / GRID_CELL_SIZE);
-
-            for (let cx = minCx; cx <= maxCx; cx++) {
-                if (hasExploded) break;
-                for (let cy = minCy; cy <= maxCy; cy++) {
-                    if (hasExploded) break;
-                    for (let cz = minCz; cz <= maxCz; cz++) {
-                        const cell = collisionGrid.get(getGridKey(cx, cy, cz));
-                        if (cell) {
-                            for (let t = 0; t < cell.length; t++) {
-                                const tri = cell[t];
-                                _tempMD2Vec.set(0, 0, 0);
-                                closestPointTrianglePoint(tri.a, tri.b, tri.c, nextPos, _tempMD2Vec);
-                                if (nextPos.distanceToSquared(_tempMD2Vec) <= proj.radius * proj.radius) {
-                                    hasExploded = true;
-                                    triggerSpellExplosion(nextPos, proj.type, proj.damage, proj.aoeRadius, proj.colorHex);
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
         if (hasExploded) {
-            scene.remove(proj.group);
-            activeProjectiles.splice(i, 1);
+            removeProjectile(i);
             continue;
         }
 
         // Update position and trail particles
-        proj.position.copy(nextPos);
+        proj.position.copy(_projNext);
         proj.group.position.copy(proj.position);
+        if (proj.lightSlot) proj.lightSlot.light.position.copy(proj.position);
 
-        // Spawn particle trail
         if (Math.random() < 0.7) {
-            createPickupParticleBurst(proj.position.clone().add(new THREE.Vector3(
-                (Math.random() - 0.5) * 10,
-                (Math.random() - 0.5) * 10,
-                (Math.random() - 0.5) * 10
-            )), proj.colorHex);
+            for (let k = 0; k < 4; k++) {
+                emitParticle(
+                    proj.position.x + (Math.random() - 0.5) * 10,
+                    proj.position.y + 10 + (Math.random() - 0.5) * 10,
+                    proj.position.z + (Math.random() - 0.5) * 10,
+                    (Math.random() - 0.5) * 120,
+                    50 + (Math.random() - 0.5) * 120,
+                    (Math.random() - 0.5) * 120,
+                    proj.colorHex, 8, 0.5);
+            }
         }
     }
 }
@@ -2967,17 +3121,96 @@ export const PLAYER_IMPACT_SOUNDS = [
     'pimpact.wav', 'ouch.wav', 'pain1.wav'
 ];
 
+// Sounds are fetched and decoded once, then played from memory (no per-play network/decode work)
+const soundBuffers = new Map(); // path -> AudioBuffer | Promise<AudioBuffer|null> | null (failed)
+const MAX_CONCURRENT_SOUNDS = 24;
+const MAX_SOUND_LATENCY_MS = 750; // a sound that finishes loading later than this is no longer relevant
+let activeSoundCount = 0;
+let audioCtx = null;
+
+function getAudioContext() {
+    if (!audioCtx) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioContextClass) audioCtx = new AudioContextClass();
+    }
+    return audioCtx;
+}
+
+// Browsers keep audio suspended until a user gesture
+function resumeAudio() {
+    const ctx = getAudioContext();
+    if (ctx && ctx.state === 'suspended') ctx.resume().catch(() => {});
+}
+
+function loadSoundBuffer(path) {
+    const cached = soundBuffers.get(path);
+    if (cached !== undefined) return cached;
+
+    const ctx = getAudioContext();
+    if (!ctx) return null;
+
+    const pending = fetch(path)
+        .then((resp) => {
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            return resp.arrayBuffer();
+        })
+        .then((data) => ctx.decodeAudioData(data))
+        .then((buffer) => {
+            soundBuffers.set(path, buffer);
+            return buffer;
+        })
+        .catch(() => {
+            soundBuffers.set(path, null);
+            return null;
+        });
+    soundBuffers.set(path, pending);
+    return pending;
+}
+
+function startSound(buffer, volume) {
+    if (activeSoundCount >= MAX_CONCURRENT_SOUNDS) return;
+    const ctx = audioCtx;
+    const source = ctx.createBufferSource();
+    const gain = ctx.createGain();
+    source.buffer = buffer;
+    gain.gain.value = Math.max(0, Math.min(1, volume));
+    source.connect(gain);
+    gain.connect(ctx.destination);
+
+    activeSoundCount++;
+    source.onended = () => {
+        activeSoundCount--;
+        source.disconnect();
+        gain.disconnect();
+    };
+    source.start();
+}
+
 export function playSound(filename, volume = 1.0) {
     if (!filename) return;
     try {
-        const audioPath = filename.startsWith('Sounds/') ? filename : `Sounds/${filename}`;
-        const audio = new Audio(audioPath);
-        audio.volume = Math.max(0, Math.min(1, volume));
-        audio.play().catch(() => {
-            // Unhandled autoplay block by browser before user interaction
-        });
+        const ctx = getAudioContext();
+        if (!ctx || ctx.state !== 'running') return; // autoplay is blocked before user interaction
+
+        const path = filename.startsWith('Sounds/') ? filename : `Sounds/${filename}`;
+        const entry = loadSoundBuffer(path);
+        if (!entry) return;
+        if (entry instanceof AudioBuffer) {
+            startSound(entry, volume);
+        } else {
+            const requestedAt = performance.now();
+            entry.then((buffer) => {
+                if (buffer && performance.now() - requestedAt <= MAX_SOUND_LATENCY_MS) startSound(buffer, volume);
+            });
+        }
     } catch (e) {
-        // Fallback
+        // Audio is optional
+    }
+}
+
+function preloadSounds(filenames) {
+    for (const name of new Set(filenames)) {
+        if (name) loadSoundBuffer(name.startsWith('Sounds/') ? name : `Sounds/${name}`);
     }
 }
 
@@ -2987,20 +3220,11 @@ export function getRandomSound(soundArray) {
     return soundArray[index];
 }
 
-// Audio Context for synthesized pickup sound chimes
-let audioCtx = null;
-
 function playPickupSound(isHealth = true) {
     try {
-        if (!audioCtx) {
-            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-            if (AudioContextClass) audioCtx = new AudioContextClass();
-        }
-        if (!audioCtx) return;
-        if (audioCtx.state === 'suspended') {
-            audioCtx.resume();
-        }
-
+        const ctx = getAudioContext();
+        if (!ctx) return;
+        resumeAudio();
         const now = audioCtx.currentTime;
         const osc1 = audioCtx.createOscillator();
         const osc2 = audioCtx.createOscillator();
@@ -3040,15 +3264,20 @@ function playPickupSound(isHealth = true) {
 
 // Visual Floating 3D Text & Particle Effects
 const activeFloatingTexts = [];
-const activeParticleBursts = [];
 
-function createPickupFloatingText(text, pos, color = '#38bdf8') {
+const floatingTextTextures = new Map();
+
+function getFloatingTextTexture(text, color) {
+    const key = `${color}|${text}`;
+    let texture = floatingTextTextures.get(key);
+    if (texture) return texture;
+
     const canvas = document.createElement('canvas');
     canvas.width = 256;
     canvas.height = 128;
     const ctx = canvas.getContext('2d');
 
-    ctx.font = '900 42px sans-serif';
+    ctx.font = '900 14px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
@@ -3059,9 +3288,15 @@ function createPickupFloatingText(text, pos, color = '#38bdf8') {
     ctx.fillStyle = color;
     ctx.fillText(text, 128, 64);
 
-    const texture = new THREE.CanvasTexture(canvas);
+    texture = new THREE.CanvasTexture(canvas);
+    floatingTextTextures.set(key, texture);
+    return texture;
+}
+
+function createPickupFloatingText(text, pos, color = '#38bdf8') {
+    // Each popup fades with its own opacity, but the label texture is shared
     const spriteMat = new THREE.SpriteMaterial({
-        map: texture,
+        map: getFloatingTextTexture(text, color),
         transparent: true,
         opacity: 1.0,
         depthWrite: false,
@@ -3081,50 +3316,163 @@ function createPickupFloatingText(text, pos, color = '#38bdf8') {
     });
 }
 
-function createPickupParticleBurst(pos, colorHex = 0x38bdf8) {
-    const particleCount = 24;
+// All spell, pickup and trail particles live in one pooled Points object: no per-effect
+// geometry or material allocation, and one draw call however many effects are active.
+const MAX_PARTICLES = 3072;
+const PARTICLE_GRAVITY = 180.0;
+const particles = {
+    positions: new Float32Array(MAX_PARTICLES * 3),
+    colors: new Float32Array(MAX_PARTICLES * 3),
+    sizes: new Float32Array(MAX_PARTICLES),
+    velocities: new Float32Array(MAX_PARTICLES * 3),
+    baseColors: new Float32Array(MAX_PARTICLES * 3),
+    ages: new Float32Array(MAX_PARTICLES),
+    lifetimes: new Float32Array(MAX_PARTICLES), // 0 marks a free slot
+    next: 0,
+    highWater: 0,
+    alive: 0,
+    points: null,
+    material: null
+};
+const _particleColor = new THREE.Color();
+
+function ensureParticleSystem() {
+    if (particles.points) return;
+
     const geometry = new THREE.BufferGeometry();
-    const positions = new Float32Array(particleCount * 3);
-    const velocities = [];
+    geometry.setAttribute('position', new THREE.BufferAttribute(particles.positions, 3).setUsage(THREE.DynamicDrawUsage));
+    geometry.setAttribute('color', new THREE.BufferAttribute(particles.colors, 3).setUsage(THREE.DynamicDrawUsage));
+    geometry.setAttribute('size', new THREE.BufferAttribute(particles.sizes, 1).setUsage(THREE.DynamicDrawUsage));
+    geometry.setDrawRange(0, 0);
 
-    for (let i = 0; i < particleCount; i++) {
-        positions[i * 3] = pos.x;
-        positions[i * 3 + 1] = pos.y + 10;
-        positions[i * 3 + 2] = pos.z;
-
-        const theta = Math.random() * Math.PI * 2;
-        const phi = Math.random() * Math.PI - Math.PI / 2;
-        const speed = 80 + Math.random() * 120;
-
-        velocities.push(new THREE.Vector3(
-            Math.cos(phi) * Math.cos(theta) * speed,
-            Math.sin(phi) * speed + 50,
-            Math.cos(phi) * Math.sin(theta) * speed
-        ));
-    }
-
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-
-    const material = new THREE.PointsMaterial({
-        color: colorHex,
-        size: 8,
+    // Sizes attenuate with distance like PointsMaterial; additive blending lets colour fade stand in for opacity
+    particles.material = new THREE.ShaderMaterial({
+        uniforms: { scale: { value: window.innerHeight * 0.5 } },
+        vertexShader: `
+            attribute float size;
+            attribute vec3 color;
+            uniform float scale;
+            varying vec3 vColor;
+            void main() {
+                vColor = color;
+                vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                gl_PointSize = size * (scale / -mvPosition.z);
+                gl_Position = projectionMatrix * mvPosition;
+            }`,
+        fragmentShader: `
+            varying vec3 vColor;
+            void main() {
+                gl_FragColor = vec4(vColor, 1.0);
+            }`,
         transparent: true,
-        opacity: 1.0,
         blending: THREE.AdditiveBlending,
         depthWrite: false
     });
 
-    const points = new THREE.Points(geometry, material);
-    scene.add(points);
+    particles.points = new THREE.Points(geometry, particles.material);
+    particles.points.frustumCulled = false; // particles move every frame, the initial bounds would be wrong
+    scene.add(particles.points);
+    updateParticleScale();
+}
 
-    activeParticleBursts.push({
-        points,
-        geometry,
-        material,
-        velocities,
-        timer: 0,
-        duration: 0.8
-    });
+function updateParticleScale() {
+    if (particles.material) {
+        particles.material.uniforms.scale.value = window.innerHeight * 0.5 * renderer.getPixelRatio();
+    }
+}
+
+function emitParticle(x, y, z, vx, vy, vz, colorHex, size, life) {
+    ensureParticleSystem();
+
+    // Reuse free slots first; when the pool is full the oldest slot is recycled
+    let slot = -1;
+    for (let n = 0; n < MAX_PARTICLES; n++) {
+        const candidate = (particles.next + n) % MAX_PARTICLES;
+        if (particles.lifetimes[candidate] <= 0) {
+            slot = candidate;
+            break;
+        }
+    }
+    if (slot === -1) {
+        slot = particles.next;
+        particles.alive--;
+    }
+    particles.next = (slot + 1) % MAX_PARTICLES;
+
+    const i3 = slot * 3;
+    particles.positions[i3] = x;
+    particles.positions[i3 + 1] = y;
+    particles.positions[i3 + 2] = z;
+    particles.velocities[i3] = vx;
+    particles.velocities[i3 + 1] = vy;
+    particles.velocities[i3 + 2] = vz;
+    _particleColor.setHex(colorHex);
+    particles.baseColors[i3] = particles.colors[i3] = _particleColor.r;
+    particles.baseColors[i3 + 1] = particles.colors[i3 + 1] = _particleColor.g;
+    particles.baseColors[i3 + 2] = particles.colors[i3 + 2] = _particleColor.b;
+    particles.sizes[slot] = size;
+    particles.ages[slot] = 0;
+    particles.lifetimes[slot] = life;
+
+    particles.alive++;
+    if (slot >= particles.highWater) particles.highWater = slot + 1;
+}
+
+function updateParticles(delta) {
+    if (!particles.points) return;
+    const geometry = particles.points.geometry;
+
+    if (particles.alive <= 0) {
+        if (particles.highWater !== 0) {
+            particles.highWater = 0;
+            geometry.setDrawRange(0, 0);
+        }
+        return;
+    }
+
+    for (let i = 0; i < particles.highWater; i++) {
+        const life = particles.lifetimes[i];
+        if (life <= 0) continue;
+
+        const age = particles.ages[i] + delta;
+        const i3 = i * 3;
+        if (age >= life) {
+            particles.lifetimes[i] = 0;
+            particles.sizes[i] = 0;
+            particles.alive--;
+            continue;
+        }
+        particles.ages[i] = age;
+
+        particles.positions[i3] += particles.velocities[i3] * delta;
+        particles.positions[i3 + 1] += particles.velocities[i3 + 1] * delta;
+        particles.positions[i3 + 2] += particles.velocities[i3 + 2] * delta;
+        particles.velocities[i3 + 1] -= PARTICLE_GRAVITY * delta;
+
+        const fade = 1 - age / life;
+        particles.colors[i3] = particles.baseColors[i3] * fade;
+        particles.colors[i3 + 1] = particles.baseColors[i3 + 1] * fade;
+        particles.colors[i3 + 2] = particles.baseColors[i3 + 2] * fade;
+    }
+
+    geometry.setDrawRange(0, particles.highWater);
+    geometry.attributes.position.needsUpdate = true;
+    geometry.attributes.color.needsUpdate = true;
+    geometry.attributes.size.needsUpdate = true;
+}
+
+function createPickupParticleBurst(pos, colorHex = 0x38bdf8) {
+    for (let i = 0; i < 24; i++) {
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.random() * Math.PI - Math.PI / 2;
+        const speed = 80 + Math.random() * 120;
+        emitParticle(
+            pos.x, pos.y + 10, pos.z,
+            Math.cos(phi) * Math.cos(theta) * speed,
+            Math.sin(phi) * speed + 50,
+            Math.cos(phi) * Math.sin(theta) * speed,
+            colorHex, 8, 0.8);
+    }
 }
 
 function updatePickupEffects(delta) {
@@ -3134,45 +3482,17 @@ function updatePickupEffects(delta) {
         item.timer += delta;
         const progress = item.timer / item.duration;
 
-        item.sprite.position.y += 60 * delta;
+        item.sprite.position.y += 30 * delta;
         item.mat.opacity = Math.max(0, 1 - progress);
 
         if (progress >= 1.0) {
             scene.remove(item.sprite);
             item.mat.dispose();
-            if (item.mat.map) item.mat.map.dispose();
             activeFloatingTexts.splice(i, 1);
         }
     }
 
-    // Update particle bursts
-    for (let i = activeParticleBursts.length - 1; i >= 0; i--) {
-        const item = activeParticleBursts[i];
-        item.timer += delta;
-        const progress = item.timer / item.duration;
-
-        const posAttr = item.geometry.attributes.position;
-        const positions = posAttr.array;
-
-        for (let p = 0; p < item.velocities.length; p++) {
-            const vel = item.velocities[p];
-            positions[p * 3] += vel.x * delta;
-            positions[p * 3 + 1] += vel.y * delta;
-            positions[p * 3 + 2] += vel.z * delta;
-
-            vel.y -= 180 * delta; // particle gravity
-        }
-
-        posAttr.needsUpdate = true;
-        item.material.opacity = Math.max(0, 1 - progress);
-
-        if (progress >= 1.0) {
-            scene.remove(item.points);
-            item.geometry.dispose();
-            item.material.dispose();
-            activeParticleBursts.splice(i, 1);
-        }
-    }
+    updateParticles(delta);
 }
 
 // Pickup Proximity Detection & Ascension Animation
@@ -3212,19 +3532,7 @@ function updatePickups(delta, playerPos) {
                 createPickupParticleBurst(pickup.position, colorHex);
 
                 // Flash screen border subtly
-                const flashEl = document.getElementById('damage-flash');
-                if (flashEl) {
-                    flashEl.style.background = isHealth
-                        ? 'radial-gradient(circle, rgba(34,197,94,0) 40%, rgba(34,197,94,0.4) 100%)'
-                        : 'radial-gradient(circle, rgba(234,179,8,0) 40%, rgba(234,179,8,0.4) 100%)';
-                    flashEl.style.opacity = '0.5';
-                    setTimeout(() => {
-                        flashEl.style.opacity = '0';
-                        setTimeout(() => {
-                            flashEl.style.background = 'radial-gradient(circle, rgba(255,0,0,0) 40%, rgba(255,0,0,0.8) 100%)';
-                        }, 150);
-                    }, 150);
-                }
+                flashScreen(isHealth ? FLASH_PICKUP_HEALTH : FLASH_PICKUP_XP, 0.5, 150);
             }
         } else if (pickup.state === 'FLOATING') {
             pickup.floatTimer += delta;
@@ -3238,24 +3546,12 @@ function updatePickups(delta, playerPos) {
             pickup.mesh.rotation.y += delta * 12.0;
 
             // Scale down to 0
-            const scaleFactor = Math.max(0, 1 - progress);
-            pickup.mesh.scale.multiplyScalar(scaleFactor / (scaleFactor + delta * 3));
+            pickup.mesh.scale.setScalar(pickup.baseScale * Math.max(0, 1 - progress));
 
             if (progress >= 1.0) {
                 // Remove mesh from scene and cleanup level tracking
                 scene.remove(pickup.mesh);
-                pickup.mesh.traverse((child) => {
-                    if (child.isMesh) {
-                        if (child.geometry) child.geometry.dispose();
-                        if (child.material) {
-                            if (Array.isArray(child.material)) {
-                                child.material.forEach(m => m.dispose());
-                            } else {
-                                child.material.dispose();
-                            }
-                        }
-                    }
-                });
+                disposeOwnedResources(pickup.mesh);
 
                 const objIdx = levelObjects.findIndex(o => o.mesh === pickup.mesh);
                 if (objIdx !== -1) {
@@ -3269,7 +3565,6 @@ function updatePickups(delta, playerPos) {
 }
 
 function updateDoors(delta) {
-    let gridNeedsUpdate = false;
     const RISE_SPEED = 200.0;
 
     for (let i = 0; i < doors.length; i++) {
@@ -3293,6 +3588,7 @@ function updateDoors(delta) {
                 door.levelObj.position.y += dy;
             }
 
+            // Door triangles are not in the static grid, so moving them is just a position update
             if (door.triangles) {
                 for (let t = 0; t < door.triangles.length; t++) {
                     const tri = door.triangles[t];
@@ -3302,14 +3598,10 @@ function updateDoors(delta) {
                     tri.minY += dy;
                     tri.maxY += dy;
                 }
+                door.bounds.minY += dy;
+                door.bounds.maxY += dy;
             }
-
-            gridNeedsUpdate = true;
         }
-    }
-
-    if (gridNeedsUpdate) {
-        buildCollisionGrid();
     }
 }
 
@@ -3318,13 +3610,12 @@ function cycleWeapon(dir) {
     updateWeaponMesh();
 }
 
+let weaponLoadToken = 0;
+
 async function updateWeaponMesh() {
     const gunName = PLAYER_GUNS[currentGunIndex];
+    const loadToken = ++weaponLoadToken;
     updatePlayerHud();
-    const gunDisplay = document.getElementById('gun-display');
-    if (gunDisplay) {
-        gunDisplay.textContent = gunName;
-    }
 
     if (currentGunMesh) {
         camera.remove(currentGunMesh);
@@ -3344,25 +3635,12 @@ async function updateWeaponMesh() {
     if (!modelDef) return;
 
     const geometry = await loadMD2Geometry(modelDef);
-    if (!geometry) return;
+    // The player may have cycled weapons again while this one was loading
+    if (!geometry || loadToken !== weaponLoadToken) return;
 
     const scaleFactor = modelDef.scale || 1.0;
-    const texAlias = modelDef.textureAlias;
 
-    const material = new THREE.MeshLambertMaterial({
-        side: THREE.DoubleSide
-    });
-
-    if (texAlias) {
-        const tex = getTexture(texAlias, (loadedTex) => {
-            material.map = loadedTex;
-            material.needsUpdate = true;
-        });
-        material.map = tex;
-        applyNormalMap(material, texAlias);
-    }
-
-    const mesh = new THREE.Mesh(geometry, material);
+    const mesh = new THREE.Mesh(geometry, getSharedMaterial(modelDef.textureAlias));
     mesh.scale.set(scaleFactor, scaleFactor, scaleFactor);
     //mesh.position.set(40, -20, 5);
     mesh.position.set(0, -25, 5);
@@ -3373,25 +3651,16 @@ async function updateWeaponMesh() {
     currentGunMesh = mesh;
 }
 
-function checkObjIdByName(name, objectsMap) {
-    if (!name) return -1;
-    const cleanName = name.toLowerCase().trim();
-    for (const [id, obj] of objectsMap.entries()) {
-        if (obj.name && obj.name.toLowerCase().trim() === cleanName) {
-            return id;
-        }
-    }
-    return -1;
-}
-
 function onWindowResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
+    updateParticleScale();
 }
 
 const forwardVector = new THREE.Vector3();
 const rightVector = new THREE.Vector3();
+let lastPosDisplayTime = 0;
 
 function animate() {
     requestAnimationFrame(animate);
@@ -3524,10 +3793,18 @@ function animate() {
     prevTime = time;
 
     const pos = controls.getObject().position;
-    document.getElementById('pos-display').textContent = `${Math.round(pos.x)}, ${Math.round(pos.y)}, ${Math.round(pos.z)}`;
+    if (time - lastPosDisplayTime >= 100) {
+        lastPosDisplayTime = time;
+        hudEl('pos-display').textContent = `${Math.round(pos.x)}, ${Math.round(pos.y)}, ${Math.round(pos.z)}`;
+    }
+
+    if (playerDead) {
+        playerDeathTimer -= delta;
+        if (playerDeathTimer <= 0) respawnPlayer();
+    }
 
     // Update monsters AI, movement, and animations
-    const playerPos = controls.getObject().position;
+    const playerPos = pos;
     for (let i = 0; i < monsters.length; i++) {
         monsters[i].update(delta, playerPos, monsters);
     }
@@ -3546,17 +3823,20 @@ function animate() {
 
     updateLighting(time / 1000, delta, pos);
 
-    // Distance culling for level objects
-    const renderDistSq = RENDER_DISTANCE * RENDER_DISTANCE;
+    // Distance culling for level objects (merged chunks are culled by their bounding sphere)
     for (let i = 0; i < levelObjects.length; i++) {
         const obj = levelObjects[i];
         if (obj.mesh) {
-            const distSq = pos.distanceToSquared(obj.position);
-            obj.mesh.visible = (distSq <= renderDistSq);
+            const reach = RENDER_DISTANCE + obj.radius;
+            obj.mesh.visible = pos.distanceToSquared(obj.position) <= reach * reach;
         }
     }
 
     renderer.render(scene, camera);
 }
 
-window.addEventListener('DOMContentLoaded', init);
+if (document.readyState === 'loading') {
+    window.addEventListener('DOMContentLoaded', init);
+} else {
+    init();
+}
