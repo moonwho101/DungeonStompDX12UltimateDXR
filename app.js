@@ -495,6 +495,9 @@ export class Monster {
                 }
             }
 
+            // Drop treasure item
+            dropTreasure(this.position);
+
             // Award XP and kills to player
             const xpGained = (this.config.maxHealth || 20) * 2;
             awardPlayerXp(xpGained);
@@ -525,6 +528,13 @@ const velocity = new THREE.Vector3();
 const direction = new THREE.Vector3();
 const cameraQuaternion = new THREE.Quaternion();
 const worldDir = new THREE.Vector3();
+
+// Treasure Drops List
+export const TREASURE_DROPS = [
+    'POTION', 'cheese1', 'GOBLET', 'pot1', 'pot2', 'pot3',
+    'mushroom', 'COIN', 'SPELLBOOK', 'SCROLL-HEALING-',
+    'SCROLL-MAGICMISSLE-', 'SCROLL-FIREBALL-', 'SCROLL-LIGHTNING-'
+];
 
 // Item Pickup Definitions & Rewards Table
 export const PICKUP_DEFINITIONS = Object.freeze({
@@ -700,6 +710,25 @@ const levelObjects = [];
 const activePickups = [];
 const monsters = [];
 const doors = [];
+
+function addLevelObject(mesh, position, radius = 0) {
+    const entry = { mesh, position, radius };
+    levelObjects.push(entry);
+    return entry;
+}
+
+function addPickup(mesh, position, name, def) {
+    activePickups.push({
+        mesh,
+        position: position.clone(),
+        originalY: position.y,
+        name,
+        def,
+        state: 'ACTIVE',
+        floatTimer: 0,
+        baseScale: mesh.scale.x
+    });
+}
 
 // Dungeon lighting (lamp_post LIGHT_SOURCE entries)
 const LIGHT_RANGE = 1000.0;
@@ -1674,6 +1703,10 @@ function prefetchLevelModels(instances) {
         request(def);
         if (def) request(getMonsterWeaponDef(def));
     }
+    for (const treasureName of TREASURE_DROPS) {
+        const def = modelListParser.getModelByName(treasureName);
+        request(def);
+    }
     return Promise.all(loads);
 }
 
@@ -1765,24 +1798,6 @@ async function loadGameWorld() {
     }
     const getObjectId = (name) => (name ? objectIdByName.get(name.toLowerCase().trim()) ?? -1 : -1);
 
-    const addLevelObject = (mesh, position, radius = 0) => {
-        const entry = { mesh, position, radius };
-        levelObjects.push(entry);
-        return entry;
-    };
-
-    const addPickup = (mesh, position, name, def) => {
-        activePickups.push({
-            mesh,
-            position: position.clone(),
-            originalY: position.y,
-            name,
-            def,
-            state: 'ACTIVE',
-            floatTimer: 0,
-            baseScale: mesh.scale.x
-        });
-    };
 
     // Merged static geometry: chunkKey -> { cx, cy, cz, textures: Map(alias -> { positions, uvs }) }
     const staticChunks = new Map();
@@ -3459,6 +3474,73 @@ function updateParticles(delta) {
     geometry.attributes.position.needsUpdate = true;
     geometry.attributes.color.needsUpdate = true;
     geometry.attributes.size.needsUpdate = true;
+}
+
+function createTreasureDropEffect(pos) {
+    for (let i = 0; i < 30; i++) {
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.random() * Math.PI - Math.PI / 2;
+        const speed = 60 + Math.random() * 140;
+        emitParticle(
+            pos.x, pos.y + 10, pos.z,
+            Math.cos(phi) * Math.cos(theta) * speed,
+            Math.sin(phi) * speed + 40,
+            Math.cos(phi) * Math.sin(theta) * speed,
+            0xfacc15, 10, 0.9);
+    }
+}
+
+async function dropTreasure(position) {
+    if (!position) return;
+    const randomTreasure = TREASURE_DROPS[Math.floor(Math.random() * TREASURE_DROPS.length)];
+    const modelDef = modelListParser.getModelByName(randomTreasure);
+    if (!modelDef) return;
+
+    const dropPos = position.clone();
+
+    let model = null;
+    if (isModel3DS(modelDef)) {
+        const template = await load3DSModel(modelDef);
+        if (template) {
+            model = template.clone(true);
+            const scaleFactor = modelDef.scale || 1.0;
+            model.scale.set(scaleFactor, scaleFactor, scaleFactor);
+            model.position.copy(dropPos);
+            model.rotation.y = Math.random() * Math.PI * 2;
+        }
+    } else if (isModelMD2(modelDef)) {
+        const geometry = await loadMD2Geometry(modelDef);
+        if (geometry) {
+            const scaleFactor = modelDef.scale || 1.0;
+            const mesh = new THREE.Mesh(geometry, getSharedMaterial(modelDef.textureAlias));
+            mesh.scale.set(scaleFactor, scaleFactor, scaleFactor);
+            mesh.position.copy(dropPos);
+            mesh.rotation.y = Math.random() * Math.PI * 2;
+            model = mesh;
+        }
+    }
+
+    if (!model) return;
+
+    scene.add(model);
+    addLevelObject(model, dropPos);
+
+    const pickupDef = getPickupDefinition(randomTreasure) || getPickupDefinition(modelDef.name);
+    if (pickupDef) {
+        addPickup(model, dropPos, modelDef.name || randomTreasure, pickupDef);
+    }
+
+    const playerPos = window.controls ? window.controls.getObject().position : null;
+    if (playerPos) {
+        const dist = dropPos.distanceTo(playerPos);
+        if (dist <= 1200.0) {
+            playSound('treasure.wav', Math.max(0.1, (1.0 - (dist / 1200.0)) * 0.8));
+        }
+    } else {
+        playSound('treasure.wav', 0.7);
+    }
+
+    createTreasureDropEffect(dropPos);
 }
 
 function createPickupParticleBurst(pos, colorHex = 0x38bdf8) {
