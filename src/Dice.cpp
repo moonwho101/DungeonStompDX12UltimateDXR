@@ -169,8 +169,6 @@ void MakeDamageDice() {
 	y1 = 110.0f + scale;
 	y2 = 50.0f;
 
-	int a;
-
 	int gunmodel = current_gun;
 
 	if (your_gun[gunmodel].damage2 == 4) {

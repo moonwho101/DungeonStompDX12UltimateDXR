@@ -92,6 +92,7 @@ void DrawMissle(float fElapsedTime);
 void ApplyMissleDamage(int playernum);
 void SmoothNormals(int start_cnt);
 
+extern int usespell;
 extern int jumpvdir;
 extern int jumpstart;
 extern float jumpcount;
@@ -782,7 +783,6 @@ float fixangle(float angle, float adjust) {
 int initDSTimer() {
 
 	LONGLONG perf_cnt;
-	LONGLONG count;
 	int a = 0;
 
 	if (QueryPerformanceFrequency((LARGE_INTEGER *)&perf_cnt)) {
