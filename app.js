@@ -1539,7 +1539,10 @@ async function loadGameWorld() {
         if (inst.modelName) {
             const modelDef = modelListParser.getModelByName(inst.modelName);
             if (modelDef) {
-                if (inst.textureAlias === '-1' || modelDef.format === '3DS' || modelDef.filepath.toLowerCase().endsWith('.3ds')) {
+                const is3DSModel = modelDef.format === '3DS' || modelDef.filepath.toLowerCase().endsWith('.3ds');
+                const isMD2Model = modelDef.format === 'MD2' || modelDef.filepath.toLowerCase().endsWith('.md2');
+
+                if (is3DSModel) {
                     const template = await load3DSModel(modelDef);
                     if (template) {
                         const model = template.clone(true);
@@ -1595,7 +1598,7 @@ async function loadGameWorld() {
                         }
                         continue;
                     }
-                } else if (modelDef.format === 'MD2' || modelDef.filepath.toLowerCase().endsWith('.md2')) {
+                } else if (isMD2Model) {
                     const geometry = await loadMD2Geometry(modelDef);
                     if (geometry) {
                         const scaleFactor = modelDef.scale || 1.0;
@@ -1624,6 +1627,37 @@ async function loadGameWorld() {
                         scene.add(mesh);
                         levelObjects.push({ mesh: mesh, position: new THREE.Vector3(inst.x, inst.y + 50, inst.z) });
                         builtObjectCount++;
+
+                        if (modelDef.type === 'YOURGUN') {
+                            // Display frame 87 for dungeon weapon models
+                            if (mesh.morphTargetInfluences) {
+                                for (let k = 0; k < mesh.morphTargetInfluences.length; k++) {
+                                    mesh.morphTargetInfluences[k] = 0;
+                                }
+                                if (mesh.morphTargetInfluences.length > 87) {
+                                    mesh.morphTargetInfluences[87] = 1.0;
+                                } else if (mesh.morphTargetInfluences.length > 0) {
+                                    mesh.morphTargetInfluences[0] = 1.0;
+                                }
+                            }
+
+                            const pickupDefMD2 = getPickupDefinition(modelDef.name) || getPickupDefinition(inst.modelName) || getPickupDefinition(inst.name) || {
+                                type: 'weapon',
+                                amount: 50,
+                                label: `+${modelDef.name}`
+                            };
+
+                            activePickups.push({
+                                mesh: mesh,
+                                position: new THREE.Vector3(inst.x, inst.y + 50, inst.z),
+                                originalY: inst.y + 50,
+                                name: modelDef.name || inst.modelName || inst.name,
+                                def: pickupDefMD2,
+                                state: 'ACTIVE',
+                                floatTimer: 0
+                            });
+                            continue;
+                        }
 
                         const pickupDefMD2 = getPickupDefinition(modelDef.name) || getPickupDefinition(inst.modelName) || getPickupDefinition(inst.name);
                         if (pickupDefMD2) {
