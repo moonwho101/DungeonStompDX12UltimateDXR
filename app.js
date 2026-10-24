@@ -519,11 +519,23 @@ export const PICKUP_DEFINITIONS = Object.freeze({
     'GOBLET': { type: 'xp', amount: 50, label: '+50 XP' },
     'ARMOUR': { type: 'xp', amount: 10, label: '+10 XP' },
     'COIN': { type: 'xp', amount: 10, label: '+10 XP' },
-    'SPELLBOOK': { type: 'xp', amount: 50, label: '+50 XP' },
-    'SCROLL-HEALING-': { type: 'xp', amount: 10, label: '+10 XP' },
-    'SCROLL-MAGICMISSLE-': { type: 'xp', amount: 20, label: '+20 XP' },
-    'SCROLL-FIREBALL-': { type: 'xp', amount: 30, label: '+30 XP' },
-    'SCROLL-LIGHTNING-': { type: 'xp', amount: 40, label: '+40 XP' }
+
+    'SPELLBOOK': { type: 'spellbook', label: '+5 ALL SPELLS' },
+    'SCROLL-HEALING-': { type: 'scroll', spell: 'HEALING', label: '+5 HEALING' },
+    'SCROLL-MAGICMISSLE-': { type: 'scroll', spell: 'MAGIC MISSILE', label: '+5 MAGIC MISSILE' },
+    'SCROLL-FIREBALL-': { type: 'scroll', spell: 'FIREBALL', label: '+5 FIREBALL' },
+    'SCROLL-LIGHTNING-': { type: 'scroll', spell: 'LIGHTNING', label: '+5 LIGHTNING' },
+
+    'AXE': { type: 'weapon', weapon: 'AXE', label: 'AXE' },
+    'FLAMESWORD': { type: 'weapon', weapon: 'FLAMESWORD', label: 'FLAMESWORD' },
+    'BASTARDSWORD': { type: 'weapon', weapon: 'BASTARDSWORD', label: 'BASTARDSWORD' },
+    'BATTLEAXE': { type: 'weapon', weapon: 'BATTLEAXE', label: 'BATTLEAXE' },
+    'ICESWORD': { type: 'weapon', weapon: 'ICESWORD', label: 'ICESWORD' },
+    'LIGHTNINGSWORD': { type: 'weapon', weapon: 'LIGHTNINGSWORD', label: 'LIGHTNINGSWORD' },
+    'MORNINGSTAR': { type: 'weapon', weapon: 'MORNINGSTAR', label: 'MORNINGSTAR' },
+    'SPIKEDFLAIL': { type: 'weapon', weapon: 'SPIKEDFLAIL', label: 'SPIKEDFLAIL' },
+    'SPLITSWORD': { type: 'weapon', weapon: 'SPLITSWORD', label: 'SPLITSWORD' },
+    'SUPERFLAMESWORD': { type: 'weapon', weapon: 'SUPERFLAMESWORD', label: 'SUPERFLAMESWORD' }
 });
 
 export function getPickupDefinition(name) {
@@ -603,6 +615,7 @@ export function updatePlayerHud() {
     const levelText = document.getElementById('hud-level-text');
     const killsText = document.getElementById('hud-kills-text');
     const gunText = document.getElementById('hud-gun-text');
+    const gunDisplay = document.getElementById('gun-display');
 
     const hpPercent = Math.max(0, Math.min(100, (playerStats.health / playerStats.maxHealth) * 100));
     const xpPercent = Math.max(0, Math.min(100, (playerStats.xp / playerStats.nextXp) * 100));
@@ -613,8 +626,15 @@ export function updatePlayerHud() {
     if (levelText) levelText.textContent = `LVL ${playerStats.level}`;
     if (killsText) killsText.textContent = `${playerStats.kills}`;
 
-    if (gunText && typeof PLAYER_GUNS !== 'undefined' && typeof currentGunIndex !== 'undefined') {
-        gunText.textContent = PLAYER_GUNS[currentGunIndex] || 'FLAMESWORD';
+    if (typeof PLAYER_GUNS !== 'undefined' && typeof currentGunIndex !== 'undefined') {
+        const gunName = PLAYER_GUNS[currentGunIndex] || 'AXE';
+        let displayText = gunName;
+        if (typeof SPELL_NAMES !== 'undefined' && SPELL_NAMES.has(gunName)) {
+            const count = (typeof spellCounts !== 'undefined' && spellCounts[gunName]) || 0;
+            displayText = `${gunName} (${count})`;
+        }
+        if (gunText) gunText.textContent = displayText;
+        if (gunDisplay) gunDisplay.textContent = displayText;
     }
 }
 
@@ -690,6 +710,24 @@ const PLAYER_GUNS = [
     'LIGHTNING',
     'HEALING'
 ];
+
+const SPELL_NAMES = new Set(['MAGIC MISSILE', 'FIREBALL', 'LIGHTNING', 'HEALING']);
+
+export const unlockedWeapons = new Set([
+    'AXE',
+    'MAGIC MISSILE',
+    'FIREBALL',
+    'LIGHTNING',
+    'HEALING'
+]);
+
+export const spellCounts = {
+    'MAGIC MISSILE': 0,
+    'FIREBALL': 0,
+    'LIGHTNING': 0,
+    'HEALING': 0
+};
+
 const WEAPON_DAMAGE = {
     'AXE': 20,
     'FLAMESWORD': 25,
@@ -706,7 +744,8 @@ const WEAPON_DAMAGE = {
     'LIGHTNING': 45,
     'HEALING': 0
 };
-let currentGunIndex = 0;
+let currentGunIndex = PLAYER_GUNS.indexOf('AXE');
+if (currentGunIndex === -1) currentGunIndex = 0;
 let currentGunMesh = null;
 
 let playerWeaponAnimTimer = 0.0;
@@ -1625,7 +1664,33 @@ async function loadGameWorld() {
                         levelObjects.push({ mesh: mesh, position: new THREE.Vector3(inst.x, inst.y + 50, inst.z) });
                         builtObjectCount++;
 
-                        const pickupDefMD2 = getPickupDefinition(modelDef.name) || getPickupDefinition(inst.modelName) || getPickupDefinition(inst.name);
+                        let pickupDefMD2 = getPickupDefinition(modelDef.name) || getPickupDefinition(inst.modelName) || getPickupDefinition(inst.name);
+                        const isPlayerWeapon = (modelDef.type === 'YOURGUN') || (pickupDefMD2 && pickupDefMD2.type === 'weapon') || PLAYER_GUNS.includes(modelDef.name);
+
+                        if (isPlayerWeapon) {
+                            if (!pickupDefMD2) {
+                                pickupDefMD2 = { type: 'weapon', weapon: modelDef.name, label: modelDef.name };
+                            }
+                            // Draw frame 87 of the MD2 gun model by itself
+                            if (mesh.morphTargetInfluences && mesh.morphTargetInfluences.length > 87) {
+                                for (let k = 0; k < mesh.morphTargetInfluences.length; k++) {
+                                    mesh.morphTargetInfluences[k] = 0;
+                                }
+                                mesh.morphTargetInfluences[87] = 1.0;
+                            }
+                            activePickups.push({
+                                mesh: mesh,
+                                position: new THREE.Vector3(inst.x, inst.y + 50, inst.z),
+                                originalY: inst.y + 50,
+                                name: modelDef.name || inst.modelName || inst.name,
+                                def: pickupDefMD2,
+                                state: 'ACTIVE',
+                                floatTimer: 0
+                            });
+                            // No collision with player weapons on the ground and no monster instantiation
+                            continue;
+                        }
+
                         if (pickupDefMD2) {
                             activePickups.push({
                                 mesh: mesh,
@@ -2351,6 +2416,15 @@ const activeProjectiles = [];
 function triggerWeaponAttack() {
     if (!controls) return;
     const gunName = PLAYER_GUNS[currentGunIndex] || '';
+
+    if (SPELL_NAMES.has(gunName)) {
+        if ((spellCounts[gunName] || 0) <= 0) {
+            updatePlayerHud();
+            return;
+        }
+        spellCounts[gunName] -= 1;
+        updatePlayerHud();
+    }
 
     isWeaponAttacking = true;
     hasWeaponHitThisSwing = false;
@@ -3163,15 +3237,36 @@ function updatePickups(delta, playerPos) {
                 const def = pickup.def;
                 const isHealth = def.type === 'health';
 
-                if (isHealth) {
+                if (def.type === 'health') {
                     healPlayer(def.amount);
+                } else if (def.type === 'weapon') {
+                    const weaponName = def.weapon || pickup.name;
+                    if (weaponName) {
+                        unlockedWeapons.add(weaponName.toUpperCase());
+                        const gunIdx = PLAYER_GUNS.indexOf(weaponName.toUpperCase());
+                        if (gunIdx !== -1) {
+                            currentGunIndex = gunIdx;
+                            updateWeaponMesh();
+                        }
+                    }
+                } else if (def.type === 'scroll') {
+                    if (def.spell && spellCounts.hasOwnProperty(def.spell)) {
+                        spellCounts[def.spell] += 5;
+                    }
+                    updatePlayerHud();
+                } else if (def.type === 'spellbook') {
+                    for (const s in spellCounts) {
+                        spellCounts[s] += 5;
+                    }
+                    updatePlayerHud();
                 } else {
-                    addPlayerXp(def.amount);
+                    addPlayerXp(def.amount || 10);
                 }
 
                 // Special Effects
-                const colorHex = isHealth ? 0x22c55e : 0xeab308;
-                const colorCss = isHealth ? '#4ade80' : '#facc15';
+                const isHealth = def.type === 'health';
+                const colorHex = isHealth ? 0x22c55e : (def.type === 'weapon' ? 0xf59e0b : 0xeab308);
+                const colorCss = isHealth ? '#4ade80' : (def.type === 'weapon' ? '#f59e0b' : '#facc15');
 
                 playPickupSound(isHealth);
                 createPickupFloatingText(def.label, pickup.position, colorCss);
@@ -3280,7 +3375,18 @@ function updateDoors(delta) {
 }
 
 function cycleWeapon(dir) {
-    currentGunIndex = (currentGunIndex + dir + PLAYER_GUNS.length) % PLAYER_GUNS.length;
+    const availableGuns = PLAYER_GUNS.filter(g => unlockedWeapons.has(g));
+    if (availableGuns.length === 0) return;
+
+    const currentGun = PLAYER_GUNS[currentGunIndex] || availableGuns[0];
+    let idx = availableGuns.indexOf(currentGun);
+    if (idx === -1) idx = 0;
+
+    idx = (idx + dir + availableGuns.length) % availableGuns.length;
+    const nextGun = availableGuns[idx];
+    currentGunIndex = PLAYER_GUNS.indexOf(nextGun);
+    if (currentGunIndex === -1) currentGunIndex = 0;
+
     updateWeaponMesh();
 }
 

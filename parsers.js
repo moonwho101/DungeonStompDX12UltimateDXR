@@ -280,7 +280,8 @@ export class ModelListParser {
                     rawFilepath: filePath,
                     scale: scale,
                     textureAlias: textureAlias,
-                    monsterWeapon: monsterWeapon
+                    monsterWeapon: monsterWeapon,
+                    type: typeCmd
                 };
 
                 if (name) {
