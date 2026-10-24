@@ -4,6 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dungeon Stomp - Three.js Edition</title>
+    <!-- The import map must come before any module fetch or preload (Firefox ignores it otherwise) -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
     <link rel="icon" href="data:,">
     <link rel="preconnect" href="https://unpkg.com" crossorigin>
     <link rel="modulepreload" href="https://unpkg.com/three@0.160.0/build/three.module.js">
@@ -191,16 +200,6 @@
             letter-spacing: 1px;
         }
     </style>
-
-    <!-- Import Map for Three.js -->
-    <script type="importmap">
-        {
-            "imports": {
-                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-            }
-        }
-    </script>
 </head>
 <body>
     <div id="canvas-container"></div>
