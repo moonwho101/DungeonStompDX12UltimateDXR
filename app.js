@@ -3201,6 +3201,7 @@ async function openChest(chest) {
     playSound('topen.wav', 0.8);
 
     // Force drop treasure from chest (100% chance)
+    chest.position.y += 40; // Raise the chest position slightly to drop treasure above it
     dropTreasure(chest.position, true);
 }
 
