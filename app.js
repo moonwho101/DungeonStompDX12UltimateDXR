@@ -710,6 +710,7 @@ const levelObjects = [];
 const activePickups = [];
 const monsters = [];
 const doors = [];
+const chests = [];
 
 function addLevelObject(mesh, position, radius = 0) {
     const entry = { mesh, position, radius };
@@ -1707,6 +1708,10 @@ function prefetchLevelModels(instances) {
         const def = modelListParser.getModelByName(treasureName);
         request(def);
     }
+    const openChestDef = modelListParser.getModelByName('cdooropenchest');
+    if (openChestDef) {
+        request(openChestDef);
+    }
     return Promise.all(loads);
 }
 
@@ -1782,6 +1787,7 @@ async function loadGameWorld() {
     levelTriangles.length = 0;
     modelBoxes.length = 0;
     doors.length = 0;
+    chests.length = 0;
 
     // Set initial camera position
     playerStartPos = new THREE.Vector3(startPos.x, startPos.y, startPos.z);
@@ -1874,13 +1880,24 @@ async function loadGameWorld() {
                         if (detectedPickupDef) {
                             addPickup(model, model.position, modelDef.name || inst.modelName || inst.name, detectedPickupDef);
                         } else {
-                            // Add bounding box for non-pickup 3DS model collision (must update matrixWorld first)
-                            model.updateMatrixWorld(true);
-                            const box = new THREE.Box3().setFromObject(model);
-                            if (!box.isEmpty()) {
-                                modelBoxes.push(box);
+                            const cleanModelName = (modelDef.name || inst.modelName || '').toLowerCase().trim();
+                            if (cleanModelName === 'cdoorclosedchest' || cleanModelName === 'cdoorclosedchest.3ds') {
+                                chests.push({
+                                    model: model,
+                                    position: model.position.clone(),
+                                    rotationY: angleRad,
+                                    scale: scaleFactor,
+                                    isOpen: false
+                                });
+                            } else {
+                                // Add bounding box for non-pickup 3DS model collision (must update matrixWorld first)
+                                model.updateMatrixWorld(true);
+                                const box = new THREE.Box3().setFromObject(model);
+                                if (!box.isEmpty()) {
+                                    modelBoxes.push(box);
+                                }
+                                freezeStaticObject(model);
                             }
-                            freezeStaticObject(model);
                         }
                         continue;
                     }
@@ -3097,6 +3114,42 @@ function updatePlayerWeaponAnimation(delta) {
     }
 }
 
+async function openChest(chest) {
+    if (!chest || chest.isOpen) return;
+    chest.isOpen = true;
+
+    // Load cdooropenchest model
+    const openDef = modelListParser.getModelByName('cdooropenchest');
+    if (openDef) {
+        const template = await load3DSModel(openDef);
+        if (template) {
+            const openModel = template.clone(true);
+            const scaleFactor = openDef.scale || chest.scale || 1.0;
+            openModel.scale.set(scaleFactor, scaleFactor, scaleFactor);
+            openModel.position.copy(chest.position);
+            openModel.rotation.y = chest.rotationY;
+
+            // Remove old closed chest model from scene and levelObjects
+            scene.remove(chest.model);
+            const objIdx = levelObjects.findIndex(o => o.mesh === chest.model);
+            if (objIdx !== -1) {
+                levelObjects.splice(objIdx, 1);
+            }
+            disposeOwnedResources(chest.model);
+
+            // Add new open chest model
+            scene.add(openModel);
+            addLevelObject(openModel, chest.position.clone());
+            chest.model = openModel;
+        }
+    }
+
+    playSound('topen.wav', 0.8);
+
+    // Force drop treasure from chest (100% chance)
+    dropTreasure(chest.position, true);
+}
+
 function openNearbyDoor() {
     if (controls && !controls.isLocked) return;
     const playerPos = controls.getObject().position;
@@ -3117,6 +3170,23 @@ function openNearbyDoor() {
 
     if (nearestDoor) {
         nearestDoor.isOpening = true;
+    }
+
+    // Check for nearby closed chests
+    let nearestChest = null;
+    let minChestDist = INTERACTION_DIST_SQ;
+
+    for (const chest of chests) {
+        if (chest.isOpen) continue;
+        const distSq = playerPos.distanceToSquared(chest.position);
+        if (distSq <= minChestDist) {
+            minChestDist = distSq;
+            nearestChest = chest;
+        }
+    }
+
+    if (nearestChest) {
+        openChest(nearestChest);
     }
 }
 
@@ -3490,9 +3560,9 @@ function createTreasureDropEffect(pos) {
     }
 }
 
-async function dropTreasure(position) {
+async function dropTreasure(position, forceDrop = false) {
     if (!position) return;
-    if (Math.random() >= 0.8) return; // 80% chance to drop treasure
+    if (!forceDrop && Math.random() >= 0.8) return; // 80% chance to drop treasure on monster kill
     const randomTreasure = TREASURE_DROPS[Math.floor(Math.random() * TREASURE_DROPS.length)];
     const modelDef = modelListParser.getModelByName(randomTreasure);
     if (!modelDef) return;
