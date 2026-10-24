@@ -495,6 +495,9 @@ export class Monster {
                 }
             }
 
+            // Drop treasure item
+            dropTreasure(this.position);
+
             // Award XP and kills to player
             const xpGained = (this.config.maxHealth || 20) * 2;
             awardPlayerXp(xpGained);
@@ -525,6 +528,13 @@ const velocity = new THREE.Vector3();
 const direction = new THREE.Vector3();
 const cameraQuaternion = new THREE.Quaternion();
 const worldDir = new THREE.Vector3();
+
+// Treasure Drops List
+export const TREASURE_DROPS = [
+    'POTION', 'cheese1', 'GOBLET', 'pot1', 'pot2', 'pot3',
+    'mushroom', 'COIN', 'SPELLBOOK', 'SCROLL-HEALING-',
+    'SCROLL-MAGICMISSLE-', 'SCROLL-FIREBALL-', 'SCROLL-LIGHTNING-'
+];
 
 // Item Pickup Definitions & Rewards Table
 export const PICKUP_DEFINITIONS = Object.freeze({
@@ -690,7 +700,12 @@ export function updatePlayerHud() {
     if (killsText) killsText.textContent = `${playerStats.kills}`;
 
     if (gunText && typeof PLAYER_GUNS !== 'undefined' && typeof currentGunIndex !== 'undefined') {
-        gunText.textContent = PLAYER_GUNS[currentGunIndex] || 'FLAMESWORD';
+        const gunName = PLAYER_GUNS[currentGunIndex] || 'AXE';
+        if (typeof spellCounts !== 'undefined' && spellCounts[gunName] !== undefined) {
+            gunText.textContent = `${gunName} (${spellCounts[gunName]})`;
+        } else {
+            gunText.textContent = gunName;
+        }
     }
 }
 
@@ -700,6 +715,26 @@ const levelObjects = [];
 const activePickups = [];
 const monsters = [];
 const doors = [];
+const chests = [];
+
+function addLevelObject(mesh, position, radius = 0) {
+    const entry = { mesh, position, radius };
+    levelObjects.push(entry);
+    return entry;
+}
+
+function addPickup(mesh, position, name, def) {
+    activePickups.push({
+        mesh,
+        position: position.clone(),
+        originalY: position.y,
+        name,
+        def,
+        state: 'ACTIVE',
+        floatTimer: 0,
+        baseScale: mesh.scale.x
+    });
+}
 
 // Dungeon lighting (lamp_post LIGHT_SOURCE entries)
 const LIGHT_RANGE = 1000.0;
@@ -753,7 +788,7 @@ const tdsModelCache = new Map();
 const md2GeometryCache = new Map();
 
 // Player Guns list & Damage Table
-const PLAYER_GUNS = [
+export const PLAYER_GUNS = [
     'AXE',
     'FLAMESWORD',
     'BASTARDSWORD',
@@ -769,6 +804,21 @@ const PLAYER_GUNS = [
     'LIGHTNING',
     'HEALING'
 ];
+
+export const unlockedWeapons = new Set([
+    'AXE',
+    'MAGIC MISSILE',
+    'FIREBALL',
+    'LIGHTNING',
+    'HEALING'
+]);
+
+export const spellCounts = {
+    'MAGIC MISSILE': 5,
+    'FIREBALL': 5,
+    'LIGHTNING': 5,
+    'HEALING': 5
+};
 const WEAPON_DAMAGE = {
     'AXE': 20,
     'FLAMESWORD': 25,
@@ -1191,6 +1241,18 @@ async function init() {
                 break;
             case 'KeyN':
                 setNormalMapsEnabled(!normalMapsEnabled);
+                break;
+            case 'KeyK':
+            case 'KeyP':
+                PLAYER_GUNS.forEach(g => unlockedWeapons.add(g));
+                for (const spell in spellCounts) {
+                    spellCounts[spell] = Math.max(99, spellCounts[spell] + 50);
+                }
+                updatePlayerHud();
+                if (controls && controls.getObject()) {
+                    createPickupFloatingText('ALL WEAPONS & SPELLS UNLOCKED', controls.getObject().position, '#facc15');
+                }
+                playSound('treasure.wav', 0.8);
                 break;
         }
     };
@@ -1674,6 +1736,14 @@ function prefetchLevelModels(instances) {
         request(def);
         if (def) request(getMonsterWeaponDef(def));
     }
+    for (const treasureName of TREASURE_DROPS) {
+        const def = modelListParser.getModelByName(treasureName);
+        request(def);
+    }
+    const openChestDef = modelListParser.getModelByName('cdooropenchest');
+    if (openChestDef) {
+        request(openChestDef);
+    }
     return Promise.all(loads);
 }
 
@@ -1749,6 +1819,7 @@ async function loadGameWorld() {
     levelTriangles.length = 0;
     modelBoxes.length = 0;
     doors.length = 0;
+    chests.length = 0;
 
     // Set initial camera position
     playerStartPos = new THREE.Vector3(startPos.x, startPos.y, startPos.z);
@@ -1765,24 +1836,6 @@ async function loadGameWorld() {
     }
     const getObjectId = (name) => (name ? objectIdByName.get(name.toLowerCase().trim()) ?? -1 : -1);
 
-    const addLevelObject = (mesh, position, radius = 0) => {
-        const entry = { mesh, position, radius };
-        levelObjects.push(entry);
-        return entry;
-    };
-
-    const addPickup = (mesh, position, name, def) => {
-        activePickups.push({
-            mesh,
-            position: position.clone(),
-            originalY: position.y,
-            name,
-            def,
-            state: 'ACTIVE',
-            floatTimer: 0,
-            baseScale: mesh.scale.x
-        });
-    };
 
     // Merged static geometry: chunkKey -> { cx, cy, cz, textures: Map(alias -> { positions, uvs }) }
     const staticChunks = new Map();
@@ -1859,13 +1912,25 @@ async function loadGameWorld() {
                         if (detectedPickupDef) {
                             addPickup(model, model.position, modelDef.name || inst.modelName || inst.name, detectedPickupDef);
                         } else {
-                            // Add bounding box for non-pickup 3DS model collision (must update matrixWorld first)
                             model.updateMatrixWorld(true);
                             const box = new THREE.Box3().setFromObject(model);
                             if (!box.isEmpty()) {
                                 modelBoxes.push(box);
                             }
-                            freezeStaticObject(model);
+
+                            const cleanModelName = (modelDef.name || inst.modelName || '').toLowerCase().trim();
+                            if (cleanModelName === 'cdoorclosedchest' || cleanModelName === 'cdoorclosedchest.3ds') {
+                                chests.push({
+                                    model: model,
+                                    position: model.position.clone(),
+                                    rotationY: angleRad,
+                                    scale: scaleFactor,
+                                    isOpen: false,
+                                    box: box
+                                });
+                            } else {
+                                freezeStaticObject(model);
+                            }
                         }
                         continue;
                     }
@@ -2673,6 +2738,15 @@ function triggerWeaponAttack() {
     if (!controls || playerDead) return;
     const gunName = PLAYER_GUNS[currentGunIndex] || '';
 
+    if (spellCounts[gunName] !== undefined) {
+        if (spellCounts[gunName] <= 0) {
+            playSound('buttonselect111.wav', 0.5);
+            return;
+        }
+        spellCounts[gunName]--;
+        updatePlayerHud();
+    }
+
     isWeaponAttacking = true;
     hasWeaponHitThisSwing = false;
     playerWeaponAnimTimer = 0.0;
@@ -3082,6 +3156,54 @@ function updatePlayerWeaponAnimation(delta) {
     }
 }
 
+async function openChest(chest) {
+    if (!chest || chest.isOpen) return;
+    chest.isOpen = true;
+
+    // Load cdooropenchest model
+    const openDef = modelListParser.getModelByName('cdooropenchest');
+    if (openDef) {
+        const template = await load3DSModel(openDef);
+        if (template) {
+            const openModel = template.clone(true);
+            const scaleFactor = openDef.scale || chest.scale || 1.0;
+            openModel.scale.set(scaleFactor, scaleFactor, scaleFactor);
+            openModel.position.copy(chest.position);
+            openModel.rotation.y = chest.rotationY;
+
+            // Remove old closed chest model from scene and levelObjects
+            scene.remove(chest.model);
+            const objIdx = levelObjects.findIndex(o => o.mesh === chest.model);
+            if (objIdx !== -1) {
+                levelObjects.splice(objIdx, 1);
+            }
+            disposeOwnedResources(chest.model);
+
+            // Add new open chest model
+            openModel.updateMatrixWorld(true);
+            scene.add(openModel);
+            addLevelObject(openModel, chest.position.clone());
+            chest.model = openModel;
+
+            // Update bounding box for collision
+            const newBox = new THREE.Box3().setFromObject(openModel);
+            if (!newBox.isEmpty()) {
+                if (chest.box) {
+                    chest.box.copy(newBox);
+                } else {
+                    modelBoxes.push(newBox);
+                    chest.box = newBox;
+                }
+            }
+        }
+    }
+
+    playSound('topen.wav', 0.8);
+
+    // Force drop treasure from chest (100% chance)
+    dropTreasure(chest.position, true);
+}
+
 function openNearbyDoor() {
     if (controls && !controls.isLocked) return;
     const playerPos = controls.getObject().position;
@@ -3102,6 +3224,23 @@ function openNearbyDoor() {
 
     if (nearestDoor) {
         nearestDoor.isOpening = true;
+    }
+
+    // Check for nearby closed chests
+    let nearestChest = null;
+    let minChestDist = INTERACTION_DIST_SQ;
+
+    for (const chest of chests) {
+        if (chest.isOpen) continue;
+        const distSq = playerPos.distanceToSquared(chest.position);
+        if (distSq <= minChestDist) {
+            minChestDist = distSq;
+            nearestChest = chest;
+        }
+    }
+
+    if (nearestChest) {
+        openChest(nearestChest);
     }
 }
 
@@ -3461,6 +3600,74 @@ function updateParticles(delta) {
     geometry.attributes.size.needsUpdate = true;
 }
 
+function createTreasureDropEffect(pos) {
+    for (let i = 0; i < 30; i++) {
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.random() * Math.PI - Math.PI / 2;
+        const speed = 60 + Math.random() * 140;
+        emitParticle(
+            pos.x, pos.y + 10, pos.z,
+            Math.cos(phi) * Math.cos(theta) * speed,
+            Math.sin(phi) * speed + 40,
+            Math.cos(phi) * Math.sin(theta) * speed,
+            0xfacc15, 10, 0.9);
+    }
+}
+
+async function dropTreasure(position, forceDrop = false) {
+    if (!position) return;
+    if (!forceDrop && Math.random() >= 0.8) return; // 80% chance to drop treasure on monster kill
+    const randomTreasure = TREASURE_DROPS[Math.floor(Math.random() * TREASURE_DROPS.length)];
+    const modelDef = modelListParser.getModelByName(randomTreasure);
+    if (!modelDef) return;
+
+    const dropPos = position.clone();
+
+    let model = null;
+    if (isModel3DS(modelDef)) {
+        const template = await load3DSModel(modelDef);
+        if (template) {
+            model = template.clone(true);
+            const scaleFactor = modelDef.scale || 1.0;
+            model.scale.set(scaleFactor, scaleFactor, scaleFactor);
+            model.position.copy(dropPos);
+            model.rotation.y = Math.random() * Math.PI * 2;
+        }
+    } else if (isModelMD2(modelDef)) {
+        const geometry = await loadMD2Geometry(modelDef);
+        if (geometry) {
+            const scaleFactor = modelDef.scale || 1.0;
+            const mesh = new THREE.Mesh(geometry, getSharedMaterial(modelDef.textureAlias));
+            mesh.scale.set(scaleFactor, scaleFactor, scaleFactor);
+            mesh.position.copy(dropPos);
+            mesh.rotation.y = Math.random() * Math.PI * 2;
+            model = mesh;
+        }
+    }
+
+    if (!model) return;
+
+    scene.add(model);
+    addLevelObject(model, dropPos);
+
+    const pickupDef = getPickupDefinition(randomTreasure) || getPickupDefinition(modelDef.name);
+    if (pickupDef) {
+        addPickup(model, dropPos, modelDef.name || randomTreasure, pickupDef);
+    }
+
+    const playerPos = window.controls ? window.controls.getObject().position : null;
+    if (playerPos) {
+        const dist = dropPos.distanceTo(playerPos);
+        if (dist <= 1200.0) {
+            playSound('treasure.wav', Math.max(0.1, (1.0 - (dist / 1200.0)) * 0.8));
+        }
+    } else {
+        playSound('treasure.wav', 0.7);
+    }
+
+    createTreasureDropEffect(dropPos);
+}
+
 function createPickupParticleBurst(pos, colorHex = 0x38bdf8) {
     for (let i = 0; i < 24; i++) {
         const theta = Math.random() * Math.PI * 2;
@@ -3514,21 +3721,77 @@ function updatePickups(delta, playerPos) {
                 pickup.state = 'FLOATING';
                 pickup.floatTimer = 0.0;
 
+                const nameClean = (pickup.name || '').toUpperCase().trim();
                 const def = pickup.def;
-                const isHealth = def.type === 'health';
+                const isHealth = def && def.type === 'health';
 
-                if (isHealth) {
+                // Check for weapon unlock
+                let unlockedWeapon = null;
+                for (const gun of PLAYER_GUNS) {
+                    if (nameClean.includes(gun.toUpperCase()) || gun.toUpperCase().includes(nameClean)) {
+                        unlockedWeapon = gun;
+                        break;
+                    }
+                }
+                if (!unlockedWeapon && def && def.type === 'weapon') {
+                    unlockedWeapon = pickup.name;
+                }
+
+                let popupLabel = def ? def.label : `+${pickup.name}`;
+                let colorHex = isHealth ? 0x22c55e : 0xeab308;
+                let colorCss = isHealth ? '#4ade80' : '#facc15';
+
+                if (unlockedWeapon) {
+                    unlockedWeapons.add(unlockedWeapon);
+                    popupLabel = `+${unlockedWeapon}`;
+                    colorHex = 0x38bdf8;
+                    colorCss = '#38bdf8';
+                    const newIndex = PLAYER_GUNS.indexOf(unlockedWeapon);
+                    if (newIndex !== -1) {
+                        currentGunIndex = newIndex;
+                        updateWeaponMesh();
+                    }
+                } else if (nameClean.includes('SPELLBOOK')) {
+                    spellCounts['MAGIC MISSILE'] += 5;
+                    spellCounts['FIREBALL'] += 5;
+                    spellCounts['LIGHTNING'] += 5;
+                    spellCounts['HEALING'] += 5;
+                    popupLabel = '+5 ALL SPELLS';
+                    colorHex = 0xa855f7;
+                    colorCss = '#c084fc';
+                    updatePlayerHud();
+                } else if (nameClean.includes('SCROLL-MAGICMISSLE') || nameClean.includes('MAGICMISSLE')) {
+                    spellCounts['MAGIC MISSILE'] += 5;
+                    popupLabel = '+5 MAGIC MISSILE';
+                    colorHex = 0x38bdf8;
+                    colorCss = '#38bdf8';
+                    updatePlayerHud();
+                } else if (nameClean.includes('SCROLL-FIREBALL') || nameClean.includes('FIREBALL')) {
+                    spellCounts['FIREBALL'] += 5;
+                    popupLabel = '+5 FIREBALL';
+                    colorHex = 0xff5500;
+                    colorCss = '#ff7700';
+                    updatePlayerHud();
+                } else if (nameClean.includes('SCROLL-LIGHTNING') || nameClean.includes('LIGHTNING')) {
+                    spellCounts['LIGHTNING'] += 5;
+                    popupLabel = '+5 LIGHTNING';
+                    colorHex = 0x00ffff;
+                    colorCss = '#00ffff';
+                    updatePlayerHud();
+                } else if (nameClean.includes('SCROLL-HEALING') || nameClean.includes('HEALING')) {
+                    spellCounts['HEALING'] += 5;
+                    popupLabel = '+5 HEALING';
+                    colorHex = 0x22c55e;
+                    colorCss = '#4ade80';
+                    updatePlayerHud();
+                } else if (isHealth) {
                     healPlayer(def.amount);
-                } else {
+                } else if (def && def.amount) {
                     addPlayerXp(def.amount);
                 }
 
-                // Special Effects
-                const colorHex = isHealth ? 0x22c55e : 0xeab308;
-                const colorCss = isHealth ? '#4ade80' : '#facc15';
-
                 playPickupSound(isHealth);
-                createPickupFloatingText(def.label, pickup.position, colorCss);
+                createPickupFloatingText(popupLabel, pickup.position, colorCss);
                 createPickupParticleBurst(pickup.position, colorHex);
 
                 // Flash screen border subtly
@@ -3606,7 +3869,12 @@ function updateDoors(delta) {
 }
 
 function cycleWeapon(dir) {
-    currentGunIndex = (currentGunIndex + dir + PLAYER_GUNS.length) % PLAYER_GUNS.length;
+    let attempts = 0;
+    do {
+        currentGunIndex = (currentGunIndex + dir + PLAYER_GUNS.length) % PLAYER_GUNS.length;
+        attempts++;
+    } while (!unlockedWeapons.has(PLAYER_GUNS[currentGunIndex]) && attempts < PLAYER_GUNS.length);
+
     updateWeaponMesh();
 }
 
