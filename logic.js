@@ -53,41 +53,45 @@ export const DEFAULT_MONSTER_CONFIG = Object.freeze({
     alertDuration: 0.6,
     damage: 10,
     maxHealth: 100,
+    painSound: 'impact.wav',
+    deathSound: 'die.wav',
+    weaponSound: 'swish4.wav',
+    yellSound: 'goblin.wav',
     sound: 'goblin.wav',
     animations: MD2_ANIMATIONS
 });
 
 export const MONSTER_CONFIGS = {
-    KNIGHT: { ...DEFAULT_MONSTER_CONFIG, sound: 'knightyell.wav', moveSpeed: 150.0, aggroRadius: 850.0, damage: 15, maxHealth: 20 },
-    GOBLIN: { ...DEFAULT_MONSTER_CONFIG, sound: 'goblin.wav', moveSpeed: 190.0, aggroRadius: 750.0, damage: 6, maxHealth: 18 },
-    BAUUL: { ...DEFAULT_MONSTER_CONFIG, sound: 'baullspeak.wav', moveSpeed: 140.0, aggroRadius: 900.0, damage: 20, maxHealth: 25, canCastSpells: true, spells: ['MAGIC MISSILE', 'FIREBALL', 'LIGHTNING'], attackRange: 620.0, stopDistance: 270.0, spellCooldown: 2.0 },
-    CORPSE: { ...DEFAULT_MONSTER_CONFIG, sound: 'corpse.wav', moveSpeed: 110.0, aggroRadius: 650.0, damage: 8, maxHealth: 15 },
-    SORCERER: { ...DEFAULT_MONSTER_CONFIG, sound: 'sorcererspeak.wav', moveSpeed: 160.0, aggroRadius: 950.0, damage: 18, maxHealth: 20, canCastSpells: true, spells: ['MAGIC MISSILE', 'FIREBALL', 'LIGHTNING'], attackRange: 650.0, stopDistance: 260.0, spellCooldown: 1.6 },
-    TENTACLE: { ...DEFAULT_MONSTER_CONFIG, sound: 'mouther.wav', moveSpeed: 120.0, aggroRadius: 700.0, damage: 5, maxHealth: 17 },
-    WRAITH: { ...DEFAULT_MONSTER_CONFIG, sound: 'wraithspeak.wav', moveSpeed: 180.0, aggroRadius: 950.0, damage: 12, maxHealth: 28, canCastSpells: true, spells: ['MAGIC MISSILE', 'FIREBALL', 'LIGHTNING'], attackRange: 600.0, stopDistance: 250.0, spellCooldown: 1.8 },
-    OGRE: { ...DEFAULT_MONSTER_CONFIG, sound: 'ogre.wav', moveSpeed: 130.0, aggroRadius: 800.0, damage: 25, maxHealth: 25, canCastSpells: true, spells: ['MAGIC MISSILE', 'FIREBALL', 'LIGHTNING'], attackRange: 550.0, stopDistance: 220.0, spellCooldown: 2.2 },
-    PHANTOM: { ...DEFAULT_MONSTER_CONFIG, sound: 'alive.wav', moveSpeed: 170.0, aggroRadius: 900.0, damage: 16, maxHealth: 20, canCastSpells: true, spells: ['MAGIC MISSILE', 'FIREBALL', 'LIGHTNING'], attackRange: 600.0, stopDistance: 250.0, spellCooldown: 2.0 },
-    OGRO: { ...DEFAULT_MONSTER_CONFIG, sound: 'orc.wav', moveSpeed: 135.0, aggroRadius: 800.0, damage: 14, maxHealth: 20 },
-    SKELETON2: { ...DEFAULT_MONSTER_CONFIG, sound: 'Skeleton.wav', moveSpeed: 165.0, aggroRadius: 800.0, damage: 10, maxHealth: 15 },
-    DEMONESS: { ...DEFAULT_MONSTER_CONFIG, sound: 'demonspeak.wav', moveSpeed: 175.0, aggroRadius: 950.0, damage: 22, maxHealth: 35, canCastSpells: true, spells: ['MAGIC MISSILE', 'FIREBALL', 'LIGHTNING'], attackRange: 680.0, stopDistance: 280.0, spellCooldown: 1.6 },
-    FAERIE: { ...DEFAULT_MONSTER_CONFIG, sound: 'faeriespeak.wav', moveSpeed: 185.0, aggroRadius: 900.0, damage: 15, maxHealth: 30, canCastSpells: true, spells: ['MAGIC MISSILE', 'FIREBALL', 'LIGHTNING'], attackRange: 700.0, stopDistance: 300.0, spellCooldown: 1.4 },
-    SLAVE: { ...DEFAULT_MONSTER_CONFIG, sound: 'dmspeak.wav', moveSpeed: 140.0, aggroRadius: 600.0, damage: 5, maxHealth: 5 },
-    WOLF: { ...DEFAULT_MONSTER_CONFIG, sound: 'wolfhowl.wav', moveSpeed: 210.0, aggroRadius: 850.0, damage: 12, maxHealth: 20 },
-    INSECT: { ...DEFAULT_MONSTER_CONFIG, sound: 'Drip2.wav', moveSpeed: 195.0, aggroRadius: 800.0, damage: 10, maxHealth: 20 },
-    OLUVE: { ...DEFAULT_MONSTER_CONFIG, sound: 'ghoul.wav', moveSpeed: 150.0, aggroRadius: 700.0, damage: 6, maxHealth: 17 },
-    MUMMY: { ...DEFAULT_MONSTER_CONFIG, sound: 'mummyspeak.wav', moveSpeed: 125.0, aggroRadius: 750.0, damage: 12, maxHealth: 18 },
-    HYDRA: { ...DEFAULT_MONSTER_CONFIG, sound: 'hydraspeak.wav', moveSpeed: 145.0, aggroRadius: 850.0, damage: 16, maxHealth: 20 },
-    NECROMANCER: { ...DEFAULT_MONSTER_CONFIG, sound: 'necrospeak.wav', moveSpeed: 160.0, aggroRadius: 1000.0, damage: 24, maxHealth: 35, canCastSpells: true, spells: ['MAGIC MISSILE', 'FIREBALL', 'LIGHTNING'], attackRange: 650.0, stopDistance: 280.0, spellCooldown: 1.8 },
-    IMP: { ...DEFAULT_MONSTER_CONFIG, sound: 'impspeak.wav', moveSpeed: 180.0, aggroRadius: 800.0, damage: 10, maxHealth: 20 },
-    DEMON: { ...DEFAULT_MONSTER_CONFIG, sound: 'demonpain.wav', moveSpeed: 165.0, aggroRadius: 950.0, damage: 20, maxHealth: 25 },
-    FULIMO: { ...DEFAULT_MONSTER_CONFIG, sound: 'fulimospeak.wav', moveSpeed: 170.0, aggroRadius: 900.0, damage: 18, maxHealth: 25 },
-    COBRA: { ...DEFAULT_MONSTER_CONFIG, sound: 'snakehiss.wav', moveSpeed: 190.0, aggroRadius: 800.0, damage: 14, maxHealth: 30 },
-    DRAGON: { ...DEFAULT_MONSTER_CONFIG, sound: 'DRAGON.WAV', moveSpeed: 160.0, aggroRadius: 1000.0, damage: 28, maxHealth: 30 },
-    CENTAUR: { ...DEFAULT_MONSTER_CONFIG, sound: 'tsword.wav', moveSpeed: 190.0, aggroRadius: 850.0, damage: 12, maxHealth: 16 },
-    CRAZ: { ...DEFAULT_MONSTER_CONFIG, sound: 'effect1.wav', moveSpeed: 175.0, aggroRadius: 800.0, damage: 14, maxHealth: 20 },
-    RIDER: { ...DEFAULT_MONSTER_CONFIG, sound: 'effect2.wav', moveSpeed: 180.0, aggroRadius: 900.0, damage: 20, maxHealth: 26 },
-    OKTA: { ...DEFAULT_MONSTER_CONFIG, sound: 'effect3.wav', moveSpeed: 165.0, aggroRadius: 850.0, damage: 16, maxHealth: 25 },
-    SORB: { ...DEFAULT_MONSTER_CONFIG, sound: 'sorb.wav', moveSpeed: 170.0, aggroRadius: 950.0, damage: 22, maxHealth: 29 }
+    KNIGHT: { ...DEFAULT_MONSTER_CONFIG, painSound: 'impact5.wav', deathSound: 'Skeleton.wav', weaponSound: 'swish9.wav', yellSound: 'mouther.wav', sound: 'mouther.wav', moveSpeed: 150.0, aggroRadius: 850.0, damage: 15, maxHealth: 20 },
+    GOBLIN: { ...DEFAULT_MONSTER_CONFIG, painSound: 'impact.wav', deathSound: 'death3.wav', weaponSound: 'swish4.wav', yellSound: 'goblin.wav', sound: 'goblin.wav', moveSpeed: 190.0, aggroRadius: 750.0, damage: 6, maxHealth: 18 },
+    BAUUL: { ...DEFAULT_MONSTER_CONFIG, painSound: 'baullpain.wav', deathSound: 'baull.wav', weaponSound: 'swish1.wav', yellSound: 'baullspeak.wav', sound: 'baullspeak.wav', moveSpeed: 140.0, aggroRadius: 900.0, damage: 20, maxHealth: 25, canCastSpells: true, spells: ['MAGIC MISSILE', 'FIREBALL', 'LIGHTNING'], attackRange: 620.0, stopDistance: 270.0, spellCooldown: 2.0 },
+    CORPSE: { ...DEFAULT_MONSTER_CONFIG, painSound: 'impact.wav', deathSound: 'goblindeath.wav', weaponSound: 'swish9.wav', yellSound: 'ghoul.wav', sound: 'ghoul.wav', moveSpeed: 110.0, aggroRadius: 650.0, damage: 8, maxHealth: 15 },
+    SORCERER: { ...DEFAULT_MONSTER_CONFIG, painSound: 'sorcererpain.wav', deathSound: 'sorcererdie.wav', weaponSound: 'swish7.wav', yellSound: 'sorcererspeak.wav', sound: 'sorcererspeak.wav', moveSpeed: 160.0, aggroRadius: 950.0, damage: 18, maxHealth: 20, canCastSpells: true, spells: ['MAGIC MISSILE', 'FIREBALL', 'LIGHTNING'], attackRange: 650.0, stopDistance: 260.0, spellCooldown: 1.6 },
+    TENTACLE: { ...DEFAULT_MONSTER_CONFIG, painSound: 'impact5.wav', deathSound: 'Skeleton.wav', weaponSound: 'swish9.wav', yellSound: 'mouther.wav', sound: 'mouther.wav', moveSpeed: 120.0, aggroRadius: 700.0, damage: 5, maxHealth: 17 },
+    WRAITH: { ...DEFAULT_MONSTER_CONFIG, painSound: 'wraithpain.wav', deathSound: 'wraithdie.wav', weaponSound: 'swish4.wav', yellSound: 'wraithspeak.wav', sound: 'wraithspeak.wav', moveSpeed: 180.0, aggroRadius: 950.0, damage: 12, maxHealth: 28, canCastSpells: true, spells: ['MAGIC MISSILE', 'FIREBALL', 'LIGHTNING'], attackRange: 600.0, stopDistance: 250.0, spellCooldown: 1.8 },
+    OGRE: { ...DEFAULT_MONSTER_CONFIG, painSound: 'impact3.wav', deathSound: 'death1.wav', weaponSound: 'swish7.wav', yellSound: 'ogre.wav', sound: 'ogre.wav', moveSpeed: 130.0, aggroRadius: 800.0, damage: 25, maxHealth: 25, canCastSpells: true, spells: ['MAGIC MISSILE', 'FIREBALL', 'LIGHTNING'], attackRange: 550.0, stopDistance: 220.0, spellCooldown: 2.2 },
+    PHANTOM: { ...DEFAULT_MONSTER_CONFIG, painSound: 'impact4.wav', deathSound: 'death2.wav', weaponSound: 'swish7.wav', yellSound: 'baull.wav', sound: 'baull.wav', moveSpeed: 170.0, aggroRadius: 900.0, damage: 16, maxHealth: 20, canCastSpells: true, spells: ['MAGIC MISSILE', 'FIREBALL', 'LIGHTNING'], attackRange: 600.0, stopDistance: 250.0, spellCooldown: 2.0 },
+    OGRO: { ...DEFAULT_MONSTER_CONFIG, painSound: 'impact3.wav', deathSound: 'death1.wav', weaponSound: 'swish7.wav', yellSound: 'ogre.wav', sound: 'ogre.wav', moveSpeed: 135.0, aggroRadius: 800.0, damage: 14, maxHealth: 20 },
+    SKELETON2: { ...DEFAULT_MONSTER_CONFIG, painSound: 'impact5.wav', deathSound: 'Skeleton.wav', weaponSound: 'swish9.wav', yellSound: 'mouther.wav', sound: 'mouther.wav', moveSpeed: 165.0, aggroRadius: 800.0, damage: 10, maxHealth: 15 },
+    DEMONESS: { ...DEFAULT_MONSTER_CONFIG, painSound: 'impact3.wav', deathSound: 'death4.wav', weaponSound: 'swish7.wav', yellSound: 'ogre.wav', sound: 'ogre.wav', moveSpeed: 175.0, aggroRadius: 950.0, damage: 22, maxHealth: 35, canCastSpells: true, spells: ['MAGIC MISSILE', 'FIREBALL', 'LIGHTNING'], attackRange: 680.0, stopDistance: 280.0, spellCooldown: 1.6 },
+    FAERIE: { ...DEFAULT_MONSTER_CONFIG, painSound: 'faeriepain.wav', deathSound: 'faeriedie.wav', weaponSound: 'swish7.wav', yellSound: 'faeriespeak.wav', sound: 'faeriespeak.wav', moveSpeed: 185.0, aggroRadius: 900.0, damage: 15, maxHealth: 30, canCastSpells: true, spells: ['MAGIC MISSILE', 'FIREBALL', 'LIGHTNING'], attackRange: 700.0, stopDistance: 300.0, spellCooldown: 1.4 },
+    SLAVE: { ...DEFAULT_MONSTER_CONFIG, painSound: 'impact5.wav', deathSound: 'Skeleton.wav', weaponSound: 'swish9.wav', yellSound: 'mouther.wav', sound: 'mouther.wav', moveSpeed: 140.0, aggroRadius: 600.0, damage: 5, maxHealth: 5 },
+    WOLF: { ...DEFAULT_MONSTER_CONFIG, painSound: 'wolfpain.wav', deathSound: 'wolfdie.wav', weaponSound: 'swish4.wav', yellSound: 'wolfhowl.wav', sound: 'wolfhowl.wav', moveSpeed: 210.0, aggroRadius: 850.0, damage: 12, maxHealth: 20 },
+    INSECT: { ...DEFAULT_MONSTER_CONFIG, painSound: 'impact5.wav', deathSound: 'Skeleton.wav', weaponSound: 'swish9.wav', yellSound: 'mouther.wav', sound: 'mouther.wav', moveSpeed: 195.0, aggroRadius: 800.0, damage: 10, maxHealth: 20 },
+    OLUVE: { ...DEFAULT_MONSTER_CONFIG, painSound: 'impact5.wav', deathSound: 'Skeleton.wav', weaponSound: 'swish9.wav', yellSound: 'mouther.wav', sound: 'mouther.wav', moveSpeed: 150.0, aggroRadius: 700.0, damage: 6, maxHealth: 17 },
+    MUMMY: { ...DEFAULT_MONSTER_CONFIG, painSound: 'mummypain.wav', deathSound: 'mummydie.wav', weaponSound: 'swish7.wav', yellSound: 'mummyspeak.wav', sound: 'mummyspeak.wav', moveSpeed: 125.0, aggroRadius: 750.0, damage: 12, maxHealth: 18 },
+    HYDRA: { ...DEFAULT_MONSTER_CONFIG, painSound: 'hydrapain.wav', deathSound: 'hydradie.wav', weaponSound: 'swish1.wav', yellSound: 'hydraspeak.wav', sound: 'hydraspeak.wav', moveSpeed: 145.0, aggroRadius: 850.0, damage: 16, maxHealth: 20 },
+    NECROMANCER: { ...DEFAULT_MONSTER_CONFIG, painSound: 'necropain.wav', deathSound: 'necrodie.wav', weaponSound: 'swish5.wav', yellSound: 'necrospeak.wav', sound: 'necrospeak.wav', moveSpeed: 160.0, aggroRadius: 1000.0, damage: 24, maxHealth: 35, canCastSpells: true, spells: ['MAGIC MISSILE', 'FIREBALL', 'LIGHTNING'], attackRange: 650.0, stopDistance: 280.0, spellCooldown: 1.8 },
+    IMP: { ...DEFAULT_MONSTER_CONFIG, painSound: 'imppain.wav', deathSound: 'impdie.wav', weaponSound: 'swish1.wav', yellSound: 'impspeak.wav', sound: 'impspeak.wav', moveSpeed: 180.0, aggroRadius: 800.0, damage: 10, maxHealth: 20 },
+    DEMON: { ...DEFAULT_MONSTER_CONFIG, painSound: 'demonpain.wav', deathSound: 'demondie.wav', weaponSound: 'swish7.wav', yellSound: 'demonspeak.wav', sound: 'demonspeak.wav', moveSpeed: 165.0, aggroRadius: 950.0, damage: 20, maxHealth: 25 },
+    FULIMO: { ...DEFAULT_MONSTER_CONFIG, painSound: 'fulimopain.wav', deathSound: 'fulimodie.wav', weaponSound: 'swish7.wav', yellSound: 'fulimospeak.wav', sound: 'fulimospeak.wav', moveSpeed: 170.0, aggroRadius: 900.0, damage: 18, maxHealth: 25 },
+    COBRA: { ...DEFAULT_MONSTER_CONFIG, painSound: 'impact.wav', deathSound: 'snakedie.wav', weaponSound: 'swish7.wav', yellSound: 'snakehiss.wav', sound: 'snakehiss.wav', moveSpeed: 190.0, aggroRadius: 800.0, damage: 14, maxHealth: 30 },
+    DRAGON: { ...DEFAULT_MONSTER_CONFIG, painSound: 'fulimopain.wav', deathSound: 'fulimodie.wav', weaponSound: 'swish7.wav', yellSound: 'fulimospeak.wav', sound: 'fulimospeak.wav', moveSpeed: 160.0, aggroRadius: 1000.0, damage: 28, maxHealth: 30 },
+    CENTAUR: { ...DEFAULT_MONSTER_CONFIG, painSound: 'fulimopain.wav', deathSound: 'fulimodie.wav', weaponSound: 'swish7.wav', yellSound: 'fulimospeak.wav', sound: 'fulimospeak.wav', moveSpeed: 190.0, aggroRadius: 850.0, damage: 12, maxHealth: 16 },
+    CRAZ: { ...DEFAULT_MONSTER_CONFIG, painSound: 'impact.wav', deathSound: 'death3.wav', weaponSound: 'swish7.wav', yellSound: 'orc.wav', sound: 'orc.wav', moveSpeed: 175.0, aggroRadius: 800.0, damage: 14, maxHealth: 20 },
+    RIDER: { ...DEFAULT_MONSTER_CONFIG, painSound: 'fulimopain.wav', deathSound: 'fulimodie.wav', weaponSound: 'swish7.wav', yellSound: 'fulimospeak.wav', sound: 'fulimospeak.wav', moveSpeed: 180.0, aggroRadius: 900.0, damage: 20, maxHealth: 26 },
+    OKTA: { ...DEFAULT_MONSTER_CONFIG, painSound: 'fulimopain.wav', deathSound: 'fulimodie.wav', weaponSound: 'swish7.wav', yellSound: 'fulimospeak.wav', sound: 'fulimospeak.wav', moveSpeed: 165.0, aggroRadius: 850.0, damage: 16, maxHealth: 25 },
+    SORB: { ...DEFAULT_MONSTER_CONFIG, painSound: 'impact.wav', deathSound: 'sorbdie.wav', weaponSound: 'swish7.wav', yellSound: 'sorb.wav', sound: 'sorb.wav', moveSpeed: 170.0, aggroRadius: 950.0, damage: 22, maxHealth: 29 }
 };
 
 export function getMonsterConfig(name) {
@@ -183,7 +187,7 @@ export class Monster {
 
     playMonsterNoise(distToPlayer) {
         if (distToPlayer > 1200.0) return;
-        const soundFile = this.config.sound || 'goblin.wav';
+        const soundFile = this.config.yellSound || this.config.sound || 'goblin.wav';
         const volume = Math.max(0.05, (1.0 - (distToPlayer / 1200.0)) * 0.7);
         playSound(soundFile, volume);
     }
@@ -458,6 +462,10 @@ export class Monster {
                     } else {
                         if (this.animTimer >= totalDuration * 0.5) {
                             this.hasDealtDamageThisAttack = true;
+                            const weaponSound = this.config.weaponSound || 'swish4.wav';
+                            if (distToPlayer <= 1200.0) {
+                                playSound(weaponSound, Math.max(0.05, (1.0 - (distToPlayer / 1200.0)) * 0.7));
+                            }
                             if (distToPlayer <= 115.0 + 20.0) {
                                 damagePlayer(this.config.damage);
                             }
@@ -547,6 +555,11 @@ export class Monster {
     takeDamage(damage) {
         if (this.state === MonsterState.DEATH) return;
         this.health -= damage;
+
+        const playerPos = window.controls ? window.controls.getObject().position : null;
+        const dist = playerPos ? this.position.distanceTo(playerPos) : 9999.0;
+        const volume = dist <= 1200.0 ? Math.max(0.05, (1.0 - (dist / 1200.0)) * 0.7) : 0;
+
         if (this.health <= 0) {
             this.health = 0;
             this.setState(MonsterState.DEATH);
@@ -555,14 +568,9 @@ export class Monster {
             const chosenDeath = deaths[Math.floor(Math.random() * deaths.length)];
             this.setAnimation(chosenDeath, true);
 
-            const deathSounds = ['death1.wav', 'death2.wav', 'death3.wav', 'death4.wav', 'die.wav'];
-            const chosenSound = deathSounds[Math.floor(Math.random() * deathSounds.length)];
-            const playerPos = window.controls ? window.controls.getObject().position : null;
-            if (playerPos) {
-                const dist = this.position.distanceTo(playerPos);
-                if (dist <= 1200.0) {
-                    playSound(chosenSound, Math.max(0.05, (1.0 - (dist / 1200.0)) * 0.7));
-                }
+            const deathSound = this.config.deathSound || 'die.wav';
+            if (dist <= 1200.0) {
+                playSound(deathSound, volume);
             }
 
             dropTreasure(this.position);
@@ -574,6 +582,11 @@ export class Monster {
             const pains = [this.config.animations.PAIN1, this.config.animations.PAIN2, this.config.animations.PAIN3];
             const chosenPain = pains[Math.floor(Math.random() * pains.length)];
             this.setAnimation(chosenPain, true);
+
+            const painSound = this.config.painSound || 'impact.wav';
+            if (dist <= 1200.0) {
+                playSound(painSound, volume);
+            }
         }
     }
 }
