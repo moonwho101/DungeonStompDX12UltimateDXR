@@ -445,8 +445,8 @@ export class Monster {
                     const totalFrames = anim.end - anim.start + 1;
                     const totalDuration = totalFrames / anim.fps;
 
-                    if (this.config.canCastSpells) {
-                        // Cast charge particle swirls at monster torso height
+                    if (this.config.canCastSpells && !this.isMeleeAttack) {
+                        // Ranged spell attack: Cast charge particle swirls at monster torso height
                         const spellColor = (this.pendingSpell === 'FIREBALL') ? 0xff5500 : ((this.pendingSpell === 'LIGHTNING') ? 0x00ffff : 0x38bdf8);
                         for (let p = 0; p < 3; p++) {
                             const offsetAngle = Math.random() * Math.PI * 2;
@@ -467,10 +467,10 @@ export class Monster {
                             launchMonsterProjectile(this, this.pendingSpell || 'MAGIC MISSILE', playerPos);
                         }
                     } else {
-                        // Regular melee attack
+                        // Hand-to-hand melee attack
                         if (this.animTimer >= totalDuration * 0.5) {
                             this.hasDealtDamageThisAttack = true;
-                            if (distToPlayer <= this.config.attackRange + 20.0) {
+                            if (distToPlayer <= 115.0 + 20.0) {
                                 damagePlayer(this.config.damage);
                             }
                         }
@@ -511,11 +511,24 @@ export class Monster {
         this.stateTimer = 0.0;
         if (newState === MonsterState.ATTACK) {
             this.hasDealtDamageThisAttack = false;
-            if (this.config.canCastSpells && this.config.spells && this.config.spells.length > 0) {
+            const playerPos = window.controls ? window.controls.getObject().position : null;
+            const distToPlayer = playerPos ? this.position.distanceTo(playerPos) : 9999.0;
+            const meleeCombatRange = 115.0;
+
+            if (this.config.canCastSpells && distToPlayer <= meleeCombatRange) {
+                // In close hand-to-hand combat range: switch to melee weapon attack
+                this.isMeleeAttack = true;
+                this.pendingSpell = null;
+            } else if (this.config.canCastSpells && this.config.spells && this.config.spells.length > 0) {
+                // Ranged distance: cast spells at the player
+                this.isMeleeAttack = false;
                 this.pendingSpell = this.config.spells[Math.floor(Math.random() * this.config.spells.length)];
                 if (this.pendingSpell === 'MAGIC MISSILE') playSound('spell1.wav', 0.8);
                 else if (this.pendingSpell === 'FIREBALL') playSound('fireball.wav', 0.8);
                 else if (this.pendingSpell === 'LIGHTNING') playSound('spell3.wav', 0.8);
+            } else {
+                this.isMeleeAttack = true;
+                this.pendingSpell = null;
             }
         }
         if ((oldState === MonsterState.IDLE) && (newState === MonsterState.ALERT || newState === MonsterState.CHASE)) {
