@@ -50,24 +50,24 @@ export const DEFAULT_MONSTER_CONFIG = Object.freeze({
 export const MONSTER_CONFIGS = {
     KNIGHT: { ...DEFAULT_MONSTER_CONFIG, sound: 'knightyell.wav', moveSpeed: 150.0, aggroRadius: 850.0, damage: 15, maxHealth: 20 },
     GOBLIN: { ...DEFAULT_MONSTER_CONFIG, sound: 'goblin.wav', moveSpeed: 190.0, aggroRadius: 750.0, damage: 6, maxHealth: 18 },
-    BAUUL: { ...DEFAULT_MONSTER_CONFIG, sound: 'baullspeak.wav', moveSpeed: 140.0, aggroRadius: 900.0, damage: 20, maxHealth: 25 },
+    BAUUL: { ...DEFAULT_MONSTER_CONFIG, sound: 'baullspeak.wav', moveSpeed: 140.0, aggroRadius: 900.0, damage: 20, maxHealth: 25, canCastSpells: true, spells: ['MAGIC MISSILE', 'FIREBALL', 'LIGHTNING'], attackRange: 620.0, stopDistance: 270.0, spellCooldown: 2.0 },
     CORPSE: { ...DEFAULT_MONSTER_CONFIG, sound: 'corpse.wav', moveSpeed: 110.0, aggroRadius: 650.0, damage: 8, maxHealth: 15 },
-    SORCERER: { ...DEFAULT_MONSTER_CONFIG, sound: 'sorcererspeak.wav', moveSpeed: 160.0, aggroRadius: 950.0, damage: 18, maxHealth: 20 },
+    SORCERER: { ...DEFAULT_MONSTER_CONFIG, sound: 'sorcererspeak.wav', moveSpeed: 160.0, aggroRadius: 950.0, damage: 18, maxHealth: 20, canCastSpells: true, spells: ['MAGIC MISSILE', 'FIREBALL', 'LIGHTNING'], attackRange: 650.0, stopDistance: 260.0, spellCooldown: 1.6 },
     TENTACLE: { ...DEFAULT_MONSTER_CONFIG, sound: 'mouther.wav', moveSpeed: 120.0, aggroRadius: 700.0, damage: 5, maxHealth: 17 },
-    WRAITH: { ...DEFAULT_MONSTER_CONFIG, sound: 'wraithspeak.wav', moveSpeed: 180.0, aggroRadius: 950.0, damage: 12, maxHealth: 28 },
-    OGRE: { ...DEFAULT_MONSTER_CONFIG, sound: 'ogre.wav', moveSpeed: 130.0, aggroRadius: 800.0, damage: 25, maxHealth: 25 },
-    PHANTOM: { ...DEFAULT_MONSTER_CONFIG, sound: 'alive.wav', moveSpeed: 170.0, aggroRadius: 900.0, damage: 16, maxHealth: 20 },
+    WRAITH: { ...DEFAULT_MONSTER_CONFIG, sound: 'wraithspeak.wav', moveSpeed: 180.0, aggroRadius: 950.0, damage: 12, maxHealth: 28, canCastSpells: true, spells: ['MAGIC MISSILE', 'FIREBALL', 'LIGHTNING'], attackRange: 600.0, stopDistance: 250.0, spellCooldown: 1.8 },
+    OGRE: { ...DEFAULT_MONSTER_CONFIG, sound: 'ogre.wav', moveSpeed: 130.0, aggroRadius: 800.0, damage: 25, maxHealth: 25, canCastSpells: true, spells: ['MAGIC MISSILE', 'FIREBALL', 'LIGHTNING'], attackRange: 550.0, stopDistance: 220.0, spellCooldown: 2.2 },
+    PHANTOM: { ...DEFAULT_MONSTER_CONFIG, sound: 'alive.wav', moveSpeed: 170.0, aggroRadius: 900.0, damage: 16, maxHealth: 20, canCastSpells: true, spells: ['MAGIC MISSILE', 'FIREBALL', 'LIGHTNING'], attackRange: 600.0, stopDistance: 250.0, spellCooldown: 2.0 },
     OGRO: { ...DEFAULT_MONSTER_CONFIG, sound: 'orc.wav', moveSpeed: 135.0, aggroRadius: 800.0, damage: 14, maxHealth: 20 },
     SKELETON2: { ...DEFAULT_MONSTER_CONFIG, sound: 'Skeleton.wav', moveSpeed: 165.0, aggroRadius: 800.0, damage: 10, maxHealth: 15 },
-    DEMONESS: { ...DEFAULT_MONSTER_CONFIG, sound: 'demonspeak.wav', moveSpeed: 175.0, aggroRadius: 950.0, damage: 22, maxHealth: 35 },
-    FAERIE: { ...DEFAULT_MONSTER_CONFIG, sound: 'faeriespeak.wav', moveSpeed: 185.0, aggroRadius: 900.0, damage: 15, maxHealth: 30 },
+    DEMONESS: { ...DEFAULT_MONSTER_CONFIG, sound: 'demonspeak.wav', moveSpeed: 175.0, aggroRadius: 950.0, damage: 22, maxHealth: 35, canCastSpells: true, spells: ['MAGIC MISSILE', 'FIREBALL', 'LIGHTNING'], attackRange: 680.0, stopDistance: 280.0, spellCooldown: 1.6 },
+    FAERIE: { ...DEFAULT_MONSTER_CONFIG, sound: 'faeriespeak.wav', moveSpeed: 185.0, aggroRadius: 900.0, damage: 15, maxHealth: 30, canCastSpells: true, spells: ['MAGIC MISSILE', 'FIREBALL', 'LIGHTNING'], attackRange: 700.0, stopDistance: 300.0, spellCooldown: 1.4 },
     SLAVE: { ...DEFAULT_MONSTER_CONFIG, sound: 'dmspeak.wav', moveSpeed: 140.0, aggroRadius: 600.0, damage: 5, maxHealth: 5 },
     WOLF: { ...DEFAULT_MONSTER_CONFIG, sound: 'wolfhowl.wav', moveSpeed: 210.0, aggroRadius: 850.0, damage: 12, maxHealth: 20 },
     INSECT: { ...DEFAULT_MONSTER_CONFIG, sound: 'Drip2.wav', moveSpeed: 195.0, aggroRadius: 800.0, damage: 10, maxHealth: 20 },
     OLUVE: { ...DEFAULT_MONSTER_CONFIG, sound: 'ghoul.wav', moveSpeed: 150.0, aggroRadius: 700.0, damage: 6, maxHealth: 17 },
     MUMMY: { ...DEFAULT_MONSTER_CONFIG, sound: 'mummyspeak.wav', moveSpeed: 125.0, aggroRadius: 750.0, damage: 12, maxHealth: 18 },
     HYDRA: { ...DEFAULT_MONSTER_CONFIG, sound: 'hydraspeak.wav', moveSpeed: 145.0, aggroRadius: 850.0, damage: 16, maxHealth: 20 },
-    NECROMANCER: { ...DEFAULT_MONSTER_CONFIG, sound: 'necrospeak.wav', moveSpeed: 160.0, aggroRadius: 1000.0, damage: 24, maxHealth: 35 },
+    NECROMANCER: { ...DEFAULT_MONSTER_CONFIG, sound: 'necrospeak.wav', moveSpeed: 160.0, aggroRadius: 1000.0, damage: 24, maxHealth: 35, canCastSpells: true, spells: ['MAGIC MISSILE', 'FIREBALL', 'LIGHTNING'], attackRange: 650.0, stopDistance: 280.0, spellCooldown: 1.8 },
     IMP: { ...DEFAULT_MONSTER_CONFIG, sound: 'impspeak.wav', moveSpeed: 180.0, aggroRadius: 800.0, damage: 10, maxHealth: 20 },
     DEMON: { ...DEFAULT_MONSTER_CONFIG, sound: 'demonpain.wav', moveSpeed: 165.0, aggroRadius: 950.0, damage: 20, maxHealth: 25 },
     FULIMO: { ...DEFAULT_MONSTER_CONFIG, sound: 'fulimospeak.wav', moveSpeed: 170.0, aggroRadius: 900.0, damage: 18, maxHealth: 25 },
@@ -141,9 +141,43 @@ export class Monster {
         // Initial random noise timer for ambient growls
         this.noiseTimer = 3.0 + Math.random() * 8.0;
 
+        // Spellcasting & Tactical Ranged Movement AI
+        this.pendingSpell = null;
+        this.strafeDir = (Math.random() < 0.5 ? 1 : -1);
+        this.strafeTimer = 0.0;
+
         // Apply initial animation pose
         this.setAnimation(this.config.animations.STAND, true);
         this.updateMorphTargets(0);
+    }
+
+    updateTacticalMovement(dt, distToPlayer, otherMonsters, playerPos) {
+        this.strafeTimer -= dt;
+        if (this.strafeTimer <= 0) {
+            this.strafeDir = (Math.random() < 0.5 ? 1 : -1);
+            this.strafeTimer = 1.0 + Math.random() * 1.5;
+        }
+
+        const dx = playerPos.x - this.position.x;
+        const dz = playerPos.z - this.position.z;
+        const len = Math.sqrt(dx * dx + dz * dz);
+        if (len < 0.001) return;
+
+        let moveX = (-dz / len) * this.strafeDir;
+        let moveZ = (dx / len) * this.strafeDir;
+
+        // Back up slightly if player is too close
+        const stopDist = this.config.stopDistance || 250.0;
+        if (distToPlayer < stopDist * 0.8) {
+            moveX -= (dx / len) * 0.7;
+            moveZ -= (dz / len) * 0.7;
+        }
+
+        const speed = this.config.moveSpeed * 0.65;
+        this.position.x += moveX * speed * dt;
+        this.position.z += moveZ * speed * dt;
+
+        resolveMonsterCapsuleCollisions(this, otherMonsters, playerPos);
     }
 
     playMonsterNoise(distToPlayer) {
@@ -350,6 +384,12 @@ export class Monster {
 
         this.tickAmbientNoise(dt, distToPlayer);
 
+        const eyePos = this.position.clone();
+        eyePos.y += 40.0;
+        const targetEyePos = playerPos.clone();
+        targetEyePos.y += 20.0;
+        const hasLOS = this.config.canCastSpells ? hasLineOfSight(eyePos, targetEyePos) : true;
+
         switch (this.state) {
             case MonsterState.IDLE:
                 this.setAnimation(this.config.animations.STAND);
@@ -364,7 +404,7 @@ export class Monster {
 
                 if (distToPlayer > this.config.deaggroRadius) {
                     this.setState(MonsterState.IDLE);
-                } else if (distToPlayer <= this.config.attackRange) {
+                } else if (distToPlayer <= this.config.attackRange && hasLOS) {
                     this.setState(MonsterState.ATTACK);
                 } else if (this.stateTimer >= this.config.alertDuration) {
                     this.setState(MonsterState.CHASE);
@@ -374,9 +414,12 @@ export class Monster {
             case MonsterState.CHASE:
                 this.smoothTurn(targetAngle, dt);
 
-                if (distToPlayer <= this.config.attackRange) {
+                if (distToPlayer <= this.config.attackRange && hasLOS) {
                     if (this.attackCooldown <= 0) {
                         this.setState(MonsterState.ATTACK);
+                    } else if (this.config.canCastSpells) {
+                        this.setAnimation(this.config.animations.RUN);
+                        this.updateTacticalMovement(dt, distToPlayer, otherMonsters, playerPos);
                     } else {
                         // Recovering from the last swing: hold position facing the player
                         this.setAnimation(this.config.animations.STAND);
@@ -387,32 +430,57 @@ export class Monster {
                     this.setAnimation(this.config.animations.RUN);
                     if (distToPlayer > this.config.stopDistance) {
                         this.moveForward(dt, otherMonsters, playerPos);
+                    } else if (this.config.canCastSpells) {
+                        this.updateTacticalMovement(dt, distToPlayer, otherMonsters, playerPos);
                     }
                 }
                 break;
 
             case MonsterState.ATTACK:
                 this.setAnimation(this.config.animations.ATTACK);
-                if (this.stateTimer < 0.2) {
-                    this.smoothTurn(targetAngle, dt);
-                }
+                this.smoothTurn(targetAngle, dt);
 
-                // Monster strikes player halfway through attack swing
                 if (!this.hasDealtDamageThisAttack) {
                     const anim = this.currentAnim;
                     const totalFrames = anim.end - anim.start + 1;
                     const totalDuration = totalFrames / anim.fps;
-                    if (this.animTimer >= totalDuration * 0.5) {
-                        this.hasDealtDamageThisAttack = true;
-                        if (distToPlayer <= this.config.attackRange + 20.0) {
-                            damagePlayer(this.config.damage);
+
+                    if (this.config.canCastSpells && !this.isMeleeAttack) {
+                        // Ranged spell attack: Cast charge particle swirls at monster torso height
+                        const spellColor = (this.pendingSpell === 'FIREBALL') ? 0xff5500 : ((this.pendingSpell === 'LIGHTNING') ? 0x00ffff : 0x38bdf8);
+                        for (let p = 0; p < 3; p++) {
+                            const offsetAngle = Math.random() * Math.PI * 2;
+                            const rad = 15 + Math.random() * 20;
+                            emitParticle(
+                                this.position.x + Math.cos(offsetAngle) * rad,
+                                this.position.y + 40 + (Math.random() - 0.5) * 20,
+                                this.position.z + Math.sin(offsetAngle) * rad,
+                                (Math.random() - 0.5) * 40,
+                                40 + Math.random() * 60,
+                                (Math.random() - 0.5) * 40,
+                                spellColor, 10, 0.4
+                            );
+                        }
+
+                        if (this.animTimer >= totalDuration * 0.5) {
+                            this.hasDealtDamageThisAttack = true;
+                            launchMonsterProjectile(this, this.pendingSpell || 'MAGIC MISSILE', playerPos);
+                        }
+                    } else {
+                        // Hand-to-hand melee attack
+                        if (this.animTimer >= totalDuration * 0.5) {
+                            this.hasDealtDamageThisAttack = true;
+                            if (distToPlayer <= 115.0 + 20.0) {
+                                damagePlayer(this.config.damage);
+                            }
                         }
                     }
                 }
 
                 if (this.animComplete) {
-                    this.attackCooldown = 0.5;
+                    this.attackCooldown = this.config.spellCooldown || 0.5;
                     this.hasDealtDamageThisAttack = false;
+                    this.pendingSpell = null;
                     this.setState(distToPlayer <= this.config.deaggroRadius ? MonsterState.CHASE : MonsterState.IDLE);
                 }
                 break;
@@ -443,6 +511,25 @@ export class Monster {
         this.stateTimer = 0.0;
         if (newState === MonsterState.ATTACK) {
             this.hasDealtDamageThisAttack = false;
+            const playerPos = window.controls ? window.controls.getObject().position : null;
+            const distToPlayer = playerPos ? this.position.distanceTo(playerPos) : 9999.0;
+            const meleeCombatRange = 115.0;
+
+            if (this.config.canCastSpells && distToPlayer <= meleeCombatRange) {
+                // In close hand-to-hand combat range: switch to melee weapon attack
+                this.isMeleeAttack = true;
+                this.pendingSpell = null;
+            } else if (this.config.canCastSpells && this.config.spells && this.config.spells.length > 0) {
+                // Ranged distance: cast spells at the player
+                this.isMeleeAttack = false;
+                this.pendingSpell = this.config.spells[Math.floor(Math.random() * this.config.spells.length)];
+                if (this.pendingSpell === 'MAGIC MISSILE') playSound('spell1.wav', 0.8);
+                else if (this.pendingSpell === 'FIREBALL') playSound('fireball.wav', 0.8);
+                else if (this.pendingSpell === 'LIGHTNING') playSound('spell3.wav', 0.8);
+            } else {
+                this.isMeleeAttack = true;
+                this.pendingSpell = null;
+            }
         }
         if ((oldState === MonsterState.IDLE) && (newState === MonsterState.ALERT || newState === MonsterState.CHASE)) {
             const playerPos = window.controls ? window.controls.getObject().position : null;
@@ -616,8 +703,10 @@ let playerDead = false;
 let playerDeathTimer = 0.0;
 let playerStartPos = null;
 const PLAYER_RESPAWN_DELAY = 3.0;
+let isInvincible = false;
 
 export function damagePlayer(amount) {
+    if (isInvincible) return;
     if (playerStats.health <= 0) return;
     playerStats.health = Math.max(0, playerStats.health - amount);
 
@@ -1251,6 +1340,15 @@ async function init() {
                 updatePlayerHud();
                 if (controls && controls.getObject()) {
                     createPickupFloatingText('ALL WEAPONS & SPELLS UNLOCKED', controls.getObject().position, '#facc15');
+                }
+                playSound('treasure.wav', 0.8);
+                break;
+            case 'KeyI':
+                isInvincible = !isInvincible;
+                if (controls && controls.getObject()) {
+                    const statusText = isInvincible ? 'GOD MODE: ON (INVINCIBLE)' : 'GOD MODE: OFF';
+                    const statusColor = isInvincible ? '#22c55e' : '#ef4444';
+                    createPickupFloatingText(statusText, controls.getObject().position, statusColor);
                 }
                 playSound('treasure.wav', 0.8);
                 break;
@@ -2297,6 +2395,46 @@ function gatherNearbyBoxes(minX, maxX, minY, maxY, minZ, maxZ) {
     return _nearbyBoxes;
 }
 
+const _losRaySample = new THREE.Vector3();
+const _losClosest = new THREE.Vector3();
+
+function hasLineOfSight(fromPos, toPos) {
+    const dist = fromPos.distanceTo(toPos);
+    if (dist <= 1.0) return true;
+
+    const stepSize = 35.0;
+    const steps = Math.max(1, Math.floor(dist / stepSize));
+
+    for (let i = 1; i < steps; i++) {
+        _losRaySample.lerpVectors(fromPos, toPos, i / steps);
+
+        const tris = gatherNearbyTriangles(
+            _losRaySample.x - 25, _losRaySample.x + 25,
+            _losRaySample.y - 25, _losRaySample.y + 25,
+            _losRaySample.z - 25, _losRaySample.z + 25
+        );
+        for (let t = 0; t < tris.length; t++) {
+            const tri = tris[t];
+            closestPointTrianglePoint(tri.a, tri.b, tri.c, _losRaySample, _losClosest);
+            if (_losRaySample.distanceToSquared(_losClosest) <= 20 * 20) {
+                return false;
+            }
+        }
+
+        const boxes = gatherNearbyBoxes(
+            _losRaySample.x - 25, _losRaySample.x + 25,
+            _losRaySample.y - 25, _losRaySample.y + 25,
+            _losRaySample.z - 25, _losRaySample.z + 25
+        );
+        for (let b = 0; b < boxes.length; b++) {
+            if (boxes[b].containsPoint(_losRaySample)) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
 // Geometric Collision Math
 const _v10 = new THREE.Vector3();
 const _v20 = new THREE.Vector3();
@@ -2867,6 +3005,7 @@ function launchProjectile(type) {
 
     activeProjectiles.push({
         type,
+        owner: 'player',
         group,
         lightSlot,
         position: spawnPos,
@@ -2875,6 +3014,57 @@ function launchProjectile(type) {
         radius: def.radius,
         aoeRadius: def.aoeRadius,
         damage: WEAPON_DAMAGE[type],
+        lifeTimer: 0,
+        maxLife: def.maxLife,
+        colorHex: def.colorHex
+    });
+}
+
+function launchMonsterProjectile(monster, type, targetPos) {
+    const def = PROJECTILE_TYPES[type] || PROJECTILE_TYPES['MAGIC MISSILE'];
+    const res = getProjectileResources(type);
+
+    const spawnPos = monster.position.clone();
+    spawnPos.y += 40; // Upper torso / hands height
+
+    const targetEye = targetPos.clone();
+    targetEye.y += 20; // Player chest/eye height
+
+    const dir = new THREE.Vector3().subVectors(targetEye, spawnPos).normalize();
+
+    // Subtle trajectory spread so player can dodge with quick WASD movement
+    dir.x += (Math.random() - 0.5) * 0.08;
+    dir.y += (Math.random() - 0.5) * 0.05;
+    dir.z += (Math.random() - 0.5) * 0.08;
+    dir.normalize();
+
+    const group = new THREE.Group();
+    group.position.copy(spawnPos);
+    group.add(new THREE.Mesh(res.coreGeometry, res.coreMaterial));
+    const haloSprite = new THREE.Sprite(res.haloMaterial);
+    haloSprite.scale.set(def.haloSize, def.haloSize, 1);
+    group.add(haloSprite);
+    scene.add(group);
+
+    const lightSlot = acquireDynamicLight(def.lightColor, def.lightIntensity, def.lightDistance);
+    if (lightSlot) lightSlot.light.position.copy(spawnPos);
+
+    const baseDmg = monster.config.damage || 15;
+    const spellDmgMult = (type === 'FIREBALL') ? 1.25 : ((type === 'LIGHTNING') ? 1.15 : 1.0);
+    const damage = Math.round(baseDmg * spellDmgMult);
+
+    activeProjectiles.push({
+        type,
+        owner: 'monster',
+        sourceMonster: monster,
+        group,
+        lightSlot,
+        position: spawnPos,
+        velocity: dir.multiplyScalar(def.speed * 0.88),
+        gravity: (type === 'FIREBALL') ? -120.0 : 0,
+        radius: def.radius,
+        aoeRadius: def.aoeRadius,
+        damage,
         lifeTimer: 0,
         maxLife: def.maxLife,
         colorHex: def.colorHex
@@ -2922,6 +3112,44 @@ function triggerSpellExplosion(pos, type, damage, aoeRadius, colorHex) {
     }
 }
 
+function triggerMonsterSpellExplosion(pos, type, damage, aoeRadius, colorHex) {
+    const explosionSound = (type === 'FIREBALL') ? 'explod1.wav' : 'explod2.wav';
+    playSound(explosionSound, 0.85);
+
+    // Spawn explosion particle burst
+    const particleCount = (type === 'FIREBALL') ? 50 : 35;
+    for (let i = 0; i < particleCount; i++) {
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.random() * Math.PI - Math.PI / 2;
+        const speed = 100 + Math.random() * 220;
+        emitParticle(
+            pos.x, pos.y, pos.z,
+            Math.cos(phi) * Math.cos(theta) * speed,
+            Math.sin(phi) * speed,
+            Math.cos(phi) * Math.sin(theta) * speed,
+            colorHex || 0xffaa00, 12, 0.65);
+    }
+
+    // Bright flash light, faded out by updateExplosionFlashes
+    const flashSlot = acquireDynamicLight(colorHex || 0xffaa00, EXPLOSION_FLASH_INTENSITY, aoeRadius * 2);
+    if (flashSlot) {
+        flashSlot.light.position.copy(pos);
+        explosionFlashes.push({ slot: flashSlot, timer: 0 });
+    }
+
+    // Damage player if within AoE radius
+    if (controls) {
+        const playerPos = controls.getObject().position;
+        const dist = pos.distanceTo(playerPos);
+        if (dist <= aoeRadius) {
+            const scale = Math.max(0.5, 1.0 - (dist / aoeRadius) * 0.5);
+            const actualDamage = Math.round(damage * scale);
+            damagePlayer(actualDamage);
+            createPickupFloatingText(`-${actualDamage} HP`, playerPos, '#ef4444');
+        }
+    }
+}
+
 const EXPLOSION_FLASH_INTENSITY = 15000;
 const EXPLOSION_FLASH_DURATION = 0.3;
 const explosionFlashes = [];
@@ -2951,16 +3179,7 @@ const _projStep = new THREE.Vector3();
 const _projSample = new THREE.Vector3();
 const _projClosest = new THREE.Vector3();
 
-// True when a projectile sphere at `p` touches a monster, level triangle or static model
-function projectileHitsAt(p, radius) {
-    const monsterReach = radius + MONSTER_CAPSULE_RADIUS;
-    const monsterReachSq = monsterReach * monsterReach;
-    for (let m = 0; m < monsters.length; m++) {
-        const monster = monsters[m];
-        if (monster.state === MonsterState.DEATH || monster.health <= 0) continue;
-        if (p.distanceToSquared(monster.position) <= monsterReachSq) return true;
-    }
-
+function projectileHitsEnvironmentAt(p, radius) {
     const radiusSq = radius * radius;
     const tris = gatherNearbyTriangles(p.x - radius, p.x + radius, p.y - radius, p.y + radius, p.z - radius, p.z + radius);
     for (let t = 0; t < tris.length; t++) {
@@ -2976,6 +3195,30 @@ function projectileHitsAt(p, radius) {
     return false;
 }
 
+function monsterProjectileHitsAt(p, radius) {
+    if (controls) {
+        const playerPos = controls.getObject().position;
+        const reach = radius + CAPSULE_RADIUS;
+        if (p.distanceToSquared(playerPos) <= reach * reach) {
+            return true;
+        }
+    }
+    return projectileHitsEnvironmentAt(p, radius);
+}
+
+// True when a player projectile sphere at `p` touches a monster, level triangle or static model
+function projectileHitsAt(p, radius) {
+    const monsterReach = radius + MONSTER_CAPSULE_RADIUS;
+    const monsterReachSq = monsterReach * monsterReach;
+    for (let m = 0; m < monsters.length; m++) {
+        const monster = monsters[m];
+        if (monster.state === MonsterState.DEATH || monster.health <= 0) continue;
+        if (p.distanceToSquared(monster.position) <= monsterReachSq) return true;
+    }
+
+    return projectileHitsEnvironmentAt(p, radius);
+}
+
 function updateProjectiles(delta) {
     updateExplosionFlashes(delta);
 
@@ -2984,9 +3227,22 @@ function updateProjectiles(delta) {
         proj.lifeTimer += delta;
 
         if (proj.lifeTimer >= proj.maxLife) {
-            triggerSpellExplosion(proj.position, proj.type, proj.damage, proj.aoeRadius, proj.colorHex);
+            if (proj.owner === 'monster') {
+                triggerMonsterSpellExplosion(proj.position, proj.type, proj.damage, proj.aoeRadius, proj.colorHex);
+            } else {
+                triggerSpellExplosion(proj.position, proj.type, proj.damage, proj.aoeRadius, proj.colorHex);
+            }
             removeProjectile(i);
             continue;
+        }
+
+        // Apply slight tracking for monster Magic Missile
+        if (proj.owner === 'monster' && proj.type === 'MAGIC MISSILE' && controls) {
+            const playerPos = controls.getObject().position;
+            const targetPos = _projSample.copy(playerPos);
+            targetPos.y += 20;
+            const toPlayer = _projClosest.subVectors(targetPos, proj.position).normalize();
+            proj.velocity.lerp(toPlayer.multiplyScalar(PROJECTILE_TYPES['MAGIC MISSILE'].speed * 0.88), delta * 2.5);
         }
 
         // Apply physics movement
@@ -2999,10 +3255,15 @@ function updateProjectiles(delta) {
         let hasExploded = false;
         for (let s = 1; s <= segments; s++) {
             _projSample.copy(proj.position).addScaledVector(_projStep, s / segments);
-            if (projectileHitsAt(_projSample, proj.radius)) {
+            const isHit = (proj.owner === 'monster') ? monsterProjectileHitsAt(_projSample, proj.radius) : projectileHitsAt(_projSample, proj.radius);
+            if (isHit) {
                 hasExploded = true;
                 _projNext.copy(_projSample);
-                triggerSpellExplosion(_projNext, proj.type, proj.damage, proj.aoeRadius, proj.colorHex);
+                if (proj.owner === 'monster') {
+                    triggerMonsterSpellExplosion(_projNext, proj.type, proj.damage, proj.aoeRadius, proj.colorHex);
+                } else {
+                    triggerSpellExplosion(_projNext, proj.type, proj.damage, proj.aoeRadius, proj.colorHex);
+                }
                 break;
             }
         }
