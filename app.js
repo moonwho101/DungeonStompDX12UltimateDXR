@@ -216,11 +216,20 @@ async function init() {
 
     await updateWeaponMesh();
 
+    const monsterSounds = new Set();
+    monsters.forEach(m => {
+        if (m.config.painSound) monsterSounds.add(m.config.painSound);
+        if (m.config.deathSound) monsterSounds.add(m.config.deathSound);
+        if (m.config.weaponSound) monsterSounds.add(m.config.weaponSound);
+        if (m.config.yellSound) monsterSounds.add(m.config.yellSound);
+        if (m.config.sound) monsterSounds.add(m.config.sound);
+    });
+
     preloadSounds([
         ...SWISH_SOUNDS, ...IMPACT_SOUNDS, ...PLAYER_IMPACT_SOUNDS,
         'spell1.wav', 'spell2.wav', 'spell3.wav', 'fireball.wav', 'explod1.wav', 'explod2.wav',
         'walk.wav', 'die.wav', 'death1.wav', 'death2.wav', 'death3.wav', 'death4.wav',
-        ...monsters.map(m => m.config.sound)
+        ...monsterSounds
     ]);
 
     window.camera = camera;
