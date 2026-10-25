@@ -703,8 +703,10 @@ let playerDead = false;
 let playerDeathTimer = 0.0;
 let playerStartPos = null;
 const PLAYER_RESPAWN_DELAY = 3.0;
+let isInvincible = false;
 
 export function damagePlayer(amount) {
+    if (isInvincible) return;
     if (playerStats.health <= 0) return;
     playerStats.health = Math.max(0, playerStats.health - amount);
 
@@ -1338,6 +1340,15 @@ async function init() {
                 updatePlayerHud();
                 if (controls && controls.getObject()) {
                     createPickupFloatingText('ALL WEAPONS & SPELLS UNLOCKED', controls.getObject().position, '#facc15');
+                }
+                playSound('treasure.wav', 0.8);
+                break;
+            case 'KeyI':
+                isInvincible = !isInvincible;
+                if (controls && controls.getObject()) {
+                    const statusText = isInvincible ? 'GOD MODE: ON (INVINCIBLE)' : 'GOD MODE: OFF';
+                    const statusColor = isInvincible ? '#22c55e' : '#ef4444';
+                    createPickupFloatingText(statusText, controls.getObject().position, statusColor);
                 }
                 playSound('treasure.wav', 0.8);
                 break;
