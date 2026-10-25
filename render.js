@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import { DDSLoader } from 'three/addons/loaders/DDSLoader.js';
 import { TextureManager } from './parsers.js';
 

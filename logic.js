@@ -6,14 +6,14 @@ import {
     scene, camera, controls, hudEl, flashScreen, FLASH_RED, FLASH_GREEN,
     getSharedMaterial, applyNormalMap, registerLamp, clearLamps, disposeOwnedResources,
     emitParticle, createPickupFloatingText, createTreasureDropEffect,
-    acquireDynamicLight, releaseDynamicLight, EXPLOSION_FLASH_INTENSITY,
+    acquireDynamicLight, EXPLOSION_FLASH_INTENSITY,
     explosionFlashes, haloTexture
 } from './render.js';
 import {
-    resolveMonsterCapsuleCollisions, hasLineOfSight, levelTriangles,
-    modelBoxes, makeCollisionTriangle, computeTriangleBounds,
-    buildCollisionGrid, velocity
-} from './update.js';
+    hasLineOfSight, levelTriangles, modelBoxes, makeCollisionTriangle,
+    computeTriangleBounds, buildCollisionGrid, resolveMonsterCapsuleCollisions, velocity
+} from './collision.js';
+import { MonsterState, monsters, doors } from './gameState.js';
 
 // Parsers & Loaders
 const objectsParser = new ObjectsDatParser();
@@ -24,16 +24,7 @@ const md2Loader = new MD2Loader();
 const tdsModelCache = new Map();
 const md2GeometryCache = new Map();
 
-// Monster AI Finite State Machine & Animation Definitions
-export const MonsterState = Object.freeze({
-    IDLE: 'IDLE',
-    ALERT: 'ALERT',
-    CHASE: 'CHASE',
-    ATTACK: 'ATTACK',
-    HURT: 'HURT',
-    DEATH: 'DEATH'
-});
-
+// Monster Animation Definitions
 export const MD2_ANIMATIONS = Object.freeze({
     STAND:  { name: 'STAND',  start: 0,   end: 39,  fps: 9,  loop: true },
     RUN:    { name: 'RUN',    start: 40,  end: 45,  fps: 10, loop: true },
@@ -108,8 +99,6 @@ export function getMonsterConfig(name) {
     }
     return DEFAULT_MONSTER_CONFIG;
 }
-
-export const monsters = [];
 
 export class Monster {
     constructor(mesh, weaponMesh = null, config = DEFAULT_MONSTER_CONFIG, initialPosition, initialRotationY = 0) {
@@ -1344,7 +1333,6 @@ export function addLevelObject(mesh, position, radius = 0) {
     return entry;
 }
 
-export const doors = [];
 export const chests = [];
 
 export async function openChest(chest) {

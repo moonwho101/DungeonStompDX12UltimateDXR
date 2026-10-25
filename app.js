@@ -7,24 +7,27 @@ import {
     createPickupFloatingText
 } from './render.js';
 import {
-    velocity, direction, cameraQuaternion, worldDir, isFlyMode,
-    toggleFlyMode, updateModeDisplay, isGrounded, setIsGrounded,
+    velocity, CAPSULE_RADIUS, GRAVITY, JUMP_SPEED, modelBoxes,
+    resolveCapsuleCollisions, resolveMonsterCapsuleCollisions
+} from './collision.js';
+import { MonsterState, monsters, doors } from './gameState.js';
+import {
+    direction, cameraQuaternion, worldDir, isFlyMode,
+    toggleFlyMode, isGrounded, setIsGrounded,
     jumpRequested, setJumpRequested, footstepTimer, setFootstepTimer,
-    GRAVITY, JUMP_SPEED, CAPSULE_RADIUS, resolveCapsuleCollisions,
-    resolveMonsterCapsuleCollisions, modelBoxes, updateDoors,
-    updatePickups, updateProjectiles, updatePlayerWeaponAnimation
+    updateDoors, updatePickups, updateProjectiles, updatePlayerWeaponAnimation
 } from './update.js';
 import {
-    MonsterState, MD2_ANIMATIONS, DEFAULT_MONSTER_CONFIG, MONSTER_CONFIGS,
-    getMonsterConfig, Monster, monsters, TREASURE_DROPS, PICKUP_DEFINITIONS,
+    MD2_ANIMATIONS, DEFAULT_MONSTER_CONFIG, MONSTER_CONFIGS,
+    getMonsterConfig, Monster, TREASURE_DROPS, PICKUP_DEFINITIONS,
     getPickupDefinition, playerStats, damagePlayer, healPlayer, addPlayerXp,
     awardPlayerXp, updatePlayerHud, isInvincible, setIsInvincible,
     playerDead, playerDeathTimer, setPlayerDeathTimer, respawnPlayer,
-    PLAYER_GUNS, unlockedWeapons, spellCounts, WEAPON_DAMAGE,
-    getCurrentGunIndex, cycleWeapon, updateWeaponMesh, triggerWeaponAttack,
+    PLAYER_GUNS, unlockedWeapons, spellCounts,
+    cycleWeapon, updateWeaponMesh, triggerWeaponAttack,
     openNearbyDoor, SWISH_SOUNDS, IMPACT_SOUNDS, PLAYER_IMPACT_SOUNDS,
     playSound, getRandomSound, preloadSounds, resumeAudio,
-    loadGameWorld, levelObjects, activePickups, doors,
+    loadGameWorld, levelObjects, activePickups,
     playerWeaponCurrentAnim
 } from './logic.js';
 
@@ -344,8 +347,7 @@ function animate() {
             camPos.y += velocity.y * stepDt;
             camPos.z += velocity.z * stepDt;
 
-            resolveCapsuleCollisions(camPos);
-            grounded = grounded || isGrounded;
+            grounded = resolveCapsuleCollisions(camPos) || grounded;
         }
         setIsGrounded(grounded);
 
