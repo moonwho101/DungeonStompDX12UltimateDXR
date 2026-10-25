@@ -978,21 +978,21 @@ export const activeProjectiles = [];
 export const PROJECTILE_TYPES = {
     'MAGIC MISSILE': {
         speed: 1300.0, gravity: 0, radius: 20.0, aoeRadius: 120.0, maxLife: 4.0,
-        coreRadius: 12, coreColor: 0x38bdf8, coreOpacity: 0.9,
+        coreRadius: 7, coreColor: 0x38bdf8, coreOpacity: 0.9,
         haloColor: 0x00e5ff, haloOpacity: 0.8, haloSize: 70,
         lightColor: 0x00e5ff, lightIntensity: 6000, lightDistance: 350,
         colorHex: 0x38bdf8
     },
     'FIREBALL': {
         speed: 1050.0, gravity: -200.0, radius: 26.0, aoeRadius: 220.0, maxLife: 4.5,
-        coreRadius: 18, coreColor: 0xff4500, coreOpacity: 0.95,
+        coreRadius: 7, coreColor: 0xff4500, coreOpacity: 0.95,
         haloColor: 0xffaa00, haloOpacity: 0.9, haloSize: 110,
         lightColor: 0xff6600, lightIntensity: 9000, lightDistance: 450,
         colorHex: 0xff5500
     },
     'LIGHTNING': {
         speed: 1600.0, gravity: 0, radius: 22.0, aoeRadius: 160.0, maxLife: 3.5,
-        coreRadius: 14, coreColor: 0xffffff, coreOpacity: 0.95,
+        coreRadius: 7, coreColor: 0xffffff, coreOpacity: 0.95,
         haloColor: 0x00ffff, haloOpacity: 0.9, haloSize: 90,
         lightColor: 0x00ffff, lightIntensity: 8000, lightDistance: 400,
         colorHex: 0x00ffff
