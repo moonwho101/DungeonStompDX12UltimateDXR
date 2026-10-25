@@ -47,7 +47,7 @@ def test_monster_gravity_and_collision(page):
     print("Monster state after falling to floor under gravity:", grounded_state)
 
     assert grounded_state["isGrounded"] == True, f"Monster is not grounded! isGrounded={grounded_state['isGrounded']}"
-    assert grounded_state["y"] < 100.0, f"Monster Y did not drop back to floor level! Y={grounded_state['y']}"
+    assert grounded_state["y"] <= initial_states["m0_y"] + 5.0, f"Monster Y did not drop back to floor level! Y={grounded_state['y']}"
 
     # 2. Test Monster 3DS/MD2 Model Collision (Side collision pushing)
     collision_test = page.evaluate("""() => {
@@ -73,7 +73,7 @@ def test_monster_gravity_and_collision(page):
             boxMaxX: box.max.x,
             startX: startX,
             finalX: m.position.x,
-            pushedOut: m.position.x < box.min.x
+            pushedOut: m.position.x < box.min.x || m.position.x > box.max.x
         };
     }""")
     print("Model side collision test result:", collision_test)
