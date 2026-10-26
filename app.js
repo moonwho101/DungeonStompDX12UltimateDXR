@@ -248,6 +248,10 @@ async function init() {
     window.SWISH_SOUNDS = SWISH_SOUNDS;
     window.IMPACT_SOUNDS = IMPACT_SOUNDS;
     window.PLAYER_IMPACT_SOUNDS = PLAYER_IMPACT_SOUNDS;
+    window.PLAYER_GUNS = PLAYER_GUNS;
+    window.unlockedWeapons = unlockedWeapons;
+    window.spellCounts = spellCounts;
+    window.updatePickups = updatePickups;
     Object.defineProperty(window, 'playerWeaponCurrentAnim', {
         get: () => playerWeaponCurrentAnim
     });
