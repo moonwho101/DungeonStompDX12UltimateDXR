@@ -24,6 +24,7 @@ import {
     awardPlayerXp, updatePlayerHud, isInvincible, setIsInvincible,
     playerDead, playerDeathTimer, setPlayerDeathTimer, respawnPlayer,
     PLAYER_GUNS, unlockedWeapons, spellCounts,
+    getCurrentGunIndex, setCurrentGunIndex,
     cycleWeapon, updateWeaponMesh, triggerWeaponAttack,
     openNearbyDoor, SWISH_SOUNDS, IMPACT_SOUNDS, PLAYER_IMPACT_SOUNDS,
     playSound, getRandomSound, preloadSounds, resumeAudio,
@@ -252,6 +253,11 @@ async function init() {
     window.unlockedWeapons = unlockedWeapons;
     window.spellCounts = spellCounts;
     window.updatePickups = updatePickups;
+    window.setCurrentGunIndex = setCurrentGunIndex;
+    Object.defineProperty(window, 'currentGunIndex', {
+        get: () => getCurrentGunIndex(),
+        set: (v) => setCurrentGunIndex(v)
+    });
     Object.defineProperty(window, 'playerWeaponCurrentAnim', {
         get: () => playerWeaponCurrentAnim
     });

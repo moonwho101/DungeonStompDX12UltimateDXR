@@ -123,15 +123,6 @@ export function updatePickups(delta, playerPos) {
                     spellCounts[spellScrollName] = prevCount + 5;
                     popupLabel = `+5 ${spellScrollName}`;
                     updatePlayerHud();
-
-                    // Only switch to spell if its slot was at 0
-                    if (prevCount === 0) {
-                        const newIndex = PLAYER_GUNS.indexOf(spellScrollName);
-                        if (newIndex !== -1) {
-                            setCurrentGunIndex(newIndex);
-                            updateWeaponMesh();
-                        }
-                    }
                 } else if (!nameClean.includes('SPELLBOOK')) {
                     // Check physical weapon pickups (excluding spell slots)
                     let unlockedWeapon = null;
