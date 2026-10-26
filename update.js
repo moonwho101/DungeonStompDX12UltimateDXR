@@ -85,40 +85,13 @@ export function updatePickups(delta, playerPos) {
                 const def = pickup.def;
                 const isHealth = def && def.type === 'health';
 
-                let unlockedWeapon = null;
-                // Prefer an exact name, then the longest match, so BATTLEAXE isn't
-                // mistaken for AXE and SUPERFLAMESWORD isn't mistaken for FLAMESWORD.
-                for (const gun of PLAYER_GUNS) {
-                    const gunUpper = gun.toUpperCase();
-                    if (gunUpper === nameClean) {
-                        unlockedWeapon = gun;
-                        break;
-                    }
-                    if (nameClean && (nameClean.includes(gunUpper) || gunUpper.includes(nameClean))) {
-                        if (!unlockedWeapon || gun.length > unlockedWeapon.length) {
-                            unlockedWeapon = gun;
-                        }
-                    }
-                }
-                if (!unlockedWeapon && def && def.type === 'weapon') {
-                    unlockedWeapon = pickup.name;
-                }
-
                 let popupLabel = def ? def.label : `+${pickup.name}`;
                 let colorHex = isHealth ? 0x22c55e : 0xeab308;
                 let colorCss = isHealth ? '#4ade80' : '#facc15';
 
-                if (unlockedWeapon) {
-                    unlockedWeapons.add(unlockedWeapon);
-                    popupLabel = `+${unlockedWeapon}`;
-                    colorHex = 0x38bdf8;
-                    colorCss = '#38bdf8';
-                    const newIndex = PLAYER_GUNS.indexOf(unlockedWeapon);
-                    if (newIndex !== -1) {
-                        setCurrentGunIndex(newIndex);
-                        updateWeaponMesh();
-                    }
-                } else if (nameClean.includes('SPELLBOOK')) {
+                // Check spell scrolls / spellbook first
+                let spellScrollName = null;
+                if (nameClean.includes('SPELLBOOK')) {
                     spellCounts['MAGIC MISSILE'] += 5;
                     spellCounts['FIREBALL'] += 5;
                     spellCounts['LIGHTNING'] += 5;
@@ -127,34 +100,70 @@ export function updatePickups(delta, playerPos) {
                     colorHex = 0xa855f7;
                     colorCss = '#c084fc';
                     updatePlayerHud();
-                } else if (nameClean.includes('SCROLL-MAGICMISSLE') || nameClean.includes('MAGICMISSLE')) {
-                    spellCounts['MAGIC MISSILE'] += 5;
-                    popupLabel = '+5 MAGIC MISSILE';
+                } else if (nameClean.includes('SCROLL-MAGICMISSLE') || nameClean.includes('MAGICMISSLE') || nameClean === 'MAGIC MISSILE') {
+                    spellScrollName = 'MAGIC MISSILE';
                     colorHex = 0x38bdf8;
                     colorCss = '#38bdf8';
-                    updatePlayerHud();
                 } else if (nameClean.includes('SCROLL-FIREBALL') || nameClean.includes('FIREBALL')) {
-                    spellCounts['FIREBALL'] += 5;
-                    popupLabel = '+5 FIREBALL';
+                    spellScrollName = 'FIREBALL';
                     colorHex = 0xff5500;
                     colorCss = '#ff7700';
-                    updatePlayerHud();
                 } else if (nameClean.includes('SCROLL-LIGHTNING') || nameClean.includes('LIGHTNING')) {
-                    spellCounts['LIGHTNING'] += 5;
-                    popupLabel = '+5 LIGHTNING';
+                    spellScrollName = 'LIGHTNING';
                     colorHex = 0x00ffff;
                     colorCss = '#00ffff';
-                    updatePlayerHud();
                 } else if (nameClean.includes('SCROLL-HEALING') || nameClean.includes('HEALING')) {
-                    spellCounts['HEALING'] += 5;
-                    popupLabel = '+5 HEALING';
+                    spellScrollName = 'HEALING';
                     colorHex = 0x22c55e;
                     colorCss = '#4ade80';
+                }
+
+                if (spellScrollName) {
+                    const prevCount = spellCounts[spellScrollName] || 0;
+                    spellCounts[spellScrollName] = prevCount + 5;
+                    popupLabel = `+5 ${spellScrollName}`;
                     updatePlayerHud();
-                } else if (isHealth) {
-                    healPlayer(def.amount);
-                } else if (def && def.amount) {
-                    addPlayerXp(def.amount);
+                } else if (!nameClean.includes('SPELLBOOK')) {
+                    // Check physical weapon pickups (excluding spell slots)
+                    let unlockedWeapon = null;
+                    for (const gun of PLAYER_GUNS) {
+                        if (spellCounts[gun] !== undefined) continue;
+
+                        const gunUpper = gun.toUpperCase();
+                        if (gunUpper === nameClean) {
+                            unlockedWeapon = gun;
+                            break;
+                        }
+                        if (nameClean && (nameClean.includes(gunUpper) || gunUpper.includes(nameClean))) {
+                            if (!unlockedWeapon || gun.length > unlockedWeapon.length) {
+                                unlockedWeapon = gun;
+                            }
+                        }
+                    }
+                    if (!unlockedWeapon && def && def.type === 'weapon') {
+                        unlockedWeapon = pickup.name;
+                    }
+
+                    if (unlockedWeapon) {
+                        const wasUnlocked = unlockedWeapons.has(unlockedWeapon);
+                        unlockedWeapons.add(unlockedWeapon);
+                        popupLabel = `+${unlockedWeapon}`;
+                        colorHex = 0x38bdf8;
+                        colorCss = '#38bdf8';
+
+                        // Only switch to weapon if it's the first time the slot is activated
+                        if (!wasUnlocked) {
+                            const newIndex = PLAYER_GUNS.indexOf(unlockedWeapon);
+                            if (newIndex !== -1) {
+                                setCurrentGunIndex(newIndex);
+                                updateWeaponMesh();
+                            }
+                        }
+                    } else if (isHealth) {
+                        healPlayer(def.amount);
+                    } else if (def && def.amount) {
+                        addPlayerXp(def.amount);
+                    }
                 }
 
                 playPickupSound(isHealth);
