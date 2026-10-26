@@ -300,6 +300,10 @@ export class LevelMapParser {
         const resp = await fetch(url);
         if (!resp.ok) throw new Error(`HTTP error ${resp.status} loading ${url}`);
         const text = await resp.text();
+        return this.parseText(text);
+    }
+
+    parseText(text) {
         const lines = text.split(/\r?\n/);
 
         this.instances = [];

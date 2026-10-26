@@ -29,7 +29,7 @@ import {
     openNearbyDoor, SWISH_SOUNDS, IMPACT_SOUNDS, PLAYER_IMPACT_SOUNDS,
     playSound, getRandomSound, preloadSounds, resumeAudio,
     loadGameWorld, levelObjects, activePickups,
-    playerWeaponCurrentAnim
+    playerWeaponCurrentAnim, generateAndLoadNewLevel
 } from './logic.js';
 
 // Re-export public interfaces for backwards compatibility and external modules
@@ -160,6 +160,9 @@ async function init() {
                 }
                 playSound('treasure.wav', 0.8);
                 break;
+            case 'KeyG':
+                generateAndLoadNewLevel(textureManager);
+                break;
         }
     };
 
@@ -254,6 +257,7 @@ async function init() {
     window.spellCounts = spellCounts;
     window.updatePickups = updatePickups;
     window.setCurrentGunIndex = setCurrentGunIndex;
+    window.generateAndLoadNewLevel = () => generateAndLoadNewLevel(textureManager);
     Object.defineProperty(window, 'currentGunIndex', {
         get: () => getCurrentGunIndex(),
         set: (v) => setCurrentGunIndex(v)
