@@ -655,13 +655,13 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                     else:
                                         # --- MONSTER (also uses floor slots now) ---
                                         if level == 0:
-                                            possible_mobs = ['GOBLIN','TENTACLE']
+                                            possible_mobs = ['GOBLIN','TENTACLE','SKELETON2','INSECT']
                                         elif level == 1:
-                                            possible_mobs = ['OGRE','CORPSE','MUMMY','WOLF','COBRA','OGRO']
+                                            possible_mobs = ['OGRE','CORPSE','MUMMY','WOLF','COBRA','OGRO','CENTAUR','CRAZ','HYDRA','OLUVE']
                                         elif level == 2:
-                                            possible_mobs = ['NECROMANCER','SORCERER','WRAITH','PHANTOM','KNIGHT','SLAVE']
+                                            possible_mobs = ['NECROMANCER','SORCERER','WRAITH','PHANTOM','KNIGHT','SLAVE','SORB','RIDER','FULIMO']
                                         else:
-                                            possible_mobs = ['FAERIE','BAUUL','DEMONESS','DRAGON']
+                                            possible_mobs = ['FAERIE','BAUUL','DEMONESS','DRAGON','IMP','OKTA','DEMON','OKTA']
 
                                         ent_type = random.choice(possible_mobs)
                                         name_val = ent_type.lower()

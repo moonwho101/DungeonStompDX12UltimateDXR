@@ -793,19 +793,19 @@ export const spellCounts = {
 };
 
 export const WEAPON_DAMAGE = {
-    'AXE': 20,
-    'FLAMESWORD': 25,
-    'BASTARDSWORD': 30,
-    'BATTLEAXE': 35,
-    'ICESWORD': 30,
-    'LIGHTNINGSWORD': 35,
-    'MORNINGSTAR': 25,
-    'SPIKEDFLAIL': 25,
-    'SPLITSWORD': 30,
-    'SUPERFLAMESWORD': 40,
-    'MAGIC MISSILE': 35,
-    'FIREBALL': 50,
-    'LIGHTNING': 45,
+    'AXE': 5,
+    'FLAMESWORD': 5,
+    'BASTARDSWORD': 8,
+    'BATTLEAXE': 10,
+    'ICESWORD': 12,
+    'LIGHTNINGSWORD': 14,
+    'MORNINGSTAR': 16,
+    'SPIKEDFLAIL': 18,
+    'SPLITSWORD': 19,
+    'SUPERFLAMESWORD': 20,
+    'MAGIC MISSILE': 5,
+    'FIREBALL': 10,
+    'LIGHTNING': 15,
     'HEALING': 0
 };
 
