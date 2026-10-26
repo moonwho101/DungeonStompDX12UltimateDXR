@@ -1802,7 +1802,7 @@ export async function loadGameWorld(textureManager, overrideMapText = null) {
     controls.getObject().position.copy(playerStartPos);
 
     const rotRad = (startPos.rot * Math.PI) / 180.0;
-    camera.rotation.y = rotRad;
+    camera.rotation.set(0, rotRad, 0, 'YXZ');
 
     const objectIdByName = new Map();
     for (const [id, obj] of objectsMap) {
