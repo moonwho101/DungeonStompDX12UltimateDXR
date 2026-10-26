@@ -86,10 +86,18 @@ export function updatePickups(delta, playerPos) {
                 const isHealth = def && def.type === 'health';
 
                 let unlockedWeapon = null;
+                // Prefer an exact name, then the longest match, so BATTLEAXE isn't
+                // mistaken for AXE and SUPERFLAMESWORD isn't mistaken for FLAMESWORD.
                 for (const gun of PLAYER_GUNS) {
-                    if (nameClean.includes(gun.toUpperCase()) || gun.toUpperCase().includes(nameClean)) {
+                    const gunUpper = gun.toUpperCase();
+                    if (gunUpper === nameClean) {
                         unlockedWeapon = gun;
                         break;
+                    }
+                    if (nameClean && (nameClean.includes(gunUpper) || gunUpper.includes(nameClean))) {
+                        if (!unlockedWeapon || gun.length > unlockedWeapon.length) {
+                            unlockedWeapon = gun;
+                        }
                     }
                 }
                 if (!unlockedWeapon && def && def.type === 'weapon') {

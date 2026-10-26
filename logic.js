@@ -62,7 +62,7 @@ export const DEFAULT_MONSTER_CONFIG = Object.freeze({
 });
 
 
-const speedMultiplier = 2.0;
+const speedMultiplier = 1.5;
 
 export const MONSTER_CONFIGS = {
     KNIGHT: { ...DEFAULT_MONSTER_CONFIG, painSound: 'impact5.wav', deathSound: 'Skeleton.wav', weaponSound: 'swish9.wav', yellSound: 'mouther.wav', sound: 'mouther.wav', moveSpeed: 150.0 * speedMultiplier, aggroRadius: 850.0, damage: 15, maxHealth: 20 },
