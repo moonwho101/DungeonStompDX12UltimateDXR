@@ -31,6 +31,7 @@ import {
     loadGameWorld, levelObjects, activePickups,
     playerWeaponCurrentAnim, generateAndLoadNewLevel
 } from './logic.js';
+import { updateMinimap } from './minimap.js';
 
 // Re-export public interfaces for backwards compatibility and external modules
 export {
@@ -420,6 +421,8 @@ function animate() {
     updateLighting(time / 1000, delta, pos);
 
     updateDistanceCulling(levelObjects, pos);
+
+    updateMinimap(pos, camera);
 
     renderer.render(scene, camera);
 }
