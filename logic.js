@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { TDSLoader } from 'three/addons/loaders/TDSLoader.js';
 import { MD2Loader } from 'three/addons/loaders/MD2Loader.js';
 import { ObjectsDatParser, LevelMapParser, ModelListParser, OBJECT_VERT_STRIDE } from './parsers.js';
+import { generateDungeon } from './generator.js';
 import {
     scene, camera, controls, hudEl, flashScreen, FLASH_RED, FLASH_GREEN,
     getSharedMaterial, applyNormalMap, registerLamp, clearLamps, disposeOwnedResources,
@@ -1734,33 +1735,74 @@ export function createTexturedMesh(texAlias, positions, uvs) {
     return new THREE.Mesh(geometry, getSharedMaterial(texAlias));
 }
 
-export async function loadGameWorld(textureManager) {
-    const [, objectsMap, , level] = await Promise.all([
-        textureManager.loadTexturesDat('bin/textures.dat'),
-        objectsParser.parse('bin/Objects.dat'),
-        modelListParser.parse('bin/modellist.dat'),
-        levelParser.parse('bin/level1.map')
-    ]);
-    const { instances, startPos } = level;
-
-    console.log(`Loaded ${instances.length} objects in level1.map. StartPos:`, startPos);
-
-    await prefetchLevelModels(instances);
-
+export function clearCurrentWorld() {
+    for (const obj of levelObjects) {
+        if (obj.mesh) {
+            scene.remove(obj.mesh);
+            disposeOwnedResources(obj.mesh);
+        }
+    }
     levelObjects.length = 0;
-    activePickups.length = 0;
-    clearLamps();
+
+    for (const m of monsters) {
+        if (m.mesh) scene.remove(m.mesh);
+        if (m.weaponMesh) scene.remove(m.weaponMesh);
+    }
     monsters.length = 0;
+
+    for (const pickup of activePickups) {
+        if (pickup.mesh) scene.remove(pickup.mesh);
+    }
+    activePickups.length = 0;
+
+    for (const door of doors) {
+        if (door.mesh) scene.remove(door.mesh);
+    }
+    doors.length = 0;
+
+    for (const chest of chests) {
+        if (chest.model) scene.remove(chest.model);
+    }
+    chests.length = 0;
+
+    clearLamps();
     levelTriangles.length = 0;
     modelBoxes.length = 0;
-    doors.length = 0;
-    chests.length = 0;
+}
+
+export async function loadGameWorld(textureManager, overrideMapText = null) {
+    clearCurrentWorld();
+
+    let mapText = overrideMapText;
+    if (!mapText) {
+        try {
+            mapText = localStorage.getItem('generatedLevel1Map');
+        } catch (e) {}
+    }
+
+    const [, objectsMap] = await Promise.all([
+        textureManager.loadTexturesDat('bin/textures.dat'),
+        objectsParser.parse('bin/Objects.dat'),
+        modelListParser.parse('bin/modellist.dat')
+    ]);
+
+    let level;
+    if (mapText) {
+        level = levelParser.parseText(mapText);
+    } else {
+        level = await levelParser.parse('bin/level1.map');
+    }
+    const { instances, startPos } = level;
+
+    console.log(`Loaded ${instances.length} objects in level map. StartPos:`, startPos);
+
+    await prefetchLevelModels(instances);
 
     playerStartPos = new THREE.Vector3(startPos.x, startPos.y, startPos.z);
     controls.getObject().position.copy(playerStartPos);
 
     const rotRad = (startPos.rot * Math.PI) / 180.0;
-    camera.rotation.y = rotRad;
+    camera.rotation.set(0, rotRad, 0, 'YXZ');
 
     const objectIdByName = new Map();
     for (const [id, obj] of objectsMap) {
@@ -2082,4 +2124,38 @@ export async function loadGameWorld(textureManager) {
 
     hudEl('obj-display').textContent = builtObjectCount;
     hudEl('light-display').textContent = lightCount;
+}
+
+export async function generateAndLoadNewLevel(textureManager) {
+    console.log("Generating new dungeon level...");
+    const newMapText = generateDungeon();
+    try {
+        localStorage.setItem('generatedLevel1Map', newMapText);
+    } catch (e) {
+        console.warn('Could not write to localStorage:', e);
+    }
+
+    await loadGameWorld(textureManager, newMapText);
+    await updateWeaponMesh();
+
+    if (controls) {
+        velocity.set(0, 0, 0);
+        if (playerStartPos) {
+            controls.getObject().position.copy(playerStartPos);
+        }
+    }
+
+    playerStats.health = playerStats.maxHealth;
+    setPlayerDead(false);
+    const deathEl = hudEl('death-screen');
+    if (deathEl) deathEl.style.display = 'none';
+
+    updatePlayerHud();
+
+    playSound('spell3.wav', 0.8);
+
+    if (controls && controls.getObject()) {
+        createPickupFloatingText('NEW DUNGEON GENERATED!', controls.getObject().position, '#38bdf8');
+    }
+    flashScreen(FLASH_GREEN, 0.4, 200);
 }

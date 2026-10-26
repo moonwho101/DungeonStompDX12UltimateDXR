@@ -199,6 +199,26 @@
             font-size: 22px;
             letter-spacing: 1px;
         }
+        /* Top-Right Minimap Container */
+        #minimap-container {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            width: 160px;
+            height: 160px;
+            background: rgba(10, 14, 23, 0.88);
+            border: 2px solid rgba(245, 158, 11, 0.4);
+            border-radius: 50%;
+            overflow: hidden;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.8), inset 0 0 12px rgba(0, 0, 0, 0.9);
+            pointer-events: none;
+            z-index: 20;
+        }
+        #minimap-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -207,13 +227,17 @@
     <div id="death-screen">YOU DIED<small>Respawning at the dungeon entrance...</small></div>
     <div id="crosshair"></div>
 
+    <div id="minimap-container">
+        <canvas id="minimap-canvas" width="160" height="160"></canvas>
+    </div>
+
     <div id="ui-overlay">
         <strong style="color: #f59e0b;">Dungeon Stomp Three.js</strong><br>
         Mode: <span id="mode-display" style="color: #10b981;">FPS (WALK)</span><br>
         Position: <span id="pos-display">0, 0, 0</span><br>
         Objects: <span id="obj-display">0</span> | Lights: <span id="light-display">0</span><br>
         Normal Maps: <span id="normalmap-display" style="color: #00ff88;">ON</span> (N)<br>
-        Controls: WASD (Move) | Space (Jump) | E (Open Door) | Q/Z (Weapon)
+        Controls: WASD (Move) | Space (Jump) | E (Open Door) | G (New Dungeon) | Q/Z (Weapon)
     </div>
 
     <!-- Modern Crawler HUD -->
@@ -262,7 +286,7 @@
     <div id="instructions">
         <h2>Dungeon Stomp JS</h2>
         <p id="instructions-prompt">Loading dungeon...</p>
-        <p><small>WASD = Move | Space = Jump | F = Fly | E = Open Door | N = Normal Maps | Shift = Sprint | Q/Z = Weapon</small></p>
+        <p><small>WASD = Move | Space = Jump | F = Fly | E = Open Door | G = Generate Dungeon | N = Normal Maps | Shift = Sprint | Q/Z = Weapon</small></p>
     </div>
 
     <script type="module" src="app.js"></script>
