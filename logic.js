@@ -2192,13 +2192,13 @@ export async function loadGameWorld(textureManager, overrideMapText = null) {
                         if (detectedPickupDef) {
                             addPickup(model, model.position, modelDef.name || inst.modelName || inst.name, detectedPickupDef);
                         } else {
+                            const cleanModelName = (modelDef.name || inst.modelName || '').toLowerCase().trim();
                             model.updateMatrixWorld(true);
                             const box = new THREE.Box3().setFromObject(model);
-                            if (!box.isEmpty()) {
+                            if (!box.isEmpty() && cleanModelName !== 'circle' && cleanModelName !== 'spiral') {
                                 modelBoxes.push(box);
                             }
 
-                            const cleanModelName = (modelDef.name || inst.modelName || '').toLowerCase().trim();
                             if (cleanModelName === 'cdoorclosedchest' || cleanModelName === 'cdoorclosedchest.3ds') {
                                 chests.push({
                                     model: model,
