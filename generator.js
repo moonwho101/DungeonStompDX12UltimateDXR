@@ -222,8 +222,16 @@ export function generateDungeon({ startX = 5200, startZ = 2600, seed = null, num
 
     console.log("Placing initial starting CORRIDOR01...");
     const start_bounds = get_world_bounds_full('CORRIDOR01', startX, startZ, 0);
-    const start_piece = { 'name': 'CORRIDOR01', 'x': startX, 'y': 0.0, 'z': startZ, 'rot': 0, 'bounds': start_bounds };
+    const start_piece = { 'name': 'CORRIDOR01', 'x': startX, 'y': 0.0, 'z': startZ, 'rot': 0, 'bounds': start_bounds, 'used_slots': new Set(['0,0']) };
     placed.push(start_piece);
+
+    // Place start circle (without spiral/teleport) at startpos center
+    entities.push({
+        'type': 'circle',
+        'x': startX, 'y': -41.0 + 40.0, 'z': startZ,
+        'rot': 0, 'name': '0', 'id': entity_id_idx, 'state': 2
+    });
+    entity_id_idx++;
 
     const open_exits = [];
     for (const ext of OBJECTS['CORRIDOR01']) {
@@ -670,10 +678,12 @@ export function generateDungeon({ startX = 5200, startZ = 2600, seed = null, num
     }
 
     if (placed.length > 0) {
-        let deepest_piece = placed[0];
-        for (let i = 1; i < placed.length; i++) {
-            if ((placed[i].y || 0) < (deepest_piece.y || 0)) {
-                deepest_piece = placed[i];
+        // Filter out CORRIDOR02 (a slope) from being selected for exit circle/spiral portal
+        const candidate_pieces = placed.filter(p => p.name !== 'CORRIDOR02');
+        let deepest_piece = candidate_pieces.length > 0 ? candidate_pieces[0] : placed[0];
+        for (let i = 1; i < candidate_pieces.length; i++) {
+            if ((candidate_pieces[i].y || 0) < (deepest_piece.y || 0)) {
+                deepest_piece = candidate_pieces[i];
             }
         }
 

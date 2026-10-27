@@ -7,7 +7,7 @@ import {
     scene, camera, controls, hudEl, flashScreen, FLASH_RED, FLASH_GREEN,
     getSharedMaterial, applyNormalMap, registerLamp, clearLamps, disposeOwnedResources,
     emitParticle, createPickupFloatingText, createTreasureDropEffect,
-    acquireDynamicLight, EXPLOSION_FLASH_INTENSITY,
+    acquireDynamicLight, releaseDynamicLight, EXPLOSION_FLASH_INTENSITY,
     explosionFlashes, haloTexture
 } from './render.js';
 import {
@@ -108,11 +108,60 @@ export function getMonsterConfig(name) {
     return DEFAULT_MONSTER_CONFIG;
 }
 
+function drawHealthBarCanvas(canvas, name, currentHp, maxHp) {
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(8, 4, 240, 56, 8);
+    else ctx.rect(8, 4, 240, 56);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 18px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText((name || 'MONSTER').toUpperCase(), 18, 26);
+
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#cbd5e1';
+    ctx.font = 'bold 16px sans-serif';
+    ctx.fillText(`${Math.max(0, Math.ceil(currentHp))} / ${maxHp}`, 238, 26);
+
+    const barX = 18;
+    const barY = 34;
+    const barW = 220;
+    const barH = 16;
+
+    ctx.fillStyle = 'rgba(30, 41, 59, 0.9)';
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(barX, barY, barW, barH, 4);
+    else ctx.rect(barX, barY, barW, barH);
+    ctx.fill();
+
+    const pct = Math.max(0, Math.min(1, currentHp / maxHp));
+    if (pct > 0) {
+        let fillColor = '#22c55e';
+        if (pct < 0.25) fillColor = '#ef4444';
+        else if (pct < 0.55) fillColor = '#eab308';
+
+        ctx.fillStyle = fillColor;
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(barX, barY, barW * pct, barH, 4);
+        else ctx.rect(barX, barY, barW * pct, barH);
+        ctx.fill();
+    }
+}
+
 export class Monster {
     constructor(mesh, weaponMesh = null, config = DEFAULT_MONSTER_CONFIG, initialPosition, initialRotationY = 0) {
         this.mesh = mesh;
         this.weaponMesh = weaponMesh;
         this.config = { ...DEFAULT_MONSTER_CONFIG, ...config };
+        this.name = (this.config.name || 'MONSTER').toUpperCase();
 
         this.position = initialPosition.clone();
         this.velocity = new THREE.Vector3(0, 0, 0);
@@ -159,6 +208,42 @@ export class Monster {
 
         this.setAnimation(this.config.animations.STAND, true);
         this.updateMorphTargets(0);
+
+        this.createHealthBar();
+    }
+
+    createHealthBar() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 256;
+        canvas.height = 64;
+
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.minFilter = THREE.LinearFilter;
+
+        const spriteMat = new THREE.SpriteMaterial({
+            map: texture,
+            transparent: true,
+            depthTest: true,
+            depthWrite: false
+        });
+
+        const sprite = new THREE.Sprite(spriteMat);
+        sprite.scale.set(80, 20, 1);
+
+        scene.add(sprite);
+
+        this.hpCanvas = canvas;
+        this.hpTexture = texture;
+        this.hpSpriteMat = spriteMat;
+        this.hpSprite = sprite;
+
+        this.updateHealthBar();
+    }
+
+    updateHealthBar() {
+        if (!this.hpCanvas || !this.hpTexture) return;
+        drawHealthBarCanvas(this.hpCanvas, this.name, this.health, this.config.maxHealth);
+        this.hpTexture.needsUpdate = true;
     }
 
     updateTacticalMovement(dt, distToPlayer, otherMonsters, playerPos) {
@@ -332,6 +417,16 @@ export class Monster {
         const dz = playerPos.z - this.position.z;
         const distSq = dx * dx + dz * dz;
         const distToPlayer = Math.sqrt(distSq);
+
+        if (this.hpSprite) {
+            if (this.state === MonsterState.DEATH || distToPlayer > 2200.0) {
+                this.hpSprite.visible = false;
+            } else {
+                this.hpSprite.visible = true;
+                const headOffsetY = (!this.boundingBox.isEmpty()) ? (this.boundingBox.max.y + 12.0) : (this.position.y + 75.0);
+                this.hpSprite.position.set(this.position.x, headOffsetY, this.position.z);
+            }
+        }
 
         if (this.isGrounded) {
             if (this.state === MonsterState.DEATH && this.animComplete && !this.weaponMesh) return;
@@ -559,6 +654,7 @@ export class Monster {
     takeDamage(damage) {
         if (this.state === MonsterState.DEATH) return;
         this.health -= damage;
+        this.updateHealthBar();
 
         const playerPos = window.controls ? window.controls.getObject().position : null;
         const dist = playerPos ? this.position.distanceTo(playerPos) : 9999.0;
@@ -817,6 +913,94 @@ export function setCurrentGunIndex(idx) { currentGunIndex = idx; }
 export let currentGunMesh = null;
 export function getCurrentGunMesh() { return currentGunMesh; }
 export function setCurrentGunMesh(mesh) { currentGunMesh = mesh; }
+
+// Exit Teleporter Portal Effects
+export const activeTeleporters = [];
+
+export function createExitTeleporterEffect(position) {
+    const group = new THREE.Group();
+    group.position.copy(position);
+
+    // 1. Ethereal Light Beam Column
+    const beamGeo = new THREE.CylinderGeometry(40, 50, 400, 16, 1, true);
+    const beamMat = new THREE.MeshBasicMaterial({
+        color: 0x38bdf8,
+        transparent: true,
+        opacity: 0.35,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending
+    });
+    const beamMesh = new THREE.Mesh(beamGeo, beamMat);
+    beamMesh.position.y = 200;
+    group.add(beamMesh);
+
+    // Inner bright core beam
+    const coreGeo = new THREE.CylinderGeometry(15, 20, 420, 16, 1, true);
+    const coreMat = new THREE.MeshBasicMaterial({
+        color: 0x818cf8,
+        transparent: true,
+        opacity: 0.6,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending
+    });
+    const coreMesh = new THREE.Mesh(coreGeo, coreMat);
+    coreMesh.position.y = 210;
+    group.add(coreMesh);
+
+    // 2. Swirling Energy Rings
+    const rings = [];
+    const ringGeo = new THREE.RingGeometry(20, 65, 32);
+    const ringColors = [0x38bdf8, 0x818cf8, 0xc084fc, 0x38bdf8];
+    for (let i = 0; i < 4; i++) {
+        const ringMat = new THREE.MeshBasicMaterial({
+            color: ringColors[i],
+            transparent: true,
+            opacity: 0.7,
+            side: THREE.DoubleSide,
+            depthWrite: false,
+            blending: THREE.AdditiveBlending
+        });
+        const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+        ringMesh.rotation.x = Math.PI / 2;
+        ringMesh.position.y = 15 + i * 45;
+        group.add(ringMesh);
+        rings.push(ringMesh);
+    }
+
+    // 3. Dynamic Teleport Light
+    const lightSlot = acquireDynamicLight(0x38bdf8, 12000, 600);
+    if (lightSlot) {
+        lightSlot.light.position.copy(position).add(new THREE.Vector3(0, 100, 0));
+    }
+
+    // Floating Teleport Title Banner
+    createPickupFloatingText('DUNGEON EXIT PORTAL', position, '#38bdf8');
+
+    scene.add(group);
+
+    const teleporterObj = {
+        group,
+        beamMesh,
+        coreMesh,
+        rings,
+        lightSlot,
+        position: position.clone(),
+        timer: 0
+    };
+
+    activeTeleporters.push(teleporterObj);
+    return teleporterObj;
+}
+
+export function clearTeleporters() {
+    for (const tp of activeTeleporters) {
+        if (tp.group) scene.remove(tp.group);
+        if (tp.lightSlot) releaseDynamicLight(tp.lightSlot);
+    }
+    activeTeleporters.length = 0;
+}
 
 export let playerWeaponAnimTimer = 0.0;
 export function setPlayerWeaponAnimTimer(val) { playerWeaponAnimTimer = val; }
@@ -1291,7 +1475,123 @@ export function playSound(filename, volume = 1.0) {
 
 export function preloadSounds(filenames) {
     for (const name of new Set(filenames)) {
-        if (name) loadSoundBuffer(name.startsWith('Sounds/') ? name : `Sounds/${name}`);
+        if (name) {
+            const path = (name.startsWith('Sounds/') || name.startsWith('Midi/')) ? name : `Sounds/${name}`;
+            loadSoundBuffer(path);
+        }
+    }
+}
+
+const MUSIC_TRACKS = [
+    'Midi/d1.wav',
+    'Midi/d2.wav',
+    'Midi/d3.wav',
+    'Midi/d4.wav'
+];
+
+let isMusicEnabled = true;
+let currentMusicSource = null;
+let currentMusicGain = null;
+let lastPlayedSongIndex = -1;
+let musicDelayTimer = 0;
+let isMusicPlaying = false;
+
+export function isMusicOn() {
+    return isMusicEnabled;
+}
+
+export function stopMusic() {
+    if (currentMusicSource) {
+        try {
+            currentMusicSource.onended = null;
+            currentMusicSource.stop();
+            currentMusicSource.disconnect();
+        } catch (e) {}
+        currentMusicSource = null;
+    }
+    if (currentMusicGain) {
+        try {
+            currentMusicGain.disconnect();
+        } catch (e) {}
+        currentMusicGain = null;
+    }
+    isMusicPlaying = false;
+}
+
+export function toggleMusic() {
+    isMusicEnabled = !isMusicEnabled;
+    if (!isMusicEnabled) {
+        stopMusic();
+    } else {
+        musicDelayTimer = 0;
+    }
+    return isMusicEnabled;
+}
+
+export function startNextMusicTrack() {
+    stopMusic();
+    if (!isMusicEnabled) return;
+
+    const ctx = getAudioContext();
+    if (!ctx || ctx.state !== 'running') return;
+
+    let availableIndices = MUSIC_TRACKS.map((_, i) => i);
+    if (lastPlayedSongIndex !== -1 && MUSIC_TRACKS.length > 1) {
+        availableIndices = availableIndices.filter(i => i !== lastPlayedSongIndex);
+    }
+    const nextIndex = availableIndices[Math.floor(Math.random() * availableIndices.length)];
+    lastPlayedSongIndex = nextIndex;
+
+    const path = MUSIC_TRACKS[nextIndex];
+    const entry = loadSoundBuffer(path);
+    if (!entry) return;
+
+    const playBuffer = (buffer) => {
+        if (!isMusicEnabled || !buffer) return;
+        const ctx = getAudioContext();
+        if (!ctx || ctx.state !== 'running') return;
+
+        const source = ctx.createBufferSource();
+        const gain = ctx.createGain();
+        source.buffer = buffer;
+        gain.gain.value = 0.4;
+        source.connect(gain);
+        gain.connect(ctx.destination);
+
+        currentMusicSource = source;
+        currentMusicGain = gain;
+        isMusicPlaying = true;
+
+        source.onended = () => {
+            if (currentMusicSource === source) {
+                currentMusicSource = null;
+                currentMusicGain = null;
+                isMusicPlaying = false;
+                musicDelayTimer = 10 + Math.random() * 10;
+            }
+        };
+        source.start();
+    };
+
+    if (entry instanceof AudioBuffer) {
+        playBuffer(entry);
+    } else if (entry && typeof entry.then === 'function') {
+        entry.then((buffer) => playBuffer(buffer));
+    }
+}
+
+export function updateMusic(delta) {
+    if (!isMusicEnabled) return;
+
+    const ctx = getAudioContext();
+    if (!ctx || ctx.state !== 'running') return;
+
+    if (!isMusicPlaying) {
+        if (musicDelayTimer > 0) {
+            musicDelayTimer -= delta;
+        } else {
+            startNextMusicTrack();
+        }
     }
 }
 
@@ -1747,6 +2047,11 @@ export function clearCurrentWorld() {
     for (const m of monsters) {
         if (m.mesh) scene.remove(m.mesh);
         if (m.weaponMesh) scene.remove(m.weaponMesh);
+        if (m.hpSprite) {
+            scene.remove(m.hpSprite);
+            if (m.hpSpriteMat) m.hpSpriteMat.dispose();
+            if (m.hpTexture) m.hpTexture.dispose();
+        }
     }
     monsters.length = 0;
 
@@ -1766,6 +2071,7 @@ export function clearCurrentWorld() {
     chests.length = 0;
 
     clearLamps();
+    clearTeleporters();
     levelTriangles.length = 0;
     modelBoxes.length = 0;
 }
@@ -1842,6 +2148,13 @@ export async function loadGameWorld(textureManager, overrideMapText = null) {
         }
 
         if (inst.modelName) {
+            const cleanModelName = inst.modelName.toLowerCase().trim();
+            if (cleanModelName === 'spiral') {
+                const posVec = new THREE.Vector3(inst.x, inst.y + 40.0, inst.z);
+                createExitTeleporterEffect(posVec);
+                continue;
+            }
+
             const modelDef = modelListParser.getModelByName(inst.modelName);
             if (modelDef) {
                 const is3DSModel = isModel3DS(modelDef);
@@ -1879,13 +2192,13 @@ export async function loadGameWorld(textureManager, overrideMapText = null) {
                         if (detectedPickupDef) {
                             addPickup(model, model.position, modelDef.name || inst.modelName || inst.name, detectedPickupDef);
                         } else {
+                            const cleanModelName = (modelDef.name || inst.modelName || '').toLowerCase().trim();
                             model.updateMatrixWorld(true);
                             const box = new THREE.Box3().setFromObject(model);
-                            if (!box.isEmpty()) {
+                            if (!box.isEmpty() && cleanModelName !== 'circle' && cleanModelName !== 'spiral') {
                                 modelBoxes.push(box);
                             }
 
-                            const cleanModelName = (modelDef.name || inst.modelName || '').toLowerCase().trim();
                             if (cleanModelName === 'cdoorclosedchest' || cleanModelName === 'cdoorclosedchest.3ds') {
                                 chests.push({
                                     model: model,
@@ -1975,7 +2288,7 @@ export async function loadGameWorld(textureManager, overrideMapText = null) {
                             }
                         }
 
-                        const mConfig = getMonsterConfig(modelDef.name);
+                        const mConfig = { name: modelDef.name, ...getMonsterConfig(modelDef.name) };
                         const posVec = new THREE.Vector3(inst.x, inst.y + 50, inst.z);
                         const monster = new Monster(mesh, weaponMesh, mConfig, posVec, angleRad);
                         monsters.push(monster);
