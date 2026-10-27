@@ -32,6 +32,7 @@ typedef struct Controls_typ {
 	BOOL bPreviousLevel;
 } CONTROLS, *Controls_ptr;
 
+extern CONTROLS Controls;
 extern FLOAT elapsegametimersave;
 extern int playermove;
 extern int playermovestrife;
