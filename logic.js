@@ -1500,6 +1500,9 @@ let currentMusicGain = null;
 let lastPlayedSongIndex = -1;
 let musicDelayTimer = 0;
 let isMusicPlaying = false;
+// Incremented on every start/stop so stale async loads never start a second song
+let musicRequestId = 0;
+let isMusicLoading = false;
 
 export function isMusicOn() {
     return isMusicEnabled;
@@ -1521,6 +1524,8 @@ export function stopMusic() {
         currentMusicGain = null;
     }
     isMusicPlaying = false;
+    isMusicLoading = false;
+    musicRequestId++;
 }
 
 export function toggleMusic() {
@@ -1549,10 +1554,22 @@ export function startNextMusicTrack() {
 
     const path = MUSIC_TRACKS[nextIndex];
     const entry = loadSoundBuffer(path);
-    if (!entry) return;
+    if (!entry) {
+        musicDelayTimer = 10;
+        return;
+    }
+
+    const requestId = musicRequestId;
+    isMusicLoading = true;
 
     const playBuffer = (buffer) => {
-        if (!isMusicEnabled || !buffer) return;
+        if (requestId !== musicRequestId) return;
+        isMusicLoading = false;
+        if (!isMusicEnabled) return;
+        if (!buffer) {
+            musicDelayTimer = 10;
+            return;
+        }
         const ctx = getAudioContext();
         if (!ctx || ctx.state !== 'running') return;
 
@@ -1572,7 +1589,7 @@ export function startNextMusicTrack() {
                 currentMusicSource = null;
                 currentMusicGain = null;
                 isMusicPlaying = false;
-                musicDelayTimer = 10 + Math.random() * 10;
+                musicDelayTimer = 10 + Math.random() * 20;
             }
         };
         source.start();
@@ -1581,7 +1598,7 @@ export function startNextMusicTrack() {
     if (entry instanceof AudioBuffer) {
         playBuffer(entry);
     } else if (entry && typeof entry.then === 'function') {
-        entry.then((buffer) => playBuffer(buffer));
+        entry.then((buffer) => playBuffer(buffer), () => playBuffer(null));
     }
 }
 
@@ -1591,7 +1608,7 @@ export function updateMusic(delta) {
     const ctx = getAudioContext();
     if (!ctx || ctx.state !== 'running') return;
 
-    if (!isMusicPlaying) {
+    if (!isMusicPlaying && !isMusicLoading) {
         if (musicDelayTimer > 0) {
             musicDelayTimer -= delta;
         } else {

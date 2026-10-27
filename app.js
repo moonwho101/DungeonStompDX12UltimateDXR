@@ -145,7 +145,6 @@ async function init() {
                 setNormalMapsEnabled(!normalMapsEnabled);
                 break;
             case 'KeyK':
-            case 'KeyP':
                 PLAYER_GUNS.forEach(g => unlockedWeapons.add(g));
                 for (const spell in spellCounts) {
                     spellCounts[spell] = Math.max(99, spellCounts[spell] + 50);
@@ -168,10 +167,11 @@ async function init() {
             case 'KeyG':
                 generateAndLoadNewLevel(textureManager);
                 break;
+            case 'KeyP':
             case 'KeyM': {
                 const enabled = toggleMusic();
                 if (newControls && newControls.getObject()) {
-                    const text = enabled ? 'MUSIC: ON' : 'MUSIC: OFF';
+                    const text = enabled ? 'SOUND: ON' : 'SOUND: OFF';
                     const color = enabled ? '#22c55e' : '#ef4444';
                     createPickupFloatingText(text, newControls.getObject().position, color);
                 }
