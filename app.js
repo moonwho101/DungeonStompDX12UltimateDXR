@@ -30,7 +30,7 @@ import {
     playSound, getRandomSound, preloadSounds, resumeAudio,
     loadGameWorld, levelObjects, activePickups,
     playerWeaponCurrentAnim, generateAndLoadNewLevel,
-    toggleMusic, isMusicOn, startNextMusicTrack, updateMusic
+    toggleSound, isSoundOn, toggleMusic, isMusicOn, startNextMusicTrack, updateMusic
 } from './logic.js';
 import { updateMinimap } from './minimap.js';
 
@@ -145,7 +145,6 @@ async function init() {
                 setNormalMapsEnabled(!normalMapsEnabled);
                 break;
             case 'KeyK':
-            case 'KeyP':
                 PLAYER_GUNS.forEach(g => unlockedWeapons.add(g));
                 for (const spell in spellCounts) {
                     spellCounts[spell] = Math.max(99, spellCounts[spell] + 50);
@@ -156,6 +155,18 @@ async function init() {
                 }
                 playSound('treasure.wav', 0.8);
                 break;
+            case 'KeyP': {
+                const enabled = toggleSound();
+                if (newControls && newControls.getObject()) {
+                    const text = enabled ? 'SOUND: ON' : 'SOUND: OFF';
+                    const color = enabled ? '#22c55e' : '#ef4444';
+                    createPickupFloatingText(text, newControls.getObject().position, color);
+                }
+                if (enabled) {
+                    playSound('buttonselect111.wav', 0.5);
+                }
+                break;
+            }
             case 'KeyI':
                 setIsInvincible(!isInvincible);
                 if (newControls && newControls.getObject()) {
@@ -268,6 +279,8 @@ async function init() {
     window.playerStats = playerStats;
     window.damagePlayer = damagePlayer;
     window.playSound = playSound;
+    window.toggleSound = toggleSound;
+    window.isSoundOn = isSoundOn;
     window.SWISH_SOUNDS = SWISH_SOUNDS;
     window.IMPACT_SOUNDS = IMPACT_SOUNDS;
     window.PLAYER_IMPACT_SOUNDS = PLAYER_IMPACT_SOUNDS;
