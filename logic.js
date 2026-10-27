@@ -200,6 +200,8 @@ export class Monster {
         this.boundingBox = new THREE.Box3();
         this.updateBoundingBox();
 
+        this.healthBarHeight = (!this.boundingBox.isEmpty()) ? (this.boundingBox.max.y - this.position.y + 12.0) : 75.0;
+
         this.noiseTimer = 3.0 + Math.random() * 8.0;
 
         this.pendingSpell = null;
@@ -423,8 +425,11 @@ export class Monster {
                 this.hpSprite.visible = false;
             } else {
                 this.hpSprite.visible = true;
-                const headOffsetY = (!this.boundingBox.isEmpty()) ? (this.boundingBox.max.y + 12.0) : (this.position.y + 75.0);
-                this.hpSprite.position.set(this.position.x, headOffsetY, this.position.z);
+                this.hpSprite.position.set(
+                    this.position.x,
+                    this.position.y + this.healthBarHeight,
+                    this.position.z
+                );
             }
         }
 
