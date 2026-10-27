@@ -23,7 +23,48 @@ export function initRenderer(container) {
 
     maxAnisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
 
+    basePixelRatio = currentPixelRatio = renderer.getPixelRatio();
+
     return { scene, camera, renderer };
+}
+
+// Adaptive resolution: trade render scale for frame rate on slower GPUs, and
+// cautiously win it back once the frame rate is comfortable again.
+const MIN_PIXEL_RATIO = 0.6;
+const PIXEL_RATIO_STEP = 0.85;
+const SLOW_FRAME_MS = 22;
+const FAST_FRAME_MS = 18;
+const EVALUATE_EVERY_FRAMES = 45;
+let basePixelRatio = 1;
+let currentPixelRatio = 1;
+let frameAverageMs = 16.7;
+let framesSinceEvaluation = 0;
+let lastRatioChange = 0;
+let upgradeCooldownMs = 8000;
+
+function applyPixelRatio(ratio) {
+    currentPixelRatio = ratio;
+    renderer.setPixelRatio(ratio);
+    updateParticleScale();
+    lastRatioChange = performance.now();
+    frameAverageMs = (SLOW_FRAME_MS + FAST_FRAME_MS) / 2;
+}
+
+export function updateAdaptiveResolution(frameMs) {
+    // Spikes from level loads or tab switches say nothing about GPU load.
+    if (!renderer || frameMs > 80) return;
+
+    frameAverageMs += (frameMs - frameAverageMs) * 0.05;
+    if (++framesSinceEvaluation < EVALUATE_EVERY_FRAMES) return;
+    framesSinceEvaluation = 0;
+
+    if (frameAverageMs > SLOW_FRAME_MS && currentPixelRatio > MIN_PIXEL_RATIO) {
+        applyPixelRatio(Math.max(MIN_PIXEL_RATIO, currentPixelRatio * PIXEL_RATIO_STEP));
+        upgradeCooldownMs = Math.min(60000, upgradeCooldownMs * 2);
+    } else if (frameAverageMs < FAST_FRAME_MS && currentPixelRatio < basePixelRatio &&
+               performance.now() - lastRatioChange > upgradeCooldownMs) {
+        applyPixelRatio(Math.min(basePixelRatio, currentPixelRatio / PIXEL_RATIO_STEP));
+    }
 }
 
 // Distance Culling

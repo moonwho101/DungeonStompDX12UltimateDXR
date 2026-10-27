@@ -5,7 +5,7 @@ from playwright.sync_api import sync_playwright
 os.makedirs("/home/jules/verification/screenshots", exist_ok=True)
 
 def test_monster_gravity_and_collision(page):
-    page.goto("http://localhost:8080")
+    page.goto("http://localhost:8080/?run=1")
 
     # Wait for game world to finish loading monsters
     page.wait_for_function("() => window.monsters && window.monsters.length > 0", timeout=10000)

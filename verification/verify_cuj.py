@@ -5,7 +5,7 @@ os.makedirs("/home/jules/verification/videos", exist_ok=True)
 os.makedirs("/home/jules/verification/screenshots", exist_ok=True)
 
 def run_cuj(page):
-    page.goto("http://localhost:8000/index.html")
+    page.goto("http://localhost:8000/index.html?run=1")
     page.wait_for_timeout(1000)
 
     # Click instructions to lock pointer and start

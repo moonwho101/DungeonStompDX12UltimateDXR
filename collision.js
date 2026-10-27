@@ -56,7 +56,11 @@ export function getGridKey(cx, cy, cz) {
     return ((cx + 512) * 1024 + (cy + 512)) * 1024 + (cz + 512);
 }
 
+// Bumped whenever the static level geometry is rebuilt so cached views (e.g. the minimap) can refresh.
+export let levelRevision = 0;
+
 export function buildCollisionGrid() {
+    levelRevision++;
     collisionGrid.clear();
     for (let i = 0; i < levelTriangles.length; i++) {
         const tri = levelTriangles[i];
@@ -163,6 +167,13 @@ export function hasLineOfSight(fromPos, toPos) {
     const stepSize = 35.0;
     const steps = Math.max(1, Math.floor(dist / stepSize));
 
+    // Boxes are fetched once for the whole segment instead of once per sample.
+    const boxes = gatherNearbyBoxes(
+        Math.min(fromPos.x, toPos.x) - 25, Math.max(fromPos.x, toPos.x) + 25,
+        Math.min(fromPos.y, toPos.y) - 25, Math.max(fromPos.y, toPos.y) + 25,
+        Math.min(fromPos.z, toPos.z) - 25, Math.max(fromPos.z, toPos.z) + 25
+    );
+
     for (let i = 1; i < steps; i++) {
         _losRaySample.lerpVectors(fromPos, toPos, i / steps);
 
@@ -179,11 +190,6 @@ export function hasLineOfSight(fromPos, toPos) {
             }
         }
 
-        const boxes = gatherNearbyBoxes(
-            _losRaySample.x - 25, _losRaySample.x + 25,
-            _losRaySample.y - 25, _losRaySample.y + 25,
-            _losRaySample.z - 25, _losRaySample.z + 25
-        );
         for (let b = 0; b < boxes.length; b++) {
             if (boxes[b].containsPoint(_losRaySample)) {
                 return false;

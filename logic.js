@@ -4,9 +4,9 @@ import { MD2Loader } from 'three/addons/loaders/MD2Loader.js';
 import { ObjectsDatParser, LevelMapParser, ModelListParser, OBJECT_VERT_STRIDE } from './parsers.js';
 import { generateDungeon } from './generator.js';
 import {
-    scene, camera, controls, hudEl, flashScreen, FLASH_RED, FLASH_GREEN,
+    scene, camera, controls, hudEl, flashScreen, FLASH_RED, FLASH_GREEN, FLASH_PICKUP_XP,
     getSharedMaterial, applyNormalMap, registerLamp, clearLamps, disposeOwnedResources,
-    emitParticle, createPickupFloatingText, createTreasureDropEffect,
+    emitParticle, createPickupFloatingText, createPickupParticleBurst, createTreasureDropEffect,
     acquireDynamicLight, releaseDynamicLight, EXPLOSION_FLASH_INTENSITY,
     explosionFlashes, haloTexture
 } from './render.js';
@@ -108,6 +108,54 @@ export function getMonsterConfig(name) {
     return DEFAULT_MONSTER_CONFIG;
 }
 
+// Dungeon depth: every exit portal taken makes the next dungeon's monsters tougher.
+const DEPTH_POWER_STEP = 0.15;
+export let dungeonDepth = 1;
+try {
+    dungeonDepth = Math.max(1, parseInt(localStorage.getItem('dungeonDepth'), 10) || 1);
+} catch (e) {}
+
+export function setDungeonDepth(depth) {
+    dungeonDepth = Math.max(1, depth | 0);
+    try {
+        localStorage.setItem('dungeonDepth', String(dungeonDepth));
+    } catch (e) {}
+    const el = hudEl('depth-display');
+    if (el) el.textContent = String(dungeonDepth);
+}
+
+// Health bars are drawn once per (name, hp, max) combination and shared between
+// all monsters, instead of every monster owning its own canvas, texture and material.
+const healthBarMaterials = new Map();
+
+function getHealthBarMaterial(name, currentHp, maxHp) {
+    const hp = Math.max(0, Math.ceil(currentHp));
+    const key = `${name}|${hp}|${maxHp}`;
+    let material = healthBarMaterials.get(key);
+    if (material) return material;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 64;
+    drawHealthBarCanvas(canvas, name, hp, maxHp);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.minFilter = THREE.LinearFilter;
+    texture.generateMipmaps = false;
+
+    material = new THREE.SpriteMaterial({
+        map: texture,
+        transparent: true,
+        depthTest: true,
+        depthWrite: false
+    });
+    healthBarMaterials.set(key, material);
+    return material;
+}
+
+const _losEye = new THREE.Vector3();
+const _losTarget = new THREE.Vector3();
+
 function drawHealthBarCanvas(canvas, name, currentHp, maxHp) {
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -161,6 +209,11 @@ export class Monster {
         this.mesh = mesh;
         this.weaponMesh = weaponMesh;
         this.config = { ...DEFAULT_MONSTER_CONFIG, ...config };
+        const depthPower = 1 + (dungeonDepth - 1) * DEPTH_POWER_STEP;
+        if (depthPower > 1) {
+            this.config.maxHealth = Math.round(this.config.maxHealth * depthPower);
+            this.config.damage = Math.round(this.config.damage * depthPower);
+        }
         this.name = (this.config.name || 'MONSTER').toUpperCase();
 
         this.position = initialPosition.clone();
@@ -204,6 +257,9 @@ export class Monster {
 
         this.noiseTimer = 3.0 + Math.random() * 8.0;
 
+        this.losTimer = Math.random() * 0.2;
+        this.hasLOS = false;
+
         this.pendingSpell = null;
         this.strafeDir = (Math.random() < 0.5 ? 1 : -1);
         this.strafeTimer = 0.0;
@@ -215,37 +271,15 @@ export class Monster {
     }
 
     createHealthBar() {
-        const canvas = document.createElement('canvas');
-        canvas.width = 256;
-        canvas.height = 64;
-
-        const texture = new THREE.CanvasTexture(canvas);
-        texture.minFilter = THREE.LinearFilter;
-
-        const spriteMat = new THREE.SpriteMaterial({
-            map: texture,
-            transparent: true,
-            depthTest: true,
-            depthWrite: false
-        });
-
-        const sprite = new THREE.Sprite(spriteMat);
+        const sprite = new THREE.Sprite(getHealthBarMaterial(this.name, this.health, this.config.maxHealth));
         sprite.scale.set(80, 20, 1);
-
         scene.add(sprite);
-
-        this.hpCanvas = canvas;
-        this.hpTexture = texture;
-        this.hpSpriteMat = spriteMat;
         this.hpSprite = sprite;
-
-        this.updateHealthBar();
     }
 
     updateHealthBar() {
-        if (!this.hpCanvas || !this.hpTexture) return;
-        drawHealthBarCanvas(this.hpCanvas, this.name, this.health, this.config.maxHealth);
-        this.hpTexture.needsUpdate = true;
+        if (!this.hpSprite) return;
+        this.hpSprite.material = getHealthBarMaterial(this.name, this.health, this.config.maxHealth);
     }
 
     updateTacticalMovement(dt, distToPlayer, otherMonsters, playerPos) {
@@ -483,11 +517,20 @@ export class Monster {
 
         this.tickAmbientNoise(dt, distToPlayer);
 
-        const eyePos = this.position.clone();
-        eyePos.y += 40.0;
-        const targetEyePos = playerPos.clone();
-        targetEyePos.y += 20.0;
-        const hasLOS = this.config.canCastSpells ? hasLineOfSight(eyePos, targetEyePos) : true;
+        // Line of sight only matters for casters that are inside their attack range, and a few checks a second are plenty.
+        let hasLOS = !this.config.canCastSpells;
+        if (this.config.canCastSpells && this.state !== MonsterState.IDLE && distToPlayer <= this.config.attackRange) {
+            this.losTimer -= dt;
+            if (this.losTimer <= 0) {
+                this.losTimer = 0.12 + Math.random() * 0.06;
+                _losEye.copy(this.position);
+                _losEye.y += 40.0;
+                _losTarget.copy(playerPos);
+                _losTarget.y += 20.0;
+                this.hasLOS = hasLineOfSight(_losEye, _losTarget);
+            }
+            hasLOS = this.hasLOS;
+        }
 
         switch (this.state) {
             case MonsterState.IDLE:
@@ -763,14 +806,24 @@ export function healPlayer(amount) {
 
 export function addPlayerXp(amount) {
     playerStats.xp += amount;
+    let leveledUp = false;
     while (playerStats.xp >= playerStats.nextXp) {
         playerStats.xp -= playerStats.nextXp;
         playerStats.level += 1;
         playerStats.nextXp = Math.floor(playerStats.nextXp * 1.5);
         playerStats.maxHealth += 20;
         playerStats.health = playerStats.maxHealth;
+        leveledUp = true;
     }
     updatePlayerHud();
+
+    if (leveledUp && controls && controls.getObject()) {
+        const pos = controls.getObject().position;
+        createPickupFloatingText(`LEVEL UP! LVL ${playerStats.level}`, pos, '#facc15');
+        createPickupParticleBurst(pos, 0xfacc15);
+        flashScreen(FLASH_PICKUP_XP, 0.6, 250);
+        playSound('treasure.wav', 0.8);
+    }
 }
 
 export function awardPlayerXp(amount) {
@@ -790,6 +843,8 @@ export function updatePlayerHud() {
     const xpPercent = Math.max(0, Math.min(100, (playerStats.xp / playerStats.nextXp) * 100));
 
     if (hpBar) hpBar.style.width = `${hpPercent}%`;
+    const lowHealthEl = hudEl('low-health');
+    if (lowHealthEl) lowHealthEl.classList.toggle('active', playerStats.health > 0 && hpPercent < 30);
     if (hpText) hpText.textContent = `${Math.ceil(playerStats.health)} / ${playerStats.maxHealth}`;
     if (xpBar) xpBar.style.width = `${xpPercent}%`;
     if (levelText) levelText.textContent = `LVL ${playerStats.level}`;
@@ -1001,7 +1056,14 @@ export function createExitTeleporterEffect(position) {
 
 export function clearTeleporters() {
     for (const tp of activeTeleporters) {
-        if (tp.group) scene.remove(tp.group);
+        if (tp.group) {
+            scene.remove(tp.group);
+            tp.group.traverse((child) => {
+                if (!child.isMesh) return;
+                child.geometry.dispose();
+                child.material.dispose();
+            });
+        }
         if (tp.lightSlot) releaseDynamicLight(tp.lightSlot);
     }
     activeTeleporters.length = 0;
@@ -2069,13 +2131,15 @@ export function clearCurrentWorld() {
     for (const m of monsters) {
         if (m.mesh) scene.remove(m.mesh);
         if (m.weaponMesh) scene.remove(m.weaponMesh);
-        if (m.hpSprite) {
-            scene.remove(m.hpSprite);
-            if (m.hpSpriteMat) m.hpSpriteMat.dispose();
-            if (m.hpTexture) m.hpTexture.dispose();
-        }
+        if (m.hpSprite) scene.remove(m.hpSprite);
     }
     monsters.length = 0;
+
+    for (const proj of activeProjectiles) {
+        scene.remove(proj.group);
+        releaseDynamicLight(proj.lightSlot);
+    }
+    activeProjectiles.length = 0;
 
     for (const pickup of activePickups) {
         if (pickup.mesh) scene.remove(pickup.mesh);
@@ -2459,38 +2523,51 @@ export async function loadGameWorld(textureManager, overrideMapText = null) {
 
     hudEl('obj-display').textContent = builtObjectCount;
     hudEl('light-display').textContent = lightCount;
+    const depthEl = hudEl('depth-display');
+    if (depthEl) depthEl.textContent = String(dungeonDepth);
 }
 
-export async function generateAndLoadNewLevel(textureManager) {
-    console.log("Generating new dungeon level...");
-    const newMapText = generateDungeon();
+let levelLoadInFlight = false;
+
+// descend: true when the player took the exit portal (deeper, tougher dungeon); false for a plain regenerate.
+export async function generateAndLoadNewLevel(textureManager, descend = false) {
+    if (levelLoadInFlight) return;
+    levelLoadInFlight = true;
     try {
-        localStorage.setItem('generatedLevel1Map', newMapText);
-    } catch (e) {
-        console.warn('Could not write to localStorage:', e);
-    }
+        if (descend) setDungeonDepth(dungeonDepth + 1);
 
-    await loadGameWorld(textureManager, newMapText);
-    await updateWeaponMesh();
-
-    if (controls) {
-        velocity.set(0, 0, 0);
-        if (playerStartPos) {
-            controls.getObject().position.copy(playerStartPos);
+        console.log("Generating new dungeon level...");
+        const newMapText = generateDungeon();
+        try {
+            localStorage.setItem('generatedLevel1Map', newMapText);
+        } catch (e) {
+            console.warn('Could not write to localStorage:', e);
         }
+
+        await loadGameWorld(textureManager, newMapText);
+        await updateWeaponMesh();
+
+        if (controls) {
+            velocity.set(0, 0, 0);
+            if (playerStartPos) {
+                controls.getObject().position.copy(playerStartPos);
+            }
+        }
+
+        playerStats.health = playerStats.maxHealth;
+        setPlayerDead(false);
+        const deathEl = hudEl('death-screen');
+        if (deathEl) deathEl.style.display = 'none';
+
+        updatePlayerHud();
+
+        playSound('spell3.wav', 0.8);
+
+        if (controls && controls.getObject()) {
+            createPickupFloatingText(descend ? `DUNGEON LEVEL ${dungeonDepth}` : 'NEW DUNGEON GENERATED!', controls.getObject().position, '#38bdf8');
+        }
+        flashScreen(FLASH_GREEN, 0.4, 200);
+    } finally {
+        levelLoadInFlight = false;
     }
-
-    playerStats.health = playerStats.maxHealth;
-    setPlayerDead(false);
-    const deathEl = hudEl('death-screen');
-    if (deathEl) deathEl.style.display = 'none';
-
-    updatePlayerHud();
-
-    playSound('spell3.wav', 0.8);
-
-    if (controls && controls.getObject()) {
-        createPickupFloatingText('NEW DUNGEON GENERATED!', controls.getObject().position, '#38bdf8');
-    }
-    flashScreen(FLASH_GREEN, 0.4, 200);
 }

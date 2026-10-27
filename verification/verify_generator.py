@@ -20,7 +20,7 @@ async def run():
         page.on("pageerror", lambda err: errors.append(str(err)))
         page.on("console", lambda msg: print(f"CONSOLE [{msg.type}]: {msg.text}"))
 
-        url = "http://localhost:8000/index.html"
+        url = "http://localhost:8000/index.html?run=1"
         print(f"Navigating to {url}...")
         await page.goto(url)
         await page.wait_for_timeout(2000)

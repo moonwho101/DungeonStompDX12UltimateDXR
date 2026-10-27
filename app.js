@@ -4,7 +4,7 @@ import {
     initRenderer, scene, camera, renderer, controls, setControls,
     hudEl, updateLighting, updateDistanceCulling, onWindowResize,
     normalMapsEnabled, setNormalMapsEnabled, textureManager,
-    createPickupFloatingText
+    createPickupFloatingText, updateAdaptiveResolution
 } from './render.js';
 import {
     velocity, CAPSULE_RADIUS, GRAVITY, JUMP_SPEED, modelBoxes,
@@ -27,7 +27,7 @@ import {
     getCurrentGunIndex, setCurrentGunIndex,
     cycleWeapon, updateWeaponMesh, triggerWeaponAttack,
     openNearbyDoor, SWISH_SOUNDS, IMPACT_SOUNDS, PLAYER_IMPACT_SOUNDS,
-    playSound, getRandomSound, preloadSounds, resumeAudio,
+    playSound, getRandomSound, preloadSounds, resumeAudio, getAudioContext,
     loadGameWorld, levelObjects, activePickups,
     playerWeaponCurrentAnim, generateAndLoadNewLevel,
     toggleMusic, isMusicOn, startNextMusicTrack, updateMusic
@@ -57,6 +57,14 @@ const forwardVector = new THREE.Vector3();
 const rightVector = new THREE.Vector3();
 let lastPosDisplayTime = 0;
 
+// The simulation only runs while the pointer is locked, so opening the menu (Esc),
+// switching tabs, or sitting on the title screen can't get the player killed.
+// Add ?run=1 to the URL to keep the simulation running without pointer lock (automated tests).
+const alwaysRun = new URLSearchParams(window.location.search).has('run');
+const PAUSED_RENDER_INTERVAL_MS = 250;
+let gameStarted = false;
+let lastPausedRender = 0;
+
 async function init() {
     const container = document.getElementById('canvas-container');
 
@@ -68,14 +76,16 @@ async function init() {
     const instructions = document.getElementById('instructions');
     instructions.addEventListener('click', () => {
         resumeAudio();
-        if (isMusicOn()) {
+        if (!gameStarted && isMusicOn()) {
             startNextMusicTrack();
         }
         newControls.lock();
     });
 
     newControls.addEventListener('lock', () => {
+        gameStarted = true;
         instructions.style.display = 'none';
+        resumeAudio();
     });
 
     const releaseInputs = () => {
@@ -85,7 +95,10 @@ async function init() {
 
     newControls.addEventListener('unlock', () => {
         instructions.style.display = 'block';
+        hudEl('instructions-prompt').textContent = 'Paused - click anywhere to resume';
         releaseInputs();
+        const audio = getAudioContext();
+        if (audio && audio.state === 'running') audio.suspend().catch(() => {});
     });
     window.addEventListener('blur', releaseInputs);
 
@@ -170,8 +183,13 @@ async function init() {
             case 'KeyP':
             case 'KeyM': {
                 const enabled = toggleMusic();
+                const musicEl = hudEl('music-display');
+                if (musicEl) {
+                    musicEl.textContent = enabled ? 'ON' : 'OFF';
+                    musicEl.style.color = enabled ? '#00ff88' : '#ef4444';
+                }
                 if (newControls && newControls.getObject()) {
-                    const text = enabled ? 'SOUND: ON' : 'SOUND: OFF';
+                    const text = enabled ? 'MUSIC: ON' : 'MUSIC: OFF';
                     const color = enabled ? '#22c55e' : '#ef4444';
                     createPickupFloatingText(text, newControls.getObject().position, color);
                 }
@@ -294,7 +312,20 @@ function animate() {
     requestAnimationFrame(animate);
 
     const time = performance.now();
-    let delta = (time - prevTime) / 1000;
+    const rawDelta = (time - prevTime) / 1000;
+    prevTime = time;
+
+    if (!alwaysRun && (!gameStarted || !controls.isLocked || document.hidden)) {
+        if (time - lastPausedRender >= PAUSED_RENDER_INTERVAL_MS) {
+            lastPausedRender = time;
+            renderer.render(scene, camera);
+        }
+        return;
+    }
+
+    updateAdaptiveResolution(rawDelta * 1000);
+
+    let delta = rawDelta;
     if (delta > 0.1) delta = 0.1;
 
     const moveSpeed = isSprinting ? 400.0 : 200.0;
@@ -409,8 +440,6 @@ function animate() {
             setFootstepTimer(0.3);
         }
     }
-
-    prevTime = time;
 
     const pos = controls.getObject().position;
     if (time - lastPosDisplayTime >= 100) {

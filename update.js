@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {
-    scene, controls, disposeOwnedResources,
+    scene, controls, disposeOwnedResources, textureManager,
     emitParticle, createPickupFloatingText, createPickupParticleBurst,
     flashScreen, FLASH_PICKUP_HEALTH, FLASH_PICKUP_XP,
     updatePickupEffects, updateExplosionFlashes, releaseDynamicLight
@@ -24,6 +24,7 @@ import {
 } from './logic.js';
 
 let teleporterTransitionCooldown = 0.0;
+const TELEPORTER_ANIMATION_RANGE_SQ = 2500.0 * 2500.0;
 
 // Player Movement State
 export let isFlyMode = false;
@@ -76,6 +77,14 @@ export function updateTeleporters(delta, playerPos) {
 
     for (const tp of activeTeleporters) {
         if (!tp || !tp.group) continue;
+
+        const dx = playerPos.x - tp.position.x;
+        const dz = playerPos.z - tp.position.z;
+        const distSq = dx * dx + dz * dz;
+
+        // Far-away portals are invisible through fog: skip animation and particles entirely.
+        if (distSq > TELEPORTER_ANIMATION_RANGE_SQ) continue;
+
         tp.timer += delta;
 
         // 1. Swirling Animation on Rings & Beam
@@ -120,10 +129,6 @@ export function updateTeleporters(delta, playerPos) {
         }
 
         // 3. Player Proximity & Level Transition Trigger
-        const dx = playerPos.x - tp.position.x;
-        const dz = playerPos.z - tp.position.z;
-        const distSq = dx * dx + dz * dz;
-
         if (distSq <= 75.0 * 75.0 && teleporterTransitionCooldown <= 0) {
             teleporterTransitionCooldown = 3.0;
 
@@ -131,9 +136,7 @@ export function updateTeleporters(delta, playerPos) {
             flashScreen(FLASH_PICKUP_XP, 0.8, 350);
             createPickupFloatingText('LEVEL COMPLETE! TELEPORTING...', playerPos, '#38bdf8');
 
-            if (window.textureManager) {
-                generateAndLoadNewLevel(window.textureManager);
-            }
+            generateAndLoadNewLevel(textureManager, true);
         }
     }
 }

@@ -23,7 +23,7 @@ def verify_sound_features():
 
         page.on("console", lambda msg: console_errors.append(msg.text) if msg.type == "error" else None)
 
-        page.goto("http://localhost:8080")
+        page.goto("http://localhost:8080/?run=1")
 
         # Wait for game world to load
         page.wait_for_function("() => window.monsters && window.monsters.length > 0", timeout=10000)

@@ -5,7 +5,7 @@ os.makedirs("/home/jules/verification/videos", exist_ok=True)
 os.makedirs("/home/jules/verification/screenshots", exist_ok=True)
 
 def run_cuj(page):
-    page.goto("http://localhost:8080")
+    page.goto("http://localhost:8080/?run=1")
 
     # Wait for game world to finish loading doors
     page.wait_for_function("() => window.doors && window.doors.length > 0", timeout=10000)
