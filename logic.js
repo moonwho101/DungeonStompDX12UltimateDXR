@@ -2272,7 +2272,10 @@ export async function loadGameWorld(textureManager, overrideMapText = null) {
                         model.position.set(inst.x, inst.y + 50, inst.z);
 
                         const angleRad = (inst.rot * Math.PI) / 180.0;
-                        model.rotation.y = angleRad;
+                        // Wall torches are generated with the level-geometry rotation direction, which is the
+                        // opposite of three.js rotation.y, so only they need the angle negated.
+                        const isWallTorch = cleanModelName === 'torch2';
+                        model.rotation.y = isWallTorch ? -angleRad + Math.PI : angleRad;
 
                         scene.add(model);
                         addLevelObject(model, new THREE.Vector3(inst.x, inst.y + 50, inst.z));
