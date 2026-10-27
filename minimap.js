@@ -165,13 +165,15 @@ export function updateMinimap(playerPos, camera) {
     // Render player marker & direction cone
     const lookDir = new THREE.Vector3();
     camera.getWorldDirection(lookDir);
-    const yaw = Math.atan2(lookDir.x, lookDir.z);
+    // 2D canvas angle where +X is RIGHT (0 rad) and +Z is DOWN (PI/2 rad)
+    const angle = Math.atan2(lookDir.z, lookDir.x);
 
-    // Player direction FOV cone
-    ctx.fillStyle = 'rgba(251, 191, 36, 0.18)';
+    // Player direction FOV cone / flashlight
+    const fovHalfAngle = 0.4;
+    ctx.fillStyle = 'rgba(251, 191, 36, 0.22)';
     ctx.beginPath();
     ctx.moveTo(center, center);
-    ctx.arc(center, center, 28, yaw - Math.PI / 2 - 0.4, yaw - Math.PI / 2 + 0.4);
+    ctx.arc(center, center, 28, angle - fovHalfAngle, angle + fovHalfAngle);
     ctx.closePath();
     ctx.fill();
 
@@ -182,16 +184,16 @@ export function updateMinimap(playerPos, camera) {
     ctx.beginPath();
     const arrowLen = 8;
     ctx.moveTo(
-        center + Math.sin(yaw) * arrowLen,
-        center + Math.cos(yaw) * arrowLen
+        center + Math.cos(angle) * arrowLen,
+        center + Math.sin(angle) * arrowLen
     );
     ctx.lineTo(
-        center + Math.sin(yaw + 2.5) * (arrowLen * 0.7),
-        center + Math.cos(yaw + 2.5) * (arrowLen * 0.7)
+        center + Math.cos(angle + 2.5) * (arrowLen * 0.7),
+        center + Math.sin(angle + 2.5) * (arrowLen * 0.7)
     );
     ctx.lineTo(
-        center + Math.sin(yaw - 2.5) * (arrowLen * 0.7),
-        center + Math.cos(yaw - 2.5) * (arrowLen * 0.7)
+        center + Math.cos(angle - 2.5) * (arrowLen * 0.7),
+        center + Math.sin(angle - 2.5) * (arrowLen * 0.7)
     );
     ctx.closePath();
     ctx.fill();
