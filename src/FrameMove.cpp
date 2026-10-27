@@ -8,7 +8,10 @@
 #include "Missle.hpp"
 #include "FrameMove.hpp"
 #include "CameraBob.hpp"
+#include "col_local.h"
 
+extern CollisionPacket collisionPackage;
+extern XMFLOAT3 eTest;
 extern int gravityon;
 int movement = 1;
 void PlayerJump(const FLOAT &fTimeKey);
