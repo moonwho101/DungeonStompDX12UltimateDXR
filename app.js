@@ -15,7 +15,7 @@ import {
     direction, cameraQuaternion, worldDir, isFlyMode,
     toggleFlyMode, isGrounded, setIsGrounded,
     jumpRequested, setJumpRequested, footstepTimer, setFootstepTimer,
-    updateDoors, updatePickups, updateProjectiles, updatePlayerWeaponAnimation
+    updateDoors, updatePickups, updateProjectiles, updateTeleporters, updatePlayerWeaponAnimation
 } from './update.js';
 import {
     MD2_ANIMATIONS, DEFAULT_MONSTER_CONFIG, MONSTER_CONFIGS,
@@ -415,6 +415,8 @@ function animate() {
     updateProjectiles(delta);
 
     updatePickups(delta, pos);
+
+    updateTeleporters(delta, pos);
 
     updateDoors(delta);
 

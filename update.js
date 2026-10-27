@@ -11,17 +11,19 @@ import {
     gatherNearbyTriangles, gatherNearbyBoxes, closestPointTrianglePoint
 } from './collision.js';
 import {
-    levelObjects, activePickups, activeProjectiles,
+    levelObjects, activePickups, activeProjectiles, activeTeleporters,
     PROJECTILE_TYPES, PLAYER_GUNS, unlockedWeapons, spellCounts,
-    setCurrentGunIndex, getCurrentGunMesh,
+    setCurrentGunIndex, getCurrentGunMesh, generateAndLoadNewLevel,
     MD2_ANIMATIONS, healPlayer, addPlayerXp,
-    updatePlayerHud, playPickupSound,
+    updatePlayerHud, playPickupSound, playSound,
     triggerSpellExplosion, triggerMonsterSpellExplosion, checkPlayerAttackHit,
     updateWeaponMesh, playerWeaponCurrentAnim, playerWeaponAnimTimer,
     setPlayerWeaponAnimTimer, setPlayerWeaponCurrentAnim,
     isWeaponAttacking, setIsWeaponAttacking,
     hasWeaponHitThisSwing, setHasWeaponHitThisSwing, playerWeaponActiveInfluences
 } from './logic.js';
+
+let teleporterTransitionCooldown = 0.0;
 
 // Player Movement State
 export let isFlyMode = false;
@@ -66,6 +68,75 @@ export function setFootstepTimer(val) {
 // Tick Updates
 const PICKUP_DISTANCE = 70.0;
 const PICKUP_DISTANCE_SQ = PICKUP_DISTANCE * PICKUP_DISTANCE;
+
+export function updateTeleporters(delta, playerPos) {
+    if (teleporterTransitionCooldown > 0) {
+        teleporterTransitionCooldown -= delta;
+    }
+
+    for (const tp of activeTeleporters) {
+        if (!tp || !tp.group) continue;
+        tp.timer += delta;
+
+        // 1. Swirling Animation on Rings & Beam
+        if (tp.beamMesh) {
+            tp.beamMesh.rotation.y += delta * 1.5;
+            tp.beamMesh.material.opacity = 0.25 + Math.sin(tp.timer * 4.0) * 0.15;
+        }
+        if (tp.coreMesh) {
+            tp.coreMesh.rotation.y -= delta * 2.5;
+            tp.coreMesh.material.opacity = 0.5 + Math.cos(tp.timer * 6.0) * 0.2;
+        }
+
+        if (tp.rings) {
+            for (let r = 0; r < tp.rings.length; r++) {
+                const ring = tp.rings[r];
+                const dir = (r % 2 === 0) ? 1 : -1;
+                ring.rotation.z += delta * (2.0 + r * 0.8) * dir;
+                ring.position.y = 15 + r * 45 + Math.sin(tp.timer * 3.0 + r) * 12.0;
+                ring.scale.setScalar(1.0 + Math.sin(tp.timer * 2.0 + r) * 0.15);
+            }
+        }
+
+        // 2. Ascending Spiral Particles
+        if (Math.random() < 0.8) {
+            for (let k = 0; k < 3; k++) {
+                const angle = tp.timer * 8.0 + (k * Math.PI * 2 / 3);
+                const radius = 30 + Math.sin(tp.timer * 5.0 + k) * 10;
+                const px = tp.position.x + Math.cos(angle) * radius;
+                const pz = tp.position.z + Math.sin(angle) * radius;
+                const py = tp.position.y + Math.random() * 20;
+
+                emitParticle(
+                    px, py, pz,
+                    -Math.sin(angle) * 40,
+                    120 + Math.random() * 80,
+                    Math.cos(angle) * 40,
+                    (k % 2 === 0) ? 0x38bdf8 : 0xc084fc,
+                    10,
+                    0.8
+                );
+            }
+        }
+
+        // 3. Player Proximity & Level Transition Trigger
+        const dx = playerPos.x - tp.position.x;
+        const dz = playerPos.z - tp.position.z;
+        const distSq = dx * dx + dz * dz;
+
+        if (distSq <= 75.0 * 75.0 && teleporterTransitionCooldown <= 0) {
+            teleporterTransitionCooldown = 3.0;
+
+            playSound('spell3.wav', 0.9);
+            flashScreen(FLASH_PICKUP_XP, 0.8, 350);
+            createPickupFloatingText('LEVEL COMPLETE! TELEPORTING...', playerPos, '#38bdf8');
+
+            if (window.textureManager) {
+                generateAndLoadNewLevel(window.textureManager);
+            }
+        }
+    }
+}
 
 export function updatePickups(delta, playerPos) {
     updatePickupEffects(delta);
