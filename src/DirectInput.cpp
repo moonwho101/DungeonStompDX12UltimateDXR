@@ -507,78 +507,65 @@ VOID UpdateControls() {
 
 		// Read Keyboard input only
 		if (g_Keyboard_pdidDevice2) {
-			Controls.Escape = diks[DIK_ESCAPE] && 0x80;
-			Controls.bLeft = diks[DIK_A] && 0x80;
-			Controls.bRight = diks[DIK_D] && 0x80;
-			Controls.bForward = diks[DIK_W] && 0x80;
-			Controls.bBackward = diks[DIK_S] && 0x80;
-			Controls.bUp = diks[DIK_NUMPADPLUS] && 0x80;
-			Controls.bDown = diks[DIK_NUMPADMINUS] && 0x80;
-			Controls.bHeadUp = diks[DIK_PGUP] && 0x80;
-			Controls.bHeadDown = diks[DIK_PGDN] && 0x80;
-			Controls.bStepLeft = diks[DIK_COMMA] && 0x80;
-			Controls.bStepRight = diks[DIK_PERIOD] && 0x80;
-			Controls.bPrevWeap = diks[DIK_Z] && 0x80;
-			Controls.bNextWeap = diks[DIK_Q] && 0x80;
-			Controls.bInTalkMode = diks[DIK_SLASH] && 0x80;
-			Controls.opendoor = diks[DIK_SPACE] && 0x80;
-			Controls.bFire2 = diks[DIK_END] && 0x80;
-			Controls.bCameraleft = diks[DIK_LSHIFT] && 0x80;
-			Controls.bCameraright = diks[DIK_RSHIFT] && 0x80;
-			Controls.missle = diks[DIK_E] && 0x80;
-			Controls.bFire = diks[DIK_RCONTROL] && 0x80;
-			Controls.spell = diks[DIK_RCONTROL] && 0x80;
-			Controls.xp = diks[DIK_X] && 0x80;
-			Controls.bDisableGravity = diks[DIK_G] && 0x80;
-			Controls.bLoadGame = diks[DIK_F5] && 0x80;
-			Controls.bSaveGame = diks[DIK_F6] && 0x80;
-			Controls.bNextSong = diks[DIK_P] && 0x80;
-			Controls.bGiveAllWeapons = diks[DIK_K] && 0x80;
-			Controls.bMusicOn = diks[DIK_I] && 0x80;
-			Controls.bNextLevel = diks[DIK_RBRACKET] && 0x80;
-			Controls.bPreviousLevel = diks[DIK_LBRACKET] && 0x80;
+			Controls.Escape = (diks[DIK_ESCAPE] & 0x80) != 0;
+			Controls.bStepLeft = ((diks[DIK_A] & 0x80) != 0) || ((diks[DIK_LEFT] & 0x80) != 0) || ((diks[DIK_COMMA] & 0x80) != 0);
+			Controls.bStepRight = ((diks[DIK_D] & 0x80) != 0) || ((diks[DIK_RIGHT] & 0x80) != 0) || ((diks[DIK_PERIOD] & 0x80) != 0);
+			Controls.bForward = ((diks[DIK_W] & 0x80) != 0) || ((diks[DIK_UP] & 0x80) != 0);
+			Controls.bBackward = ((diks[DIK_S] & 0x80) != 0) || ((diks[DIK_DOWN] & 0x80) != 0);
+			Controls.bSprint = ((diks[DIK_LSHIFT] & 0x80) != 0) || ((diks[DIK_RSHIFT] & 0x80) != 0);
+			Controls.bUp = ((diks[DIK_SPACE] & 0x80) != 0) || ((diks[DIK_NUMPADPLUS] & 0x80) != 0);
+			Controls.bDown = ((diks[DIK_C] & 0x80) != 0) || ((diks[DIK_LCONTROL] & 0x80) != 0) || ((diks[DIK_RCONTROL] & 0x80) != 0) || ((diks[DIK_NUMPADMINUS] & 0x80) != 0);
+			Controls.bHeadUp = (diks[DIK_PGUP] & 0x80) != 0;
+			Controls.bHeadDown = (diks[DIK_PGDN] & 0x80) != 0;
+			Controls.bPrevWeap = (diks[DIK_Z] & 0x80) != 0;
+			Controls.bNextWeap = (diks[DIK_Q] & 0x80) != 0;
+			Controls.bInTalkMode = (diks[DIK_SLASH] & 0x80) != 0;
+			Controls.opendoor = (diks[DIK_E] & 0x80) != 0;
+			Controls.missle = (diks[DIK_SPACE] & 0x80) != 0; // Space key triggers Jump
+			Controls.bJump = (diks[DIK_SPACE] & 0x80) != 0;
+			Controls.bFire2 = (diks[DIK_END] & 0x80) != 0;
+			Controls.bFire = (diks[DIK_RCONTROL] & 0x80) != 0;
+			Controls.spell = (diks[DIK_RCONTROL] & 0x80) != 0;
+			Controls.xp = (diks[DIK_X] & 0x80) != 0;
+			Controls.bDisableGravity = ((diks[DIK_F] & 0x80) != 0) || ((diks[DIK_V] & 0x80) != 0) || ((diks[DIK_G] & 0x80) != 0);
+			Controls.bLoadGame = (diks[DIK_F5] & 0x80) != 0;
+			Controls.bSaveGame = (diks[DIK_F6] & 0x80) != 0;
+			Controls.bNextSong = (diks[DIK_P] & 0x80) != 0;
+			Controls.bGiveAllWeapons = ((diks[DIK_K] & 0x80) != 0) || ((diks[DIK_P] & 0x80) != 0);
+			Controls.bMusicOn = (diks[DIK_I] & 0x80) != 0;
+			Controls.bNextLevel = (diks[DIK_RBRACKET] & 0x80) != 0;
+			Controls.bPreviousLevel = (diks[DIK_LBRACKET] & 0x80) != 0;
 		}
 
 		// Read mouse input
 		if (g_bUseMouse) {
-			Controls.bLeft = 0;
-			Controls.bRight = 0;
-			Controls.bHeadUp = 0;
-			Controls.bHeadDown = 0;
+			Controls.bFire = (dims.rgbButtons[0] & 0x80) != 0;
+			Controls.spell = (dims.rgbButtons[0] & 0x80) != 0;
 
-			int threshhold = 5;
+			if (dims.rgbButtons[1] & 0x80) {
+				Controls.bForward = TRUE;
+			}
 
-			if (dims.lX < 0)
-				Controls.bLeft = dims.lX;
-			if (dims.lX > 0)
-				Controls.bRight = dims.lX;
+			// Direct, 1:1 responsive mouse look (matching Three.js PointerLockControls)
+			float mouseSens = 0.12f;
+			angy += (float)dims.lX * mouseSens;
+			look_up_ang += (float)dims.lY * mouseSens;
 
-			if (dims.lY < 0)
-				Controls.bHeadUp = dims.lY;
-			if (dims.lY > 0)
-				Controls.bHeadDown = dims.lY;
+			if (look_up_ang < -89.3f)
+				look_up_ang = -89.3f;
+			if (look_up_ang > 89.3f)
+				look_up_ang = 89.3f;
 
-			Controls.bFire = dims.rgbButtons[0] && 0x80;
-			Controls.opendoor = diks[DIK_SPACE] && 0x80;
-			Controls.bForward = dims.rgbButtons[1] && 0x80;
-
-			if (Controls.bForward == 0)
-				Controls.bForward = diks[DIK_W] && 0x80;
-
-			Controls.bStepLeft = diks[DIK_A] && 0x80;
-			Controls.bStepRight = diks[DIK_D] && 0x80;
-
-			Controls.bBackward = diks[DIK_S] && 0x80;
-			Controls.spell = dims.rgbButtons[0] && 0x80;
-
-			Controls.missle = diks[DIK_E] && 0x80;
+			while (angy >= 360.0f)
+				angy -= 360.0f;
+			while (angy < 0.0f)
+				angy += 360.0f;
 
 			// Mouse wheel: cycle weapons
 			if (dims.lZ > 0)
 				Controls.bNextWeap = 1;
 			else if (dims.lZ < 0)
 				Controls.bPrevWeap = 1;
-
 		}
 
 		// Read joystick input
