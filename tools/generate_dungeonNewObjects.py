@@ -188,8 +188,16 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
     # Start with a single corridor at some coordinate base
     print("Placing initial starting CORRIDOR01...")
     start_bounds = get_world_bounds_full('CORRIDOR01', start_x, start_z, 0)
-    start_piece = {'name': 'CORRIDOR01', 'x': start_x, 'y': 0.0, 'z': start_z, 'rot': 0, 'bounds': start_bounds}
+    start_piece = {'name': 'CORRIDOR01', 'x': start_x, 'y': 0.0, 'z': start_z, 'rot': 0, 'bounds': start_bounds, 'used_slots': {(0.0, 0.0)}}
     placed.append(start_piece)
+
+    # Place start circle (without spiral/teleport) at startpos center
+    entities.append({
+        'type': 'circle',
+        'x': start_x, 'y': -41.0 + 40.0, 'z': start_z,
+        'rot': 0, 'name': '0', 'id': entity_id_idx, 'state': 2
+    })
+    entity_id_idx += 1
 
     open_exits = []
     # Add exits for the first room
@@ -743,9 +751,11 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
 
     # --- Add a single teleport exit at the deepest dungeon location ---
     if placed:
-        deepest_piece = min(placed, key=lambda p: p.get('y', 0.0))
+        # Filter out CORRIDOR02 (a slope) from being selected for exit circle/spiral portal
+        candidate_pieces = [p for p in placed if p['name'] != 'CORRIDOR02']
+        deepest_piece = min(candidate_pieces, key=lambda p: p.get('y', 0.0)) if candidate_pieces else placed[0]
         tx = deepest_piece['x']
-        ty = deepest_piece['y']
+        ty = deepest_piece.get('y', 0.0)
         tz = deepest_piece['z']
         deepest_name = deepest_piece['name']
         deepest_rot = deepest_piece['rot']
