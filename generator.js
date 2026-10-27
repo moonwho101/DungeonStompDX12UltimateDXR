@@ -736,13 +736,6 @@ export function generateDungeon({ startX = 5200, startZ = 2600, seed = null, num
             'rot': 0, 'name': '-1', 'id': entity_id_idx, 'state': 2
         });
         entity_id_idx++;
-
-        entities.push({
-            'type': '!flarenohit',
-            'x': tx, 'y': ty + 40.0, 'z': tz,
-            'rot': 0, 'name': 'flare@1', 'id': entity_id_idx, 'state': 2
-        });
-        entity_id_idx++;
     }
 
     const lines = [];

@@ -7,6 +7,7 @@ import {
     scene, camera, controls, hudEl, flashScreen, FLASH_RED, FLASH_GREEN, FLASH_PICKUP_XP,
     getSharedMaterial, applyNormalMap, registerLamp, clearLamps, disposeOwnedResources,
     emitParticle, createPickupFloatingText, createPickupParticleBurst, createTreasureDropEffect,
+    createBloodSplatter, clearBlood,
     acquireDynamicLight, releaseDynamicLight, EXPLOSION_FLASH_INTENSITY,
     explosionFlashes, haloTexture
 } from './render.js';
@@ -1224,7 +1225,21 @@ export function checkPlayerAttackHit() {
     if (closestMonster) {
         const gunName = PLAYER_GUNS[currentGunIndex] || '';
         const damage = WEAPON_DAMAGE[gunName] || 25;
+
+        // Capture body bounds before takeDamage, which clears them on death.
+        const box = closestMonster.boundingBox;
+        const hasBox = !box.isEmpty();
+        const feetY = hasBox ? box.min.y : closestMonster.position.y;
+        const height = hasBox ? Math.max(20, box.max.y - box.min.y) : 60;
+        const hitPos = new THREE.Vector3(
+            closestMonster.position.x - playerDir.x * 12,
+            feetY + height * (0.55 + Math.random() * 0.2),
+            closestMonster.position.z - playerDir.z * 12);
+        const maxHealth = closestMonster.config.maxHealth || 20;
+
         closestMonster.takeDamage(damage);
+        const killed = closestMonster.health <= 0;
+        createBloodSplatter(hitPos, playerDir, damage / maxHealth, feetY, closestMonster.config.bloodColor || 0x9a0a0a, killed);
         playSound(getRandomSound(IMPACT_SOUNDS), 0.6);
     }
 }
@@ -2157,6 +2172,7 @@ export function clearCurrentWorld() {
     chests.length = 0;
 
     clearLamps();
+    clearBlood();
     clearTeleporters();
     levelTriangles.length = 0;
     modelBoxes.length = 0;

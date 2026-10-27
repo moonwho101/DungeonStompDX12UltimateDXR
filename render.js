@@ -658,6 +658,9 @@ export function updateParticleScale() {
     if (particles.material && renderer) {
         particles.material.uniforms.scale.value = window.innerHeight * 0.5 * renderer.getPixelRatio();
     }
+    if (blood.material && renderer) {
+        blood.material.uniforms.scale.value = window.innerHeight * 0.5 * renderer.getPixelRatio();
+    }
 }
 
 export function emitParticle(x, y, z, vx, vy, vz, colorHex, size, life) {
@@ -737,6 +740,418 @@ export function updateParticles(delta) {
     geometry.attributes.position.needsUpdate = true;
     geometry.attributes.color.needsUpdate = true;
     geometry.attributes.size.needsUpdate = true;
+}
+
+// Blood System: alpha-blended droplets and mist (so it reads as blood rather than glow),
+// plus pooled splat decals that stain the floor.
+const MAX_BLOOD = 1792;
+const BLOOD_GRAVITY = 620.0;
+const BLOOD_PALETTE = [0x8b0000, 0xa80a0a, 0xc41212, 0x6a0808, 0x7d0d0d];
+const MAX_BLOOD_DECALS = 56;
+const BLOOD_DECAL_HOLD = 20.0;
+const BLOOD_DECAL_FADE = 5.0;
+const KIND_DROPLET = 0;
+const KIND_MIST = 1;
+
+const blood = {
+    positions: new Float32Array(MAX_BLOOD * 3),
+    velocities: new Float32Array(MAX_BLOOD * 3),
+    colors: new Float32Array(MAX_BLOOD * 4),
+    sizes: new Float32Array(MAX_BLOOD),
+    softness: new Float32Array(MAX_BLOOD),
+    baseSizes: new Float32Array(MAX_BLOOD),
+    ages: new Float32Array(MAX_BLOOD),
+    lifetimes: new Float32Array(MAX_BLOOD),
+    gravity: new Float32Array(MAX_BLOOD),
+    drag: new Float32Array(MAX_BLOOD),
+    growth: new Float32Array(MAX_BLOOD),
+    floorY: new Float32Array(MAX_BLOOD),
+    trail: new Uint8Array(MAX_BLOOD),
+    next: 0,
+    highWater: 0,
+    alive: 0,
+    points: null,
+    material: null,
+    decals: [],
+    decalNext: 0,
+    decalTextures: [],
+    decalGeometry: null
+};
+const _bloodColor = new THREE.Color();
+
+function ensureBloodSystem() {
+    if (blood.points) return;
+
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(blood.positions, 3).setUsage(THREE.DynamicDrawUsage));
+    geometry.setAttribute('aColor', new THREE.BufferAttribute(blood.colors, 4).setUsage(THREE.DynamicDrawUsage));
+    geometry.setAttribute('size', new THREE.BufferAttribute(blood.sizes, 1).setUsage(THREE.DynamicDrawUsage));
+    geometry.setAttribute('aSoft', new THREE.BufferAttribute(blood.softness, 1).setUsage(THREE.DynamicDrawUsage));
+    geometry.setDrawRange(0, 0);
+
+    blood.material = new THREE.ShaderMaterial({
+        uniforms: { scale: { value: window.innerHeight * 0.5 } },
+        vertexShader: `
+            attribute float size;
+            attribute vec4 aColor;
+            attribute float aSoft;
+            uniform float scale;
+            varying vec4 vColor;
+            varying float vSoft;
+            void main() {
+                vColor = aColor;
+                vSoft = aSoft;
+                vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                gl_PointSize = clamp(size * (scale / -mvPosition.z), 1.0, 220.0);
+                gl_Position = projectionMatrix * mvPosition;
+            }`,
+        fragmentShader: `
+            varying vec4 vColor;
+            varying float vSoft;
+            void main() {
+                vec2 p = gl_PointCoord * 2.0 - 1.0;
+                float d = length(p);
+                if (d > 1.0) discard;
+                float crisp = smoothstep(1.0, 0.8, d);
+                float puff = pow(1.0 - d, 1.6);
+                float shape = mix(crisp, puff, vSoft);
+                vec3 rgb = vColor.rgb * mix(mix(0.55, 1.0, smoothstep(1.0, 0.45, d)), 1.0, vSoft);
+                float highlight = smoothstep(0.4, 0.0, length(p - vec2(-0.32, -0.32)));
+                rgb += vec3(0.75, 0.35, 0.3) * highlight * (1.0 - vSoft) * vColor.a;
+                gl_FragColor = vec4(rgb, vColor.a * shape);
+            }`,
+        transparent: true,
+        depthWrite: false
+    });
+
+    blood.points = new THREE.Points(geometry, blood.material);
+    blood.points.frustumCulled = false;
+    blood.points.renderOrder = 2;
+    scene.add(blood.points);
+    updateParticleScale();
+}
+
+function createBloodDecalTexture(seed) {
+    const size = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    const half = size / 2;
+    let s = seed * 9301 + 49297;
+    const rand = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
+
+    const blob = (x, y, rx, ry, rot, alpha) => {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(rot);
+        ctx.scale(1, ry / rx);
+        const g = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
+        g.addColorStop(0, `rgba(96,6,6,${alpha})`);
+        g.addColorStop(0.7, `rgba(74,4,4,${alpha * 0.9})`);
+        g.addColorStop(1, 'rgba(60,2,2,0)');
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(0, 0, rx, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    };
+
+    blob(half, half, 20 + rand() * 8, 16 + rand() * 8, rand() * Math.PI, 0.95);
+    for (let i = 0; i < 5; i++) {
+        const a = rand() * Math.PI * 2;
+        const r = 10 + rand() * 12;
+        blob(half + Math.cos(a) * r, half + Math.sin(a) * r, 8 + rand() * 8, 6 + rand() * 6, a, 0.9);
+    }
+    // Radial streaks and satellite droplets thrown outward from the impact.
+    for (let i = 0; i < 16; i++) {
+        const a = rand() * Math.PI * 2;
+        const r = 26 + rand() * 32;
+        const rad = 2 + rand() * (r > 48 ? 2.5 : 5);
+        blob(half + Math.cos(a) * r, half + Math.sin(a) * r, rad * 2.2, rad, a, 0.95);
+    }
+    for (let i = 0; i < 5; i++) {
+        const a = rand() * Math.PI * 2;
+        const len = 18 + rand() * 20;
+        for (let k = 0; k < 4; k++) {
+            const r = 14 + k * (len / 4);
+            const rad = 5 - k;
+            blob(half + Math.cos(a) * r, half + Math.sin(a) * r, rad * 2, rad, a, 0.9);
+        }
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    return texture;
+}
+
+function ensureBloodDecals() {
+    if (blood.decals.length) return;
+    blood.decalGeometry = new THREE.PlaneGeometry(1, 1);
+    blood.decalGeometry.rotateX(-Math.PI / 2);
+    for (let i = 0; i < 5; i++) blood.decalTextures.push(createBloodDecalTexture(i + 1));
+    for (let i = 0; i < MAX_BLOOD_DECALS; i++) {
+        const material = new THREE.MeshBasicMaterial({
+            map: blood.decalTextures[i % blood.decalTextures.length],
+            transparent: true,
+            depthWrite: false,
+            polygonOffset: true,
+            polygonOffsetFactor: -4,
+            polygonOffsetUnits: -4
+        });
+        const mesh = new THREE.Mesh(blood.decalGeometry, material);
+        mesh.visible = false;
+        mesh.frustumCulled = true;
+        mesh.renderOrder = 1;
+        scene.add(mesh);
+        blood.decals.push({ mesh, material, active: false, age: 0, targetSize: 1, growTime: 0.15 });
+    }
+}
+
+function spawnBloodDecal(x, floorY, z, size, growTime = 0.15, shade = 1.0) {
+    ensureBloodDecals();
+    const decal = blood.decals[blood.decalNext];
+    blood.decalNext = (blood.decalNext + 1) % blood.decals.length;
+    decal.active = true;
+    decal.age = 0;
+    decal.targetSize = size;
+    decal.growTime = growTime;
+    decal.mesh.visible = true;
+    decal.mesh.position.set(x, floorY + 0.8, z);
+    decal.mesh.rotation.y = Math.random() * Math.PI * 2;
+    decal.mesh.scale.setScalar(size * 0.3);
+    decal.material.map = blood.decalTextures[Math.floor(Math.random() * blood.decalTextures.length)];
+    decal.material.color.setScalar(shade);
+    decal.material.opacity = 1;
+    decal.material.needsUpdate = true;
+}
+
+function emitBlood(x, y, z, vx, vy, vz, r, g, b, a, size, life, gravity, drag, growth, soft, floorY, trail) {
+    ensureBloodSystem();
+
+    let slot = -1;
+    for (let n = 0; n < MAX_BLOOD; n++) {
+        const candidate = (blood.next + n) % MAX_BLOOD;
+        if (blood.lifetimes[candidate] <= 0) {
+            slot = candidate;
+            break;
+        }
+    }
+    if (slot === -1) {
+        slot = blood.next;
+        blood.alive--;
+    }
+    blood.next = (slot + 1) % MAX_BLOOD;
+
+    const i3 = slot * 3;
+    const i4 = slot * 4;
+    blood.positions[i3] = x;
+    blood.positions[i3 + 1] = y;
+    blood.positions[i3 + 2] = z;
+    blood.velocities[i3] = vx;
+    blood.velocities[i3 + 1] = vy;
+    blood.velocities[i3 + 2] = vz;
+    blood.colors[i4] = r;
+    blood.colors[i4 + 1] = g;
+    blood.colors[i4 + 2] = b;
+    blood.colors[i4 + 3] = a;
+    blood.sizes[slot] = blood.baseSizes[slot] = size;
+    blood.softness[slot] = soft;
+    blood.ages[slot] = 0;
+    blood.lifetimes[slot] = life;
+    blood.gravity[slot] = gravity;
+    blood.drag[slot] = drag;
+    blood.growth[slot] = growth;
+    blood.floorY[slot] = floorY;
+    blood.trail[slot] = trail ? 1 : 0;
+
+    blood.alive++;
+    if (slot >= blood.highWater) blood.highWater = slot + 1;
+}
+
+/**
+ * Sprays blood from a point. `dir` is the direction the blow travels (attacker -> victim).
+ * `severity` in [0,1] scales the amount; `killed` adds a heavy gush and a pooling puddle.
+ */
+export function createBloodSplatter(pos, dir, severity = 0.5, floorY = pos.y - 40, baseColorHex = 0x9a0a0a, killed = false) {
+    ensureBloodSystem();
+    const sev = Math.min(1, Math.max(0.15, severity));
+    const boost = killed ? 2.0 : 1.0;
+    _bloodColor.setHex(baseColorHex);
+    const br = _bloodColor.r, bg = _bloodColor.g, bb = _bloodColor.b;
+
+    const dx = dir.x, dz = dir.z;
+    const flat = Math.hypot(dx, dz) || 1;
+    const fx = dx / flat, fz = dz / flat;
+
+    // Fine spray droplets
+    const dropletCount = Math.round((18 + 46 * sev) * boost);
+    for (let i = 0; i < dropletCount; i++) {
+        const back = Math.random() < 0.22;
+        const spread = 0.35 + Math.random() * 0.75;
+        const speed = (110 + Math.random() * 260) * (0.7 + sev * 0.5) * (back ? 0.6 : 1);
+        const sign = back ? -1 : 1;
+        const vx = (fx * sign + (Math.random() - 0.5) * 2 * spread) * speed;
+        const vz = (fz * sign + (Math.random() - 0.5) * 2 * spread) * speed;
+        const vy = (Math.random() * 0.9 - 0.15) * speed * 0.9 + 40;
+        const shade = 0.45 + Math.random() * 0.8;
+        const big = Math.random() < 0.18;
+        const size = big ? 2.6 + Math.random() * 2.4 : 1.1 + Math.random() * 2.0;
+        emitBlood(
+            pos.x + (Math.random() - 0.5) * 6, pos.y + (Math.random() - 0.5) * 8, pos.z + (Math.random() - 0.5) * 6,
+            vx, vy, vz,
+            Math.min(1, br * shade), Math.min(1, bg * shade), Math.min(1, bb * shade), 1.0,
+            size, 1.6 + Math.random() * 0.8, BLOOD_GRAVITY, 0.25, 0, KIND_DROPLET, floorY, big && Math.random() < 0.6);
+    }
+
+    // Thick wet mist that billows and settles
+    const mistCount = Math.round((7 + 9 * sev) * boost);
+    for (let i = 0; i < mistCount; i++) {
+        const speed = 40 + Math.random() * 150;
+        const shade = 0.5 + Math.random() * 0.5;
+        emitBlood(
+            pos.x + (Math.random() - 0.5) * 8, pos.y + (Math.random() - 0.5) * 10, pos.z + (Math.random() - 0.5) * 8,
+            (fx * 0.8 + (Math.random() - 0.5) * 1.4) * speed, (Math.random() - 0.1) * speed * 0.6, (fz * 0.8 + (Math.random() - 0.5) * 1.4) * speed,
+            br * shade, bg * shade, bb * shade, 0.55 + Math.random() * 0.25,
+            9 + Math.random() * 12 + sev * 6, 0.45 + Math.random() * 0.35, 40, 3.2, 1.4, KIND_MIST, floorY, false);
+    }
+
+    // Bright arterial fan on heavy hits and kills
+    if (sev > 0.45 || killed) {
+        const jets = killed ? 7 : 3;
+        for (let j = 0; j < jets; j++) {
+            const ang = Math.atan2(fz, fx) + (Math.random() - 0.5) * 2.2;
+            const jx = Math.cos(ang), jz = Math.sin(ang);
+            const jetSpeed = 260 + Math.random() * 220;
+            const jetUp = 120 + Math.random() * 200;
+            for (let k = 0; k < 7; k++) {
+                const sp = jetSpeed * (0.8 + Math.random() * 0.4);
+                emitBlood(
+                    pos.x, pos.y, pos.z,
+                    jx * sp, jetUp * (0.8 + Math.random() * 0.4), jz * sp,
+                    Math.min(1, br * 1.25), bg * 0.9, bb * 0.9, 1.0,
+                    2.2 + Math.random() * 1.8, 1.4 + Math.random() * 0.5, BLOOD_GRAVITY, 0.1, 0, KIND_DROPLET, floorY, true);
+            }
+        }
+    }
+
+    // Immediate stain at the victim's feet so each hit leaves a mark even before droplets land
+    spawnBloodDecal(pos.x + fx * 14, floorY, pos.z + fz * 14, 26 + 34 * sev * boost, 0.2);
+    if (killed) {
+        spawnBloodDecal(pos.x, floorY, pos.z, 85 + Math.random() * 30, 5.0, 0.9);
+        spawnBloodDecal(pos.x + fx * 30, floorY, pos.z + fz * 30, 55, 3.5, 0.95);
+    }
+}
+
+function updateBloodDecals(delta) {
+    for (let i = 0; i < blood.decals.length; i++) {
+        const decal = blood.decals[i];
+        if (!decal.active) continue;
+        decal.age += delta;
+
+        const grow = Math.min(1, decal.age / decal.growTime);
+        const eased = 1 - Math.pow(1 - grow, 3);
+        decal.mesh.scale.setScalar(decal.targetSize * (0.3 + 0.7 * eased));
+
+        const fadeStart = BLOOD_DECAL_HOLD;
+        if (decal.age > fadeStart) {
+            const f = (decal.age - fadeStart) / BLOOD_DECAL_FADE;
+            if (f >= 1) {
+                decal.active = false;
+                decal.mesh.visible = false;
+                continue;
+            }
+            decal.material.opacity = 1 - f;
+        }
+    }
+}
+
+export function updateBlood(delta) {
+    updateBloodDecals(delta);
+    if (!blood.points) return;
+    const geometry = blood.points.geometry;
+
+    if (blood.alive <= 0) {
+        if (blood.highWater !== 0) {
+            blood.highWater = 0;
+            geometry.setDrawRange(0, 0);
+        }
+        return;
+    }
+
+    for (let i = 0; i < blood.highWater; i++) {
+        const life = blood.lifetimes[i];
+        if (life <= 0) continue;
+
+        const age = blood.ages[i] + delta;
+        const i3 = i * 3;
+        const i4 = i * 4;
+        if (age >= life) {
+            blood.lifetimes[i] = 0;
+            blood.sizes[i] = 0;
+            blood.colors[i4 + 3] = 0;
+            blood.alive--;
+            continue;
+        }
+        blood.ages[i] = age;
+        const t = age / life;
+        const isMist = blood.softness[i] > 0.5;
+
+        const damping = Math.max(0, 1 - blood.drag[i] * delta);
+        blood.velocities[i3] *= damping;
+        blood.velocities[i3 + 2] *= damping;
+        blood.velocities[i3 + 1] = blood.velocities[i3 + 1] * damping - blood.gravity[i] * delta;
+
+        const px = blood.positions[i3] += blood.velocities[i3] * delta;
+        const py = blood.positions[i3 + 1] += blood.velocities[i3 + 1] * delta;
+        const pz = blood.positions[i3 + 2] += blood.velocities[i3 + 2] * delta;
+
+        if (isMist) {
+            blood.sizes[i] = blood.baseSizes[i] * (1 + blood.growth[i] * t);
+            blood.colors[i4 + 3] *= 1 - Math.min(1, delta * 1.6 / (1 - t + 0.2));
+        } else {
+            if (py <= blood.floorY[i]) {
+                const baseSize = blood.baseSizes[i];
+                if (baseSize > 2.0 || Math.random() < 0.25) {
+                    spawnBloodDecal(px, blood.floorY[i], pz, 7 + baseSize * 5 + Math.random() * 8, 0.1);
+                }
+                blood.lifetimes[i] = 0;
+                blood.sizes[i] = 0;
+                blood.colors[i4 + 3] = 0;
+                blood.alive--;
+                continue;
+            }
+            // Fast heavy droplets shed a short streak of fine droplets behind them
+            if (blood.trail[i] && t < 0.4 && Math.random() < 0.55) {
+                emitBlood(
+                    px, py, pz,
+                    blood.velocities[i3] * 0.15, blood.velocities[i3 + 1] * 0.15, blood.velocities[i3 + 2] * 0.15,
+                    blood.colors[i4], blood.colors[i4 + 1], blood.colors[i4 + 2], 0.9,
+                    blood.baseSizes[i] * 0.45, 0.35, BLOOD_GRAVITY * 0.4, 1.5, 0, KIND_DROPLET, blood.floorY[i], false);
+            }
+            if (t > 0.85) blood.colors[i4 + 3] = (1 - t) / 0.15;
+        }
+    }
+
+    geometry.setDrawRange(0, blood.highWater);
+    geometry.attributes.position.needsUpdate = true;
+    geometry.attributes.aColor.needsUpdate = true;
+    geometry.attributes.size.needsUpdate = true;
+    geometry.attributes.aSoft.needsUpdate = true;
+}
+
+export function clearBlood() {
+    blood.lifetimes.fill(0);
+    blood.sizes.fill(0);
+    blood.alive = 0;
+    blood.highWater = 0;
+    if (blood.points) {
+        blood.points.geometry.setDrawRange(0, 0);
+        blood.points.geometry.attributes.size.needsUpdate = true;
+    }
+    for (const decal of blood.decals) {
+        decal.active = false;
+        decal.mesh.visible = false;
+    }
 }
 
 // 3D Floating Text
@@ -836,6 +1251,7 @@ export function updatePickupEffects(delta) {
     }
 
     updateParticles(delta);
+    updateBlood(delta);
 }
 
 // Explosions Fading Lights
