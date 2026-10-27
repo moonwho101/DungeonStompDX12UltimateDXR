@@ -29,7 +29,8 @@ import {
     openNearbyDoor, SWISH_SOUNDS, IMPACT_SOUNDS, PLAYER_IMPACT_SOUNDS,
     playSound, getRandomSound, preloadSounds, resumeAudio,
     loadGameWorld, levelObjects, activePickups,
-    playerWeaponCurrentAnim, generateAndLoadNewLevel
+    playerWeaponCurrentAnim, generateAndLoadNewLevel,
+    toggleMusic, isMusicOn, startNextMusicTrack, updateMusic
 } from './logic.js';
 import { updateMinimap } from './minimap.js';
 
@@ -67,6 +68,9 @@ async function init() {
     const instructions = document.getElementById('instructions');
     instructions.addEventListener('click', () => {
         resumeAudio();
+        if (isMusicOn()) {
+            startNextMusicTrack();
+        }
         newControls.lock();
     });
 
@@ -164,6 +168,19 @@ async function init() {
             case 'KeyG':
                 generateAndLoadNewLevel(textureManager);
                 break;
+            case 'KeyM': {
+                const enabled = toggleMusic();
+                if (newControls && newControls.getObject()) {
+                    const text = enabled ? 'MUSIC: ON' : 'MUSIC: OFF';
+                    const color = enabled ? '#22c55e' : '#ef4444';
+                    createPickupFloatingText(text, newControls.getObject().position, color);
+                }
+                if (enabled) {
+                    startNextMusicTrack();
+                }
+                playSound('buttonselect111.wav', 0.5);
+                break;
+            }
         }
     };
 
@@ -234,6 +251,7 @@ async function init() {
         ...SWISH_SOUNDS, ...IMPACT_SOUNDS, ...PLAYER_IMPACT_SOUNDS,
         'spell1.wav', 'spell2.wav', 'spell3.wav', 'fireball.wav', 'explod1.wav', 'explod2.wav',
         'walk.wav', 'die.wav', 'death1.wav', 'death2.wav', 'death3.wav', 'death4.wav',
+        'Midi/d1.wav', 'Midi/d2.wav', 'Midi/d3.wav', 'Midi/d4.wav',
         ...monsterSounds
     ]);
 
@@ -419,6 +437,8 @@ function animate() {
     updateTeleporters(delta, pos);
 
     updateDoors(delta);
+
+    updateMusic(delta);
 
     updateLighting(time / 1000, delta, pos);
 

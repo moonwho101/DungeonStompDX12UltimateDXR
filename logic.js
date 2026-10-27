@@ -7,7 +7,7 @@ import {
     scene, camera, controls, hudEl, flashScreen, FLASH_RED, FLASH_GREEN,
     getSharedMaterial, applyNormalMap, registerLamp, clearLamps, disposeOwnedResources,
     emitParticle, createPickupFloatingText, createTreasureDropEffect,
-    acquireDynamicLight, EXPLOSION_FLASH_INTENSITY,
+    acquireDynamicLight, releaseDynamicLight, EXPLOSION_FLASH_INTENSITY,
     explosionFlashes, haloTexture
 } from './render.js';
 import {
@@ -1475,7 +1475,123 @@ export function playSound(filename, volume = 1.0) {
 
 export function preloadSounds(filenames) {
     for (const name of new Set(filenames)) {
-        if (name) loadSoundBuffer(name.startsWith('Sounds/') ? name : `Sounds/${name}`);
+        if (name) {
+            const path = (name.startsWith('Sounds/') || name.startsWith('Midi/')) ? name : `Sounds/${name}`;
+            loadSoundBuffer(path);
+        }
+    }
+}
+
+const MUSIC_TRACKS = [
+    'Midi/d1.wav',
+    'Midi/d2.wav',
+    'Midi/d3.wav',
+    'Midi/d4.wav'
+];
+
+let isMusicEnabled = true;
+let currentMusicSource = null;
+let currentMusicGain = null;
+let lastPlayedSongIndex = -1;
+let musicDelayTimer = 0;
+let isMusicPlaying = false;
+
+export function isMusicOn() {
+    return isMusicEnabled;
+}
+
+export function stopMusic() {
+    if (currentMusicSource) {
+        try {
+            currentMusicSource.onended = null;
+            currentMusicSource.stop();
+            currentMusicSource.disconnect();
+        } catch (e) {}
+        currentMusicSource = null;
+    }
+    if (currentMusicGain) {
+        try {
+            currentMusicGain.disconnect();
+        } catch (e) {}
+        currentMusicGain = null;
+    }
+    isMusicPlaying = false;
+}
+
+export function toggleMusic() {
+    isMusicEnabled = !isMusicEnabled;
+    if (!isMusicEnabled) {
+        stopMusic();
+    } else {
+        musicDelayTimer = 0;
+    }
+    return isMusicEnabled;
+}
+
+export function startNextMusicTrack() {
+    stopMusic();
+    if (!isMusicEnabled) return;
+
+    const ctx = getAudioContext();
+    if (!ctx || ctx.state !== 'running') return;
+
+    let availableIndices = MUSIC_TRACKS.map((_, i) => i);
+    if (lastPlayedSongIndex !== -1 && MUSIC_TRACKS.length > 1) {
+        availableIndices = availableIndices.filter(i => i !== lastPlayedSongIndex);
+    }
+    const nextIndex = availableIndices[Math.floor(Math.random() * availableIndices.length)];
+    lastPlayedSongIndex = nextIndex;
+
+    const path = MUSIC_TRACKS[nextIndex];
+    const entry = loadSoundBuffer(path);
+    if (!entry) return;
+
+    const playBuffer = (buffer) => {
+        if (!isMusicEnabled || !buffer) return;
+        const ctx = getAudioContext();
+        if (!ctx || ctx.state !== 'running') return;
+
+        const source = ctx.createBufferSource();
+        const gain = ctx.createGain();
+        source.buffer = buffer;
+        gain.gain.value = 0.4;
+        source.connect(gain);
+        gain.connect(ctx.destination);
+
+        currentMusicSource = source;
+        currentMusicGain = gain;
+        isMusicPlaying = true;
+
+        source.onended = () => {
+            if (currentMusicSource === source) {
+                currentMusicSource = null;
+                currentMusicGain = null;
+                isMusicPlaying = false;
+                musicDelayTimer = 10 + Math.random() * 10;
+            }
+        };
+        source.start();
+    };
+
+    if (entry instanceof AudioBuffer) {
+        playBuffer(entry);
+    } else if (entry && typeof entry.then === 'function') {
+        entry.then((buffer) => playBuffer(buffer));
+    }
+}
+
+export function updateMusic(delta) {
+    if (!isMusicEnabled) return;
+
+    const ctx = getAudioContext();
+    if (!ctx || ctx.state !== 'running') return;
+
+    if (!isMusicPlaying) {
+        if (musicDelayTimer > 0) {
+            musicDelayTimer -= delta;
+        } else {
+            startNextMusicTrack();
+        }
     }
 }
 
