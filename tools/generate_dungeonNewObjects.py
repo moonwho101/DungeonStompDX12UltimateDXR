@@ -808,18 +808,6 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
         })
         entity_id_idx += 1
 
-        # Teleport flare burst
-        entities.append({
-            'type': '!flarenohit',
-            'x': tx, 'y': ty + 40, 'z': tz,
-            'rot': 0,
-            'name': 'flare@1',
-            'id': entity_id_idx,
-            'state': 2
-        })
-
-        entity_id_idx += 1
-
         print(f"  -> Teleport exit added at deepest dungeon location ({tx:.1f}, {ty:.1f}, {tz:.1f})")
 
 
