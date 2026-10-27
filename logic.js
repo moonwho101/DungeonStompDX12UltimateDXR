@@ -1456,8 +1456,19 @@ function startSound(buffer, volume) {
     source.start();
 }
 
+let isSoundEnabled = true;
+
+export function isSoundOn() {
+    return isSoundEnabled;
+}
+
+export function toggleSound() {
+    isSoundEnabled = !isSoundEnabled;
+    return isSoundEnabled;
+}
+
 export function playSound(filename, volume = 1.0) {
-    if (!filename) return;
+    if (!filename || !isSoundEnabled) return;
     try {
         const ctx = getAudioContext();
         if (!ctx || ctx.state !== 'running') return;
@@ -1572,7 +1583,7 @@ export function startNextMusicTrack() {
                 currentMusicSource = null;
                 currentMusicGain = null;
                 isMusicPlaying = false;
-                musicDelayTimer = 10 + Math.random() * 10;
+                musicDelayTimer = 10 + Math.random() * 20;
             }
         };
         source.start();
@@ -1607,6 +1618,7 @@ export function getRandomSound(soundArray) {
 }
 
 export function playPickupSound(isHealth = true) {
+    if (!isSoundEnabled) return;
     try {
         const ctx = getAudioContext();
         if (!ctx) return;
