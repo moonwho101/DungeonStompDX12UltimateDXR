@@ -8,7 +8,10 @@
 #include "Missle.hpp"
 #include "FrameMove.hpp"
 #include "CameraBob.hpp"
+#include "col_local.h"
 
+extern CollisionPacket collisionPackage;
+extern XMFLOAT3 eTest;
 extern int gravityon;
 int movement = 1;
 void PlayerJump(const FLOAT &fTimeKey);
@@ -25,29 +28,169 @@ int playercurrentmove = 0;
 
 HRESULT FrameMove(double fTime, FLOAT fTimeKey) {
 	float cameradist = 50.0f;
+	float dt = fTimeKey;
+	if (dt <= 0.0f) dt = 1.0f / 60.0f;
+	if (dt > 0.1f) dt = 0.1f;
 
-	GameTimers(fTimeKey);
+	GameTimers(dt);
 	CheckAngle();
 	GetItem();
 	MonsterHit();
-	FindDoors(fTimeKey);
-	bool addVel = MovePlayer(fTimeKey);
-	StrifePlayer(fTimeKey, addVel);
+	FindDoors(dt);
+
+	// Unified 3D Physics & Movement matching Three.js app.js / update.js
+	if (gravityon == 0) {
+		// Fly mode (Zero gravity)
+		savevelocity.x *= powf(0.01f, dt);
+		savevelocity.y *= powf(0.01f, dt);
+		savevelocity.z *= powf(0.01f, dt);
+
+		float moveSpeed = Controls.bSprint ? 400.0f : 200.0f;
+
+		float pitchRad = fixangle(look_up_ang, 90) * k;
+		float yawRad = angy * k;
+
+		XMFLOAT3 camFwd = { sinf(pitchRad) * sinf(yawRad), cosf(pitchRad), sinf(pitchRad) * cosf(yawRad) };
+		XMFLOAT3 camRight = { cosf(yawRad), 0.0f, -sinf(yawRad) };
+
+		float inFwd = (Controls.bForward ? 1.0f : 0.0f) - (Controls.bBackward ? 1.0f : 0.0f);
+		float inRight = (Controls.bStepRight ? 1.0f : 0.0f) - (Controls.bStepLeft ? 1.0f : 0.0f);
+
+		XMFLOAT3 moveDir = {
+			inFwd * camFwd.x + inRight * camRight.x,
+			inFwd * camFwd.y,
+			inFwd * camFwd.z + inRight * camRight.z
+		};
+
+		if (Controls.bUp) moveDir.y += 1.0f;
+		if (Controls.bDown) moveDir.y -= 1.0f;
+
+		float lenSq = moveDir.x * moveDir.x + moveDir.y * moveDir.y + moveDir.z * moveDir.z;
+		if (lenSq > 0.0001f) {
+			float len = sqrtf(lenSq);
+			moveDir.x /= len; moveDir.y /= len; moveDir.z /= len;
+
+			savevelocity.x += moveDir.x * moveSpeed * 8.0f * dt;
+			savevelocity.y += moveDir.y * moveSpeed * 8.0f * dt;
+			savevelocity.z += moveDir.z * moveSpeed * 8.0f * dt;
+		}
+
+		m_vEyePt.x += savevelocity.x * dt;
+		m_vEyePt.y += savevelocity.y * dt;
+		m_vEyePt.z += savevelocity.z * dt;
+
+		lastcollide = 0;
+		jump = 0;
+		nojumpallow = 0;
+		gravitytime = 0.0f;
+
+		playermove = inFwd > 0.0f ? 1 : (inFwd < 0.0f ? 4 : 0);
+		playermovestrife = inRight > 0.0f ? 7 : (inRight < 0.0f ? 6 : 0);
+	} else {
+		// Ground Mode (FPS Walk / Sprint / Jump with Gravity)
+		savevelocity.x *= powf(0.001f, dt);
+		savevelocity.z *= powf(0.001f, dt);
+
+		savevelocity.y -= 1600.0f * dt; // GRAVITY = 1600.0f
+
+		bool jumpRequested = Controls.bJump || Controls.missle;
+		if (jumpRequested && lastcollide == 0) {
+			savevelocity.y = 520.0f; // JUMP_SPEED = 520.0f
+			jump = 1;
+			lastcollide = 1;
+			PlayWavSound(SoundID("jump1"), 80);
+		}
+
+		float yawRad = angy * k;
+		XMFLOAT3 fwd = { sinf(yawRad), 0.0f, cosf(yawRad) };
+		XMFLOAT3 right = { cosf(yawRad), 0.0f, -sinf(yawRad) };
+
+		float inFwd = (Controls.bForward ? 1.0f : 0.0f) - (Controls.bBackward ? 1.0f : 0.0f);
+		float inRight = (Controls.bStepRight ? 1.0f : 0.0f) - (Controls.bStepLeft ? 1.0f : 0.0f);
+
+		XMFLOAT3 moveDir = {
+			inFwd * fwd.x + inRight * right.x,
+			0.0f,
+			inFwd * fwd.z + inRight * right.z
+		};
+
+		float lenSq = moveDir.x * moveDir.x + moveDir.z * moveDir.z;
+		float moveSpeed = Controls.bSprint ? 400.0f : 200.0f;
+
+		if (lenSq > 0.0001f) {
+			float len = sqrtf(lenSq);
+			moveDir.x /= len;
+			moveDir.z /= len;
+
+			savevelocity.x += moveDir.x * moveSpeed * 10.0f * dt;
+			savevelocity.z += moveDir.z * moveSpeed * 10.0f * dt;
+		}
+
+		// Sub-stepped physics integration & 3D capsule collision resolution
+		float capsuleRadius = eRadius.x;
+		float maxStep = capsuleRadius * 0.5f;
+		float speedSq = savevelocity.x * savevelocity.x + savevelocity.y * savevelocity.y + savevelocity.z * savevelocity.z;
+		float travel = sqrtf(speedSq) * dt;
+		int steps = (int)ceilf(travel / maxStep);
+		if (steps < 1) steps = 1;
+		if (steps > 16) steps = 16;
+		float stepDt = dt / (float)steps;
+
+		bool grounded = false;
+		for (int s = 0; s < steps; s++) {
+			XMFLOAT3 stepVel = { savevelocity.x * stepDt, savevelocity.y * stepDt, savevelocity.z * stepDt };
+
+			XMFLOAT3 newPos = collideWithWorld(RadiusDivide(m_vEyePt, eRadius), RadiusDivide(stepVel, eRadius));
+			newPos = RadiusMultiply(newPos, eRadius);
+
+			if (collisionPackage.foundCollision) {
+				XMFLOAT3 norm = { eTest.x, eTest.y, eTest.z };
+				float nLen = sqrtf(norm.x * norm.x + norm.y * norm.y + norm.z * norm.z);
+				if (nLen > 1e-5f) {
+					norm.x /= nLen; norm.y /= nLen; norm.z /= nLen;
+					if (norm.y > 0.5f) {
+						grounded = true;
+					}
+					float dot = savevelocity.x * norm.x + savevelocity.y * norm.y + savevelocity.z * norm.z;
+					if (dot < 0.0f) {
+						savevelocity.x -= dot * norm.x;
+						savevelocity.y -= dot * norm.y;
+						savevelocity.z -= dot * norm.z;
+					}
+				}
+			}
+
+			m_vEyePt = newPos;
+		}
+
+		if (grounded) {
+			if (lastcollide == 1 && savevelocity.y <= 0.0f) {
+				if (gravitytime >= 0.4f) {
+					PlayWavSound(SoundID("jump_land"), 100);
+					TriggerLandingDip(20.0f);
+				}
+			}
+			lastcollide = 0;
+			jump = 0;
+			nojumpallow = 0;
+			gravitytime = 0.0f;
+			if (savevelocity.y < 0.0f) {
+				savevelocity.y = 0.0f;
+			}
+		} else {
+			lastcollide = 1;
+			nojumpallow = 1;
+			gravitytime += dt;
+		}
+
+		playermove = inFwd > 0.0f ? 1 : (inFwd < 0.0f ? 4 : 0);
+		playermovestrife = inRight > 0.0f ? 7 : (inRight < 0.0f ? 6 : 0);
+	}
+
 	PlayerAnimation();
 
 	savelastmove = playermove;
 	savelaststrifemove = playermovestrife;
-
-	XMFLOAT3 result;
-
-	result = collideWithWorld(RadiusDivide(m_vEyePt, eRadius), RadiusDivide(savevelocity, eRadius));
-	result = RadiusMultiply(result, eRadius);
-
-	m_vEyePt.x = result.x;
-	m_vEyePt.y = result.y;
-	m_vEyePt.z = result.z;
-
-	PlayerJump(fTimeKey);
 
 	if (look_up_ang < -89.3f)
 		look_up_ang = -89.3f;
@@ -55,18 +198,16 @@ HRESULT FrameMove(double fTime, FLOAT fTimeKey) {
 	if (look_up_ang > 89.3f)
 		look_up_ang = 89.3f;
 
-	float newangle = 0;
-	newangle = fixangle(look_up_ang, 90);
+	float newangle = fixangle(look_up_ang, 90);
 
-	// Strafe view-roll:
-
+	// Strafe view-roll
 	float rollTarget = 0.0f;
 	if (playermovestrife == 6)
 		rollTarget = 2.0f; // strafe left → lean left
 	if (playermovestrife == 7)
 		rollTarget = -2.0f; // strafe right → lean right
 
-	float lerpRate = fTimeKey * 10.0f;
+	float lerpRate = dt * 10.0f;
 	if (lerpRate > 1.0f)
 		lerpRate = 1.0f;
 	look_roll_ang += (rollTarget - look_roll_ang) * lerpRate;
@@ -80,7 +221,6 @@ HRESULT FrameMove(double fTime, FLOAT fTimeKey) {
 	playermovestrife = 0;
 
 	EyeTrue = m_vEyePt;
-
 	EyeTrue.y = m_vEyePt.y + cameraheight;
 
 	LookTrue = m_vLookatPt;
@@ -89,8 +229,6 @@ HRESULT FrameMove(double fTime, FLOAT fTimeKey) {
 	cameraf.x = LookTrue.x;
 	cameraf.y = LookTrue.y;
 	cameraf.z = LookTrue.z;
-
-	// GunTruesave = EyeTrue;
 
 	return S_OK;
 }
@@ -127,249 +265,29 @@ void CheckAngle() {
 }
 
 void PlayerJump(const FLOAT &fTimeKey) {
-	XMFLOAT3 result;
-
-	if (gravityon == 1) {
-		if (jump == 1) {
-			if (jumpvdir == 0) {
-				jumpcount = 0.0f;
-				savevelocity.x = 0.0f;
-				savevelocity.y = (float)(400.0f) * fTimeKey;
-				savevelocity.z = 0.0f;
-				jumpv = savevelocity;
-
-				if (maingameloop)
-					jumpcount++;
-
-				if (jumpv.y <= 1.0f) {
-					jumpv.y = 0.0f;
-				}
-			}
-		}
-
-		if (jumpstart == 1) {
-			lastjumptime = 0.0f;
-			jumpstart = 0;
-			cleanjumpspeed = 600.0f;
-			totaldist = 0.0f;
-			gravityvector.y = -50.0f;
-		}
-
-		if (lastcollide == 1) {
-			gravitytime = gravitytime + fTimeKey;
-		}
-
-		modellocation = m_vEyePt;
-
-		savevelocity.x = 0.0f;
-		savevelocity.y = (cleanjumpspeed * gravitytime) + -2600.0f * (0.5f * gravitytime * gravitytime);
-		savevelocity.z = 0.0f;
-
-		saveoldvelocity = savevelocity;
-		savevelocity.y = (savevelocity.y - gravityvectorold.y);
-		gravityvectorold.y = saveoldvelocity.y;
-
-		if (savevelocity.y == 0.0f && jump == 0)
-			savevelocity.y = -80.0f * fTimeKey;
-
-		if (savevelocity.y <= -80.0f)
-			savevelocity.y = -80.0f;
-
-		foundcollisiontrue = 0;
-
-		result = collideWithWorld(RadiusDivide(m_vEyePt, eRadius), RadiusDivide(savevelocity, eRadius));
-		result = RadiusMultiply(result, eRadius);
-
-		m_vEyePt.x = result.x;
-		m_vEyePt.y = result.y;
-		m_vEyePt.z = result.z;
-
-		if (foundcollisiontrue == 0) {
-			nojumpallow = 1;
-
-			if (lastcollide == 1) {
-				lastjumptime = gravitytime;
-				totaldist = totaldist + savevelocity.y;
-			}
-
-			lastcollide = 1;
-
-			gravityvector.y = -50.0f;
-			if (gravitydropcount == 0)
-				gravitydropcount = 1;
-		} else {
-			// something is under us
-
-			if (lastcollide == 1 && savevelocity.y <= 0) {
-				if (gravitytime >= 0.4f) {
-					PlayWavSound(SoundID("jump_land"), 100);
-					TriggerLandingDip(20.0f);
-				}
-
-				gravityvector.y = 0.0f;
-				gravityvectorold.y = 0.0f;
-				cleanjumpspeed = -200.0f;
-
-				lastcollide = 0;
-				jump = 0;
-
-				gravitytime = 0.0f;
-			} else if (lastcollide == 1 && savevelocity.y > 0) {
-				if (gravitytime >= 0.4f) {
-					PlayWavSound(SoundID("jump_land"), 100);
-					TriggerLandingDip(20.0f);
-				}
-
-				cleanjumpspeed = -200.0f;
-				lastcollide = 0;
-				gravitytime = 0.0f;
-				gravityvectorold.y = 0.0f;
-			}
-			nojumpallow = 0;
-			gravitydropcount = 0;
-		}
-
-		modellocation = m_vEyePt;
-	}
 }
 
 void PlayerAnimation() {
-	// 1 = forward
-	// 2 = left
-	// 3 = right
-	// 4 = backward
-
 	if (player_list[trueplayernum].current_sequence != 2) {
-
 		if ((playermove == 1 || playermove == 4) && movement == 0) {
 			if (savelastmove != playermove && jump == 0) {
 				SetPlayerAnimationSequence(trueplayernum, 1);
 			}
-
 			movement = 1;
 		} else if (playermove == 0 && movement == 1) {
 			if (savelastmove != playermove && jump == 0) {
 				SetPlayerAnimationSequence(trueplayernum, 0);
 			}
-
 			movement = 0;
 		}
 	}
 }
 
 void StrifePlayer(FLOAT &fTimeKey, bool addVel) {
-	float step_left_angy = 0;
-	float r = 15.0f;
-
-	if (playermovestrife == 6) {
-		step_left_angy = angy - 90;
-
-		if (step_left_angy < 0)
-			step_left_angy += 360;
-
-		if (step_left_angy >= 360)
-			step_left_angy = step_left_angy - 360;
-
-		r = (playerspeed)*fTimeKey;
-
-		if (addVel) {
-
-			savevelocity.x = r * sinf(step_left_angy * k) + savevelocity.x;
-			savevelocity.y = 0.0f;
-			savevelocity.z = r * cosf(step_left_angy * k) + savevelocity.z;
-		} else {
-			savevelocity.x = r * sinf(step_left_angy * k);
-			savevelocity.y = 0.0f;
-			savevelocity.z = r * cosf(step_left_angy * k);
-		}
-	}
-
-	if (playermovestrife == 7) {
-		step_left_angy = angy + 90;
-
-		if (step_left_angy < 0)
-			step_left_angy += 360;
-
-		if (step_left_angy >= 360)
-			step_left_angy = step_left_angy - 360;
-
-		r = (playerspeed)*fTimeKey;
-
-		if (addVel) {
-
-			savevelocity.x = r * sinf(step_left_angy * k) + savevelocity.x;
-			savevelocity.y = 0.0f;
-			savevelocity.z = r * cosf(step_left_angy * k) + savevelocity.z;
-		} else {
-			savevelocity.x = r * sinf(step_left_angy * k);
-			savevelocity.y = 0.0f;
-			savevelocity.z = r * cosf(step_left_angy * k);
-		}
-	}
 }
 
 bool MovePlayer(const FLOAT &fTimeKey) {
-	bool addVel = false;
-
-	float r = (playerspeed)*fTimeKey;
-	currentspeed = r;
-
-	savevelocity = { 0.0f, 0.0f, 0.0f };
-
-	direction = 0;
-	if (playermove == 1) {
-		direction = 1;
-		directionlast = 1;
-	}
-
-	if (playermove == 4) {
-		direction = -1;
-		directionlast = -1;
-	}
-
-	if (movespeed < playerspeedmax && directionlast != 0) {
-		addVel = true;
-
-		if (direction) {
-			if (moveaccel * movetime >= playerspeedlevel) {
-				movespeed = playerspeedlevel * fTimeKey;
-			} else {
-				movetime = movetime + fTimeKey;
-				movespeed = moveaccel * (0.5f * movetime * movetime);
-				movespeedsave = movespeed;
-				movespeed = movespeed - movespeedold;
-				movespeedold = movespeedsave;
-			}
-
-			r = movespeed;
-		} else {
-			movetime = movetime - fTimeKey;
-
-			if (movetime <= 0.0) {
-				directionlast = 0;
-				movetime = 0;
-				r = 0;
-			} else {
-				movespeed = moveaccel * (0.5f * movetime * movetime);
-				movespeedsave = movespeed;
-				movespeed = movespeed - movespeedold;
-				movespeedold = movespeedsave;
-			}
-			r = -1 * movespeed;
-		}
-		// r = playerspeed * fTimeKey;
-
-		savevelocity.x = directionlast * r * sinf(angy * k);
-		savevelocity.y = 0.0f;
-		savevelocity.z = directionlast * r * cosf(angy * k);
-	} else {
-		movespeed = 0.0f;
-		movetime = 0.0f;
-		movespeedold = 0.0f;
-		r = 0.0f;
-	}
-
-	return addVel;
+	return false;
 }
 
 void FindDoors(const FLOAT &fTimeKey) {
