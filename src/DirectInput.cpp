@@ -749,7 +749,12 @@ VOID WalkMode(CONTROLS *Controls) {
 		rotate_camera -= KEYBOARD_TURN_SPEED_DEG * elapsegametimersave;
 	}
 
-	// Update movement speed dynamically based on sprint (Shift key) state
+	// Update movement parameters dynamically from speedglobals in real time
+	PLAYER_SPRINT_SPEED = PLAYER_BASE_SPEED * PLAYER_SPRINT_MULTIPLIER;
+	moveaccel = PLAYER_ACCELERATION;
+	mousediv = MOUSE_SENSITIVITY_DIVIDER;
+	springiness = MOUSE_SMOOTHING_SPRINGINESS;
+
 	if (Controls->bSprint) {
 		playerspeed = PLAYER_SPRINT_SPEED;
 		playerspeedmax = PLAYER_SPRINT_SPEED;
