@@ -705,6 +705,7 @@ VOID UpdateControls() {
 extern float playerspeed;
 extern float playerspeedmax;
 extern float playerspeedlevel;
+extern float moveaccel;
 
 VOID WalkMode(CONTROLS *Controls) {
 
