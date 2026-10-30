@@ -87,6 +87,9 @@ FLOAT fLastGunFireTime = 0;
 int criticalhiton = 0;
 bool cycleweaponbuttonpressed = FALSE;
 bool cycleweaponbuttonpressedjoystick = FALSE;
+static BOOL spellLast = FALSE;
+static BOOL bFireLast = FALSE;
+static BOOL bFire2Last = FALSE;
 
 float use_x, use_y;    // position to use for displaying
 float springiness = MOUSE_SMOOTHING_SPRINGINESS; // tweak to taste.
@@ -206,6 +209,9 @@ void DemoResetState(unsigned int seed) {
 	nextlevel = 0;
 	previouslevel = 0;
 	cycleweaponbuttonpressed = FALSE;
+	spellLast = FALSE;
+	bFireLast = FALSE;
+	bFire2Last = FALSE;
 	memset(&Controls, 0, sizeof(Controls));
 }
 
@@ -730,14 +736,17 @@ VOID WalkMode(CONTROLS *Controls) {
 		// DXUTShutdown();
 	}
 
-	if (Controls->spell && player_list[trueplayernum].firespeed == 0 && usespell == 1) {
+	bool bSpellPress = Controls->spell && (!spellLast || player_list[trueplayernum].firespeed == 0);
+	spellLast = Controls->spell;
+
+	if (bSpellPress && usespell == 1) {
 		int pspeed = (18 - player_list[trueplayernum].hd);
 		if (pspeed < 6)
 			pspeed = 6;
 
 		player_list[trueplayernum].firespeed = pspeed;
 		firemissle = 1;
-		if (jump == 0 && (player_list[trueplayernum].current_sequence != 2) && player_list[trueplayernum].bIsPlayerAlive == TRUE) {
+		if (jump == 0 && player_list[trueplayernum].bIsPlayerAlive == TRUE) {
 			SetPlayerAnimationSequence(trueplayernum, 2);
 		}
 	}
@@ -869,12 +878,19 @@ VOID WalkMode(CONTROLS *Controls) {
 	}
 
 	// fire gun
-	if ((Controls->bFire == TRUE) && jump == 0 && (player_list[trueplayernum].current_sequence != 2) && player_list[trueplayernum].bIsPlayerAlive == TRUE && usespell == 0 ||
-	    (Controls->bFire2 == TRUE) && jump == 0 && (player_list[trueplayernum].current_sequence != 2) && player_list[trueplayernum].bIsPlayerAlive == TRUE &&
-	        usespell == 0) {
+	bool bFireTrigger = (Controls->bFire && (!bFireLast || player_list[trueplayernum].current_sequence != 2)) ||
+	                    (Controls->bFire2 && (!bFire2Last || player_list[trueplayernum].current_sequence != 2));
+	bFireLast = Controls->bFire;
+	bFire2Last = Controls->bFire2;
+
+	if (bFireTrigger && jump == 0 && player_list[trueplayernum].bIsPlayerAlive == TRUE && usespell == 0) {
 		hitmonster = 0;
 		numdice = 2;
 		firing_gun_flag = TRUE;
+		damageinprogress = 0;
+		for (int m = 0; m < num_monsters; m++) {
+			monster_list[m].takedamageonce = 0;
+		}
 		SetPlayerAnimationSequence(trueplayernum, 2);
 		PlayWavSound(SoundID("knightattack"), 100);
 		fLastGunFireTime = timeGetTime() * 0.001f;
@@ -882,7 +898,7 @@ VOID WalkMode(CONTROLS *Controls) {
 		dice[0].roll = 1;
 		dice[1].roll = 1;
 		criticalhiton = 0;
-	} else {
+	} else if (!Controls->bFire && !Controls->bFire2) {
 		firing_gun_flag = FALSE;
 	}
 
