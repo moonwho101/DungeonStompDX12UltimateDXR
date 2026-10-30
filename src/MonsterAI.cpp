@@ -35,7 +35,7 @@ constexpr float kLedgeDanger = 0.55f;
 constexpr float kWalkableNormalY = 0.55f;    // triangles flatter than this (about 60 degrees) are floors/ramps, not walls
 constexpr float kMaxStepRiserHeight = 25.0f; // stair risers are 20 units; walls are >= 120 units
 constexpr float kSeparationRadius = 130.0f;
-constexpr float kTurnRate = 9.5f; // radians per second (about 540 degrees)
+constexpr float kTurnRate = MONSTER_TURN_RATE; // radians per second
 constexpr float kMeleeRange = 80.0f;
 constexpr float kKiteMinRange = 220.0f;
 constexpr float kKiteMaxRange = 380.0f;
@@ -753,7 +753,7 @@ MonsterSteering MonsterAIUpdate(int idx, float fElapsedTime, bool walking) {
 	s.prevX = m.x;
 	s.prevZ = m.z;
 	if (walking && dist > kMeleeRange + 20.0f) {
-		s.walkExpected += (165.0f + m.speed * 2.0f) * dt;
+		s.walkExpected += (MONSTER_BASE_SPEED + m.speed * MONSTER_SPEED_SCALE) * dt;
 		s.walkMoved += moved;
 	}
 

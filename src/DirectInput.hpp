@@ -17,6 +17,7 @@ typedef struct Controls_typ {
 	BOOL opendoor;
 	BOOL bCameraleft;
 	BOOL bCameraright;
+	BOOL bSprint;
 	BOOL bFire2;
 	BOOL spell;
 	BOOL dialogpausejoystick;
