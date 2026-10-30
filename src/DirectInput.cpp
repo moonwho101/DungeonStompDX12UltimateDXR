@@ -14,6 +14,7 @@
 #include <vector>
 #include <stdio.h>
 #include <stdlib.h>
+#include "speedglobals.h"
 
 // mouse sensitivity
 float mousediv = MOUSE_SENSITIVITY_DIVIDER;
@@ -521,12 +522,12 @@ VOID UpdateControls() {
 			Controls.bPrevWeap = diks[DIK_Z] && 0x80;
 			Controls.bNextWeap = diks[DIK_Q] && 0x80;
 			Controls.bInTalkMode = diks[DIK_SLASH] && 0x80;
-			Controls.opendoor = diks[DIK_SPACE] && 0x80;
+			Controls.opendoor = diks[DIK_E] && 0x80;
 			Controls.bFire2 = diks[DIK_END] && 0x80;
 			Controls.bCameraleft = diks[DIK_LSHIFT] && 0x80;
 			Controls.bCameraright = diks[DIK_RSHIFT] && 0x80;
 			Controls.bSprint = (diks[DIK_LSHIFT] & 0x80) || (diks[DIK_RSHIFT] & 0x80);
-			Controls.missle = diks[DIK_E] && 0x80;
+			Controls.missle = diks[DIK_SPACE] && 0x80;
 			Controls.bFire = diks[DIK_RCONTROL] && 0x80;
 			Controls.spell = diks[DIK_RCONTROL] && 0x80;
 			Controls.xp = diks[DIK_X] && 0x80;
@@ -560,7 +561,7 @@ VOID UpdateControls() {
 				Controls.bHeadDown = dims.lY;
 
 			Controls.bFire = dims.rgbButtons[0] && 0x80;
-			Controls.opendoor = diks[DIK_SPACE] && 0x80;
+			Controls.opendoor = diks[DIK_E] && 0x80;
 			Controls.bForward = dims.rgbButtons[1] && 0x80;
 
 			if (Controls.bForward == 0)
@@ -572,7 +573,7 @@ VOID UpdateControls() {
 			Controls.bBackward = diks[DIK_S] && 0x80;
 			Controls.spell = dims.rgbButtons[0] && 0x80;
 
-			Controls.missle = diks[DIK_E] && 0x80;
+			Controls.missle = diks[DIK_SPACE] && 0x80;
 
 			// Mouse wheel: cycle weapons
 			if (dims.lZ > 0)
@@ -700,6 +701,10 @@ VOID UpdateControls() {
 			MovePlayer(&Controls);
 	}
 }
+
+extern float playerspeed;
+extern float playerspeedmax;
+extern float playerspeedlevel;
 
 VOID WalkMode(CONTROLS *Controls) {
 

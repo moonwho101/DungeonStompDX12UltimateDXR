@@ -7,6 +7,7 @@
 #include "GameLogic.hpp"
 #include "Missle.hpp"
 #include "ParticleSystem.hpp"
+#include "speedglobals.h"
 
 int endc = 0;
 extern bool enableDXR;

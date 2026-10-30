@@ -6,6 +6,7 @@
 #include <math.h>
 #include <string.h>
 #include <vector>
+#include "speedglobals.h"
 
 extern int endc;
 extern int src_collide[MAX_NUM_QUADS];

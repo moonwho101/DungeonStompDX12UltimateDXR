@@ -234,6 +234,7 @@
     <ClInclude Include="resource.h" />
     <ClInclude Include="OverheadMap.h" />
     <ClInclude Include="ShadowMap.h" />
+    <ClInclude Include="speedglobals.h" />
     <ClInclude Include="VRSHelper.h" />
     <ClInclude Include="DXRHelper.h" />
     <ClInclude Include="Ssao.h" />

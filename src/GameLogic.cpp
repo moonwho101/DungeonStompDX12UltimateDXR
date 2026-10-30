@@ -13,6 +13,8 @@
 #include "ParticleSystem.hpp"
 #include "MonsterAI.hpp"
 #include "PlayerAI.hpp"
+#include "speedglobals.h"
+
 using namespace DirectX;
 
 #pragma comment(lib, "Winmm.lib")
