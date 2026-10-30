@@ -1,33 +1,31 @@
-
 #ifndef __SPEEDGLOBALS_H
 #define __SPEEDGLOBALS_H
 
-
 // ============================================================================
-// GAMEPLAY & MOVEMENT CONSTANTS (Tweakable for Fast-Paced FPS Feel)
+// GAMEPLAY & MOVEMENT GLOBALS (Editable in real-time via ImGui)
 // ============================================================================
 
-// Player Movement Speeds
-// Base player speed is 3x original (~900 units/sec)
-constexpr float PLAYER_BASE_SPEED = 350.0f;
+// Standard default baseline values
+constexpr float DEFAULT_PLAYER_BASE_SPEED = 350.0f;
+constexpr float DEFAULT_PLAYER_SPRINT_MULTIPLIER = 2.0f;
+constexpr float DEFAULT_PLAYER_ACCELERATION = 6000.0f;
+constexpr float DEFAULT_KEYBOARD_TURN_SPEED_DEG = 315.0f;
+constexpr float DEFAULT_MOUSE_SENSITIVITY_DIVIDER = 18.0f;
+constexpr float DEFAULT_MOUSE_SMOOTHING_SPRINGINESS = 45.0f;
+constexpr float DEFAULT_MONSTER_BASE_SPEED = 200.0f;
+constexpr float DEFAULT_MONSTER_SPEED_SCALE = 5.0f;
+constexpr float DEFAULT_MONSTER_TURN_RATE = 18.0f;
 
-// Sprint multiplier when holding Shift key (6x original = 1800 units/sec)
-constexpr float PLAYER_SPRINT_MULTIPLIER = 2.0f;
-constexpr float PLAYER_SPRINT_SPEED = PLAYER_BASE_SPEED * PLAYER_SPRINT_MULTIPLIER; // 1800.0f
-
-// Player Acceleration (responsive FPS acceleration)
-constexpr float PLAYER_ACCELERATION = 6000.0f;
-
-// Keyboard / Button Turning Speed (Degrees per second)
-constexpr float KEYBOARD_TURN_SPEED_DEG = 315.0f;
-
-// Mouse Control & Smoothing
-constexpr float MOUSE_SENSITIVITY_DIVIDER = 18.0f;   // Lower = higher mouse sensitivity
-constexpr float MOUSE_SMOOTHING_SPRINGINESS = 45.0f; // Higher = tighter, responsive mouse look (no floaty lag)
-
-// Monster Movement Speeds & AI
-constexpr float MONSTER_BASE_SPEED = 200.0f; // Base monster speed (original: 165.0f)
-constexpr float MONSTER_SPEED_SCALE = 5.0f;  // Monster speed stat scaling (original: 2.0f)
-constexpr float MONSTER_TURN_RATE = 18.0f;   // Monster AI turn rate in radians/sec (original: 9.5f)
+// Real-time tweakable gameplay parameters
+inline float PLAYER_BASE_SPEED = DEFAULT_PLAYER_BASE_SPEED;
+inline float PLAYER_SPRINT_MULTIPLIER = DEFAULT_PLAYER_SPRINT_MULTIPLIER;
+inline float PLAYER_SPRINT_SPEED = DEFAULT_PLAYER_BASE_SPEED * DEFAULT_PLAYER_SPRINT_MULTIPLIER;
+inline float PLAYER_ACCELERATION = DEFAULT_PLAYER_ACCELERATION;
+inline float KEYBOARD_TURN_SPEED_DEG = DEFAULT_KEYBOARD_TURN_SPEED_DEG;
+inline float MOUSE_SENSITIVITY_DIVIDER = DEFAULT_MOUSE_SENSITIVITY_DIVIDER;
+inline float MOUSE_SMOOTHING_SPRINGINESS = DEFAULT_MOUSE_SMOOTHING_SPRINGINESS;
+inline float MONSTER_BASE_SPEED = DEFAULT_MONSTER_BASE_SPEED;
+inline float MONSTER_SPEED_SCALE = DEFAULT_MONSTER_SPEED_SCALE;
+inline float MONSTER_TURN_RATE = DEFAULT_MONSTER_TURN_RATE;
 
 #endif
