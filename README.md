@@ -110,7 +110,7 @@ Press `F7` to open the settings panel. Enter a seed (`0` = random) and tile coun
 
 | Key | Feature Toggle | Key | Feature / Developer |
 |:---:|---|:---:|---|
-| `L` | Overhead Minimap | `G` | Gravity on/off (fly with Numpad `+` / `-`) |
+| `L` | Overhead Minimap | `G` | Fly mode on/off (fly with look direction or Numpad `+` / `-`) |
 | `R` | DXR Ray Tracing | `X` | Add 10 XP |
 | `T` | Variable Rate Shading | `K` | Unlock all weapons & spells |
 | `O` | SSAO | `]` / `[` | Next / previous level |

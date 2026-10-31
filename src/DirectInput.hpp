@@ -23,7 +23,7 @@ typedef struct Controls_typ {
 	BOOL dialogpausejoystick;
 	BOOL changeviews;
 	BOOL xp;
-	BOOL bDisableGravity;
+	BOOL bFlyMode;
 	BOOL bSaveGame;
 	BOOL bLoadGame;
 	BOOL bNextSong;

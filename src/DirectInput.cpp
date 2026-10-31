@@ -109,8 +109,8 @@ int nojumpallow = 0;
 int jumpvdir = 0;
 float cleanjumpspeed = 0;
 float lastjumptime = 0;
-int gravitybutton = 0;
-int gravityon = 1;
+int flybutton = 0;
+int flymode = 0;
 bool loadprogress = 0;
 
 HWND hWndGlobal;
@@ -200,7 +200,7 @@ void DemoResetState(unsigned int seed) {
 	nojumpallow = 0;
 	cleanjumpspeed = 0;
 	lastjumptime = 0;
-	gravityon = 1;
+	flymode = 0;
 
 	firemissle = 0;
 	hitmonster = 0;
@@ -208,7 +208,7 @@ void DemoResetState(unsigned int seed) {
 	damageinprogress = 0;
 	firing_gun_flag = FALSE;
 
-	gravitybutton = 0;
+	flybutton = 0;
 	nextsong = 0;
 	giveallweapons = 0;
 	stopmusic = 0;
@@ -543,7 +543,7 @@ VOID UpdateControls() {
 			Controls.bFire = diks[DIK_RCONTROL] && 0x80;
 			Controls.spell = diks[DIK_RCONTROL] && 0x80;
 			Controls.xp = diks[DIK_X] && 0x80;
-			Controls.bDisableGravity = diks[DIK_G] && 0x80;
+			Controls.bFlyMode = diks[DIK_G] && 0x80;
 			Controls.bLoadGame = diks[DIK_F5] && 0x80;
 			Controls.bSaveGame = diks[DIK_F6] && 0x80;
 			Controls.bNextSong = diks[DIK_P] && 0x80;
@@ -833,22 +833,21 @@ VOID WalkMode(CONTROLS *Controls) {
 		runflag = 1;
 	}
 
-	if (Controls->bDisableGravity && !gravitybutton) {
-		if (gravityon == 1) {
-			strcpy_s(gActionMessage, "Gravity off.");
+	if (Controls->bFlyMode && !flybutton) {
+		if (flymode == 0) {
+			flymode = 1;
+			strcpy_s(gActionMessage, "Fly mode on.");
 			UpdateScrollList(0, 255, 255);
-
-			gravityon = 0;
 		} else {
-			gravityon = 1;
-			strcpy_s(gActionMessage, "Gravity on.");
+			flymode = 0;
+			strcpy_s(gActionMessage, "Fly mode off.");
 			UpdateScrollList(0, 255, 255);
 		}
 
-		gravitybutton = 1;
+		flybutton = 1;
 	}
-	if (!Controls->bDisableGravity && gravitybutton) {
-		gravitybutton = 0;
+	if (!Controls->bFlyMode && flybutton) {
+		flybutton = 0;
 	}
 
 	if (Controls->bSaveGame && !loadprogress) {
@@ -871,12 +870,12 @@ VOID WalkMode(CONTROLS *Controls) {
 	}
 
 	// Move vertically up towards sky
-	if (Controls->bUp && !gravityon) {
+	if (Controls->bUp && flymode) {
 		m_vEyePt.y += gravityspeed * elapsegametimersave;
 	}
 
 	// Move vertically down towards ground
-	if (Controls->bDown && !gravityon) {
+	if (Controls->bDown && flymode) {
 		m_vEyePt.y -= gravityspeed * elapsegametimersave;
 	}
 
