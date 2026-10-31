@@ -469,6 +469,75 @@ void DungeonStompApp::DisplayHud() {
 		const float dotH = 0.012f;
 		const float dotW = dotH * (float)mClientHeight / (float)mClientWidth;
 		RenderSolidRectangle(9, XMFLOAT2(mapX + (mapW - dotW) * 0.5f, mapY + (mapH - dotH) * 0.5f), XMFLOAT2(dotW, dotH), XMFLOAT4(1.0f, 0.9f, 0.1f, 1.0f));
+
+		// Exit spiral marker: locate the level exit spiral
+		float spiralX = 0.0f, spiralZ = 0.0f;
+		bool foundSpiral = false;
+		for (int i = 0; i < itemlistcount; i++) {
+			if (item_list[i].bIsPlayerAlive && strcmp(item_list[i].rname, "spiral") == 0) {
+				spiralX = item_list[i].x;
+				spiralZ = item_list[i].z;
+				foundSpiral = true;
+				break;
+			}
+		}
+		if (!foundSpiral) {
+			for (int q = 0; q < oblist_length; q++) {
+				if (strstr(oblist[q].name, "spiral") != NULL) {
+					spiralX = oblist[q].x;
+					spiralZ = oblist[q].z;
+					foundSpiral = true;
+					break;
+				}
+			}
+		}
+
+		if (foundSpiral && mMapHalfExtent > 0.0f) {
+			float dx = spiralX - player_list[trueplayernum].x;
+			float dz = spiralZ - player_list[trueplayernum].z;
+
+			// Transform world displacement into overhead minimap coordinates:
+			// Camera hangs looking down (-Y), with mapUp = (sinYaw, 0, cosYaw) and mapRight = (cosYaw, 0, -sinYaw).
+			// Screen space: +localX is to the right on map, +localY is "up" (forward).
+			float sinYaw, cosYaw;
+			XMScalarSinCos(&sinYaw, &cosYaw, angy * k);
+
+			float localX = dx * cosYaw - dz * sinYaw;
+			float localY = dx * sinYaw + dz * cosYaw;
+
+			// Normalized coordinates on the map view [-1, 1]
+			float normX = localX / mMapHalfExtent;
+			float normY = localY / mMapHalfExtent;
+
+			const float exitDotH = 0.012f;
+			const float exitDotW = exitDotH * (float)mClientHeight / (float)mClientWidth;
+
+			// Margin from map border when clamped to perimeter so the marker stays fully visible inside
+			float maxNormX = 1.0f - (exitDotW / mapW);
+			float maxNormY = 1.0f - (exitDotH / mapH);
+			if (maxNormX < 0.1f) maxNormX = 0.95f;
+			if (maxNormY < 0.1f) maxNormY = 0.95f;
+
+			// Check if spiral is within map range
+			if (fabsf(normX) <= maxNormX && fabsf(normY) <= maxNormY) {
+				// Within range: draw at actual location on minimap
+			} else {
+				// Out of range: project/clamp along direction vector onto the minimap perimeter
+				float scaleFactor = max(fabsf(normX) / maxNormX, fabsf(normY) / maxNormY);
+				if (scaleFactor > 1e-4f) {
+					normX /= scaleFactor;
+					normY /= scaleFactor;
+				}
+			}
+
+			// Screen coordinates:
+			// map center is (mapX + mapW * 0.5f, mapY + mapH * 0.5f)
+			// +normX moves right, +normY moves up on screen (which is -Y in screen UV coordinates)
+			float exitScreenX = mapX + (mapW * 0.5f) + (normX * mapW * 0.5f) - (exitDotW * 0.5f);
+			float exitScreenY = mapY + (mapH * 0.5f) - (normY * mapH * 0.5f) - (exitDotH * 0.5f);
+
+			RenderSolidRectangle(11, XMFLOAT2(exitScreenX, exitScreenY), XMFLOAT2(exitDotW, exitDotH), XMFLOAT4(0.1f, 0.45f, 1.0f, 1.0f));
+		}
 	}
 
 	// only show logo during intro or when player is dead
