@@ -23,7 +23,7 @@
 // #define MASTERING_LIMITER
 
 using Microsoft::WRL::ComPtr;
-
+int WavePlaying(int id);
 #define MAX_SOUND_BUFFER 40
 
 typedef struct SoundBuf {
@@ -497,9 +497,14 @@ int SoundID(char *name) {
 }
 
 void PlayWavSound(int id, int volume) {
-	HRESULT hr;
+	if (id < 0 || id >= numsounds || sound_list == nullptr || sound_list[id].pSourceVoice == nullptr)
+		return;
 
 	int soundbufferid = sound_list[id].soundbufferid;
+	if (soundbufferid < 0 || soundbufferid >= MAX_OBJECTSOUNDS)
+		return;
+
+	HRESULT hr;
 
 	sound_list[id].playing = 1;
 
@@ -527,6 +532,7 @@ void PlayWavSound(int id, int volume) {
 		if (FAILED(hr = sound_list[id].pSourceVoice->SubmitSourceBuffer(&buffer, &xwmaBuffer))) {
 			wprintf(L"Error %#X submitting source buffer (xWMA)\n", hr);
 			sound_list[id].pSourceVoice->DestroyVoice();
+			sound_list[id].pSourceVoice = nullptr;
 			return;
 		}
 	}
@@ -534,12 +540,14 @@ void PlayWavSound(int id, int volume) {
 	if (waveData.seek) {
 		wprintf(L"This platform does not support xWMA or XMA2\n");
 		sound_list[id].pSourceVoice->DestroyVoice();
+		sound_list[id].pSourceVoice = nullptr;
 		return;
 	}
 #endif
 	else if (FAILED(hr = sound_list[id].pSourceVoice->SubmitSourceBuffer(&buffer))) {
 		wprintf(L"Error %#X submitting source buffer\n", hr);
 		sound_list[id].pSourceVoice->DestroyVoice();
+		sound_list[id].pSourceVoice = nullptr;
 		return;
 	}
 
@@ -548,9 +556,15 @@ void PlayWavSound(int id, int volume) {
 }
 
 int DSound_Delete_Sound(int id) {
-	// sound_list[id].pSourceVoice->Stop(0);
-	// sound_list[id].pSourceVoice->FlushSourceBuffers();
-	sound_list[id].pSourceVoice->DestroyVoice();
+	if (id < 0 || id >= MAX_OBJECTSOUNDS || sound_list == nullptr)
+		return (0);
+
+	if (sound_list[id].pSourceVoice != nullptr) {
+		sound_list[id].pSourceVoice->Stop(0);
+		sound_list[id].pSourceVoice->FlushSourceBuffers();
+		sound_list[id].pSourceVoice->DestroyVoice();
+		sound_list[id].pSourceVoice = nullptr;
+	}
 	sound_list[id].type = -1;
 	sound_list[id].playing = 0;
 	strcpy_s(sound_list[id].name, "");
@@ -561,8 +575,20 @@ int DSound_Delete_Sound(int id) {
 } // end DSound_Delete_Sound
 
 int DSound_Replicate_Sound(int id) {
+	if (id < 0 || id >= MAX_OBJECTSOUNDS || !pXAudio2)
+		return 0;
 
 	int currentsound = FindSoundSlot();
+	if (currentsound < 0 || currentsound >= MAX_OBJECTSOUNDS)
+		return 0;
+
+	// If slot had an existing voice, make sure it is destroyed first
+	if (sound_list[currentsound].pSourceVoice != nullptr) {
+		sound_list[currentsound].pSourceVoice->Stop(0);
+		sound_list[currentsound].pSourceVoice->FlushSourceBuffers();
+		sound_list[currentsound].pSourceVoice->DestroyVoice();
+		sound_list[currentsound].pSourceVoice = nullptr;
+	}
 
 	sound_list[currentsound].id = currentsound;
 	sound_list[currentsound].type = 0;
@@ -571,6 +597,11 @@ int DSound_Replicate_Sound(int id) {
 	HRESULT hr;
 
 	hr = pXAudio2->CreateSourceVoice(&sound_list[currentsound].pSourceVoice, sound_buffer[id].waveData.wfx);
+	if (FAILED(hr)) {
+		sound_list[currentsound].pSourceVoice = nullptr;
+		sound_list[currentsound].type = -1;
+		return 0;
+	}
 
 	sound_list[currentsound].soundbufferid = id;
 	sprintf_s(sound_list[currentsound].name, "%d %s", currentsound, sound_buffer[id].name);
@@ -580,17 +611,31 @@ int DSound_Replicate_Sound(int id) {
 
 int FindSoundSlot() {
 
-	int currentsound = numsounds;
-
-	// Reuse an old sound
-	for (int i = 0; i < numsounds; i++) {
+	// First, try to reuse an old destroyed sound slot above numcoresounds
+	for (int i = numcoresounds; i < numsounds; i++) {
 		if (sound_list[i].type == -1) {
 			return i;
 		}
 	}
 
-	numsounds++;
-	return currentsound;
+	// Next, if there is still room, expand numsounds
+	if (numsounds < MAX_OBJECTSOUNDS) {
+		int currentsound = numsounds;
+		numsounds++;
+		return currentsound;
+	}
+
+	// Buffer is completely full; find any non-playing replicated sound to evict
+	for (int i = numcoresounds; i < MAX_OBJECTSOUNDS; i++) {
+		if (!WavePlaying(i)) {
+			DSound_Delete_Sound(i);
+			return i;
+		}
+	}
+
+	// As fallback, evict the oldest replicated slot
+	DSound_Delete_Sound(numcoresounds);
+	return numcoresounds;
 }
 
 void PlaySong() {
@@ -624,6 +669,10 @@ void StopMusic() {
 }
 
 int WaveSongPlaying(int id) {
+	if (id < 0 || id >= numsounds || sound_list == nullptr || sound_list[id].pSourceVoice == nullptr) {
+		playingsong = 0;
+		return 0;
+	}
 
 	bool isRunning;
 
@@ -642,6 +691,9 @@ int WaveSongPlaying(int id) {
 }
 
 int WavePlaying(int id) {
+	if (id < 0 || id >= numsounds || sound_list == nullptr || sound_list[id].pSourceVoice == nullptr) {
+		return 0;
+	}
 
 	bool isRunning;
 
@@ -700,26 +752,11 @@ void CheckMidiMusic() {
 }
 
 int ResetSound() {
-
-	bool loop = true;
-
-	while (loop) {
-		loop = false;
-
-		for (int i = numcoresounds; i < numsounds; i++) {
-
-			WavePlaying(i);
-			if (sound_list[i].playing) {
-				loop = true;
-			}
-		}
-		Sleep(100);
-	}
+	if (sound_list == nullptr)
+		return 1;
 
 	for (int i = numcoresounds; i < numsounds; i++) {
-		// DSound_Delete_Sound(i);
-		sound_list[i].type = 0;
-		// sound_list[i].pSourceVoice->DestroyVoice();
+		DSound_Delete_Sound(i);
 	}
 	numsounds = numcoresounds;
 
