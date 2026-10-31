@@ -91,12 +91,7 @@ struct doors
 };
 
 */
-typedef struct startposition {
-	float x;
-	float y;
-	float z;
-	float angle;
-} startpos2;
+typedef struct startposition startpos2;
 
 extern char levelname[80];
 int current_level;
@@ -1797,6 +1792,17 @@ void SetStartSpot() {
 
 	// modellocation = m_vEyePt;
 	// UpdateMainPlayer();
+}
+
+void RespawnMonsterAtStartSpot(int monsterIndex) {
+	if (startposcounter == 0)
+		return;
+
+	int result = 0;
+	monster_list[monsterIndex].x = startpos[result].x;
+	monster_list[monsterIndex].y = startpos[result].y;
+	monster_list[monsterIndex].z = startpos[result].z;
+	monster_list[monsterIndex].rot_angle = startpos[result].angle;
 }
 
 BOOL CLoadWorld::LoadMod(char *filename) {

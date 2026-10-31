@@ -26,4 +26,6 @@
 
 #define MaxRectangle 12
 
+#define FALL_FAILSAFE_Y -40000.0f
+
 #endif

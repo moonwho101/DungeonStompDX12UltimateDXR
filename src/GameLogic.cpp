@@ -595,6 +595,11 @@ void MoveMonsters(float fElapsedTime) {
 				MakeBoundingBox();
 			}
 		}
+
+		if (monster_list[i].bIsPlayerValid && monster_list[i].bIsPlayerAlive && monster_list[i].y < FALL_FAILSAFE_Y) {
+			RespawnMonsterAtStartSpot(i);
+			MakeBoundingBox();
+		}
 	}
 
 	currentmonstercollisionid = -1;
