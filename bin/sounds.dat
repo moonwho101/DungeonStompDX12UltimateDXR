@@ -111,4 +111,5 @@ MID	d1		    ..\midi\d1.wav
 MID	d2		    ..\midi\d2.wav
 MID	d3		    ..\midi\d3.wav
 MID	d4		    ..\midi\d4.wav
+WAV	buttonselect111	..\sounds\buttonselect111.wav
 END_FILE

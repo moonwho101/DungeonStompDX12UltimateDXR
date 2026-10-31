@@ -92,17 +92,13 @@ struct doors
 };
 
 */
-typedef struct startposition {
-	float x;
-	float y;
-	float z;
-	float angle;
-} startpos2;
+typedef struct startposition startpos2;
 
 extern char levelname[80];
 int current_level;
 extern D3DVALUE angy;
 extern D3DVALUE look_up_ang;
+extern float look_roll_ang;
 
 extern PLAYER *item_list;
 extern PLAYER *player_list2;
@@ -1792,9 +1788,22 @@ void SetStartSpot() {
 	// cameraf.y = m_vLookatPt.y;
 	// cameraf.z = m_vLookatPt.z;
 	angy = startpos[result].angle;
+	look_up_ang = 0.0f;
+	look_roll_ang = 0.0f;
 
 	// modellocation = m_vEyePt;
 	// UpdateMainPlayer();
+}
+
+void RespawnMonsterAtStartSpot(int monsterIndex) {
+	if (startposcounter == 0)
+		return;
+
+	int result = 0;
+	monster_list[monsterIndex].x = startpos[result].x;
+	monster_list[monsterIndex].y = startpos[result].y;
+	monster_list[monsterIndex].z = startpos[result].z;
+	monster_list[monsterIndex].rot_angle = startpos[result].angle;
 }
 
 BOOL CLoadWorld::LoadMod(char *filename) {
@@ -2103,6 +2112,9 @@ int load_level(char *filename) {
 		} else if (i == 18) {
 			your_gun[i].active = 1;
 			your_gun[i].x_offset = 2;
+		} else if (i >= 19 && i <= 21) {
+			your_gun[i].active = 1;
+			your_gun[i].x_offset = 0;
 		} else {
 			your_gun[i].active = 0;
 

@@ -74,7 +74,7 @@ XMFLOAT3 LookTrue;
 
 XMFLOAT3 m_vLookatPt;
 XMFLOAT3 m_vEyePt;
-D3DVALUE look_up_ang;
+D3DVALUE look_up_ang = 0.0f;
 D3DVALUE angy = 60;
 
 XMFLOAT3 modellocation;
@@ -345,7 +345,7 @@ void InitDS() {
 		your_gun[i].current_frame = 0;
 		your_gun[i].current_sequence = 0;
 
-		if (i <= 0)
+		if (i <= 0 || (i >= 18 && i <= 21))
 			your_gun[i].active = 1;
 		else
 			your_gun[i].active = 0;
@@ -398,6 +398,8 @@ void InitDS() {
 
 	pCWorld->LoadMod("level1.mod");
 	SetStartSpot();
+	look_up_ang = 0.0f;
+	look_roll_ang = 0.0f;
 	float fangle = (float)90 * k;
 
 	for (int i = 0; i <= 360; i++) {
@@ -429,7 +431,7 @@ void InitDS() {
 	strcpy_s(gActionMessage, "Press Q and Z to cycle weapons. R=Raytracing F11=Fullscreen");
 	UpdateScrollList(0, 255, 255);
 
-	strcpy_s(gActionMessage, "I=Music K=Weapons X=Experience P=Song G=Gravity (+ -) M=ShadowMap L=Map");
+	strcpy_s(gActionMessage, "I=Music K=Weapons X=Experience P=Song G=FlyMode (+ -) M=ShadowMap L=Map");
 	UpdateScrollList(0, 255, 255);
 
 	strcpy_s(gActionMessage, "[=LevelUp ]=LevelDown B=HeadBob O=ssao V=VSync N=NormalMap");

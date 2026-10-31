@@ -9,7 +9,7 @@
 #include "FrameMove.hpp"
 #include "CameraBob.hpp"
 
-extern int gravityon;
+extern int flymode;
 int movement = 1;
 void PlayerJump(const FLOAT &fTimeKey);
 void FindDoors(const FLOAT &fTimeKey);
@@ -19,6 +19,7 @@ bool MovePlayer(const FLOAT &fTimeKey);
 void StrifePlayer(FLOAT &fTimeKey, bool addVel);
 void PlayerAnimation();
 void CheckAngle();
+void ResetPlayerMotionState();
 
 extern CameraBob bobY;
 int playercurrentmove = 0;
@@ -38,16 +39,30 @@ HRESULT FrameMove(double fTime, FLOAT fTimeKey) {
 	savelastmove = playermove;
 	savelaststrifemove = playermovestrife;
 
-	XMFLOAT3 result;
+	if (flymode) {
+		m_vEyePt.x += savevelocity.x;
+		m_vEyePt.y += savevelocity.y;
+		m_vEyePt.z += savevelocity.z;
+	} else {
+		XMFLOAT3 result;
 
-	result = collideWithWorld(RadiusDivide(m_vEyePt, eRadius), RadiusDivide(savevelocity, eRadius));
-	result = RadiusMultiply(result, eRadius);
+		result = collideWithWorld(RadiusDivide(m_vEyePt, eRadius), RadiusDivide(savevelocity, eRadius));
+		result = RadiusMultiply(result, eRadius);
 
-	m_vEyePt.x = result.x;
-	m_vEyePt.y = result.y;
-	m_vEyePt.z = result.z;
+		m_vEyePt.x = result.x;
+		m_vEyePt.y = result.y;
+		m_vEyePt.z = result.z;
+	}
 
 	PlayerJump(fTimeKey);
+
+	if (m_vEyePt.y < FALL_FAILSAFE_Y) {
+		SetStartSpot();
+		ResetPlayerMotionState();
+		player_list[trueplayernum].x = m_vEyePt.x;
+		player_list[trueplayernum].y = m_vEyePt.y;
+		player_list[trueplayernum].z = m_vEyePt.z;
+	}
 
 	if (look_up_ang < -89.3f)
 		look_up_ang = -89.3f;
@@ -129,7 +144,7 @@ void CheckAngle() {
 void PlayerJump(const FLOAT &fTimeKey) {
 	XMFLOAT3 result;
 
-	if (gravityon == 1) {
+	if (!flymode) {
 		if (jump == 1) {
 			if (jumpvdir == 0) {
 				jumpcount = 0.0f;
@@ -359,9 +374,16 @@ bool MovePlayer(const FLOAT &fTimeKey) {
 		}
 		// r = playerspeed * fTimeKey;
 
-		savevelocity.x = directionlast * r * sinf(angy * k);
-		savevelocity.y = 0.0f;
-		savevelocity.z = directionlast * r * cosf(angy * k);
+		if (flymode) {
+			float newangle = fixangle(look_up_ang, 90);
+			savevelocity.x = directionlast * r * sinf(newangle * k) * sinf(angy * k);
+			savevelocity.y = directionlast * r * cosf(newangle * k);
+			savevelocity.z = directionlast * r * sinf(newangle * k) * cosf(angy * k);
+		} else {
+			savevelocity.x = directionlast * r * sinf(angy * k);
+			savevelocity.y = 0.0f;
+			savevelocity.z = directionlast * r * cosf(angy * k);
+		}
 	} else {
 		movespeed = 0.0f;
 		movetime = 0.0f;

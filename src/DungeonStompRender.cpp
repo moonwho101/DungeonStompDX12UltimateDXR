@@ -45,7 +45,7 @@ extern Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> mSrvDescriptorHeap;
 extern int displayCaptureIndex[1000];
 extern int displayCaptureCount[1000];
 extern int displayCapture;
-extern int gravityon;
+extern int flymode;
 extern int outside;
 extern OBJECTLIST *oblist;
 extern int oblist_length;
@@ -573,7 +573,7 @@ void DungeonStompApp::DrawRenderItems(ID3D12GraphicsCommandList *cmdList, const 
 		}
 
 		// Draw the skybox
-		if (!gravityon || outside) {
+		if (flymode || outside) {
 			mCommandList->SetPipelineState(mPSOs["sky"].Get());
 			// VRS: Reduced rate for skybox (low-detail, distant geometry)
 			if (enableVRS && mVRSHelper.IsSupported()) {
