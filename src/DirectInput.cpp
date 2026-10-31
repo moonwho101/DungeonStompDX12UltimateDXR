@@ -1002,7 +1002,7 @@ VOID WalkMode(CONTROLS *Controls) {
 		previouslevel = 0;
 	}
 
-	bool mousefilter = true;
+	bool mousefilter = false;
 
 	if (g_bUseMouse) {
 		if (mousefilter) {
@@ -1267,13 +1267,6 @@ void GiveWeapons() {
 }
 
 void smooth_mouse(float time_d, float realx, float realy) {
-	if (realx == 0.0f && realy == 0.0f) {
-		use_x = 0.0f;
-		use_y = 0.0f;
-		filterx = 0.0f;
-		filtery = 0.0f;
-		return;
-	}
 
 	double d = 1.0 - exp(log(0.5) * springiness * time_d);
 
