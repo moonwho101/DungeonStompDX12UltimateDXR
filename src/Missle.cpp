@@ -75,6 +75,9 @@ void FirePlayerMissle(float x, float y, float z, float angy, int owner, int shoo
 	}
 
 	if (your_gun[current_gun].x_offset <= 0) {
+		if (firemissle == 1) {
+			PlayWavSound(SoundID("buttonselect111"), 100);
+		}
 		firemissle = 0;
 	} else if (firemissle == 1 || shoot == 1) {
 		firemissle = 0;
