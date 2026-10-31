@@ -1173,26 +1173,25 @@ LONGLONG DSTimer() {
 }
 
 void SwitchGun(int gun) {
-	if (gun > current_gun) {
-
+	if (current_gun != gun) {
 		PlayWavSound(SoundID("switch"), 100);
-
-		current_gun = gun;
-
-		if (strstr(your_gun[current_gun].gunname, "SCROLL") != NULL) {
-			usespell = 1;
-			player_list[trueplayernum].gunid = FindModelID("weaponsorcerer");
-			player_list[trueplayernum].guntex = FindGunTexture("weaponsorcerer");
-		} else {
-			usespell = 0;
-			player_list[trueplayernum].gunid = your_gun[current_gun].model_id;
-			player_list[trueplayernum].guntex = your_gun[current_gun].skin_tex_id;
-		}
-		player_list[trueplayernum].damage1 = your_gun[current_gun].damage1;
-		player_list[trueplayernum].damage2 = your_gun[current_gun].damage2;
-
-		MakeDamageDice();
 	}
+
+	current_gun = gun;
+
+	if (strstr(your_gun[current_gun].gunname, "SCROLL") != NULL) {
+		usespell = 1;
+		player_list[trueplayernum].gunid = FindModelID("weaponsorcerer");
+		player_list[trueplayernum].guntex = FindGunTexture("weaponsorcerer");
+	} else {
+		usespell = 0;
+		player_list[trueplayernum].gunid = your_gun[current_gun].model_id;
+		player_list[trueplayernum].guntex = your_gun[current_gun].skin_tex_id;
+	}
+	player_list[trueplayernum].damage1 = your_gun[current_gun].damage1;
+	player_list[trueplayernum].damage2 = your_gun[current_gun].damage2;
+
+	MakeDamageDice();
 }
 
 void CyclePreviousWeapon() {

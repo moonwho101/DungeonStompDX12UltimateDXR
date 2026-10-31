@@ -2986,9 +2986,12 @@ void GetItem() {
 								your_gun[q].active = 1;
 								your_gun[q].x_offset = your_gun[q].x_offset + 5;
 							} else {
-								// Switch to this wepaon if it is better
+								// Switch to this weapon only if the slot has become active for the first time
+								bool wasActive = (your_gun[q].active != 0);
 								your_gun[q].active = 1;
-								SwitchGun(q);
+								if (!wasActive) {
+									SwitchGun(q);
+								}
 							}
 						}
 					}
