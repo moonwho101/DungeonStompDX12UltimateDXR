@@ -345,7 +345,7 @@ void InitDS() {
 		your_gun[i].current_frame = 0;
 		your_gun[i].current_sequence = 0;
 
-		if (i <= 0)
+		if (i <= 0 || (i >= 18 && i <= 21))
 			your_gun[i].active = 1;
 		else
 			your_gun[i].active = 0;
