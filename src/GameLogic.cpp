@@ -13,6 +13,8 @@
 #include "ParticleSystem.hpp"
 #include "MonsterAI.hpp"
 #include "PlayerAI.hpp"
+#include "speedglobals.h"
+
 using namespace DirectX;
 
 #pragma comment(lib, "Winmm.lib")
@@ -539,7 +541,7 @@ void MoveMonsters(float fElapsedTime) {
 
 				// float realspeed = 200.0f * fElapsedTime;
 
-				float realspeed = (165.0f + (monster_list[i].speed * 2.0f)) * fElapsedTime;
+				float realspeed = (MONSTER_BASE_SPEED + (monster_list[i].speed * MONSTER_SPEED_SCALE)) * fElapsedTime;
 
 				XMVECTOR moveDir = final;
 				if (aiMoves) {

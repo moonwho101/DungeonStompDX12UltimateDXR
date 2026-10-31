@@ -207,7 +207,7 @@ void DungeonStompApp::OnResize() {
 	// XMMATRIX P = XMMatrixPerspectiveFovLH(5*MathHelper::Pi/18, AspectRatio(), 1.0f, 10000.0f); //50
 	// XMMATRIX P = XMMatrixPerspectiveFovLH(0.25f*MathHelper::Pi, AspectRatio(), 1.0f, 1000.0f); //45
 
-	float angle = 50.0f;
+	float angle = 75.0f;
 	float fov = angle * (MathHelper::Pi / 180.0f);
 	cullAngle = 60.0f;
 
@@ -786,6 +786,7 @@ void DungeonStompApp::BuildShadersAndInputLayout() {
 	const int hMapBorder = 7;
 	const int hMap = 8;
 	const int hMapMarker = 9;
+	const int hCrosshair = 10;
 
 	// create the rectangles for HUD
 	for (int i = 0; i < MaxRectangle; i++) {
@@ -825,6 +826,12 @@ void DungeonStompApp::BuildShadersAndInputLayout() {
 
 		if (i == hHealthBarBack || i == hHealthBarFill || i == hMapBorder || i == hMapMarker) {
 			rectanglepsoDesc.PS = rectangleSolidPixelShaderBytecode;
+			rectangleBlendStateDesc.RenderTarget[0].SrcBlend = D3D12_BLEND_SRC_ALPHA;
+			rectangleBlendStateDesc.RenderTarget[0].DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
+		}
+
+		if (i == hCrosshair) {
+			rectangleBlendStateDesc.RenderTarget[0].BlendEnable = TRUE;
 			rectangleBlendStateDesc.RenderTarget[0].SrcBlend = D3D12_BLEND_SRC_ALPHA;
 			rectangleBlendStateDesc.RenderTarget[0].DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
 		}

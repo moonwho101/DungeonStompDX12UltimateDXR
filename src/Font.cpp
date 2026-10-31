@@ -15,6 +15,7 @@
 #include "CameraBob.hpp"
 #include "PlayerAI.hpp"
 #include "DungeonGenerator.hpp"
+#include "speedglobals.h"
 #include "imgui/imgui.h"
 
 extern int load_level(char *filename);
@@ -475,6 +476,16 @@ void DungeonStompApp::DisplayHud() {
 		hudLogoDisplayElapsed += mTimer.DeltaTime();
 		diceTexture = FindTextureAlias("pb0");
 		RenderRectangle(arialFont, 4, diceTexture, XMFLOAT2(0.36f, 0.05f), XMFLOAT2(10.00f, 10.00f), XMFLOAT2(0.5f, 0.0f), XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f));
+	}
+
+	// Round crosshair dot reticle in the center of the screen
+	int crosshairTex = FindTextureAlias("crosshair");
+	if (crosshairTex >= 0) {
+		const float crossH = 0.01f;
+		const float crossW = crossH * (float)mClientHeight / (float)mClientWidth;
+		const float crossX = 0.5f - (crossW * 0.5f);
+		const float crossY = 0.5f - (crossH * 0.5f);
+		RenderSolidRectangle(10, XMFLOAT2(crossX, crossY), XMFLOAT2(crossW, crossH), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), crosshairTex);
 	}
 
 	if (!enableVsync) {
@@ -1015,6 +1026,37 @@ void DungeonStompApp::RenderImGuiTogglePanel() {
 				ImGui::EndDisabled();
 				ImGui::SameLine();
 				ImGui::TextDisabled("(Unsupported)");
+			}
+
+			ImGui::TreePop();
+		}
+
+		ImGui::Spacing();
+
+		if (ImGui::TreeNodeEx("Speed & Controls (speedglobals.h)", ImGuiTreeNodeFlags_DefaultOpen)) {
+			ImGui::SliderFloat("Player Base Speed", &PLAYER_BASE_SPEED, 50.0f, 2000.0f, "%.1f");
+			ImGui::SliderFloat("Sprint Multiplier", &PLAYER_SPRINT_MULTIPLIER, 1.0f, 5.0f, "%.2f");
+			ImGui::SliderFloat("Player Acceleration", &PLAYER_ACCELERATION, 500.0f, 20000.0f, "%.1f");
+			ImGui::SliderFloat("Keyboard Turn Speed (deg/s)", &KEYBOARD_TURN_SPEED_DEG, 45.0f, 1000.0f, "%.1f");
+			ImGui::SliderFloat("Mouse Sensitivity Divider", &MOUSE_SENSITIVITY_DIVIDER, 1.0f, 100.0f, "%.1f");
+			ImGui::SliderFloat("Mouse Smoothing Springiness", &MOUSE_SMOOTHING_SPRINGINESS, 1.0f, 200.0f, "%.1f");
+			ImGui::SliderFloat("Monster Base Speed", &MONSTER_BASE_SPEED, 10.0f, 1000.0f, "%.1f");
+			ImGui::SliderFloat("Monster Speed Scale", &MONSTER_SPEED_SCALE, 0.0f, 20.0f, "%.2f");
+			ImGui::SliderFloat("Monster Turn Rate (rad/s)", &MONSTER_TURN_RATE, 1.0f, 50.0f, "%.1f");
+
+			if (ImGui::Button("Reset Speed Globals to Defaults")) {
+				PLAYER_BASE_SPEED = DEFAULT_PLAYER_BASE_SPEED;
+				PLAYER_SPRINT_MULTIPLIER = DEFAULT_PLAYER_SPRINT_MULTIPLIER;
+				PLAYER_SPRINT_SPEED = DEFAULT_PLAYER_BASE_SPEED * DEFAULT_PLAYER_SPRINT_MULTIPLIER;
+				PLAYER_ACCELERATION = DEFAULT_PLAYER_ACCELERATION;
+				KEYBOARD_TURN_SPEED_DEG = DEFAULT_KEYBOARD_TURN_SPEED_DEG;
+				MOUSE_SENSITIVITY_DIVIDER = DEFAULT_MOUSE_SENSITIVITY_DIVIDER;
+				MOUSE_SMOOTHING_SPRINGINESS = DEFAULT_MOUSE_SMOOTHING_SPRINGINESS;
+				MONSTER_BASE_SPEED = DEFAULT_MONSTER_BASE_SPEED;
+				MONSTER_SPEED_SCALE = DEFAULT_MONSTER_SPEED_SCALE;
+				MONSTER_TURN_RATE = DEFAULT_MONSTER_TURN_RATE;
+				sprintf_s(gActionMessage, "Speed Globals Reset to Defaults");
+				UpdateScrollList(0, 255, 255);
 			}
 
 			ImGui::TreePop();

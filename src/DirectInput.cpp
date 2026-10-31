@@ -14,9 +14,10 @@
 #include <vector>
 #include <stdio.h>
 #include <stdlib.h>
+#include "speedglobals.h"
 
 // mouse sensitivity
-float mousediv = 12.0f;
+float mousediv = MOUSE_SENSITIVITY_DIVIDER;
 
 // Only one input device should be true.  Set g_bUseJoystick=true for xbox controller.
 BOOL g_bUseMouse = true;
@@ -86,9 +87,12 @@ FLOAT fLastGunFireTime = 0;
 int criticalhiton = 0;
 bool cycleweaponbuttonpressed = FALSE;
 bool cycleweaponbuttonpressedjoystick = FALSE;
+static BOOL spellLast = FALSE;
+static BOOL bFireLast = FALSE;
+static BOOL bFire2Last = FALSE;
 
 float use_x, use_y;    // position to use for displaying
-float springiness = 9; // tweak to taste.
+float springiness = MOUSE_SMOOTHING_SPRINGINESS; // tweak to taste.
 
 void smooth_mouse(float time_d, float realx, float realy);
 extern int firemissle;
@@ -205,6 +209,9 @@ void DemoResetState(unsigned int seed) {
 	nextlevel = 0;
 	previouslevel = 0;
 	cycleweaponbuttonpressed = FALSE;
+	spellLast = FALSE;
+	bFireLast = FALSE;
+	bFire2Last = FALSE;
 	memset(&Controls, 0, sizeof(Controls));
 }
 
@@ -521,11 +528,12 @@ VOID UpdateControls() {
 			Controls.bPrevWeap = diks[DIK_Z] && 0x80;
 			Controls.bNextWeap = diks[DIK_Q] && 0x80;
 			Controls.bInTalkMode = diks[DIK_SLASH] && 0x80;
-			Controls.opendoor = diks[DIK_SPACE] && 0x80;
+			Controls.opendoor = diks[DIK_E] && 0x80;
 			Controls.bFire2 = diks[DIK_END] && 0x80;
 			Controls.bCameraleft = diks[DIK_LSHIFT] && 0x80;
 			Controls.bCameraright = diks[DIK_RSHIFT] && 0x80;
-			Controls.missle = diks[DIK_E] && 0x80;
+			Controls.bSprint = (diks[DIK_LSHIFT] & 0x80) || (diks[DIK_RSHIFT] & 0x80);
+			Controls.missle = diks[DIK_SPACE] && 0x80;
 			Controls.bFire = diks[DIK_RCONTROL] && 0x80;
 			Controls.spell = diks[DIK_RCONTROL] && 0x80;
 			Controls.xp = diks[DIK_X] && 0x80;
@@ -559,7 +567,7 @@ VOID UpdateControls() {
 				Controls.bHeadDown = dims.lY;
 
 			Controls.bFire = dims.rgbButtons[0] && 0x80;
-			Controls.opendoor = diks[DIK_SPACE] && 0x80;
+			Controls.opendoor = diks[DIK_E] && 0x80;
 			Controls.bForward = dims.rgbButtons[1] && 0x80;
 
 			if (Controls.bForward == 0)
@@ -571,7 +579,7 @@ VOID UpdateControls() {
 			Controls.bBackward = diks[DIK_S] && 0x80;
 			Controls.spell = dims.rgbButtons[0] && 0x80;
 
-			Controls.missle = diks[DIK_E] && 0x80;
+			Controls.missle = diks[DIK_SPACE] && 0x80;
 
 			// Mouse wheel: cycle weapons
 			if (dims.lZ > 0)
@@ -700,6 +708,11 @@ VOID UpdateControls() {
 	}
 }
 
+extern float playerspeed;
+extern float playerspeedmax;
+extern float playerspeedlevel;
+extern float moveaccel;
+
 VOID WalkMode(CONTROLS *Controls) {
 
 	if (player_list[trueplayernum].bIsPlayerAlive == FALSE)
@@ -723,24 +736,43 @@ VOID WalkMode(CONTROLS *Controls) {
 		// DXUTShutdown();
 	}
 
-	if (Controls->spell && player_list[trueplayernum].firespeed == 0 && usespell == 1) {
+	bool bSpellPress = Controls->spell && (!spellLast || player_list[trueplayernum].firespeed == 0);
+	spellLast = Controls->spell;
+
+	if (bSpellPress && usespell == 1) {
 		int pspeed = (18 - player_list[trueplayernum].hd);
 		if (pspeed < 6)
 			pspeed = 6;
 
 		player_list[trueplayernum].firespeed = pspeed;
 		firemissle = 1;
-		if (jump == 0 && (player_list[trueplayernum].current_sequence != 2) && player_list[trueplayernum].bIsPlayerAlive == TRUE) {
+		if (jump == 0 && player_list[trueplayernum].bIsPlayerAlive == TRUE) {
 			SetPlayerAnimationSequence(trueplayernum, 2);
 		}
 	}
 
 	if (Controls->bCameraleft) {
-		rotate_camera += 105 * elapsegametimersave;
+		rotate_camera += KEYBOARD_TURN_SPEED_DEG * elapsegametimersave;
 	}
 
 	if (Controls->bCameraright) {
-		rotate_camera -= 105 * elapsegametimersave;
+		rotate_camera -= KEYBOARD_TURN_SPEED_DEG * elapsegametimersave;
+	}
+
+	// Update movement parameters dynamically from speedglobals in real time
+	PLAYER_SPRINT_SPEED = PLAYER_BASE_SPEED * PLAYER_SPRINT_MULTIPLIER;
+	moveaccel = PLAYER_ACCELERATION;
+	mousediv = MOUSE_SENSITIVITY_DIVIDER;
+	springiness = MOUSE_SMOOTHING_SPRINGINESS;
+
+	if (Controls->bSprint) {
+		playerspeed = PLAYER_SPRINT_SPEED;
+		playerspeedmax = PLAYER_SPRINT_SPEED;
+		playerspeedlevel = PLAYER_SPRINT_SPEED;
+	} else {
+		playerspeed = PLAYER_BASE_SPEED;
+		playerspeedmax = PLAYER_BASE_SPEED;
+		playerspeedlevel = PLAYER_BASE_SPEED;
 	}
 
 	if (Controls->missle && jump == 0 && nojumpallow == 0) {
@@ -762,7 +794,7 @@ VOID WalkMode(CONTROLS *Controls) {
 		if (g_bUseMouse) {
 			filterx = (float)Controls->bLeft / (float)mousediv;
 		} else {
-			angy -= 105 * elapsegametimersave;
+			angy -= KEYBOARD_TURN_SPEED_DEG * elapsegametimersave;
 			have_i_moved_flag = TRUE;
 		}
 	}
@@ -773,7 +805,7 @@ VOID WalkMode(CONTROLS *Controls) {
 		if (g_bUseMouse) {
 			filterx = (float)Controls->bRight / (float)mousediv;
 		} else {
-			angy += 105 * elapsegametimersave;
+			angy += KEYBOARD_TURN_SPEED_DEG * elapsegametimersave;
 			have_i_moved_flag = TRUE;
 		}
 	}
@@ -846,12 +878,19 @@ VOID WalkMode(CONTROLS *Controls) {
 	}
 
 	// fire gun
-	if ((Controls->bFire == TRUE) && jump == 0 && (player_list[trueplayernum].current_sequence != 2) && player_list[trueplayernum].bIsPlayerAlive == TRUE && usespell == 0 ||
-	    (Controls->bFire2 == TRUE) && jump == 0 && (player_list[trueplayernum].current_sequence != 2) && player_list[trueplayernum].bIsPlayerAlive == TRUE &&
-	        usespell == 0) {
+	bool bFireTrigger = (Controls->bFire && (!bFireLast || player_list[trueplayernum].current_sequence != 2)) ||
+	                    (Controls->bFire2 && (!bFire2Last || player_list[trueplayernum].current_sequence != 2));
+	bFireLast = Controls->bFire;
+	bFire2Last = Controls->bFire2;
+
+	if (bFireTrigger && jump == 0 && player_list[trueplayernum].bIsPlayerAlive == TRUE && usespell == 0) {
 		hitmonster = 0;
 		numdice = 2;
 		firing_gun_flag = TRUE;
+		damageinprogress = 0;
+		for (int m = 0; m < num_monsters; m++) {
+			monster_list[m].takedamageonce = 0;
+		}
 		SetPlayerAnimationSequence(trueplayernum, 2);
 		PlayWavSound(SoundID("knightattack"), 100);
 		fLastGunFireTime = timeGetTime() * 0.001f;
@@ -859,7 +898,7 @@ VOID WalkMode(CONTROLS *Controls) {
 		dice[0].roll = 1;
 		dice[1].roll = 1;
 		criticalhiton = 0;
-	} else {
+	} else if (!Controls->bFire && !Controls->bFire2) {
 		firing_gun_flag = FALSE;
 	}
 
@@ -879,7 +918,7 @@ VOID WalkMode(CONTROLS *Controls) {
 		if (g_bUseMouse) {
 			filtery = (float)Controls->bHeadDown / (float)mousediv;
 		} else {
-			look_up_ang += 105 * elapsegametimersave;
+			look_up_ang += KEYBOARD_TURN_SPEED_DEG * elapsegametimersave;
 			/*if (look_up_ang > 90)
 			    look_up_ang = 89.9f;*/
 		}
@@ -890,7 +929,7 @@ VOID WalkMode(CONTROLS *Controls) {
 		if (g_bUseMouse) {
 			filtery = (float)Controls->bHeadUp / (float)mousediv;
 		} else {
-			look_up_ang -= 105 * elapsegametimersave;
+			look_up_ang -= KEYBOARD_TURN_SPEED_DEG * elapsegametimersave;
 			// if (look_up_ang < -90)
 			//	look_up_ang = -89.9f;
 		}
@@ -1228,13 +1267,18 @@ void GiveWeapons() {
 }
 
 void smooth_mouse(float time_d, float realx, float realy) {
-	double d = 1 - exp(log(0.5) * springiness * time_d);
+	if (realx == 0.0f && realy == 0.0f) {
+		use_x = 0.0f;
+		use_y = 0.0f;
+		filterx = 0.0f;
+		filtery = 0.0f;
+		return;
+	}
+
+	double d = 1.0 - exp(log(0.5) * springiness * time_d);
 
 	use_x += ((realx - use_x) * (float)d);
-	use_y += (realy - use_y) * (float)d;
-
-	// sprintf(gActionMessage, "%9.6f %9.6f",use_x,use_y);
-	// UpdateScrollList(0, 255, 255);
+	use_y += ((realy - use_y) * (float)d);
 
 	filterx = use_x;
 	filtery = use_y;

@@ -284,6 +284,9 @@
     <ClInclude Include="imgui\imgui_impl_dx12.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="speedglobals.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\Shaders\Default.hlsl">

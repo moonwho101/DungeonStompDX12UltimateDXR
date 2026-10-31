@@ -7,6 +7,7 @@
 #include "GameLogic.hpp"
 #include "Missle.hpp"
 #include "ParticleSystem.hpp"
+#include "speedglobals.h"
 
 int endc = 0;
 extern bool enableDXR;
@@ -40,7 +41,7 @@ extern FLOAT fTimeKeysave;
 XMFLOAT3 savevelocity;
 XMFLOAT3 saveoldvelocity;
 
-float playerspeed = 300.0f;
+float playerspeed = PLAYER_BASE_SPEED;
 
 D3DVECTOR realEye;
 XMFLOAT3 EyeTrue;
@@ -51,13 +52,13 @@ int direction = 0;
 int directionlast = 0;
 int savelastmove = 0;
 int savelaststrifemove = 0;
-float playerspeedmax = 280.0f;
-float playerspeedlevel = 280.0f;
+float playerspeedmax = PLAYER_BASE_SPEED;
+float playerspeedlevel = PLAYER_BASE_SPEED;
 float movespeed = 0.0f;
 float movespeedold = 0.0f;
 float movespeedsave = 0.0f;
 float movetime = 0.0f;
-float moveaccel = 400.0f;
+float moveaccel = PLAYER_ACCELERATION;
 int playermove = 0;
 int playermovestrife = 0;
 float cameraheight = 50.0f;

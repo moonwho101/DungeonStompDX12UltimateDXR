@@ -6,6 +6,7 @@
 #include <math.h>
 #include <string.h>
 #include <vector>
+#include "speedglobals.h"
 
 extern int endc;
 extern int src_collide[MAX_NUM_QUADS];
@@ -35,7 +36,6 @@ constexpr float kLedgeDanger = 0.55f;
 constexpr float kWalkableNormalY = 0.55f;    // triangles flatter than this (about 60 degrees) are floors/ramps, not walls
 constexpr float kMaxStepRiserHeight = 25.0f; // stair risers are 20 units; walls are >= 120 units
 constexpr float kSeparationRadius = 130.0f;
-constexpr float kTurnRate = 9.5f; // radians per second (about 540 degrees)
 constexpr float kMeleeRange = 80.0f;
 constexpr float kKiteMinRange = 220.0f;
 constexpr float kKiteMaxRange = 380.0f;
@@ -753,7 +753,7 @@ MonsterSteering MonsterAIUpdate(int idx, float fElapsedTime, bool walking) {
 	s.prevX = m.x;
 	s.prevZ = m.z;
 	if (walking && dist > kMeleeRange + 20.0f) {
-		s.walkExpected += (165.0f + m.speed * 2.0f) * dt;
+		s.walkExpected += (MONSTER_BASE_SPEED + m.speed * MONSTER_SPEED_SCALE) * dt;
 		s.walkMoved += moved;
 	}
 
@@ -767,7 +767,7 @@ MonsterSteering MonsterAIUpdate(int idx, float fElapsedTime, bool walking) {
 	// Smooth the heading so direction changes between thinks are never a snap.
 	float curA = atan2f(s.headZ, s.headX);
 	float tgtA = atan2f(s.steerZ, s.steerX);
-	float newA = TurnToward(curA, tgtA, kTurnRate * dt);
+	float newA = TurnToward(curA, tgtA, MONSTER_TURN_RATE * dt);
 	s.headX = cosf(newA);
 	s.headZ = sinf(newA);
 
@@ -781,7 +781,7 @@ MonsterSteering MonsterAIUpdate(int idx, float fElapsedTime, bool walking) {
 	if (snapToPlayer)
 		s.faceRad = playerA;
 	else
-		s.faceRad = TurnToward(s.faceRad, facePlayer ? playerA : newA, kTurnRate * dt);
+		s.faceRad = TurnToward(s.faceRad, facePlayer ? playerA : newA, MONSTER_TURN_RATE * dt);
 
 	float deg = s.faceRad / k;
 	while (deg < 0.0f)
