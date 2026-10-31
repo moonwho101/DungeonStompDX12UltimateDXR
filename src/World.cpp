@@ -74,7 +74,7 @@ XMFLOAT3 LookTrue;
 
 XMFLOAT3 m_vLookatPt;
 XMFLOAT3 m_vEyePt;
-D3DVALUE look_up_ang;
+D3DVALUE look_up_ang = 0.0f;
 D3DVALUE angy = 60;
 
 XMFLOAT3 modellocation;
@@ -398,6 +398,8 @@ void InitDS() {
 
 	pCWorld->LoadMod("level1.mod");
 	SetStartSpot();
+	look_up_ang = 0.0f;
+	look_roll_ang = 0.0f;
 	float fangle = (float)90 * k;
 
 	for (int i = 0; i <= 360; i++) {

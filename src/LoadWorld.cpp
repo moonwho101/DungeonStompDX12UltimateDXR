@@ -102,6 +102,7 @@ extern char levelname[80];
 int current_level;
 extern D3DVALUE angy;
 extern D3DVALUE look_up_ang;
+extern float look_roll_ang;
 
 extern PLAYER *item_list;
 extern PLAYER *player_list2;
@@ -1791,6 +1792,8 @@ void SetStartSpot() {
 	// cameraf.y = m_vLookatPt.y;
 	// cameraf.z = m_vLookatPt.z;
 	angy = startpos[result].angle;
+	look_up_ang = 0.0f;
+	look_roll_ang = 0.0f;
 
 	// modellocation = m_vEyePt;
 	// UpdateMainPlayer();

@@ -19,6 +19,10 @@
 // mouse sensitivity
 float mousediv = MOUSE_SENSITIVITY_DIVIDER;
 
+// Grace period (number of initial frames) to discard spurious startup mouse deltas
+// generated during window creation, focus acquisition, or fullscreen mode switch.
+static int startupMouseGraceFrames = 10;
+
 // Only one input device should be true.  Set g_bUseJoystick=true for xbox controller.
 BOOL g_bUseMouse = true;
 BOOL g_bUseJoystick = false;
@@ -91,7 +95,7 @@ static BOOL spellLast = FALSE;
 static BOOL bFireLast = FALSE;
 static BOOL bFire2Last = FALSE;
 
-float use_x, use_y;    // position to use for displaying
+float use_x, use_y;                              // position to use for displaying
 float springiness = MOUSE_SMOOTHING_SPRINGINESS; // tweak to taste.
 
 void smooth_mouse(float time_d, float realx, float realy);
@@ -149,9 +153,11 @@ struct DemoFrame {
 	CONTROLS controls;
 };
 
-enum class DemoMode { Idle,
-	                  Recording,
-	                  Playing };
+enum class DemoMode {
+	Idle,
+	Recording,
+	Playing
+};
 
 const char *kDemoSaveFile = "demo.sav";
 const char *kDemoFile = "demo.dem";
@@ -556,6 +562,16 @@ VOID UpdateControls() {
 
 			int threshhold = 5;
 
+			if (startupMouseGraceFrames > 0) {
+				startupMouseGraceFrames--;
+				dims.lX = 0;
+				dims.lY = 0;
+				use_x = 0;
+				use_y = 0;
+				filterx = 0;
+				filtery = 0;
+			}
+
 			if (dims.lX < 0)
 				Controls.bLeft = dims.lX;
 			if (dims.lX > 0)
@@ -586,7 +602,6 @@ VOID UpdateControls() {
 				Controls.bNextWeap = 1;
 			else if (dims.lZ < 0)
 				Controls.bPrevWeap = 1;
-
 		}
 
 		// Read joystick input
@@ -1097,6 +1112,7 @@ HRESULT SelectInputDevice() {
 		                  GUID_SysMouse, &c_dfDIMouse,
 		                  DISCL_BACKGROUND | DISCL_NONEXCLUSIVE);
 		g_pdidDevice2->Acquire();
+		startupMouseGraceFrames = 10;
 
 		CreateInputDevice(g_Keyboard_pDI,
 		                  g_Keyboard_pdidDevice2,
