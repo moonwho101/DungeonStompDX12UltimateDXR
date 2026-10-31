@@ -598,9 +598,11 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                     elif r < 0.25:
                                         ent_type = random.choice(['rock1','rock2','skull','QUARTZ','cdoorclosedchest','block01','block02'])
                                         st = 0
+                                        item_rot = d_rot
 
                                         if ent_type == 'cdoorclosedchest':
                                             st = random.choice([0, 1]) if level < 2 else random.choice([0, 1, 2])
+                                            item_rot = random.choice([0, 90, 180, 270])
 
                                         adjust = 10.0
 
@@ -609,7 +611,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
 
                                         entities.append({'type': ent_type, 'name': '0',
                                                         'x': wx_item, 'y': Oy+adjust, 'z': wz_item,
-                                                        'rot': d_rot, 'id': entity_id_idx, 'state': st})
+                                                        'rot': item_rot, 'id': entity_id_idx, 'state': st})
 
                                     elif r < 0.28:
                                         ent_type = 'armour'

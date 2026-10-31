@@ -1456,13 +1456,16 @@ bool GenerateDungeonNewObjects(const std::string &outputPath, const GeneratorOpt
 										std::vector<std::string> items = { "rock1", "rock2", "skull", "QUARTZ", "cdoorclosedchest", "block01", "block02" };
 										ent_type = rng.choice(items);
 										int st = 0;
+										int item_rot = d_rot;
 										if (ent_type == "cdoorclosedchest") {
 											st = (level < 2) ? rng.randInt(0, 1) : rng.randInt(0, 2);
+											std::vector<int> chest_rots = { 0, 90, 180, 270 };
+											item_rot = rng.choice(chest_rots);
 										}
 										float adjust = 10.0f;
 										if (ent_type == "block01" || ent_type == "block02")
 											adjust = -11.0f;
-										entities.push_back({ ent_type, "0", wx_item, Oy + adjust, wz_item, d_rot, entity_id_idx++, st });
+										entities.push_back({ ent_type, "0", wx_item, Oy + adjust, wz_item, item_rot, entity_id_idx++, st });
 									} else if (r < 0.28f) {
 										ent_type = "armour";
 										entities.push_back({ ent_type, "-1", wx_item, Oy + 60.0f, wz_item, d_rot, entity_id_idx++, 0 });
