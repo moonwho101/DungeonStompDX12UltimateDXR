@@ -13,7 +13,7 @@ constexpr float DEFAULT_KEYBOARD_TURN_SPEED_DEG = 315.0f;
 constexpr float DEFAULT_MOUSE_SENSITIVITY_DIVIDER = 18.0f;
 constexpr float DEFAULT_MOUSE_SMOOTHING_SPRINGINESS = 45.0f;
 constexpr float DEFAULT_MONSTER_BASE_SPEED = 200.0f;
-constexpr float DEFAULT_MONSTER_SPEED_SCALE = 5.0f;
+constexpr float DEFAULT_MONSTER_SPEED_SCALE = 3.0f;
 constexpr float DEFAULT_MONSTER_TURN_RATE = 18.0f;
 
 // Real-time tweakable gameplay parameters
