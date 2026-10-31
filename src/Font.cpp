@@ -477,10 +477,10 @@ void DungeonStompApp::DisplayHud() {
 		RenderRectangle(arialFont, 4, diceTexture, XMFLOAT2(0.36f, 0.05f), XMFLOAT2(10.00f, 10.00f), XMFLOAT2(0.5f, 0.0f), XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f));
 	}
 
-	// Round crosshair with center dot in the center of the screen
+	// Round crosshair dot reticle in the center of the screen
 	int crosshairTex = FindTextureAlias("crosshair");
 	if (crosshairTex >= 0) {
-		const float crossH = 0.04f;
+		const float crossH = 0.01f;
 		const float crossW = crossH * (float)mClientHeight / (float)mClientWidth;
 		const float crossX = 0.5f - (crossW * 0.5f);
 		const float crossY = 0.5f - (crossH * 0.5f);
