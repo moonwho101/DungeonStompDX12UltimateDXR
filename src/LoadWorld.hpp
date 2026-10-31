@@ -46,7 +46,18 @@ int FindTextureAlias(char *alias);
 int CheckValidTextureAlias(char *alias);
 extern int monsterenable;
 
+struct startposition {
+	float x;
+	float y;
+	float z;
+	float angle;
+};
+
+extern struct startposition startpos[200];
+extern int startposcounter;
+
 void SetStartSpot();
+void RespawnMonsterAtStartSpot(int monsterIndex);
 
 struct gametext {
 

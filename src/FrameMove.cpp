@@ -49,6 +49,14 @@ HRESULT FrameMove(double fTime, FLOAT fTimeKey) {
 
 	PlayerJump(fTimeKey);
 
+	if (m_vEyePt.y < FALL_FAILSAFE_Y) {
+		SetStartSpot();
+		ResetPlayerMotionState();
+		player_list[trueplayernum].x = m_vEyePt.x;
+		player_list[trueplayernum].y = m_vEyePt.y;
+		player_list[trueplayernum].z = m_vEyePt.z;
+	}
+
 	if (look_up_ang < -89.3f)
 		look_up_ang = -89.3f;
 
