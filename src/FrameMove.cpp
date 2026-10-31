@@ -19,6 +19,7 @@ bool MovePlayer(const FLOAT &fTimeKey);
 void StrifePlayer(FLOAT &fTimeKey, bool addVel);
 void PlayerAnimation();
 void CheckAngle();
+void ResetPlayerMotionState();
 
 extern CameraBob bobY;
 int playercurrentmove = 0;

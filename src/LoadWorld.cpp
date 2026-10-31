@@ -2111,6 +2111,9 @@ int load_level(char *filename) {
 		} else if (i == 18) {
 			your_gun[i].active = 1;
 			your_gun[i].x_offset = 2;
+		} else if (i >= 19 && i <= 21) {
+			your_gun[i].active = 1;
+			your_gun[i].x_offset = 0;
 		} else {
 			your_gun[i].active = 0;
 
