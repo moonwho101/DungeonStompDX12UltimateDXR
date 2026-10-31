@@ -787,6 +787,7 @@ void DungeonStompApp::BuildShadersAndInputLayout() {
 	const int hMap = 8;
 	const int hMapMarker = 9;
 	const int hCrosshair = 10;
+	const int hMapExitMarker = 11;
 
 	// create the rectangles for HUD
 	for (int i = 0; i < MaxRectangle; i++) {
@@ -824,7 +825,7 @@ void DungeonStompApp::BuildShadersAndInputLayout() {
 			rectangleBlendStateDesc.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
 		}
 
-		if (i == hHealthBarBack || i == hHealthBarFill || i == hMapBorder || i == hMapMarker) {
+		if (i == hHealthBarBack || i == hHealthBarFill || i == hMapBorder || i == hMapMarker || i == hMapExitMarker) {
 			rectanglepsoDesc.PS = rectangleSolidPixelShaderBytecode;
 			rectangleBlendStateDesc.RenderTarget[0].SrcBlend = D3D12_BLEND_SRC_ALPHA;
 			rectangleBlendStateDesc.RenderTarget[0].DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
