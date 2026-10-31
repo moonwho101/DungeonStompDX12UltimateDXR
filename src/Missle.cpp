@@ -209,12 +209,13 @@ void FirePlayerMissle(float x, float y, float z, float angy, int owner, int shoo
 		your_missle[misslespot].qdist = qdist;
 
 		if (your_missle[misslespot].sexplode != 0) {
-			// DSound_Delete_Sound(your_missle[misslespot].sexplode);
+			DSound_Delete_Sound(your_missle[misslespot].sexplode);
 			your_missle[misslespot].sexplode = 0;
 		}
-		if (your_missle[misslespot].smove != 0)
-			// DSound_Delete_Sound(your_missle[misslespot].smove);
+		if (your_missle[misslespot].smove != 0) {
+			DSound_Delete_Sound(your_missle[misslespot].smove);
 			your_missle[misslespot].smove = 0;
+		}
 
 		your_missle[misslespot].sexplode = DSound_Replicate_Sound(SoundID("explod2"));
 
