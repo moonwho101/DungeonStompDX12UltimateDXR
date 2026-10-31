@@ -515,8 +515,10 @@ void DungeonStompApp::DisplayHud() {
 			// Margin from map border when clamped to perimeter so the marker stays fully visible inside
 			float maxNormX = 1.0f - (exitDotW / mapW);
 			float maxNormY = 1.0f - (exitDotH / mapH);
-			if (maxNormX < 0.1f) maxNormX = 0.95f;
-			if (maxNormY < 0.1f) maxNormY = 0.95f;
+			if (maxNormX < 0.1f)
+				maxNormX = 0.95f;
+			if (maxNormY < 0.1f)
+				maxNormY = 0.95f;
 
 			// Check if spiral is within map range
 			if (fabsf(normX) <= maxNormX && fabsf(normY) <= maxNormY) {
@@ -1112,6 +1114,7 @@ void DungeonStompApp::RenderImGuiTogglePanel() {
 			ImGui::SliderFloat("Monster Base Speed", &MONSTER_BASE_SPEED, 10.0f, 1000.0f, "%.1f");
 			ImGui::SliderFloat("Monster Speed Scale", &MONSTER_SPEED_SCALE, 0.0f, 20.0f, "%.2f");
 			ImGui::SliderFloat("Monster Turn Rate (rad/s)", &MONSTER_TURN_RATE, 1.0f, 50.0f, "%.1f");
+			ImGui::SliderFloat("Missile Speed", &MISSILE_SPEED, 50.0f, 3000.0f, "%.1f");
 
 			if (ImGui::Button("Reset Speed Globals to Defaults")) {
 				PLAYER_BASE_SPEED = DEFAULT_PLAYER_BASE_SPEED;
@@ -1124,6 +1127,7 @@ void DungeonStompApp::RenderImGuiTogglePanel() {
 				MONSTER_BASE_SPEED = DEFAULT_MONSTER_BASE_SPEED;
 				MONSTER_SPEED_SCALE = DEFAULT_MONSTER_SPEED_SCALE;
 				MONSTER_TURN_RATE = DEFAULT_MONSTER_TURN_RATE;
+				MISSILE_SPEED = DEFAULT_MISSILE_SPEED;
 				sprintf_s(gActionMessage, "Speed Globals Reset to Defaults");
 				UpdateScrollList(0, 255, 255);
 			}

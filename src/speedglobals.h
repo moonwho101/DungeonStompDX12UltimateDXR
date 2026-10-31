@@ -6,7 +6,7 @@
 // ============================================================================
 
 // Standard default baseline values
-constexpr float DEFAULT_PLAYER_BASE_SPEED = 350.0f;
+constexpr float DEFAULT_PLAYER_BASE_SPEED = 300.0f;
 constexpr float DEFAULT_PLAYER_SPRINT_MULTIPLIER = 2.0f;
 constexpr float DEFAULT_PLAYER_ACCELERATION = 6000.0f;
 constexpr float DEFAULT_KEYBOARD_TURN_SPEED_DEG = 315.0f;
@@ -15,6 +15,7 @@ constexpr float DEFAULT_MOUSE_SMOOTHING_SPRINGINESS = 45.0f;
 constexpr float DEFAULT_MONSTER_BASE_SPEED = 200.0f;
 constexpr float DEFAULT_MONSTER_SPEED_SCALE = 3.0f;
 constexpr float DEFAULT_MONSTER_TURN_RATE = 18.0f;
+constexpr float DEFAULT_MISSILE_SPEED = 800.0f;
 
 // Real-time tweakable gameplay parameters
 inline float PLAYER_BASE_SPEED = DEFAULT_PLAYER_BASE_SPEED;
@@ -27,5 +28,6 @@ inline float MOUSE_SMOOTHING_SPRINGINESS = DEFAULT_MOUSE_SMOOTHING_SPRINGINESS;
 inline float MONSTER_BASE_SPEED = DEFAULT_MONSTER_BASE_SPEED;
 inline float MONSTER_SPEED_SCALE = DEFAULT_MONSTER_SPEED_SCALE;
 inline float MONSTER_TURN_RATE = DEFAULT_MONSTER_TURN_RATE;
+inline float MISSILE_SPEED = DEFAULT_MISSILE_SPEED;
 
 #endif
