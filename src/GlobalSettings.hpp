@@ -2,7 +2,7 @@
 #ifndef __GLOBALSETTINGS_H
 #define __GLOBALSETTINGS_H
 
-#define MAX_MISSLE 100
+#define MAX_MISSLE 300
 
 #define MAX_NUM_QUADS 900000
 

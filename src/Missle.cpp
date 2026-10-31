@@ -230,7 +230,7 @@ void FirePlayerMissle(float x, float y, float z, float angy, int owner, int shoo
 		dice[0].roll = 0;
 		dice[1].roll = 1;
 
-		PlayWavSound(your_missle[misslecount].smove, 100);
+		PlayWavSound(your_missle[misslespot].smove, 100);
 	}
 
 	saveoldvelocity = savevelocity;
@@ -831,7 +831,7 @@ void FireMonsterMissle(int monsterid, int type) {
 	savevelocity.y = s1.y;
 	savevelocity.z = s1.z;
 
-	PlayWavSound(your_missle[misslecount].smove, volume);
+	PlayWavSound(your_missle[misslespot].smove, volume);
 
 	your_missle[misslespot].current_frame = 0;
 	your_missle[misslespot].current_sequence = 0;
