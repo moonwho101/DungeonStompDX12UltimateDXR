@@ -116,17 +116,17 @@ void FirePlayerMissle(float x, float y, float z, float angy, int owner, int shoo
 		if (strstr(your_gun[current_gun].gunname, "SCROLL-MAGICMISSLE") != NULL) {
 			your_missle[misslespot].model_id = 103;
 			your_missle[misslespot].skin_tex_id = 205;
-			your_missle[misslespot].bouncemax= 1;
+			your_missle[misslespot].bouncemax= 0;
 			your_missle[misslespot].bounce= 0;
 		} else if (strstr(your_gun[current_gun].gunname, "SCROLL-FIREBALL") != NULL) {
 			your_missle[misslespot].model_id = 104;
 			your_missle[misslespot].skin_tex_id = 288;
-			your_missle[misslespot].bouncemax = 2;
+			your_missle[misslespot].bouncemax = 0;
 			your_missle[misslespot].bounce = 0;
 		} else if (strstr(your_gun[current_gun].gunname, "SCROLL-LIGHTNING") != NULL) {
 			your_missle[misslespot].model_id = 105;
 			your_missle[misslespot].skin_tex_id = 278;
-			your_missle[misslespot].bouncemax = 3;
+			your_missle[misslespot].bouncemax = 0;
 			your_missle[misslespot].bounce = 0;
 		} else if (strstr(your_gun[current_gun].gunname, "SCROLL-HEALING") != NULL) {
 			if (player_list[trueplayernum].health < player_list[trueplayernum].hp) {
