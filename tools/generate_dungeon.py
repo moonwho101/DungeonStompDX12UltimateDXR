@@ -123,6 +123,38 @@ def _prefer_exit_index(open_exits, placed, prefer_loop_chance=0.20):
             best_idx = i
     return best_idx
 
+# Sloped pieces must never hold the exit spiral (it would float or sink into the slope).
+SLOPE_PIECES = ('CORRIDOR02', 'slope_stairs')
+UNRENDERED_PIECES = ('left_curve', 'right_curve')
+
+def _select_exit_piece(placed, start_x, start_z, min_distance=1000.0):
+    """
+    Pick the piece that holds the exit spiral (mirrors select_exit_piece in DungeonGenerator.cpp):
+    the piece deepest along the dungeon graph that is at least min_distance from the start,
+    ties broken by straight-line distance. Falls back to the farthest piece in a straight
+    line. Sloped and unrendered pieces are never chosen.
+    """
+    best = None
+    best_key = None
+    far = None
+    far_dist = -1.0
+    for p in placed[1:]:
+        if p['name'] in UNRENDERED_PIECES or p['name'] in SLOPE_PIECES:
+            continue
+        dist = math.hypot(p['x'] - start_x, p['z'] - start_z)
+        if dist > far_dist:
+            far_dist = dist
+            far = p
+        if dist < min_distance:
+            continue
+        key = (p.get('depth', 0), dist)
+        if best_key is None or key > best_key:
+            best_key = key
+            best = p
+    if best is not None:
+        return best
+    return far if far is not None else placed[0]
+
 def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
     """
     Enhanced generator that uses only the original OBJECTS and BOUNDING_BOXES.
@@ -140,7 +172,7 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
 
     # Start with a single room at some coordinate base
     print("Placing initial starting ROOM2...")
-    placed.append({'name': 'ROOM2', 'x': start_x, 'y': 0.0, 'z': start_z, 'rot': 0})
+    placed.append({'name': 'ROOM2', 'x': start_x, 'y': 0.0, 'z': start_z, 'rot': 0, 'depth': 0})
 
     open_exits = []
     # Add exits for the first room; ROOM2 exits have no y-offset so wy == piece y
@@ -152,7 +184,8 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
             'wy': 0.0 + ext.get('y', 0),
             'wz': start_z + rp[1],
             'wdx': rd[0], 'wdz': rd[1],
-            'source_name': 'ROOM2'
+            'source_name': 'ROOM2',
+            'source_depth': 0
         })
 
     def check_collision(nx, nz, n_name, n_rot):
@@ -222,7 +255,9 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                         Oz = wz - rp[1]
 
                         if not check_collision(Ox, Oz, cand_name, ang):
-                            placed.append({'name': cand_name, 'x': Ox, 'y': Oy, 'z': Oz, 'rot': ang})
+                            placed.append({'name': cand_name, 'x': Ox, 'y': Oy, 'z': Oz, 'rot': ang,
+                                           'depth': O.get('source_depth', 0) + 1})
+                            new_depth = placed[-1]['depth']
                             placed_new = True
                             print(f"Placed {cand_name} at ({Ox:.1f}, {Oy:.1f}, {Oz:.1f}) [Rot: {ang}]")
 
@@ -612,7 +647,8 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
                                     'wy': Oy + other_ext.get('y', 0),
                                     'wz': Oz + op[1],
                                     'wdx': od[0], 'wdz': od[1],
-                                    'source_name': cand_name
+                                    'source_name': cand_name,
+                                    'source_depth': new_depth
                                 })
                         break
 
@@ -666,8 +702,8 @@ def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
         entity_id_idx += 1
 
     # --- Add a single teleport exit at the deepest dungeon location ---
-    if placed:
-        deepest_piece = min(placed, key=lambda p: p.get('y', 0.0))
+    if len(placed) > 1:
+        deepest_piece = _select_exit_piece(placed, start_x, start_z)
         tx = deepest_piece['x']
         ty = deepest_piece['y']
         tz = deepest_piece['z']

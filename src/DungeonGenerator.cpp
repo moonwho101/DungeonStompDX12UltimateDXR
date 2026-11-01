@@ -413,6 +413,11 @@ bool is_unrendered_piece(const std::string &name) {
 	return name == "left_curve" || name == "right_curve";
 }
 
+// Sloped pieces must never hold the exit spiral (it would float or sink into the slope).
+bool is_slope_piece(const std::string &name) {
+	return name == "CORRIDOR02" || name == "slope_stairs";
+}
+
 int count_written_pieces(const std::vector<PlacedPiece> &placed) {
 	int count = 0;
 	for (const auto &p : placed) {
@@ -427,6 +432,7 @@ int count_written_pieces(const std::vector<PlacedPiece> &placed) {
 // dungeon graph (most connections to walk through), restricted to pieces that are
 // physically far enough from the start position. Falls back to the piece that is
 // the farthest away in a straight line if nothing satisfies the minimum distance.
+// Sloped pieces (CORRIDOR02, slope_stairs) are never chosen.
 size_t select_exit_piece(const std::vector<PlacedPiece> &placed, float startX, float startZ, float minDistance) {
 	size_t best_idx = 0;
 	bool found = false;
@@ -437,7 +443,7 @@ size_t select_exit_piece(const std::vector<PlacedPiece> &placed, float startX, f
 	float far_dist = -1.0f;
 
 	for (size_t p = 1; p < placed.size(); ++p) {
-		if (is_unrendered_piece(placed[p].name))
+		if (is_unrendered_piece(placed[p].name) || is_slope_piece(placed[p].name))
 			continue;
 
 		float dx = placed[p].x - startX;
