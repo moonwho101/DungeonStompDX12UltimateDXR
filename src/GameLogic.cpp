@@ -14,6 +14,7 @@
 #include "MonsterAI.hpp"
 #include "PlayerAI.hpp"
 #include "speedglobals.h"
+#include "DungeonGenerator.hpp"
 
 using namespace DirectX;
 
@@ -2847,6 +2848,78 @@ static void StartTreasurePickupFx(int itemIndex, bool burstParticles) {
 	// }
 }
 
+// ---------------------------------------------------------------------------
+// Procedural dungeon descent (level1 exit spiral)
+// ---------------------------------------------------------------------------
+
+static bool pendingDungeonDescent = false;
+static int dungeonDepth = 1;
+
+bool IsProceduralDungeonLevel() {
+	// levelname is empty until the first explicit level change; the game boots into level1.
+	return levelname[0] == '\0' || _stricmp(levelname, "level1") == 0;
+}
+
+void RequestDungeonDescent() {
+	if (pendingDungeonDescent)
+		return;
+
+	pendingDungeonDescent = true;
+	sprintf_s(gActionMessage, "The spiral pulls you deeper... generating a new dungeon");
+	UpdateScrollList(0, 255, 255);
+	PlayWavSound(SoundID("goal2"), 100);
+}
+
+bool ProcessPendingDungeonDescent() {
+	if (!pendingDungeonDescent)
+		return false;
+
+	pendingDungeonDescent = false;
+
+	// GenerateDungeonNewObjects validates every dungeon (enough pieces placed and the
+	// exit far enough from the start position) and regenerates until it passes.
+	DungeonGen::GeneratorOptions options;
+	options.seed = 0;
+	options.numObjectsToPlace = 350;
+
+	DungeonGen::GenerationReport report;
+	bool generated = DungeonGen::GenerateDungeonNewObjects("level1.map", options, &report);
+	if (!generated) {
+		sprintf_s(gActionMessage, "Dungeon generation failed, reloading current dungeon");
+		UpdateScrollList(255, 0, 0);
+	}
+
+	num_players2 = 0;
+	itemlistcount = 0;
+	num_monsters = 0;
+	MonsterAIReset();
+	PlayerAIReset();
+
+	ClearObjectList();
+	ResetSound();
+
+	strcpy_s(levelname, "level1");
+
+	if (!pCWorld->LoadWorldMap("level1.map")) {
+		// PrintMessage(m_hWnd, "LoadWorldMap failed", NULL, LOGFILE_ONLY);
+	}
+
+	pCWorld->LoadMod("level1.mod");
+
+	ResetPlayer();
+	SetStartSpot();
+
+	if (!generated)
+		return true;
+
+	dungeonDepth++;
+	sprintf_s(gActionMessage, "Dungeon depth %d (%d sections, %d attempt%s)", dungeonDepth, report.piecesPlaced,
+	          report.attempts, report.attempts == 1 ? "" : "s");
+	UpdateScrollList(0, 255, 255);
+
+	return true;
+}
+
 void GetItem() {
 
 	//  normal cyan 0, 255, 255
@@ -2900,6 +2973,15 @@ void GetItem() {
 				if (strcmp(item_list[i].rname, "spiral") == 0) {
 
 					foundsomething = 1;
+
+					if (IsProceduralDungeonLevel()) {
+						// level1 is the procedural dungeon: instead of loading another
+						// level, queue a descent. The new dungeon is generated and level1
+						// reloaded at the start of the next frame (outside this item loop).
+						RequestDungeonDescent();
+						break;
+					}
+
 					num_players2 = 0;
 					itemlistcount = 0;
 					num_monsters = 0;

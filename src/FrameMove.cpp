@@ -27,6 +27,13 @@ int playercurrentmove = 0;
 HRESULT FrameMove(double fTime, FLOAT fTimeKey) {
 	float cameradist = 50.0f;
 
+	if (ProcessPendingDungeonDescent()) {
+		ResetPlayerMotionState();
+		player_list[trueplayernum].x = m_vEyePt.x;
+		player_list[trueplayernum].y = m_vEyePt.y;
+		player_list[trueplayernum].z = m_vEyePt.z;
+	}
+
 	GameTimers(fTimeKey);
 	CheckAngle();
 	GetItem();
