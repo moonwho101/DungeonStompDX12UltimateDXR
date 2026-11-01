@@ -50,6 +50,7 @@ struct PlacedPiece {
 	int rot = 0;
 	Bounds bounds;
 	std::set<std::pair<int, int>> usedSlots;
+	int depth = 0; // number of connections from the start piece along the dungeon graph
 };
 
 struct Exit {
@@ -392,10 +393,118 @@ void write_map_file(const std::string &outputPath, int startX, int startZ, int s
 	}
 }
 
+// Result of a single generation attempt, kept in memory so it can be validated
+// (and possibly discarded) before anything is written to disk.
+struct GeneratedLevel {
+	std::vector<PlacedPiece> placed;
+	std::vector<Entity> entities;
+	int startRot = 0;
+	bool includeLargedungeonText = false;
+	bool isNewObjects = false;
+	bool hasExit = false;
+	float exitX = 0.0f;
+	float exitZ = 0.0f;
+};
+
+bool is_unrendered_piece(const std::string &name) {
+	// Curves are used for layout but are not written to the map file.
+	return name == "left_curve" || name == "right_curve";
+}
+
+int count_written_pieces(const std::vector<PlacedPiece> &placed) {
+	int count = 0;
+	for (const auto &p : placed) {
+		if (!is_unrendered_piece(p.name))
+			++count;
+	}
+	return count;
+}
+
+// Picks the piece that will hold the exit spiral. Like most modern dungeon
+// crawlers, the exit goes to the room that is farthest from the start along the
+// dungeon graph (most connections to walk through), restricted to pieces that are
+// physically far enough from the start position. Falls back to the piece that is
+// the farthest away in a straight line if nothing satisfies the minimum distance.
+size_t select_exit_piece(const std::vector<PlacedPiece> &placed, float startX, float startZ, float minDistance) {
+	size_t best_idx = 0;
+	bool found = false;
+	int best_depth = -1;
+	float best_dist = -1.0f;
+
+	size_t far_idx = 0;
+	float far_dist = -1.0f;
+
+	for (size_t p = 1; p < placed.size(); ++p) {
+		if (is_unrendered_piece(placed[p].name))
+			continue;
+
+		float dx = placed[p].x - startX;
+		float dz = placed[p].z - startZ;
+		float dist = std::sqrt(dx * dx + dz * dz);
+
+		if (dist > far_dist) {
+			far_dist = dist;
+			far_idx = p;
+		}
+
+		if (dist < minDistance)
+			continue;
+
+		if (!found || placed[p].depth > best_depth || (placed[p].depth == best_depth && dist > best_dist)) {
+			found = true;
+			best_idx = p;
+			best_depth = placed[p].depth;
+			best_dist = dist;
+		}
+	}
+
+	if (found)
+		return best_idx;
+	return far_idx;
+}
+
+// Score used to keep the "least bad" attempt if every attempt fails validation.
+long long score_level(const GeneratedLevel &level, const GeneratorOptions &options) {
+	long long score = 0;
+	int pieces = count_written_pieces(level.placed) - 1; // exclude the start piece
+	if (level.hasExit) {
+		float dx = level.exitX - static_cast<float>(options.startX);
+		float dz = level.exitZ - static_cast<float>(options.startZ);
+		float dist = std::sqrt(dx * dx + dz * dz);
+		if (dist >= options.minExitDistance)
+			score += 2000000000LL;
+		score += static_cast<long long>(std::min(dist, options.minExitDistance));
+	}
+	if (pieces * 2 >= options.numObjectsToPlace)
+		score += 1000000000LL;
+	score += static_cast<long long>(pieces) * 100000LL;
+	return score;
+}
+
+bool validate_level(const GeneratedLevel &level, const GeneratorOptions &options, GenerationReport &report) {
+	report.piecesPlaced = std::max(0, count_written_pieces(level.placed) - 1);
+	report.exitDistance = 0.0f;
+	if (level.hasExit) {
+		float dx = level.exitX - static_cast<float>(options.startX);
+		float dz = level.exitZ - static_cast<float>(options.startZ);
+		report.exitDistance = std::sqrt(dx * dx + dz * dz);
+	}
+
+	// Fail-safe 1: too few pieces were placed (generator got boxed in).
+	if (report.piecesPlaced * 2 < options.numObjectsToPlace)
+		return false;
+
+	// Fail-safe 2: exit missing or too close to the start position.
+	if (!level.hasExit || report.exitDistance < options.minExitDistance)
+		return false;
+
+	return true;
+}
+
 } // namespace
 
-bool GenerateDungeonClassic(const std::string &outputPath, const GeneratorOptions &options) {
-	RandomEngine rng(options.seed);
+static void BuildDungeonClassic(const GeneratorOptions &options, unsigned int seed, GeneratedLevel &out) {
+	RandomEngine rng(seed);
 
 	std::map<std::string, PieceDef> OBJECTS = {
 		{ "ROOM2", { "ROOM2", { { 0.0f, -160.0f, DIR_S, 0.0f }, { 0.0f, 160.0f, DIR_N, 0.0f } } } },
@@ -513,6 +622,7 @@ bool GenerateDungeonClassic(const std::string &outputPath, const GeneratorOption
 
 						if (!check_collision(Ox, Oz, cand_name, ang)) {
 							placed.push_back({ cand_name, Ox, Oy, Oz, ang, BOUNDING_BOXES[cand_name] });
+							placed.back().depth = placed[O.sourcePieceIndex].depth + 1;
 							placed_new = true;
 
 							std::vector<std::pair<float, float>> room_slots;
@@ -1021,15 +1131,8 @@ bool GenerateDungeonClassic(const std::string &outputPath, const GeneratorOption
 		entities.push_back({ "wall", "cobblestone4", wx, wy, wz, wall_rot, entity_id_idx++, 0 });
 	}
 
-	if (!placed.empty()) {
-		size_t deepest_idx = 0;
-		float min_y = placed[0].y;
-		for (size_t p = 1; p < placed.size(); ++p) {
-			if (placed[p].y < min_y) {
-				min_y = placed[p].y;
-				deepest_idx = p;
-			}
-		}
+	if (placed.size() > 1) {
+		size_t deepest_idx = select_exit_piece(placed, start_x, start_z, options.minExitDistance);
 
 		float tx = placed[deepest_idx].x;
 		float ty = placed[deepest_idx].y;
@@ -1078,14 +1181,20 @@ bool GenerateDungeonClassic(const std::string &outputPath, const GeneratorOption
 		entities.push_back({ "circle", "0", tx, ty - 41.0f, tz, 0, entity_id_idx++, 2 });
 		entities.push_back({ "spiral", "-1", tx, ty, tz, 0, entity_id_idx++, 3 });
 		entities.push_back({ "!flarenohit", "flare@1", tx, ty, tz, 0, entity_id_idx++, 2 });
+		out.hasExit = true;
+		out.exitX = tx;
+		out.exitZ = tz;
 	}
 
-	write_map_file(outputPath, options.startX, options.startZ, 0, placed, entities, false, false);
-	return true;
+	out.startRot = 0;
+	out.includeLargedungeonText = false;
+	out.isNewObjects = false;
+	out.placed = std::move(placed);
+	out.entities = std::move(entities);
 }
 
-bool GenerateDungeonNewObjects(const std::string &outputPath, const GeneratorOptions &options) {
-	RandomEngine rng(options.seed);
+static void BuildDungeonNewObjects(const GeneratorOptions &options, unsigned int seed, GeneratedLevel &out) {
+	RandomEngine rng(seed);
 
 	std::map<std::string, PieceDef> OBJECTS = {
 		{ "CORRIDOR01", { "CORRIDOR01", { { -368.0f, 0.0f, DIR_W, 0.0f }, { 355.0f, 0.0f, DIR_E, 0.0f } } } },
@@ -1232,6 +1341,7 @@ bool GenerateDungeonNewObjects(const std::string &outputPath, const GeneratorOpt
 						if (!check_collision(Ox, Oz, cand_name, ang, O)) {
 							Bounds cand_bounds = get_world_bounds(BOUNDING_BOXES_FULL[cand_name], Ox, Oz, ang);
 							placed.push_back({ cand_name, Ox, Oy, Oz, ang, cand_bounds });
+							placed.back().depth = placed[O.sourcePieceIndex].depth + 1;
 							size_t new_piece_idx = placed.size() - 1;
 							placed_new = true;
 
@@ -1591,15 +1701,8 @@ bool GenerateDungeonNewObjects(const std::string &outputPath, const GeneratorOpt
 		entities.push_back({ "wall", "corridor10", wx, wy, wz, wall_rot, entity_id_idx++, 0 });
 	}
 
-	if (!placed.empty()) {
-		size_t deepest_idx = 0;
-		float min_y = placed[0].y;
-		for (size_t p = 1; p < placed.size(); ++p) {
-			if (placed[p].y < min_y) {
-				min_y = placed[p].y;
-				deepest_idx = p;
-			}
-		}
+	if (placed.size() > 1) {
+		size_t deepest_idx = select_exit_piece(placed, start_x, start_z, options.minExitDistance);
 
 		float tx = placed[deepest_idx].x;
 		float ty = placed[deepest_idx].y;
@@ -1648,10 +1751,73 @@ bool GenerateDungeonNewObjects(const std::string &outputPath, const GeneratorOpt
 		entities.push_back({ "circle", "0", tx, ty - 41.0f + 40.0f, tz, 0, entity_id_idx++, 2 });
 		entities.push_back({ "spiral", "-1", tx, ty + 40.0f, tz, 0, entity_id_idx++, 2 });
 		entities.push_back({ "!flarenohit", "flare@1", tx, ty + 40.0f, tz, 0, entity_id_idx++, 2 });
+		out.hasExit = true;
+		out.exitX = tx;
+		out.exitZ = tz;
 	}
 
-	write_map_file(outputPath, options.startX, options.startZ, 90, placed, entities, true, true);
+	out.startRot = 90;
+	out.includeLargedungeonText = true;
+	out.isNewObjects = true;
+	out.placed = std::move(placed);
+	out.entities = std::move(entities);
+}
+
+using BuildFn = void (*)(const GeneratorOptions &, unsigned int, GeneratedLevel &);
+
+// Generates, validates and regenerates until a playable dungeon is produced.
+// Only the accepted (or, as a last resort, the best) attempt is written to disk.
+static bool GenerateValidated(const std::string &outputPath, const GeneratorOptions &options, BuildFn build, GenerationReport *reportOut) {
+	GeneratedLevel best;
+	GenerationReport bestReport;
+	long long bestScore = -1;
+	bool haveBest = false;
+	int attemptsMade = 0;
+
+	const int maxAttempts = std::max(1, options.maxAttempts);
+	for (int attempt = 0; attempt < maxAttempts; ++attempt) {
+		attemptsMade = attempt + 1;
+		// Seed 0 means "random" and RandomEngine reseeds from random_device on every attempt.
+		// A fixed seed stays deterministic by deriving a new seed for each retry.
+		unsigned int seed = (options.seed == 0) ? 0u : options.seed + static_cast<unsigned int>(attempt) * 7919u;
+
+		GeneratedLevel level;
+		build(options, seed, level);
+
+		GenerationReport attemptReport;
+		bool valid = validate_level(level, options, attemptReport);
+		attemptReport.valid = valid;
+
+		long long score = score_level(level, options);
+		if (valid || !haveBest || score > bestScore) {
+			best = std::move(level);
+			bestReport = attemptReport;
+			bestScore = score;
+			haveBest = true;
+		}
+
+		if (valid)
+			break;
+	}
+
+	if (!haveBest)
+		return false;
+
+	bestReport.attempts = attemptsMade;
+	if (reportOut)
+		*reportOut = bestReport;
+
+	write_map_file(outputPath, options.startX, options.startZ, best.startRot, best.placed, best.entities,
+	               best.includeLargedungeonText, best.isNewObjects);
 	return true;
+}
+
+bool GenerateDungeonClassic(const std::string &outputPath, const GeneratorOptions &options, GenerationReport *report) {
+	return GenerateValidated(outputPath, options, &BuildDungeonClassic, report);
+}
+
+bool GenerateDungeonNewObjects(const std::string &outputPath, const GeneratorOptions &options, GenerationReport *report) {
+	return GenerateValidated(outputPath, options, &BuildDungeonNewObjects, report);
 }
 
 } // namespace DungeonGen

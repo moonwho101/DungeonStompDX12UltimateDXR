@@ -58,6 +58,9 @@ void ApplyPlayerDamage(int playerid, int damage);
 int DisplayDialogText(char *text, float yloc);
 int DisplayDamage(float x, float y, float z, int owner, int id, bool criticalhit, DSHitType hitType = HIT_SWORD);
 int XpPoints(int hd, int hp);
+bool IsProceduralDungeonLevel();
+void RequestDungeonDescent();
+bool ProcessPendingDungeonDescent();
 int LevelUp(int xp);
 int LevelUpXPNeeded(int xp);
 
