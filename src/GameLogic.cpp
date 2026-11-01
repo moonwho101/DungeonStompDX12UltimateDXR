@@ -2876,14 +2876,10 @@ bool ProcessPendingDungeonDescent() {
 
 	pendingDungeonDescent = false;
 
-	// GenerateDungeonNewObjects validates every dungeon (enough pieces placed and the
+	// The generator validates every dungeon (enough pieces placed and the
 	// exit far enough from the start position) and regenerates until it passes.
-	DungeonGen::GeneratorOptions options;
-	options.seed = 0;
-	options.numObjectsToPlace = 350;
-
 	DungeonGen::GenerationReport report;
-	bool generated = DungeonGen::GenerateDungeonNewObjects("level1.map", options, &report);
+	bool generated = DungeonGen::GenerateDungeonWithSettings("level1.map", &report);
 	if (!generated) {
 		sprintf_s(gActionMessage, "Dungeon generation failed, reloading current dungeon");
 		UpdateScrollList(255, 0, 0);

@@ -980,35 +980,30 @@ void DungeonStompApp::RenderImGuiTogglePanel() {
 		ImGui::Spacing();
 
 		if (ImGui::TreeNodeEx("Dungeon Generator", ImGuiTreeNodeFlags_DefaultOpen)) {
-			static int genSeed = 0;
-			static int genCount = 350;
-			ImGui::InputInt("Seed (0=Random)", &genSeed);
-			if (genSeed < 0)
-				genSeed = 0;
-			ImGui::SliderInt("Tile Count", &genCount, 50, 1000);
+			auto &settings = DungeonGen::GetGeneratorSettings();
+			ImGui::InputInt("Seed (0=Random)", &settings.seed);
+			if (settings.seed < 0)
+				settings.seed = 0;
+			ImGui::SliderInt("Tile Count", &settings.tileCount, 50, 1000);
 
 			if (ImGui::Button("Generate Enhanced Dungeon")) {
-				DungeonGen::GeneratorOptions options;
-				options.seed = static_cast<unsigned int>(genSeed);
-				options.numObjectsToPlace = genCount;
-				if (DungeonGen::GenerateDungeonNewObjects("level1.map", options)) {
+				settings.enhanced = true;
+				if (DungeonGen::GenerateDungeonWithSettings("level1.map")) {
 					load_level("level1");
 					SetStartSpot();
-					sprintf_s(gActionMessage, "Generated New Enhanced Dungeon (%d tiles)", genCount);
+					sprintf_s(gActionMessage, "Generated New Enhanced Dungeon (%d tiles)", settings.tileCount);
 					UpdateScrollList(0, 255, 255);
 				}
 			}
 
 			ImGui::SameLine();
 			if (ImGui::Button("Generate Classic Dungeon")) {
-				DungeonGen::GeneratorOptions options;
-				options.seed = static_cast<unsigned int>(genSeed);
-				options.numObjectsToPlace = genCount;
-				if (DungeonGen::GenerateDungeonClassic("level1.map", options)) {
+				settings.enhanced = false;
+				if (DungeonGen::GenerateDungeonWithSettings("level1.map")) {
 					load_level("level1");
 					// ResetPlayer();
 					SetStartSpot();
-					sprintf_s(gActionMessage, "Generated Classic Dungeon (%d tiles)", genCount);
+					sprintf_s(gActionMessage, "Generated Classic Dungeon (%d tiles)", settings.tileCount);
 					UpdateScrollList(0, 255, 255);
 				}
 			}

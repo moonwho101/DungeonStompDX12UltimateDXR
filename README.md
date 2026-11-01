@@ -42,6 +42,8 @@ DungeonStomp.exe
 
 Press `F7` to open the settings panel. Enter a seed (`0` = random) and tile count, then click **Generate Classic Dungeon** or **Generate Enhanced Dungeon**. Layouts are saved to `level1.map` and loaded dynamically. Press `F7` again to close.
 
+Reaching the exit spiral in a procedural dungeon reuses the current F7 seed and tile count, along with the last selected Classic or Enhanced mode. Seed `0` produces a new random layout; a fixed seed repeats the same layout for the same settings.
+
 ---
 
 <a id="features"></a>

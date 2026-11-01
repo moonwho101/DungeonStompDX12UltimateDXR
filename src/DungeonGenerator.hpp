@@ -24,6 +24,15 @@ struct GenerationReport {
 	bool valid = false;        // false if every attempt failed validation and the best one was kept
 };
 
+struct GeneratorSettings {
+	int seed = 0;
+	int tileCount = 350;
+	bool enhanced = true;
+};
+
+GeneratorSettings &GetGeneratorSettings();
+bool GenerateDungeonWithSettings(const std::string &outputPath, GenerationReport *report = nullptr);
+
 // Generates classic dungeon (generate_dungeon.py logic)
 bool GenerateDungeonClassic(const std::string &outputPath, const GeneratorOptions &options = GeneratorOptions(), GenerationReport *report = nullptr);
 

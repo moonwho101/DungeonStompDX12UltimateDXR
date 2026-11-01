@@ -1820,4 +1820,18 @@ bool GenerateDungeonNewObjects(const std::string &outputPath, const GeneratorOpt
 	return GenerateValidated(outputPath, options, &BuildDungeonNewObjects, report);
 }
 
+GeneratorSettings &GetGeneratorSettings() {
+	static GeneratorSettings settings;
+	return settings;
+}
+
+bool GenerateDungeonWithSettings(const std::string &outputPath, GenerationReport *report) {
+	const auto &settings = GetGeneratorSettings();
+	GeneratorOptions options;
+	options.seed = static_cast<unsigned int>(std::max(0, settings.seed));
+	options.numObjectsToPlace = std::clamp(settings.tileCount, 50, 1000);
+	return settings.enhanced ? GenerateDungeonNewObjects(outputPath, options, report)
+	                         : GenerateDungeonClassic(outputPath, options, report);
+}
+
 } // namespace DungeonGen
