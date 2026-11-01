@@ -2879,11 +2879,14 @@ bool ProcessPendingDungeonDescent() {
 	// GenerateDungeonNewObjects validates every dungeon (enough pieces placed and the
 	// exit far enough from the start position) and regenerates until it passes.
 	DungeonGen::GeneratorOptions options;
-	options.seed = 0;
-	options.numObjectsToPlace = 350;
+	const DungeonGen::MenuSettings &menu = DungeonGen::gMenuSettings;
+	// A fixed seed is offset by depth so each descent differs but stays reproducible.
+	options.seed = menu.seed > 0 ? static_cast<unsigned int>(menu.seed) + static_cast<unsigned int>(dungeonDepth - 1) : 0;
+	options.numObjectsToPlace = menu.tileCount;
 
 	DungeonGen::GenerationReport report;
-	bool generated = DungeonGen::GenerateDungeonNewObjects("level1.map", options, &report);
+	bool generated = menu.useClassic ? DungeonGen::GenerateDungeonClassic("level1.map", options, &report)
+	                                 : DungeonGen::GenerateDungeonNewObjects("level1.map", options, &report);
 	if (!generated) {
 		sprintf_s(gActionMessage, "Dungeon generation failed, reloading current dungeon");
 		UpdateScrollList(255, 0, 0);

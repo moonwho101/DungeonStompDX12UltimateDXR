@@ -16,6 +16,8 @@
 
 namespace DungeonGen {
 
+MenuSettings gMenuSettings;
+
 namespace {
 
 struct Dir {

@@ -24,6 +24,14 @@ struct GenerationReport {
 	bool valid = false;        // false if every attempt failed validation and the best one was kept
 };
 
+// Dungeon generator settings chosen in the F7 menu; also used when descending via the exit spiral.
+struct MenuSettings {
+	int seed = 0; // 0 for random seed
+	int tileCount = 350;
+	bool useClassic = false; // last generator type chosen in the F7 menu
+};
+extern MenuSettings gMenuSettings;
+
 // Generates classic dungeon (generate_dungeon.py logic)
 bool GenerateDungeonClassic(const std::string &outputPath, const GeneratorOptions &options = GeneratorOptions(), GenerationReport *report = nullptr);
 

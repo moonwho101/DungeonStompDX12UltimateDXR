@@ -980,8 +980,8 @@ void DungeonStompApp::RenderImGuiTogglePanel() {
 		ImGui::Spacing();
 
 		if (ImGui::TreeNodeEx("Dungeon Generator", ImGuiTreeNodeFlags_DefaultOpen)) {
-			static int genSeed = 0;
-			static int genCount = 350;
+			int &genSeed = DungeonGen::gMenuSettings.seed;
+			int &genCount = DungeonGen::gMenuSettings.tileCount;
 			ImGui::InputInt("Seed (0=Random)", &genSeed);
 			if (genSeed < 0)
 				genSeed = 0;
@@ -991,6 +991,7 @@ void DungeonStompApp::RenderImGuiTogglePanel() {
 				DungeonGen::GeneratorOptions options;
 				options.seed = static_cast<unsigned int>(genSeed);
 				options.numObjectsToPlace = genCount;
+				DungeonGen::gMenuSettings.useClassic = false;
 				if (DungeonGen::GenerateDungeonNewObjects("level1.map", options)) {
 					load_level("level1");
 					SetStartSpot();
@@ -1004,6 +1005,7 @@ void DungeonStompApp::RenderImGuiTogglePanel() {
 				DungeonGen::GeneratorOptions options;
 				options.seed = static_cast<unsigned int>(genSeed);
 				options.numObjectsToPlace = genCount;
+				DungeonGen::gMenuSettings.useClassic = true;
 				if (DungeonGen::GenerateDungeonClassic("level1.map", options)) {
 					load_level("level1");
 					// ResetPlayer();
