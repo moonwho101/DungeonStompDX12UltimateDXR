@@ -130,30 +130,26 @@ UNRENDERED_PIECES = ('left_curve', 'right_curve')
 def _select_exit_piece(placed, start_x, start_z, min_distance=1000.0):
     """
     Pick the piece that holds the exit spiral (mirrors select_exit_piece in DungeonGenerator.cpp):
-    the piece deepest along the dungeon graph that is at least min_distance from the start,
-    ties broken by straight-line distance. Falls back to the farthest piece in a straight
-    line. Sloped and unrendered pieces are never chosen.
+    the lowest point of the dungeon among flat pieces at least min_distance from the start.
+    On that lowest level the deepest piece along the dungeon graph wins (ties go to the
+    farthest). Sloped and unrendered pieces are never chosen, so the spiral sits at the center
+    of a flat piece. If no piece is far enough, the farthest flat piece is returned.
     """
-    best = None
-    best_key = None
-    far = None
-    far_dist = -1.0
-    for p in placed[1:]:
-        if p['name'] in UNRENDERED_PIECES or p['name'] in SLOPE_PIECES:
-            continue
-        dist = math.hypot(p['x'] - start_x, p['z'] - start_z)
-        if dist > far_dist:
-            far_dist = dist
-            far = p
-        if dist < min_distance:
-            continue
-        key = (p.get('depth', 0), dist)
-        if best_key is None or key > best_key:
-            best_key = key
-            best = p
-    if best is not None:
-        return best
-    return far if far is not None else placed[0]
+    eligible = [p for p in placed[1:]
+                if p['name'] not in UNRENDERED_PIECES and p['name'] not in SLOPE_PIECES]
+    if not eligible:
+        return placed[0]
+
+    def dist(p):
+        return math.hypot(p['x'] - start_x, p['z'] - start_z)
+
+    far_enough = [p for p in eligible if dist(p) >= min_distance]
+    if not far_enough:
+        return max(eligible, key=dist)
+
+    lowest_y = min(p['y'] for p in far_enough)
+    level = [p for p in far_enough if p['y'] <= lowest_y + 1.0]
+    return max(level, key=lambda p: (p.get('depth', 0), dist(p)))
 
 def generate(start_x=5200, start_z=2600, seed=None, num_objects_to_place=350):
     """

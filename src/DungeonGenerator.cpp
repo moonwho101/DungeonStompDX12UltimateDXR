@@ -427,18 +427,24 @@ int count_written_pieces(const std::vector<PlacedPiece> &placed) {
 	return count;
 }
 
-// Picks the piece that will hold the exit spiral. Like most modern dungeon
-// crawlers, the exit goes to the room that is farthest from the start along the
-// dungeon graph (most connections to walk through), restricted to pieces that are
-// physically far enough from the start position. Falls back to the piece that is
-// the farthest away in a straight line if nothing satisfies the minimum distance.
-// Sloped pieces (CORRIDOR02, slope_stairs) are never chosen.
+// Picks the piece that will hold the exit spiral: the lowest point of the dungeon
+// among flat pieces that are at least minDistance from the start position. On that
+// lowest level the piece deepest along the dungeon graph wins (ties go to the
+// farthest piece). Sloped pieces (CORRIDOR02, slope_stairs) and unrendered curves
+// are never chosen, so the spiral always sits at the center of a flat piece. If no
+// piece is far enough, the farthest flat piece is returned and validation rejects
+// the attempt so the dungeon is regenerated.
 size_t select_exit_piece(const std::vector<PlacedPiece> &placed, float startX, float startZ, float minDistance) {
-	size_t best_idx = 0;
-	bool found = false;
-	int best_depth = -1;
-	float best_dist = -1.0f;
+	const float levelTolerance = 1.0f;
 
+	auto distance_from_start = [&](const PlacedPiece &p) {
+		float dx = p.x - startX;
+		float dz = p.z - startZ;
+		return std::sqrt(dx * dx + dz * dz);
+	};
+
+	float lowest_y = 1e9f;
+	bool any_far_enough = false;
 	size_t far_idx = 0;
 	float far_dist = -1.0f;
 
@@ -446,10 +452,7 @@ size_t select_exit_piece(const std::vector<PlacedPiece> &placed, float startX, f
 		if (is_unrendered_piece(placed[p].name) || is_slope_piece(placed[p].name))
 			continue;
 
-		float dx = placed[p].x - startX;
-		float dz = placed[p].z - startZ;
-		float dist = std::sqrt(dx * dx + dz * dz);
-
+		float dist = distance_from_start(placed[p]);
 		if (dist > far_dist) {
 			far_dist = dist;
 			far_idx = p;
@@ -458,17 +461,35 @@ size_t select_exit_piece(const std::vector<PlacedPiece> &placed, float startX, f
 		if (dist < minDistance)
 			continue;
 
-		if (!found || placed[p].depth > best_depth || (placed[p].depth == best_depth && dist > best_dist)) {
-			found = true;
+		any_far_enough = true;
+		lowest_y = std::min(lowest_y, placed[p].y);
+	}
+
+	if (!any_far_enough)
+		return far_idx;
+
+	size_t best_idx = far_idx;
+	int best_depth = -1;
+	float best_dist = -1.0f;
+
+	for (size_t p = 1; p < placed.size(); ++p) {
+		if (is_unrendered_piece(placed[p].name) || is_slope_piece(placed[p].name))
+			continue;
+		if (placed[p].y > lowest_y + levelTolerance)
+			continue;
+
+		float dist = distance_from_start(placed[p]);
+		if (dist < minDistance)
+			continue;
+
+		if (placed[p].depth > best_depth || (placed[p].depth == best_depth && dist > best_dist)) {
 			best_idx = p;
 			best_depth = placed[p].depth;
 			best_dist = dist;
 		}
 	}
 
-	if (found)
-		return best_idx;
-	return far_idx;
+	return best_idx;
 }
 
 // Score used to keep the "least bad" attempt if every attempt fails validation.
