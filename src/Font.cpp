@@ -17,6 +17,7 @@
 #include "DungeonGenerator.hpp"
 #include "speedglobals.h"
 #include "imgui/imgui.h"
+#include "imgui/imgui_internal.h"
 
 extern int load_level(char *filename);
 using Microsoft::WRL::ComPtr;
@@ -985,7 +986,8 @@ void DungeonStompApp::RenderImGuiTogglePanel() {
 			ImGui::InputInt("Seed (0=Random)", &genSeed);
 			if (genSeed < 0)
 				genSeed = 0;
-			ImGui::SliderInt("Tile Count", &genCount, 50, 1000);
+			if (ImGui::SliderInt("Tile Count", &genCount, 50, 1000))
+				ImGui::MarkIniSettingsDirty();
 
 			if (ImGui::Button("Generate Enhanced Dungeon")) {
 				DungeonGen::GeneratorOptions options;

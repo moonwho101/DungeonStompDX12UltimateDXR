@@ -19,8 +19,10 @@
 #include "VRSHelper.h"
 #include "DXRHelper.h"
 #include "imgui/imgui.h"
+#include "imgui/imgui_internal.h"
 #include "imgui/imgui_impl_win32.h"
 #include "imgui/imgui_impl_dx12.h"
+#include "DungeonGenerator.hpp"
 
 using Microsoft::WRL::ComPtr;
 using namespace DirectX;
@@ -1865,10 +1867,32 @@ void DungeonStompApp::InitImGui() {
 	// Setup Dear ImGui context
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
+
+	// Persist the F7 dungeon tile count in imgui.ini alongside the window layout.
+	ImGuiSettingsHandler dungeonGenHandler;
+	dungeonGenHandler.TypeName = "DungeonGen";
+	dungeonGenHandler.TypeHash = ImHashStr("DungeonGen");
+	dungeonGenHandler.ReadOpenFn = [](ImGuiContext *, ImGuiSettingsHandler *, const char *name) -> void * {
+		return strcmp(name, "Settings") == 0 ? (void *)&DungeonGen::gMenuSettings : nullptr;
+	};
+	dungeonGenHandler.ReadLineFn = [](ImGuiContext *, ImGuiSettingsHandler *, void *entry, const char *line) {
+		int value = 0;
+		if (sscanf_s(line, "TileCount=%d", &value) == 1)
+			static_cast<DungeonGen::MenuSettings *>(entry)->tileCount = ImClamp(value, 50, 1000);
+	};
+	dungeonGenHandler.WriteAllFn = [](ImGuiContext *, ImGuiSettingsHandler *handler, ImGuiTextBuffer *buf) {
+		buf->appendf("[%s][Settings]\nTileCount=%d\n\n", handler->TypeName, DungeonGen::gMenuSettings.tileCount);
+	};
+	ImGui::AddSettingsHandler(&dungeonGenHandler);
 	ImGuiIO &io = ImGui::GetIO();
 	(void)io;
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 	io.MouseDrawCursor = true;
+
+	// ImGui normally loads the ini on the first NewFrame(), which only runs once F7 is opened.
+	// Load it now so saved settings (e.g. dungeon tile count) apply from startup.
+	if (io.IniFilename)
+		ImGui::LoadIniSettingsFromDisk(io.IniFilename);
 
 	// Custom Awesome Theme (Slate Glass + Cyberpunk Accents)
 	ImGuiStyle &style = ImGui::GetStyle();
